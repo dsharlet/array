@@ -275,6 +275,7 @@ class shape {
   /** Number of dims in this shape. */
   constexpr size_t rank() const { return std::tuple_size<std::tuple<Dims...>>::value; }
 
+  /** The type of an index for this shape. */
   typedef typename internal::IndexType<sizeof...(Dims)>::type index_type;
 
   /** Check if a list of indices is in range of this shape. */
@@ -287,12 +288,12 @@ class shape {
     return is_in_range(std::make_tuple<Indices...>(std::forward<Indices>(indices)...));
   }
 
-  /** Compute the flat offset of the indices. If the indices are out
-   * of range, throws std::out_of_range. */
+  /** Compute the flat offset of the indices. If an index is out of
+   * range, throws std::out_of_range. */
   template <typename... Indices>
   index_t at(const std::tuple<Indices...>& indices) const {
     if (!is_in_range(indices)) {
-      throw std::out_of_range("Indices are out of range");
+      throw std::out_of_range("indices are out of range");
     }
     return internal::flat_offset(dims_, std::make_tuple<Indices...>(std::forward<Indices>(indices)...));
   }
@@ -317,7 +318,7 @@ class shape {
   const auto& dim() const { return std::get<D>(dims_); }
 
   /** Compute the flat extent of this shape. This is one past the
-   * range of possible values returned by at or operator(). */
+   * valid range of values returned by at or operator(). */
   index_t flat_extent() const { return internal::flat_extent(dims_); }
 
   /** Compute the total number of items in the shape. */
@@ -394,7 +395,6 @@ template <typename... Dims, typename Fn>
 void for_all_indices(const shape<Dims...>& s, const Fn& fn) {
   internal::for_all_indices_impl<sizeof...(Dims) - 1>(0, s, fn);
 }
-
 template <typename... Dims, typename Fn>
 void for_each_index(const shape<Dims...>& s, const Fn& fn) {
   internal::for_each_index_impl<sizeof...(Dims) - 1>(0, s, fn, std::tuple<>());

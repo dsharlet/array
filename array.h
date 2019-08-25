@@ -206,7 +206,9 @@ class array {
 
   /** Reshape the array. */
   void reshape(Shape new_shape) {
-    assert(shape().flat_extent() == new_shape.flat_extent());
+    if (new_shape.flat_extent() >= shape().flat_extent()) {
+      throw std::out_of_range("new shape has indices out of range of the old shape.");
+    }
     shape_ = std::move(new_shape);
   }
 
