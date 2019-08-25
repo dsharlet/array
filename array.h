@@ -128,21 +128,37 @@ class array {
   Alloc get_allocator() const { return alloc_; }
 
   template <typename... Indices>
-  reference at(Indices... indices) {
-    return base_[shape_.at(std::forward<Indices>(indices)...)]; 
+  reference at(const std::tuple<Indices...>& indices) {
+    return base_[shape_.at(indices)];
   }
   template <typename... Indices>
-  const_reference at(Indices... indices) const { 
-    return base_[shape_.at(std::forward<Indices>(indices)...)]; 
+  reference at(Indices... indices) {
+    return base_[shape_.at(std::forward<Indices>(indices)...)];
+  }
+  template <typename... Indices>
+  const_reference at(const std::tuple<Indices...>& indices) const {
+    return base_[shape_.at(indices)];
+  }
+  template <typename... Indices>
+  const_reference at(Indices... indices) const {
+    return base_[shape_.at(std::forward<Indices>(indices)...)];
   }
 
   template <typename... Indices>
+  reference operator() (const std::tuple<Indices...>& indices) {
+    return base_[shape_(indices)];
+  }
+  template <typename... Indices>
   reference operator() (Indices... indices) {
-    return base_[shape_(std::forward<Indices>(indices)...)]; 
+    return base_[shape_(std::forward<Indices>(indices)...)];
+  }
+  template <typename... Indices>
+  const_reference operator() (const std::tuple<Indices...>& indices) const {
+    return base_[shape_(indices)];
   }
   template <typename... Indices>
   const_reference operator() (Indices... indices) const { 
-    return base_[shape_(std::forward<Indices>(indices)...)]; 
+    return base_[shape_(std::forward<Indices>(indices)...)];
   }
 
   template <typename Fn>

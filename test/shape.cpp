@@ -114,36 +114,69 @@ TEST(clamp) {
   }
 }
 
-TEST(for_each_element_1d) {
+TEST(for_all_indices_1d) {
   auto s = make_dense_shape(20);
   int expected_flat_offset = 0;
-  for_each_element(s, [&](int x) {
+  for_all_indices(s, [&](int x) {
     ASSERT_EQ(s(x), expected_flat_offset);
     expected_flat_offset++;
   });
-  // Ensure the for_each_element loop above actually ran.
+  // Ensure the for_all_indices loop above actually ran.
   ASSERT_EQ(expected_flat_offset, 20);
 }   
 
-TEST(for_each_element_2d) {
+TEST(for_all_indices_2d) {
   auto s = make_dense_shape(10, 4);
   int expected_flat_offset = 0;
-  for_each_element(s, [&](int x, int y) {
+  for_all_indices(s, [&](int x, int y) {
     ASSERT_EQ(s(x, y), expected_flat_offset);
     expected_flat_offset++;
   });
-  // Ensure the for_each_element loop above actually ran.
+  // Ensure the for_all_indices loop above actually ran.
   ASSERT_EQ(expected_flat_offset, 40);
 }   
 
-TEST(for_each_element_3d) {
+TEST(for_all_indices_3d) {
   auto s = make_dense_shape(3, 5, 8);
   int expected_flat_offset = 0;
-  for_each_element(s, [&](int x, int y, int z) {
+  for_all_indices(s, [&](int x, int y, int z) {
     ASSERT_EQ(s(x, y, z), expected_flat_offset);
     expected_flat_offset++;
   });
-  // Ensure the for_each_element loop above actually ran.
+  // Ensure the for_all_indices loop above actually ran.
+  ASSERT_EQ(expected_flat_offset, 120);
+}
+
+TEST(for_each_index_1d) {
+  auto s = make_dense_shape(20);
+  int expected_flat_offset = 0;
+  for_each_index(s, [&](std::tuple<int> x) {
+    ASSERT_EQ(s(x), expected_flat_offset);
+    expected_flat_offset++;
+  });
+  // Ensure the for_each_index loop above actually ran.
+  ASSERT_EQ(expected_flat_offset, 20);
+}   
+
+TEST(for_each_index_2d) {
+  auto s = make_dense_shape(10, 4);
+  int expected_flat_offset = 0;
+  for_each_index(s, [&](std::tuple<int, int> x) {
+    ASSERT_EQ(s(std::get<0>(x), std::get<1>(x)), expected_flat_offset);
+    expected_flat_offset++;
+  });
+  // Ensure the for_each_index loop above actually ran.
+  ASSERT_EQ(expected_flat_offset, 40);
+}   
+
+TEST(for_each_index_3d) {
+  auto s = make_dense_shape(3, 5, 8);
+  int expected_flat_offset = 0;
+  for_each_index(s, [&](std::tuple<int, int, int> x) {
+    ASSERT_EQ(s(std::get<0>(x), std::get<1>(x), std::get<2>(x)), expected_flat_offset);
+    expected_flat_offset++;
+  });
+  // Ensure the for_each_index loop above actually ran.
   ASSERT_EQ(expected_flat_offset, 120);
 }
 
@@ -155,7 +188,7 @@ TEST(dim_is_in_range) {
   }
   ASSERT(!x.is_in_range(1));
   ASSERT(!x.is_in_range(8));
-}   
+}
 
 TEST(shape_is_in_range_1d) {
   dim<> x(2, 5);
@@ -166,7 +199,7 @@ TEST(shape_is_in_range_1d) {
   }
   ASSERT(!s.is_in_range(1));
   ASSERT(!s.is_in_range(8));
-}   
+}
 
 TEST(shape_is_in_range_2d) {
   dim<> x(2, 5);
@@ -183,6 +216,6 @@ TEST(shape_is_in_range_2d) {
 
   ASSERT(!s.is_in_range(8, 0));
   ASSERT(!s.is_in_range(2, 4));
-}   
+}
 
 }  // namespace array
