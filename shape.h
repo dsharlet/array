@@ -298,7 +298,7 @@ class shape {
   
   /** Get a specific dim of this shape. */
   template <std::size_t D>
-  auto dim() const { return std::get<D>(dims_); }
+  const auto& dim() const { return std::get<D>(dims_); }
 
   /** Compute the flat extent of this shape. This is one past the
    * range of possible values returned by at or operator(). */
@@ -309,6 +309,33 @@ class shape {
 
   bool operator==(const shape& other) const { return dims_ == other.dims_; }
   bool operator!=(const shape& other) const { return dims_ != other.dims_; }
+};
+
+// TODO: Try to avoid needing this specialization. The only reason
+// it is necessary is because the above defines two default constructors.
+template <>
+class shape<> {
+ public:
+  shape() {}
+
+  constexpr size_t rank() const { return 0; }
+
+  typedef std::tuple<> index_type;
+
+  bool is_in_range(const std::tuple<>& indices) const { return true; }
+  bool is_in_range() const { return true; }
+
+  index_t at(const std::tuple<>& indices) const { return 0; }
+  index_t at() const { return 0; }
+
+  index_t operator() (const std::tuple<>& indices) const { return 0; }
+  index_t operator() () const { return 0; }
+
+  index_t flat_extent() const { return 1; }
+  index_t size() const { return 1; }
+
+  bool operator==(const shape<>& other) const { return true; }
+  bool operator!=(const shape<>& other) const { return false; }
 };
 
 namespace internal {

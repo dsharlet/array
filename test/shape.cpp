@@ -19,6 +19,13 @@ TEST(euclidean_div_mod) {
   }
 }
 
+TEST(shape_scalar) {
+  shape<> s;
+  ASSERT_EQ(s.flat_extent(), 1);
+  ASSERT_EQ(s.size(), 1);
+  ASSERT_EQ(s(), 0);
+}
+
 TEST(shape_1d) {
   for (int stride : {1, 2, 10}) {
     dim<> x(0, 10, stride);
