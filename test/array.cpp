@@ -3,10 +3,6 @@
 
 namespace array {
 
-shape<dim<>, dim<>> make_2d_shape(const dim<>& x, const dim<>& y) {
-  return {x, y};
-}
-
 template <typename T>
 using array_1d = array<T, shape<dense_dim<>>>;
 template <typename T>
@@ -164,6 +160,18 @@ struct lifetime_counter {
     return default_constructs + copy_constructs + move_constructs;
   }
 
+  static int assigns() {
+    return copy_assigns + move_assigns;
+  }
+
+  static int copies() {
+    return copy_constructs + copy_assigns;
+  }
+
+  static int moves() {
+    return move_constructs + move_assigns;
+  }
+
   lifetime_counter() { default_constructs++; }
   lifetime_counter(const lifetime_counter&) { copy_constructs++; }
   lifetime_counter(lifetime_counter&&) { move_constructs++; }
@@ -217,9 +225,13 @@ TEST(array_move_lifetime) {
     lifetime_counter::reset();
     array<lifetime_counter, LifetimeShape> move(std::move(source));
   }
+  // This should have moved the whole array.
   ASSERT_EQ(lifetime_counter::constructs(), 0);
+  ASSERT_EQ(lifetime_counter::moves(), 0);
   ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size());
 }
+
+  // TODO: Test move with incompatible allocator.
 
 TEST(array_copy_assign_lifetime) {
   {
@@ -239,9 +251,13 @@ TEST(array_move_assign_lifetime) {
     array<lifetime_counter, LifetimeShape> assign;
     assign = std::move(source);
   }
-  ASSERT_EQ(lifetime_counter::copy_constructs, 0);
+  // This should have moved the whole array.
+  ASSERT_EQ(lifetime_counter::constructs(), 0);
+  ASSERT_EQ(lifetime_counter::moves(), 0);
   ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size());
 }
+
+// TODO: Test move with incompatible allocator.
 
 TEST(array_clear_lifetime) {
   lifetime_counter::reset();
