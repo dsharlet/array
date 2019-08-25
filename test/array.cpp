@@ -40,6 +40,10 @@ TEST(array_default_constructor) {
       ASSERT_EQ(sparse(x, y), 0);
     }
   }
+
+  sparse.clear();
+  ASSERT(sparse.empty());
+  sparse.clear();
 }
 
 TEST(array_fill_constructor) {

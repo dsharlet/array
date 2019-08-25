@@ -20,21 +20,6 @@ class array {
       base_ = alloc_.allocate(shape_.flat_extent());
     }
   }
-  void reallocate(Shape shape) {
-    if (shape_ != shape) {
-      deallocate();
-      shape_ = std::move(shape);
-    }
-    allocate();
-  }
-
-  // deallocate assumes the array has been destroyed.
-  void deallocate() {
-    if (base_) {
-      alloc_.deallocate(base_, shape_.flat_extent());
-      base_ = nullptr;
-    }
-  }
 
   void construct() {
     assert(base_);
@@ -60,11 +45,24 @@ class array {
       std::allocator_traits<Alloc>::construct(alloc_, &operator()(index), std::move(move(index)));
     });
   }
-  void destroy() {
-    assert(base_);
-    for_each_value([&](T& x) {
-      std::allocator_traits<Alloc>::destroy(alloc_, &x);
-    });
+
+  // deallocate assumes the array has been destroyed.
+  void deallocate() {
+    if (base_) {
+      for_each_value([&](T& x) {
+        std::allocator_traits<Alloc>::destroy(alloc_, &x);
+      });
+      alloc_.deallocate(base_, shape_.flat_extent());
+      base_ = nullptr;
+    }
+  }
+
+  void reallocate(Shape shape) {
+    if (shape_ != shape) {
+      deallocate();
+      shape_ = std::move(shape);
+    }
+    allocate();
   }
 
  public:
@@ -103,7 +101,6 @@ class array {
     swap(base_, other.base_);
   }
   ~array() { 
-    destroy();
     deallocate(); 
   }
 
@@ -199,7 +196,6 @@ class array {
   size_type size() { return shape_.size(); }
   bool empty() const { return shape_.empty(); }
   void clear() {
-    destroy();
     deallocate();
     shape_ = Shape();
   }
