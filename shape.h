@@ -337,6 +337,16 @@ class shape {
   /** A shape is empty if its size is 0. */
   bool empty() const { return size() == 0; }
 
+  bool is_subset_of(const shape& other) const {
+    // TODO: This is hard...
+    return true;
+  }
+
+  bool is_map() const {
+    // TODO: This is hard...
+    return true;
+  }
+
   bool operator==(const shape& other) const { return dims_ == other.dims_; }
   bool operator!=(const shape& other) const { return dims_ != other.dims_; }
 };
