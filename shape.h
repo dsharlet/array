@@ -169,10 +169,29 @@ namespace internal {
 inline index_t sum() {
   return 0;
 }
+inline index_t product() {
+  return 1;
+}
 
 template <typename... Rest>
 index_t sum(index_t first, Rest... rest) {
   return first + sum(rest...);
+}
+template <typename... Rest>
+index_t product(index_t first, Rest... rest) {
+  return first * product(rest...);
+}
+
+// Computes the product of the extents of the dims.
+template <typename Dims, size_t... Is>
+index_t product_of_extents_impl(const Dims& dims, std::index_sequence<Is...>) {
+  return product(std::get<Is>(dims).extent()...);
+}
+
+template <typename Dims>
+index_t product_of_extents(const Dims& dims) {
+  constexpr size_t dims_rank = std::tuple_size<Dims>::value;
+  return product_of_extents_impl(dims, std::make_index_sequence<dims_rank>());
 }
 
 // Computes the sum of the offsets of a list of dims and indices.
@@ -284,6 +303,9 @@ class shape {
   /** Compute the flat extent of this shape. This is one past the
    * range of possible values returned by at or operator(). */
   index_t flat_extent() const { return internal::flat_extent(dims_); }
+
+  /** Compute the total number of items in the shape. */
+  index_t size() const { return internal::product_of_extents(dims_); }
 
   bool operator==(const shape& other) const { return dims_ == other.dims_; }
   bool operator!=(const shape& other) const { return dims_ != other.dims_; }

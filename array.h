@@ -195,7 +195,7 @@ class array {
   const_pointer data() const { return base_; }
 
   const Shape& shape() const { return shape_; }
-  size_type size() { return shape_.flat_extent(); }
+  size_type size() { return shape_.size(); }
   bool empty() const { return shape_.empty(); }
   void clear() {
     destroy();
