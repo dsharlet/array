@@ -69,6 +69,7 @@ class array {
 
  public:
   typedef T value_type;
+  typedef Shape shape_type;
   typedef Alloc allocator_type;
   typedef typename Shape::index_type index_type;
   typedef std::size_t size_type;
