@@ -15,16 +15,16 @@ matrix<T> make_matrix(int M, int N) {
 }
 
 template <typename T>
-index_t rows(const matrix<T>& m) { return m.shape().template dim<0>().extent(); }
+const dim<>& rows(const matrix<T>& m) { return m.shape().template dim<0>(); }
 template <typename T>
-index_t cols(const matrix<T>& m) { return m.shape().template dim<1>().extent(); }
+const dense_dim<>& cols(const matrix<T>& m) { return m.shape().template dim<1>(); }
 
 template <typename T>
 void multiply_naive(const matrix<T>& a, const matrix<T>& b, matrix<T>& c) {
-  for (int i = 0; i < rows(c); i++) {
-    for (int j = 0; j < cols(c); j++) {
+  for (int i : rows(c)) {
+    for (int j : cols(c)) {
       c(i, j) = 0;
-      for (int k = 0; k < cols(a); k++) {
+      for (int k : cols(a)) {
         c(i, j) += a(i, k) * b(k, j);
       }
     }
@@ -33,12 +33,12 @@ void multiply_naive(const matrix<T>& a, const matrix<T>& b, matrix<T>& c) {
 
 template <typename T>
 void multiply(const matrix<T>& a, const matrix<T>& b, matrix<T>& c) {
-  for (int i = 0; i < rows(c); i++) {
-    for (int j = 0; j < cols(c); j++) {
+  for (int i : rows(c)) {
+    for (int j : cols(c)) {
       c(i, j) = 0;
     }
-    for (int k = 0; k < cols(a); k++) {
-      for (int j = 0; j < cols(c); j++) {
+    for (int k : cols(a)) {
+      for (int j : cols(c)) {
         c(i, j) += a(i, k) * b(k, j);
       }
     }
