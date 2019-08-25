@@ -1,10 +1,11 @@
 #ifndef SHAPE_H
 #define SHAPE_H
 
+#include <algorithm>
 #include <cassert>
-#include <tuple>
 #include <functional>
 #include <limits>
+#include <tuple>
 
 namespace array {
 
@@ -81,14 +82,7 @@ class dim {
 
  public:
   dim(index_t min, index_t extent, index_t stride = STRIDE)
-    : min_(min), extent_(extent), stride_(stride) {
-    if (extent_ == UNKNOWN) {
-      extent_ = 0;
-    }
-    if (stride_ == UNKNOWN) {
-      stride_ = 0;
-    }
-  }
+    : min_(min), extent_(extent), stride_(stride) {}
   dim(index_t extent = EXTENT) : dim(0, extent) {}
   dim(const dim&) = default;
   dim(dim&&) = default;
@@ -98,10 +92,13 @@ class dim {
 
   /** Index of the first element in this dim. */
   index_t min() const { return internal::reconcile<MIN>(min_); }
+  void set_min(index_t min) { min_ = min; }
   /** Number of elements in this dim. */
   index_t extent() const { return internal::reconcile<EXTENT>(extent_); }
+  void set_extent(index_t extent) { extent_ = extent; }
   /** Distance betwen elements in this dim. */
   index_t stride() const { return internal::reconcile<STRIDE>(stride_); }
+  void set_stride(index_t stride) { stride_ = stride; }
   /** Index of the last element in this dim. */
   index_t max() const { return min() + extent() - 1; }
 
@@ -150,8 +147,10 @@ class folded_dim {
 
   /** Non-folded range of the dim. */
   index_t extent() const { return internal::reconcile<EXTENT>(extent_); }
+  void set_extent(index_t extent) { extent_ = extent; }
   /** Distance in memory between indices of this dim. */
   index_t stride() const { return internal::reconcile<STRIDE>(stride_); }
+  void set_stride(index_t stride) { stride_ = stride; }
 
   /** In a folded dim, the min and max are unbounded. */
   index_t min() const { return std::numeric_limits<index_t>::min(); }
@@ -190,6 +189,9 @@ inline index_t sum() {
 inline index_t product() {
   return 1;
 }
+inline index_t variadic_max() {
+  return std::numeric_limits<index_t>::min();
+}
 
 template <typename... Rest>
 index_t sum(index_t first, Rest... rest) {
@@ -198,6 +200,10 @@ index_t sum(index_t first, Rest... rest) {
 template <typename... Rest>
 index_t product(index_t first, Rest... rest) {
   return first * product(rest...);
+}
+template <typename... Rest>
+index_t variadic_max(index_t first, Rest... rest) {
+  return std::max(first, variadic_max(rest...));
 }
 
 // Computes the product of the extents of the dims.
@@ -246,10 +252,44 @@ index_t is_in_range_impl(const Dims& dims, const Indices& indices, std::index_se
 
 template <typename Dims, typename Indices>
 bool is_in_range(const Dims& dims, const Indices& indices) {
-  constexpr size_t dims_rank = std::tuple_size<Dims>::value;
-  constexpr size_t indices_rank = std::tuple_size<Indices>::value;
+  constexpr std::size_t dims_rank = std::tuple_size<Dims>::value;
+  constexpr std::size_t indices_rank = std::tuple_size<Indices>::value;
   static_assert(dims_rank == indices_rank, "dims and indices must have the same rank.");
   return is_in_range_impl(dims, indices, std::make_index_sequence<dims_rank>());
+}
+
+template <typename Dims, size_t... Is>
+index_t max_stride(const Dims& dims, std::index_sequence<Is...>) {
+  return variadic_max(std::get<Is>(dims).stride() * std::get<Is>(dims).extent()...);
+}
+
+// Resolve unknown dim quantities.
+inline void resolve_unknowns_impl(index_t current_stride) {}
+
+template <typename Dim0, typename... Dims>
+void resolve_unknowns_impl(index_t current_stride, Dim0& dim0, Dims&... dims) {
+  if (dim0.extent() == UNKNOWN) {
+    dim0.set_extent(0);
+  }
+  if (dim0.stride() == UNKNOWN) {
+    dim0.set_stride(current_stride);
+    current_stride *= dim0.extent();
+  }
+  resolve_unknowns_impl(current_stride, std::forward<Dims&>(dims)...);
+}
+
+template <typename Dims, size_t... Is>
+void resolve_unknowns(index_t current_stride, Dims& dims, std::index_sequence<Is...>) {
+  resolve_unknowns_impl(current_stride, std::get<Is>(dims)...);
+}
+
+template <typename Dims>
+void resolve_unknowns(Dims& dims) {
+  constexpr std::size_t rank = std::tuple_size<Dims>::value;
+  index_t known_stride = max_stride(dims, std::make_index_sequence<rank>());
+  index_t current_stride = std::max(static_cast<index_t>(1), known_stride);
+
+  resolve_unknowns(current_stride, dims, std::make_index_sequence<rank>());
 }
 
 template <std::size_t Rank>
@@ -264,15 +304,20 @@ struct IndexType<0> {
 
 }  // namespace internal
 
-/** A list of dims describing a multi-dimensional space of indices. */
+/** A list of dims describing a multi-dimensional space of
+ * indices. The first dim is considered the 'innermost' dimension,
+ * and the last dim is the 'outermost' dimension. */
 template <typename... Dims>
 class shape {
   std::tuple<Dims...> dims_;
 
  public:
-  shape() {}
-  shape(std::tuple<Dims...> dims) : dims_(std::move(dims)) {}
-  shape(Dims... dims) : dims_(std::forward<Dims>(dims)...) {}
+  /** When constructing shapes, unknown extents are set to 0, and
+   * unknown strides are set to the currently largest known
+   * stride. This is done in innermost-to-outermost order. */
+  shape() { internal::resolve_unknowns(dims_); }
+  shape(std::tuple<Dims...> dims) : dims_(std::move(dims)) { internal::resolve_unknowns(dims_); }
+  shape(Dims... dims) : dims_(std::forward<Dims>(dims)...) { internal::resolve_unknowns(dims_); }
   shape(const shape&) = default;
   shape(shape&&) = default;
 
@@ -435,7 +480,7 @@ void for_each_index(const shape<Dims...>& s, const Fn& fn) {
 } 
 
 template <typename... Dims>
-auto make_shape(Dims... dims) { return shape<Dims...>(std::forward<Dims>(dims)...); }
+auto make_shape(Dims... dims) { return shape<Dims...>(std::make_tuple(std::forward<Dims>(dims)...)); }
 
 namespace internal {
 

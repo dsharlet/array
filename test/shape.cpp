@@ -91,6 +91,38 @@ TEST(make_dense_shape_3d) {
   ASSERT_EQ(z.stride(), 50);
 }
 
+TEST(auto_strides) {
+  shape<dim<>, dim<>, dim<>> s(10, 20, 3);
+  auto x = s.template dim<0>();
+  auto y = s.template dim<1>();
+  auto z = s.template dim<2>();
+  ASSERT_EQ(x.min(), 0);
+  ASSERT_EQ(x.extent(), 10);
+  ASSERT_EQ(x.stride(), 1);
+  ASSERT_EQ(y.min(), 0);
+  ASSERT_EQ(y.extent(), 20);
+  ASSERT_EQ(y.stride(), 10);
+  ASSERT_EQ(z.min(), 0);
+  ASSERT_EQ(z.extent(), 3);
+  ASSERT_EQ(z.stride(), 200);
+}
+
+TEST(auto_strides_interleaved) {
+  shape<dim<>, dim<>, dense_dim<>> s(10, 20, 3);
+  auto x = s.template dim<0>();
+  auto y = s.template dim<1>();
+  auto z = s.template dim<2>();
+  ASSERT_EQ(x.min(), 0);
+  ASSERT_EQ(x.extent(), 10);
+  ASSERT_EQ(x.stride(), 3);
+  ASSERT_EQ(y.min(), 0);
+  ASSERT_EQ(y.extent(), 20);
+  ASSERT_EQ(y.stride(), 30);
+  ASSERT_EQ(z.min(), 0);
+  ASSERT_EQ(z.extent(), 3);
+  ASSERT_EQ(z.stride(), 1);
+}
+
 TEST(folded_dim) {
   dim<> x(0, 10, 1);
   folded_dim<> y(4, 10);

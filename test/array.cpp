@@ -16,14 +16,14 @@ TEST(array_default_constructor) {
     ASSERT_EQ(a(x), 0);
   }
 
-  array_2d<int> b(make_dense_shape(7, 3));
+  array_2d<int> b({7, 3});
   for (int y = 0; y < 3; y++) {
     for (int x = 0; x < 7; x++) {
       ASSERT_EQ(b(x, y), 0);
     }
   }
 
-  array_3d<int> c(make_dense_shape(5, 9, 3));
+  array_3d<int> c({5, 9, 3});
   for (int z = 0; z < 3; z++) {
     for (int y = 0; y < 9; y++) {
       for (int x = 0; x < 5; x++) {
@@ -51,14 +51,14 @@ TEST(array_fill_constructor) {
     ASSERT_EQ(a(x), 3);
   }
 
-  array_2d<int> b(make_dense_shape(7, 3), 5);
+  array_2d<int> b({7, 3}, 5);
   for (int y = 0; y < 3; y++) {
     for (int x = 0; x < 7; x++) {
       ASSERT_EQ(b(x, y), 5);
     }
   }
 
-  array_3d<int> c(make_dense_shape(5, 9, 3), 7);
+  array_3d<int> c({5, 9, 3}, 7);
   for (int z = 0; z < 3; z++) {
     for (int y = 0; y < 9; y++) {
       for (int x = 0; x < 5; x++) {
@@ -84,7 +84,7 @@ TEST(array_fill_assign) {
   }
 
   array_2d<int> b;
-  b.assign(make_dense_shape(7, 3), 5);
+  b.assign({7, 3}, 5);
   for (int y = 0; y < 3; y++) {
     for (int x = 0; x < 7; x++) {
       ASSERT_EQ(b(x, y), 5);
@@ -92,7 +92,7 @@ TEST(array_fill_assign) {
   }
 
   array_3d<int> c;
-  c.assign(make_dense_shape(5, 9, 3), 7);
+  c.assign({5, 9, 3}, 7);
   for (int z = 0; z < 3; z++) {
     for (int y = 0; y < 9; y++) {
       for (int x = 0; x < 5; x++) {
@@ -102,7 +102,9 @@ TEST(array_fill_assign) {
   }
 
   array<int, shape<dim<>, dim<>>> sparse;
-  auto sparse_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10, 20));
+  auto sparse_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10));
+  ASSERT(sparse_shape.flat_extent() > sparse_shape.size());
+
   sparse.assign(sparse_shape, 13);
   for (int y = 4; y < 14; y++) {
     for (int x = -2; x < 3; x++) {
@@ -112,7 +114,9 @@ TEST(array_fill_assign) {
 }
 
 TEST(sparse_array) {
-  auto sparse_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10, 20));
+  auto sparse_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10));
+  ASSERT(sparse_shape.flat_extent() > sparse_shape.size());
+
   array<int, shape<dim<>, dim<>>> sparse(sparse_shape);
   // Fill the storage with a constant.
   for (int i = 0; i < sparse_shape.flat_extent(); i++) {
