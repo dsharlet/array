@@ -482,37 +482,9 @@ void for_each_index(const shape<Dims...>& s, const Fn& fn) {
 template <typename... Dims>
 auto make_shape(Dims... dims) { return shape<Dims...>(std::make_tuple(std::forward<Dims>(dims)...)); }
 
-namespace internal {
-
-inline std::tuple<> make_dims(index_t dim0_stride) {
-  return std::tuple<>();
-}
-
-inline std::tuple<dim<>> make_dims(index_t dim0_stride, index_t dim0_extent) {
-  dim<> dim0(0, dim0_extent, dim0_stride);
-  return std::make_tuple(dim0);
-}
-
-template <typename... Extents>
-auto make_dims(index_t dim0_stride, index_t dim0_extent, Extents... extents) {
-  dim<> dim0(0, dim0_extent, dim0_stride);
-  return std::tuple_cat(std::make_tuple(dim0), 
-                        make_dims(dim0_extent * dim0_stride, std::forward<Extents>(extents)...));
-}
-
-template <typename... Dims>
-auto make_shape_from_tuple(const std::tuple<Dims...>& dims) {
-  return shape<Dims...>(dims);
-}
-
-}  // namespace internal
-
 template <typename... Extents>
 auto make_dense_shape(index_t dim0_extent, Extents... extents) {
-  dense_dim<> dim0(0, dim0_extent);
-  auto dims_tuple = std::tuple_cat(std::make_tuple(dim0), 
-                                   internal::make_dims(dim0_extent, std::forward<Extents>(extents)...));
-  return internal::make_shape_from_tuple(dims_tuple);
+  return make_shape(dense_dim<>(dim0_extent), dim<>(extents)...);
 }
 
 }  // namespace array
