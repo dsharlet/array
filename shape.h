@@ -275,6 +275,9 @@ class shape {
   /** Number of dims in this shape. */
   constexpr size_t rank() const { return std::tuple_size<std::tuple<Dims...>>::value; }
 
+  /** A shape is scalar if it is rank 0. */
+  bool is_scalar() const { return rank() == 0; }
+
   /** The type of an index for this shape. */
   typedef typename internal::IndexType<sizeof...(Dims)>::type index_type;
 
@@ -323,6 +326,9 @@ class shape {
 
   /** Compute the total number of items in the shape. */
   index_t size() const { return internal::product_of_extents(dims_); }
+
+  /** A shape is empty if its size is 0. */
+  bool empty() const { return size() == 0; }
 
   bool operator==(const shape& other) const { return dims_ == other.dims_; }
   bool operator!=(const shape& other) const { return dims_ != other.dims_; }
