@@ -337,11 +337,18 @@ class shape {
   /** A shape is empty if its size is 0. */
   bool empty() const { return size() == 0; }
 
+  /** Returns true if this shape projects to a set of flat indices
+   * that is a subset of the other shape's projection to flat
+   * indices. */
   bool is_subset_of(const shape& other) const {
     // TODO: This is hard...
     return true;
   }
 
+  /** Returns true if this shape projects the indices to a set of flat
+   * indices of the same size. If the dims overlap, or a dim has
+   * stride zero, the set of flat indices will be smaller than the set
+   * of indices. */
   bool is_map() const {
     // TODO: This is hard...
     return true;
@@ -373,6 +380,10 @@ class shape<> {
 
   index_t flat_extent() const { return 1; }
   index_t size() const { return 1; }
+  bool empty() const { return false; }
+
+  bool is_subset_of(const shape<>& other) const { return true; }
+  bool is_map() const { return true; }
 
   bool operator==(const shape<>& other) const { return true; }
   bool operator!=(const shape<>& other) const { return false; }
