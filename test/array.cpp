@@ -126,13 +126,13 @@ TEST(sparse_array) {
   }
 
   // Check that only the elements of the array were assigned.
-  int threes = 0;
+  int sevens = 0;
   for (int i = 0; i < sparse_shape.flat_extent(); i++) {
-    if (sparse.data()[i] == 3) {
-      threes++;
+    if (sparse.data()[i] == 7) {
+      sevens++;
     }
   }
-  ASSERT_EQ(threes, sparse.size());
+  ASSERT_EQ(sevens, sparse_shape.flat_extent() - sparse.size());
 }
 
 }  // namespace array
