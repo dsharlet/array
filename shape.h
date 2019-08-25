@@ -81,7 +81,14 @@ class dim {
 
  public:
   dim(index_t min, index_t extent, index_t stride = STRIDE)
-    : min_(min), extent_(extent), stride_(stride) {}
+    : min_(min), extent_(extent), stride_(stride) {
+    if (extent_ == UNKNOWN) {
+      extent_ = 0;
+    }
+    if (stride_ == UNKNOWN) {
+      stride_ = 0;
+    }
+  }
   dim(index_t extent = EXTENT) : dim(0, extent) {}
   dim(const dim&) = default;
   dim(dim&&) = default;
