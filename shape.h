@@ -297,7 +297,7 @@ class shape {
   }
   
   /** Get a specific dim of this shape. */
-  template <size_t D>
+  template <std::size_t D>
   auto dim() const { return std::get<D>(dims_); }
 
   /** Compute the flat extent of this shape. This is one past the
