@@ -292,13 +292,14 @@ void resolve_unknowns(Dims& dims) {
   resolve_unknowns(current_stride, dims, std::make_index_sequence<rank>());
 }
 
-template <std::size_t Rank>
-struct IndexType {
-  typedef decltype(std::tuple_cat(std::make_tuple(index_t()), typename IndexType<Rank - 1>::type())) type;
+// A helper to generate a tuple of Rank elements each with type T.
+template <typename T, std::size_t Rank>
+struct ReplicateType {
+  typedef decltype(std::tuple_cat(std::make_tuple(T()), typename ReplicateType<T, Rank - 1>::type())) type;
 };
 
-template <>
-struct IndexType<0> {
+template <typename T>
+struct ReplicateType<T, 0> {
   typedef std::tuple<> type;
 };
 
@@ -331,7 +332,7 @@ class shape {
   bool is_scalar() const { return rank() == 0; }
 
   /** The type of an index for this shape. */
-  typedef typename internal::IndexType<sizeof...(Dims)>::type index_type;
+  typedef typename internal::ReplicateType<index_t, sizeof...(Dims)>::type index_type;
 
   /** Check if a list of indices is in range of this shape. */
   template <typename... Indices>
@@ -480,7 +481,9 @@ void for_each_index(const shape<Dims...>& s, const Fn& fn) {
 } 
 
 template <typename... Dims>
-auto make_shape(Dims... dims) { return shape<Dims...>(std::make_tuple(std::forward<Dims>(dims)...)); }
+auto make_shape(Dims... dims) {
+  return shape<Dims...>(std::make_tuple(std::forward<Dims>(dims)...));
+}
 
 template <typename... Extents>
 auto make_dense_shape(index_t dim0_extent, Extents... extents) {
