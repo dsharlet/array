@@ -169,7 +169,7 @@ TEST(for_each_index_2d) {
   auto s = make_dense_shape(10, 4);
   int expected_flat_offset = 0;
   for_each_index(s, [&](std::tuple<int, int> x) {
-    ASSERT_EQ(s(std::get<0>(x), std::get<1>(x)), expected_flat_offset);
+    ASSERT_EQ(s(x), expected_flat_offset);
     expected_flat_offset++;
   });
   // Ensure the for_each_index loop above actually ran.
@@ -180,7 +180,7 @@ TEST(for_each_index_3d) {
   auto s = make_dense_shape(3, 5, 8);
   int expected_flat_offset = 0;
   for_each_index(s, [&](std::tuple<int, int, int> x) {
-    ASSERT_EQ(s(std::get<0>(x), std::get<1>(x), std::get<2>(x)), expected_flat_offset);
+    ASSERT_EQ(s(x), expected_flat_offset);
     expected_flat_offset++;
   });
   // Ensure the for_each_index loop above actually ran.
