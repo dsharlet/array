@@ -215,6 +215,16 @@ bool is_in_range(const Dims& dims, const Indices& indices) {
   return is_in_range_impl(dims, indices, std::make_index_sequence<dims_rank>());
 }
 
+template <std::size_t Rank>
+struct IndexType {
+  typedef decltype(std::tuple_cat(std::make_tuple(index_t()), typename IndexType<Rank - 1>::type())) type;
+};
+
+template <>
+struct IndexType<0> {
+  typedef std::tuple<> type;
+};
+
 }  // namespace internal
 
 /** A list of dims describing a multi-dimensional space of indices. */
@@ -229,6 +239,8 @@ class shape {
 
   /** Number of dims in this shape. */
   constexpr size_t rank() const { return std::tuple_size<std::tuple<Dims...>>::value; }
+
+  typedef typename internal::IndexType<sizeof...(Dims)>::type index_type;
 
   /** Check if a list of indices is in range of this shape. */
   template <typename... Indices>
