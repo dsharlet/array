@@ -80,8 +80,14 @@ class dim {
   index_t stride_;
 
  public:
-  dim(index_t min = MIN, index_t extent = EXTENT, index_t stride = STRIDE)
+  dim(index_t min, index_t extent, index_t stride = STRIDE)
     : min_(min), extent_(extent), stride_(stride) {}
+  dim(index_t extent = EXTENT) : dim(0, extent) {}
+  dim(const dim&) = default;
+  dim(dim&&) = default;
+
+  dim& operator=(const dim&) = default;
+  dim& operator=(dim&&) = default;
 
   /** Index of the first element in this dim. */
   index_t min() const { return internal::reconcile<MIN>(min_); }
@@ -129,6 +135,11 @@ class folded_dim {
  public:
   folded_dim(index_t extent = EXTENT, index_t stride = STRIDE)
     : extent_(extent), stride_(stride) {}
+  folded_dim(const folded_dim&) = default;
+  folded_dim(folded_dim&&) = default;
+
+  folded_dim& operator=(const folded_dim&) = default;
+  folded_dim& operator=(folded_dim&&) = default;
 
   /** Non-folded range of the dim. */
   index_t extent() const { return internal::reconcile<EXTENT>(extent_); }
@@ -255,6 +266,11 @@ class shape {
   shape() {}
   shape(std::tuple<Dims...> dims) : dims_(std::move(dims)) {}
   shape(Dims... dims) : dims_(std::forward<Dims>(dims)...) {}
+  shape(const shape&) = default;
+  shape(shape&&) = default;
+
+  shape& operator=(const shape&) = default;
+  shape& operator=(shape&&) = default;
 
   /** Number of dims in this shape. */
   constexpr size_t rank() const { return std::tuple_size<std::tuple<Dims...>>::value; }
