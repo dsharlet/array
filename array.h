@@ -82,8 +82,10 @@ class array {
   array(Shape shape, const T& value, const Alloc& alloc = Alloc()) : array(alloc) {
     assign(std::move(shape), value);
   }
-  explicit array(Shape shape, const Alloc& alloc = Alloc()) : array(alloc) {
-    assign(std::move(shape), T());
+  explicit array(Shape shape, const Alloc& alloc = Alloc())
+      : alloc_(alloc), base_(nullptr), shape_(std::move(shape)) {
+    allocate();
+    construct();
   }
   array(const array& copy)
       : array(std::allocator_traits<Alloc>::select_on_container_copy_construction(copy.get_allocator())) {
@@ -195,10 +197,7 @@ class array {
   const Shape& shape() const { return shape_; }
   size_type size() { return shape_.size(); }
   bool empty() const { return shape_.empty(); }
-  void clear() {
-    deallocate();
-    shape_ = Shape();
-  }
+  void clear() { reallocate(Shape()); }
 
   /** Reshape the array. */
   void reshape(Shape new_shape) {
