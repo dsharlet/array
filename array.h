@@ -14,24 +14,26 @@ class array {
   T* base_;
   Shape shape_;
 
+  // After allocate or reallocate, the array is allocated but uninitialized.
   void allocate() {
     if (!base_) {
       base_ = alloc_.allocate(shape_.flat_extent());
     }
   }
-  void deallocate() {
-    if (base_) {
-      alloc_.deallocate(base_, shape_.flat_extent());
-      base_ = nullptr;
-    }
-  }
-
   void reallocate(Shape shape) {
     if (shape_ != shape) {
       deallocate();
       shape_ = std::move(shape);
     }
     allocate();
+  }
+
+  // deallocate assumes the array has been destroyed.
+  void deallocate() {
+    if (base_) {
+      alloc_.deallocate(base_, shape_.flat_extent());
+      base_ = nullptr;
+    }
   }
 
   void construct() {
@@ -46,6 +48,18 @@ class array {
       std::allocator_traits<Alloc>::construct(alloc_, &x, init);
     });
   }
+  void construct(const array& copy) {
+    assert(base_);
+    for_each_index(shape(), [&](const index_type& index) {
+      std::allocator_traits<Alloc>::construct(alloc_, &operator()(index), copy(index));
+    });
+  }
+  void construct(array&& move) {
+    assert(base_);
+    for_each_index(shape(), [&](const index_type& index) {
+      std::allocator_traits<Alloc>::construct(alloc_, &operator()(index), std::move(move(index)));
+    });
+  }
   void destroy() {
     assert(base_);
     for_each_value([&](T& x) {
@@ -56,6 +70,7 @@ class array {
  public:
   typedef T value_type;
   typedef Alloc allocator_type;
+  typedef typename Shape::index_type index_type;
   typedef std::size_t size_type;
   typedef std::ptrdiff_t difference_type;
   typedef value_type& reference;
@@ -115,10 +130,12 @@ class array {
   void assign(const array& copy) {
     if (this == &copy) return;
     reallocate(copy.shape());
+    construct(copy);
   }
   void assign(array&& move) {
     if (this == &move) return;
     reallocate(move.shape());
+    construct(move);
   }
   void assign(Shape shape, const T& value) {
     reallocate(std::move(shape));
@@ -163,9 +180,15 @@ class array {
 
   template <typename Fn>
   void for_each_value(const Fn& fn) {
+    for_each_index(shape(), [&](const index_type& index) {
+      fn(base_[shape_(index)]);
+    });
   }
   template <typename Fn>
   void for_each_value(const Fn& fn) const {
+    for_each_index(shape(), [&](const index_type& index) {
+      fn(base_[shape_(index)]);
+    });
   }
 
   pointer data() { return base_; }
