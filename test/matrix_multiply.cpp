@@ -23,10 +23,11 @@ template <typename T>
 void multiply_naive(const matrix<T>& a, const matrix<T>& b, matrix<T>& c) {
   for (int i : rows(c)) {
     for (int j : cols(c)) {
-      c(i, j) = 0;
+      T c_ij = 0;
       for (int k : cols(a)) {
-        c(i, j) += a(i, k) * b(k, j);
+        c_ij += a(i, k) * b(k, j);
       }
+      c(i, j) = c_ij;
     }
   }
 }
