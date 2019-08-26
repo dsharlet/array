@@ -229,6 +229,12 @@ class array {
   }
 };
 
+template <typename T, std::size_t Rank, typename Alloc = std::allocator<T>>
+using array_of_rank = array<T, shape_of_rank<Rank>, Alloc>;
+
+template <typename T, std::size_t Rank, typename Alloc = std::allocator<T>>
+using dense_array = array<T, dense_shape<Rank>, Alloc>;
+
 template <typename T, typename Shape, typename Alloc>
 void swap(array<T, Shape, Alloc>& a, array<T, Shape, Alloc>& b) {
   a.swap(b);

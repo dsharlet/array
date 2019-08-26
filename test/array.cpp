@@ -3,27 +3,20 @@
 
 namespace array {
 
-template <typename T>
-using array_1d = array<T, shape<dense_dim<>>>;
-template <typename T>
-using array_2d = array<T, shape<dense_dim<>, dim<>>>;
-template <typename T>
-using array_3d = array<T, shape<dense_dim<>, dim<>, dim<>>>;
-
 TEST(array_default_constructor) {
-  array_1d<int> a(make_dense_shape(10));
+  dense_array<int, 1> a(make_dense_shape(10));
   for (int x = 0; x < 10; x++) {
     ASSERT_EQ(a(x), 0);
   }
 
-  array_2d<int> b({7, 3});
+  dense_array<int, 2> b({7, 3});
   for (int y = 0; y < 3; y++) {
     for (int x = 0; x < 7; x++) {
       ASSERT_EQ(b(x, y), 0);
     }
   }
 
-  array_3d<int> c({5, 9, 3});
+  dense_array<int, 3> c({5, 9, 3});
   for (int z = 0; z < 3; z++) {
     for (int y = 0; y < 9; y++) {
       for (int x = 0; x < 5; x++) {
@@ -46,19 +39,19 @@ TEST(array_default_constructor) {
 }
 
 TEST(array_fill_constructor) {
-  array_1d<int> a(make_dense_shape(10), 3);
+  dense_array<int, 1> a(make_dense_shape(10), 3);
   for (int x = 0; x < 10; x++) {
     ASSERT_EQ(a(x), 3);
   }
 
-  array_2d<int> b({7, 3}, 5);
+  dense_array<int, 2> b({7, 3}, 5);
   for (int y = 0; y < 3; y++) {
     for (int x = 0; x < 7; x++) {
       ASSERT_EQ(b(x, y), 5);
     }
   }
 
-  array_3d<int> c({5, 9, 3}, 7);
+  dense_array<int, 3> c({5, 9, 3}, 7);
   for (int z = 0; z < 3; z++) {
     for (int y = 0; y < 9; y++) {
       for (int x = 0; x < 5; x++) {
@@ -77,13 +70,13 @@ TEST(array_fill_constructor) {
 }
 
 TEST(array_fill_assign) {
-  array_1d<int> a;
+  dense_array<int, 1> a;
   a.assign(make_dense_shape(10), 3);
   for (int x = 0; x < 10; x++) {
     ASSERT_EQ(a(x), 3);
   }
 
-  array_2d<int> b;
+  dense_array<int, 2> b;
   b.assign({7, 3}, 5);
   for (int y = 0; y < 3; y++) {
     for (int x = 0; x < 7; x++) {
@@ -91,7 +84,7 @@ TEST(array_fill_assign) {
     }
   }
 
-  array_3d<int> c;
+  dense_array<int, 3> c;
   c.assign({5, 9, 3}, 7);
   for (int z = 0; z < 3; z++) {
     for (int y = 0; y < 9; y++) {

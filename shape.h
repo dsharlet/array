@@ -480,6 +480,20 @@ void for_each_index(const shape<Dims...>& s, const Fn& fn) {
   internal::for_each_index_impl<sizeof...(Dims) - 1>(0, s, fn, std::tuple<>());
 } 
 
+namespace internal {
+
+template <typename... Dims>
+shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
+  return shape<Dims...>(dims);
+}
+
+template <std::size_t Rank>
+auto make_dense_shape() {
+  return internal::make_shape_from_tuple(std::tuple_cat(std::make_tuple(dense_dim<>()), typename internal::ReplicateType<dim<>, Rank - 1>::type()));
+}
+
+}  // namespace internal
+
 template <typename... Dims>
 auto make_shape(Dims... dims) {
   return shape<Dims...>(std::make_tuple(std::forward<Dims>(dims)...));
@@ -489,6 +503,14 @@ template <typename... Extents>
 auto make_dense_shape(index_t dim0_extent, Extents... extents) {
   return make_shape(dense_dim<>(dim0_extent), dim<>(extents)...);
 }
+
+// TODO: These are disgusting, we should be able to make a shape from a
+// tuple more easily.
+template <std::size_t Rank>
+using shape_of_rank = decltype(internal::make_shape_from_tuple(typename internal::ReplicateType<dim<>, Rank>::type()));
+
+template <std::size_t Rank>
+using dense_shape = decltype(internal::make_dense_shape<Rank>());
 
 }  // namespace array
 
