@@ -54,21 +54,21 @@ T euclidean_mod(T a, T b) {
 }  // namespace internal
 
 /** An iterator over a range of indices. */
-class index_iterator {
+class dim_iterator {
   index_t i;
 
  public:
-  index_iterator(index_t i) : i(i) {}
+  dim_iterator(index_t i) : i(i) {}
 
-  bool operator==(const index_iterator& r) const { return i == r.i; }
-  bool operator!=(const index_iterator& r) const { return i != r.i; }
+  bool operator==(const dim_iterator& r) const { return i == r.i; }
+  bool operator!=(const dim_iterator& r) const { return i != r.i; }
 
   index_t operator *() const { return i; }
 
-  index_iterator operator++(int) { return index_iterator(i++); }
-  index_iterator& operator++() { ++i; return *this; }
+  dim_iterator operator++(int) { return dim_iterator(i++); }
+  dim_iterator& operator++() { ++i; return *this; }
 };
-typedef index_iterator const_index_iterator;
+typedef dim_iterator const_dim_iterator;
 
 /** Describes one dimension of an array. The template parameters
  * enable providing compile time constants for the min, extent, and
@@ -109,9 +109,9 @@ class dim {
   bool is_in_range(index_t at) const { return min() <= at && at <= max(); }
 
   /** Make an iterator referring to the first element in this dim. */
-  const_index_iterator begin() const { return const_index_iterator(min()); }
+  const_dim_iterator begin() const { return const_dim_iterator(min()); }
   /** Make an iterator referring to one past the last element in this dim. */
-  const_index_iterator end() const { return const_index_iterator(max() + 1); }
+  const_dim_iterator end() const { return const_dim_iterator(max() + 1); }
 
   bool operator==(const dim& other) const {
     return min() == other.min() && extent() == other.extent() && stride() == other.stride();
