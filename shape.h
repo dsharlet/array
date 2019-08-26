@@ -326,13 +326,13 @@ class shape {
   shape& operator=(shape&&) = default;
 
   /** Number of dims in this shape. */
-  constexpr size_t rank() const { return std::tuple_size<std::tuple<Dims...>>::value; }
+  static constexpr size_t rank() { return std::tuple_size<std::tuple<Dims...>>::value; }
 
   /** A shape is scalar if it is rank 0. */
-  bool is_scalar() const { return rank() == 0; }
+  static bool is_scalar() { return rank() == 0; }
 
   /** The type of an index for this shape. */
-  typedef typename internal::ReplicateType<index_t, sizeof...(Dims)>::type index_type;
+  typedef typename internal::ReplicateType<index_t, rank()>::type index_type;
 
   /** Check if a list of indices is in range of this shape. */
   template <typename... Indices>
@@ -439,27 +439,27 @@ namespace internal {
 
 // This genius trick is from
 // https://github.com/halide/Halide/blob/30fb4fcb703f0ca4db6c1046e77c54d9b6d29a86/src/runtime/HalideBuffer.h#L2088-L2108
-template<size_t D, typename... Dims, typename Fn, typename... Indices,
+template<size_t D, typename Shape, typename Fn, typename... Indices,
   typename = decltype(std::declval<Fn>()(std::declval<Indices>()...))>
-void for_all_indices_impl(int, const shape<Dims...>& shape, Fn &&f, Indices... indices) {
+void for_all_indices_impl(int, const Shape& shape, Fn &&f, Indices... indices) {
   f(indices...);
 }
 
-template<size_t D, typename... Dims, typename Fn, typename... Indices>
-void for_all_indices_impl(double, const shape<Dims...>& shape, Fn &&f, Indices... indices) {
+template<size_t D, typename Shape, typename Fn, typename... Indices>
+void for_all_indices_impl(double, const Shape& shape, Fn &&f, Indices... indices) {
   for (index_t i : shape.template dim<D>()) {
     for_all_indices_impl<D - 1>(0, shape, std::forward<Fn>(f), i, indices...);
   }
 }
 
-template<size_t D, typename... Dims, typename Fn, typename... Indices,
+template<size_t D, typename Shape, typename Fn, typename... Indices,
   typename = decltype(std::declval<Fn>()(std::declval<std::tuple<Indices...>>()))>
-void for_each_index_impl(int, const shape<Dims...>& shape, Fn &&f, const std::tuple<Indices...>& indices) {
+void for_each_index_impl(int, const Shape& shape, Fn &&f, const std::tuple<Indices...>& indices) {
   f(indices);
 }
 
-template<size_t D, typename... Dims, typename Fn, typename... Indices>
-void for_each_index_impl(double, const shape<Dims...>& shape, Fn &&f, const std::tuple<Indices...>& indices) {
+template<size_t D, typename Shape, typename Fn, typename... Indices>
+void for_each_index_impl(double, const Shape& shape, Fn &&f, const std::tuple<Indices...>& indices) {
   for (index_t i : shape.template dim<D>()) {
     for_each_index_impl<D - 1>(0, shape, std::forward<Fn>(f), std::tuple_cat(std::make_tuple(i), indices));
   }
@@ -471,13 +471,13 @@ void for_each_index_impl(double, const shape<Dims...>& shape, Fn &&f, const std:
  * each set of indices. The indices are in the same order as the dims
  * in the shape. The first dim is the 'inner' loop of the iteration,
  * and the last dim is the 'outer' loop. */
-template <typename... Dims, typename Fn>
-void for_all_indices(const shape<Dims...>& s, const Fn& fn) {
-  internal::for_all_indices_impl<sizeof...(Dims) - 1>(0, s, fn);
+template <typename Shape, typename Fn>
+void for_all_indices(const Shape& s, const Fn& fn) {
+  internal::for_all_indices_impl<Shape::rank() - 1>(0, s, fn);
 }
-template <typename... Dims, typename Fn>
-void for_each_index(const shape<Dims...>& s, const Fn& fn) {
-  internal::for_each_index_impl<sizeof...(Dims) - 1>(0, s, fn, std::tuple<>());
+template <typename Shape, typename Fn>
+void for_each_index(const Shape& s, const Fn& fn) {
+  internal::for_each_index_impl<Shape::rank() - 1>(0, s, fn, std::tuple<>());
 } 
 
 namespace internal {
