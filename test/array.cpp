@@ -135,6 +135,19 @@ TEST(sparse_array) {
   ASSERT_EQ(sevens, sparse_shape.flat_extent() - sparse.size());
 }
 
+TEST(array_equality) {
+  array_of_rank<int, 3> a({4, 5, 6}, 7);
+  array_of_rank<int, 3> b({4, 5, 6}, 7);
+  // A sparse array with a different stride than the above should still be equal to the above.
+  array_of_rank<int, 3> c({dim<>(0, 4, 2), 5, 6}, 7);
+
+  ASSERT(a == b);
+  ASSERT(a == c);
+
+  a(1, 2, 3) = 5;
+  ASSERT(a != b);
+  ASSERT(a != c);
+}
 
 struct lifetime_counter {
   static int default_constructs;

@@ -7,6 +7,37 @@
 
 namespace array {
 
+namespace internal {
+
+// Get a tuple of all of the mins of the shape.
+template <typename Shape, std::size_t... Is>
+auto mins(const Shape& s, std::index_sequence<Is...>) {
+  return std::make_tuple(s.template dim<Is>().min()...);
+}
+
+template <typename Shape, std::size_t... Is>
+auto extents(const Shape& s, std::index_sequence<Is...>) {
+  return std::make_tuple(s.template dim<Is>().extent()...);
+}
+
+// Get a tuple of all of the extents of the shape.
+template <typename Shape>
+auto mins(const Shape& s) {
+  return mins(s, std::make_index_sequence<Shape::rank()>());
+}
+
+template <typename Shape>
+auto extents(const Shape& s) {
+  return extents(s, std::make_index_sequence<Shape::rank()>());
+}
+
+template <typename Shape>
+bool mins_extents_equal(const Shape& a, const Shape& b) {
+  return mins(a) == mins(b) && extents(a) == extents(b);
+}
+
+}  // namespace internal
+
 /** A multi-dimensional array container that mirrors std::vector. */
 template <typename T, typename Shape, typename Alloc = std::allocator<T>>
 class array {
@@ -225,15 +256,24 @@ class array {
   /** Compare the contents of this array to the other array. For two
    * arrays to be considered equal, they must have the same shape, and
    * all elements addressable by the shape must also be equal. */
-  bool operator!=(const array& other) {
-    if (shape() != other.shape()) {
+  bool operator!=(const array& other) const {
+    if (!internal::mins_extents_equal(shape(), other.shape())) {
       return true;
     }
 
-    assert(false);
-    return false;
+    // TODO: This currently calls operator!= on all elements of the
+    // array, even after we find a non-equal element.
+    bool result = false;
+    for_each_index(shape(), [&](const index_type& x) {
+      if (base_[shape_(x)] != other(x)) {
+        result = true;
+      }
+    });
+    return result;
   }
-  bool operator==(const array& other) { return !operator!=(other); }
+  bool operator==(const array& other) const {
+    return !operator!=(other);
+  }
 
   /** Swap the contents of two arrays. This performs zero copies or
    * moves of individual elements. */
