@@ -228,7 +228,19 @@ TEST(array_move_lifetime) {
   ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size());
 }
 
-  // TODO: Test move with incompatible allocator.
+TEST(array_move_alloc_lifetime) {
+  {
+    array<lifetime_counter, LifetimeShape> source(lifetime_shape);
+    lifetime_counter::reset();
+    array<lifetime_counter, LifetimeShape> move(std::move(source), std::allocator<lifetime_counter>());
+  }
+  // This should have moved the whole array.
+  ASSERT_EQ(lifetime_counter::constructs(), 0);
+  ASSERT_EQ(lifetime_counter::moves(), 0);
+  ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size());
+}
+
+// TODO: Test move with incompatible allocator.
 
 TEST(array_copy_assign_lifetime) {
   {

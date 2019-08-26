@@ -39,7 +39,7 @@ class array {
       std::allocator_traits<Alloc>::construct(alloc_, &operator()(index), copy(index));
     });
   }
-  void construct(array&& move) {
+  void construct(array& move) {
     assert(base_);
     for_each_index(shape(), [&](const index_type& index) {
       std::allocator_traits<Alloc>::construct(alloc_, &operator()(index), std::move(move(index)));
@@ -99,8 +99,14 @@ class array {
   }
   array(array&& other, const Alloc& alloc) : array(alloc) {
     using std::swap;
-    swap(shape_, other.shape_);
-    swap(base_, other.base_);
+    if (alloc_ != other.get_allocator()) {
+      shape_ = other.shape_;
+      allocate();
+      construct(other);
+    } else {
+      swap(shape_, other.shape_);
+      swap(base_, other.base_);
+    }
   }
   ~array() { 
     deallocate(); 
@@ -132,7 +138,7 @@ class array {
     reallocate(copy.shape());
     construct(copy);
   }
-  void assign(array&& move) {
+  void assign(array& move) {
     if (this == &move) return;
     reallocate(move.shape());
     construct(move);
