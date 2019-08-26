@@ -14,13 +14,14 @@ class array {
   T* base_;
   Shape shape_;
 
-  // After allocate or reallocate, the array is allocated but uninitialized.
+  // After allocate the array is allocated but uninitialized.
   void allocate() {
     if (!base_) {
       base_ = alloc_.allocate(shape_.flat_extent());
     }
   }
 
+  // Call the constructor on all of the elements of the array.
   void construct() {
     assert(base_);
     for_each_value([&](T& x) {
@@ -46,7 +47,7 @@ class array {
     });
   }
 
-  // deallocate assumes the array has been destroyed.
+  // Call the destructor on every element, and deallocate the array.
   void deallocate() {
     if (base_) {
       for_each_value([&](T& x) {
