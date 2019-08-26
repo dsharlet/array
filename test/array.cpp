@@ -207,13 +207,13 @@ TEST(array_copy_init_lifetime) {
 }
 
 TEST(array_copy_lifetime) {
+  array<lifetime_counter, LifetimeShape> source(lifetime_shape);
+  lifetime_counter::reset();
   {
-    array<lifetime_counter, LifetimeShape> source(lifetime_shape);
-    lifetime_counter::reset();
     array<lifetime_counter, LifetimeShape> copy(source);
   }
   ASSERT_EQ(lifetime_counter::copy_constructs, lifetime_shape.size());
-  ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size() * 2);
+  ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size());
 }
 
 TEST(array_move_lifetime) {
@@ -243,14 +243,14 @@ TEST(array_move_alloc_lifetime) {
 // TODO: Test move with incompatible allocator.
 
 TEST(array_copy_assign_lifetime) {
+  array<lifetime_counter, LifetimeShape> source(lifetime_shape);
+  lifetime_counter::reset();
   {
-    array<lifetime_counter, LifetimeShape> source(lifetime_shape);
-    lifetime_counter::reset();
     array<lifetime_counter, LifetimeShape> assign;
     assign = source;
   }
   ASSERT_EQ(lifetime_counter::copy_constructs, lifetime_shape.size());
-  ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size() * 2);
+  ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size());
 }
 
 TEST(array_move_assign_lifetime) {
