@@ -185,6 +185,7 @@ class array {
     return base_[shape_(std::forward<Indices>(indices)...)];
   }
 
+  /** Call a function with a reference to each value in this array. */
   template <typename Fn>
   void for_each_value(const Fn& fn) {
     for_each_index(shape(), [&](const index_type& index) {
@@ -198,15 +199,22 @@ class array {
     });
   }
 
+  /** Pointer to the start of the flattened array. */
   pointer data() { return base_; }
   const_pointer data() const { return base_; }
 
+  /** Shape of this array. */
   const Shape& shape() const { return shape_; }
+  /** Number of elements addressable by the shape of this array. */
   size_type size() { return shape_.size(); }
+  /** True if there are zero addressable elements by the shape of this
+   * array. */
   bool empty() const { return shape_.empty(); }
+  /** Reset the shape of this array to empty. */
   void clear() { reallocate(Shape()); }
 
-  /** Reshape the array. */
+  /** Reshape the array. The new shape must not address any elements
+   * not already addressable by the current shape of this array. */
   void reshape(Shape new_shape) {
     if (!new_shape.is_subset_of(shape())) {
       throw std::out_of_range("new_shape is not a subset of shape().");
@@ -214,7 +222,9 @@ class array {
     shape_ = std::move(new_shape);
   }
 
-  /** Compare the contents of this array to the other array. */
+  /** Compare the contents of this array to the other array. For two
+   * arrays to be considered equal, they must have the same shape, and
+   * all elements addressable by the shape must also be equal. */
   bool operator!=(const array& other) {
     if (shape() != other.shape()) {
       return true;
@@ -225,6 +235,8 @@ class array {
   }
   bool operator==(const array& other) { return !operator!=(other); }
 
+  /** Swap the contents of two arrays. This performs zero copies or
+   * moves of individual elements. */
   void swap(array& other) {
     using std::swap;
 

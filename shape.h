@@ -373,7 +373,7 @@ class shape {
   template <std::size_t D>
   const auto& dim() const { return std::get<D>(dims_); }
 
-  /** Compute the flat extent of this shape. This is one past the
+  /** Compute the flat extent of this shape. This is the extent of the
    * valid range of values returned by at or operator(). */
   index_t flat_extent() const { return internal::flat_extent(dims_); }
 
