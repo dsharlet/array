@@ -188,10 +188,12 @@ int lifetime_counter::destructs = 0;
 typedef shape<dim<>, dim<>> LifetimeShape;
 auto lifetime_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10, 20));
 
+typedef array<lifetime_counter, LifetimeShape> lifetime_array;
+
 TEST(array_default_init_lifetime) {
   lifetime_counter::reset();
   {
-    array<lifetime_counter, LifetimeShape> default_init(lifetime_shape);
+    lifetime_array default_init(lifetime_shape);
   }
   ASSERT_EQ(lifetime_counter::default_constructs, lifetime_shape.size());
   ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size());
@@ -200,17 +202,17 @@ TEST(array_default_init_lifetime) {
 TEST(array_copy_init_lifetime) {
   lifetime_counter::reset();
   {
-    array<lifetime_counter, LifetimeShape> copy_init(lifetime_shape, lifetime_counter());
+    lifetime_array copy_init(lifetime_shape, lifetime_counter());
   }
   ASSERT_EQ(lifetime_counter::copy_constructs, lifetime_shape.size());
   ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size() + 1);
 }
 
 TEST(array_copy_lifetime) {
-  array<lifetime_counter, LifetimeShape> source(lifetime_shape);
+  lifetime_array source(lifetime_shape);
   lifetime_counter::reset();
   {
-    array<lifetime_counter, LifetimeShape> copy(source);
+    lifetime_array copy(source);
   }
   ASSERT_EQ(lifetime_counter::copy_constructs, lifetime_shape.size());
   ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size());
@@ -218,9 +220,9 @@ TEST(array_copy_lifetime) {
 
 TEST(array_move_lifetime) {
   {
-    array<lifetime_counter, LifetimeShape> source(lifetime_shape);
+    lifetime_array source(lifetime_shape);
     lifetime_counter::reset();
-    array<lifetime_counter, LifetimeShape> move(std::move(source));
+    lifetime_array move(std::move(source));
   }
   // This should have moved the whole array.
   ASSERT_EQ(lifetime_counter::constructs(), 0);
@@ -230,9 +232,9 @@ TEST(array_move_lifetime) {
 
 TEST(array_move_alloc_lifetime) {
   {
-    array<lifetime_counter, LifetimeShape> source(lifetime_shape);
+    lifetime_array source(lifetime_shape);
     lifetime_counter::reset();
-    array<lifetime_counter, LifetimeShape> move(std::move(source), std::allocator<lifetime_counter>());
+    lifetime_array move(std::move(source), std::allocator<lifetime_counter>());
   }
   // This should have moved the whole array.
   ASSERT_EQ(lifetime_counter::constructs(), 0);
@@ -243,10 +245,10 @@ TEST(array_move_alloc_lifetime) {
 // TODO: Test move with incompatible allocator.
 
 TEST(array_copy_assign_lifetime) {
-  array<lifetime_counter, LifetimeShape> source(lifetime_shape);
+  lifetime_array source(lifetime_shape);
   lifetime_counter::reset();
   {
-    array<lifetime_counter, LifetimeShape> assign;
+    lifetime_array assign;
     assign = source;
   }
   ASSERT_EQ(lifetime_counter::copy_constructs, lifetime_shape.size());
@@ -255,9 +257,9 @@ TEST(array_copy_assign_lifetime) {
 
 TEST(array_move_assign_lifetime) {
   {
-    array<lifetime_counter, LifetimeShape> source(lifetime_shape);
+    lifetime_array source(lifetime_shape);
     lifetime_counter::reset();
-    array<lifetime_counter, LifetimeShape> assign;
+    lifetime_array assign;
     assign = std::move(source);
   }
   // This should have moved the whole array.
@@ -270,7 +272,7 @@ TEST(array_move_assign_lifetime) {
 
 TEST(array_clear_lifetime) {
   lifetime_counter::reset();
-  array<lifetime_counter, LifetimeShape> default_init(lifetime_shape);
+  lifetime_array default_init(lifetime_shape);
   default_init.clear();
   ASSERT_EQ(lifetime_counter::default_constructs, lifetime_shape.size());
   ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size());
