@@ -17,7 +17,7 @@ class array {
   // After allocate the array is allocated but uninitialized.
   void allocate() {
     if (!base_) {
-      base_ = alloc_.allocate(shape_.flat_extent());
+      base_ = std::allocator_traits<Alloc>::allocate(alloc_, shape_.flat_extent());
     }
   }
 
@@ -53,7 +53,7 @@ class array {
       for_each_value([&](T& x) {
         std::allocator_traits<Alloc>::destroy(alloc_, &x);
       });
-      alloc_.deallocate(base_, shape_.flat_extent());
+      std::allocator_traits<Alloc>::deallocate(alloc_, base_, shape_.flat_extent());
       base_ = nullptr;
     }
   }
@@ -250,9 +250,9 @@ class array {
   void swap(array& other) {
     using std::swap;
 
-    if (std::allocator_traits<Alloc>::propagate_on_container_swap::value) {
-      swap(alloc_, other.alloc_);
-    }
+    // TODO: This probably should respect
+    // std::allocator_traits<Alloc>::propagate_on_container_swap::value
+    swap(alloc_, other.alloc_);
     swap(base_, other.base_);
     swap(shape_, other.shape_);
   }
