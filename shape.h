@@ -82,9 +82,16 @@ class dim {
 
  public:
   dim(index_t min, index_t extent, index_t stride = STRIDE)
-    : min_(min), extent_(extent), stride_(stride) {}
+    : min_(min), extent_(extent), stride_(stride) {
+    assert(min == MIN || MIN == UNKNOWN);
+    assert(extent == EXTENT || EXTENT == UNKNOWN);
+    assert(stride == STRIDE || STRIDE == UNKNOWN);
+  }
   dim(index_t extent = EXTENT) : dim(0, extent) {}
   dim(const dim&) = default;
+  template <index_t COPY_MIN, index_t COPY_EXTENT, index_t COPY_STRIDE>
+  dim(const dim<COPY_MIN, COPY_EXTENT, COPY_STRIDE>& copy)
+      : dim(copy.min(), copy.extent(), copy.stride()) {}
   dim(dim&&) = default;
 
   dim& operator=(const dim&) = default;
@@ -92,13 +99,22 @@ class dim {
 
   /** Index of the first element in this dim. */
   index_t min() const { return internal::reconcile<MIN>(min_); }
-  void set_min(index_t min) { min_ = min; }
+  void set_min(index_t min) {
+    assert(min == MIN || MIN == UNKNOWN);
+    min_ = min;
+  }
   /** Number of elements in this dim. */
   index_t extent() const { return internal::reconcile<EXTENT>(extent_); }
-  void set_extent(index_t extent) { extent_ = extent; }
+  void set_extent(index_t extent) {
+    assert(extent == EXTENT || EXTENT == UNKNOWN);
+    extent_ = extent;
+  }
   /** Distance betwen elements in this dim. */
   index_t stride() const { return internal::reconcile<STRIDE>(stride_); }
-  void set_stride(index_t stride) { stride_ = stride; }
+  void set_stride(index_t stride) {
+    assert(stride == STRIDE || STRIDE == UNKNOWN);
+    stride_ = stride;
+  }
   /** Index of the last element in this dim. */
   index_t max() const { return min() + extent() - 1; }
 
@@ -138,7 +154,10 @@ class folded_dim {
   
  public:
   folded_dim(index_t extent = EXTENT, index_t stride = STRIDE)
-    : extent_(extent), stride_(stride) {}
+    : extent_(extent), stride_(stride) {
+    assert(extent == EXTENT || EXTENT == UNKNOWN);
+    assert(stride == STRIDE || STRIDE == UNKNOWN);
+  }
   folded_dim(const folded_dim&) = default;
   folded_dim(folded_dim&&) = default;
 
@@ -147,10 +166,16 @@ class folded_dim {
 
   /** Non-folded range of the dim. */
   index_t extent() const { return internal::reconcile<EXTENT>(extent_); }
-  void set_extent(index_t extent) { extent_ = extent; }
+  void set_extent(index_t extent) {
+    assert(extent == EXTENT || EXTENT == UNKNOWN);
+    extent_ = extent;
+  }
   /** Distance in memory between indices of this dim. */
   index_t stride() const { return internal::reconcile<STRIDE>(stride_); }
-  void set_stride(index_t stride) { stride_ = stride; }
+  void set_stride(index_t stride) {
+    assert(stride == STRIDE || STRIDE == UNKNOWN);
+    stride_ = stride;
+  }
 
   /** In a folded dim, the min and max are unbounded. */
   index_t min() const { return 0; }

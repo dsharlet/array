@@ -257,4 +257,17 @@ TEST(shape_is_in_range_2d) {
   ASSERT(!s.is_in_range(2, 4));
 }
 
+TEST(shape_conversion) {
+  dense_dim<> x_dense(0, 10);
+  dim<> x = x_dense;
+
+  ASSERT_EQ(x.min(), 0);
+  ASSERT_EQ(x.extent(), 10);
+  ASSERT_EQ(x.stride(), 1);
+
+  // TODO: Enabling this leads to lots of overload ambiguity.
+  //dense_shape<2> static_dense(dense_dim<>(0, 10), dim<>(1, 5));
+  //shape_of_rank<2> dense = static_dense;
+}
+
 }  // namespace array
