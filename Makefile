@@ -4,7 +4,8 @@ LDFLAGS :=
 
 DEPS = \
 	shape.h \
-	array.h
+	array.h \
+	stack_allocator.h
 
 TEST_SRC = $(wildcard test/*.cpp)
 TEST_OBJ = $(TEST_SRC:%.cpp=obj/%.o)
