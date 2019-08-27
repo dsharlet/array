@@ -416,6 +416,10 @@ class shape {
   template <std::size_t D>
   const auto& dim() const { return std::get<D>(dims_); }
 
+  /** Get a tuple of the dims of this shape. */
+  std::tuple<Dims...>& dims() { return dims_; }
+  const std::tuple<Dims...>& dims() const { return dims_; }
+
   /** Compute the flat extent of this shape. This is the extent of the
    * valid range of values returned by at or operator(). */
   index_t flat_extent() const { return internal::flat_extent(dims_); }
@@ -434,14 +438,32 @@ class shape {
     return true;
   }
 
-  /** Returns true if this shape projects the indices to a set of flat
-   * indices of the same size. If the dims overlap, or a dim has
-   * stride zero, the set of flat indices will be smaller than the set
-   * of indices. */
-  bool is_map() const {
-    // TODO: This is hard...
+  /** Returns true if this shape is an injective function mapping
+   * indices to flat indices. If the dims overlap, or a dim has stride
+   * zero, multiple indices will map to the same flat index. */
+  bool is_one_to_one() const {
+    // We need to solve:
+    //
+    //   x0*S0 + x1*S1 + x2*S2 + ... == y0*S0 + y1*S1 + y2*S2 + ...
+    //
+    // where xN, yN are (different) indices, and SN are the strides of
+    // this shape. This is equivalent to:
+    //
+    //   (x0 - y0)*S0 + (x1 - y1)*S1 + ... == 0
+    //
+    // We don't actually care what x0 and y0 are, so this is equivalent
+    // to:
+    //
+    //   x0*S0 + x1*S1 + x2*S2 + ... == 0
+    //
+    // where xN != 0.
     return true;
   }
+
+  /** Returns true if this shape is dense in memory. A shape is
+   * 'dense' if there are no unaddressable flat indices between the
+   * first and last addressable flat elements. */
+  bool is_dense() const { return size() == flat_extent(); }
 
   bool operator==(const shape& other) const { return dims_ == other.dims_; }
   bool operator!=(const shape& other) const { return dims_ != other.dims_; }
@@ -472,7 +494,8 @@ class shape<> {
   bool empty() const { return false; }
 
   bool is_subset_of(const shape<>& other) const { return true; }
-  bool is_map() const { return true; }
+  bool is_one_to_one() const { return true; }
+  bool is_dense() const { return true; }
 
   bool operator==(const shape<>& other) const { return true; }
   bool operator!=(const shape<>& other) const { return false; }
@@ -523,6 +546,18 @@ void for_each_index(const Shape& s, const Fn& fn) {
   internal::for_each_index_impl<Shape::rank() - 1>(0, s, fn, std::tuple<>());
 } 
 
+/** Helper function to make a tuple from a variadic list of dims. */
+template <typename... Dims>
+auto make_shape(Dims... dims) {
+  return shape<Dims...>(std::make_tuple(std::forward<Dims>(dims)...));
+}
+
+/** Helper function to make a dense shape from a variadic list of extents. */
+template <typename... Extents>
+auto make_dense_shape(index_t dim0_extent, Extents... extents) {
+  return make_shape(dense_dim<>(dim0_extent), dim<>(extents)...);
+}
+
 namespace internal {
 
 template <typename... Dims>
@@ -531,20 +566,24 @@ shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
 }
 
 template <std::size_t Rank>
-auto make_dense_shape() {
-  return internal::make_shape_from_tuple(std::tuple_cat(std::make_tuple(dense_dim<>()), typename internal::ReplicateType<dim<>, Rank - 1>::type()));
+auto make_default_dense_shape() {
+  return make_shape_from_tuple(std::tuple_cat(std::make_tuple(dense_dim<>()),
+                                              typename internal::ReplicateType<dim<>, Rank - 1>::type()));
+}
+
+template <typename Shape, std::size_t... Is>
+auto make_dense_shape(const Shape& dims, std::index_sequence<Is...>) {
+  return make_shape(dense_dim<>(std::get<0>(dims).min(), std::get<0>(dims).extent()),
+                    dim<>(std::get<Is + 1>(dims).min(), std::get<Is + 1>(dims).extent())...);
 }
 
 }  // namespace internal
 
+/** Make a shape with equivalent indices, but with dense strides. */
 template <typename... Dims>
-auto make_shape(Dims... dims) {
-  return shape<Dims...>(std::make_tuple(std::forward<Dims>(dims)...));
-}
-
-template <typename... Extents>
-auto make_dense_shape(index_t dim0_extent, Extents... extents) {
-  return make_shape(dense_dim<>(dim0_extent), dim<>(extents)...);
+auto make_dense_shape(const shape<Dims...>& shape) {
+  constexpr int rank = sizeof...(Dims);
+  return internal::make_dense_shape(shape.dims(), std::make_index_sequence<rank - 1>());
 }
 
 // TODO: These are disgusting, we should be able to make a shape from a
@@ -553,7 +592,7 @@ template <std::size_t Rank>
 using shape_of_rank = decltype(internal::make_shape_from_tuple(typename internal::ReplicateType<dim<>, Rank>::type()));
 
 template <std::size_t Rank>
-using dense_shape = decltype(internal::make_dense_shape<Rank>());
+using dense_shape = decltype(internal::make_default_dense_shape<Rank>());
 
 }  // namespace array
 

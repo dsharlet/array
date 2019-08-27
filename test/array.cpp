@@ -159,8 +159,19 @@ TEST(array_copy) {
   copy(b, c);
 
   for_each_index(a.shape(), [&](const array_of_rank<int, 3>::index_type& index) {
-    ASSERT(a(index) == b(index));
-    ASSERT(a(index) == c(index));
+    ASSERT_EQ(a(index), b(index));
+    ASSERT_EQ(a(index), c(index));
+  });
+}
+
+TEST(array_dense_copy) {
+  array_of_rank<int, 3> source({dim<>(-3, 4, 2), 5, 6}, 7);
+  ASSERT(!source.is_dense());
+
+  auto dense_copy = make_dense_copy(source);
+  ASSERT(dense_copy.is_dense());
+  for_each_index(dense_copy.shape(), [&](const dense_shape<3>::index_type& index) {
+    ASSERT_EQ(dense_copy(index), source(index));
   });
 }
 

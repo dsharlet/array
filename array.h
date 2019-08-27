@@ -223,6 +223,8 @@ class array {
   /** True if there are zero addressable elements by the shape of this
    * array. */
   bool empty() const { return shape_.empty(); }
+  /** True if this array is dense in memory. */
+  bool is_dense() const { return shape_.is_dense(); }
   /** Reset the shape of this array to empty. */
   void clear() { deallocate(); shape_ = Shape(); }
 
@@ -294,6 +296,12 @@ void copy(const array<T, ShapeSrc, AllocSrc>& src, array<T, ShapeDest, AllocDest
   });
 }
 
+template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = std::allocator<T>>
+auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src) {
+  dense_array<T, ShapeSrc::rank(), AllocDest> dest(make_dense_shape(src.shape()));
+  copy(src, dest);
+  return dest;
+}
 
 }  // namespace array
 
