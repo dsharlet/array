@@ -9,28 +9,6 @@ namespace array {
 
 namespace internal {
 
-// Get a tuple of all of the mins of the shape.
-template <typename Shape, std::size_t... Is>
-auto mins(const Shape& s, std::index_sequence<Is...>) {
-  return std::make_tuple(s.template dim<Is>().min()...);
-}
-
-template <typename Shape, std::size_t... Is>
-auto extents(const Shape& s, std::index_sequence<Is...>) {
-  return std::make_tuple(s.template dim<Is>().extent()...);
-}
-
-// Get a tuple of all of the extents of the shape.
-template <typename Shape>
-auto mins(const Shape& s) {
-  return mins(s, std::make_index_sequence<Shape::rank()>());
-}
-
-template <typename Shape>
-auto extents(const Shape& s) {
-  return extents(s, std::make_index_sequence<Shape::rank()>());
-}
-
 template <typename Shape>
 bool mins_extents_equal(const Shape& a, const Shape& b) {
   return mins(a) == mins(b) && extents(a) == extents(b);
@@ -309,6 +287,19 @@ auto make_dense_array(Extents... extents) {
   auto shape = make_dense_shape(std::forward<Extents>(extents)...);
   return make_array<T>(shape);
 }
+
+/** Copy an src array to a dest array. The range of the shape of dest
+ * will be copied, and must be in range of src. */
+template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc, typename AllocDest>
+void copy(const array<T, ShapeSrc, AllocSrc>& src, array<T, ShapeDest, AllocDest>& dest) {
+  if (!src.shape().is_shape_in_range(dest.shape())) {
+    throw std::out_of_range("dest indices are out of range of src");
+  }
+  for_each_index(dest.shape(), [&](const typename ShapeDest::index_type& index) {
+    dest(index) = src(index);
+  });
+}
+
 
 }  // namespace array
 

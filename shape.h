@@ -263,6 +263,39 @@ index_t max_stride(const Dims& dims, std::index_sequence<Is...>) {
   return variadic_max(std::get<Is>(dims).stride() * std::get<Is>(dims).extent()...);
 }
 
+// Get a tuple of all of the mins of the shape.
+template <typename Shape, std::size_t... Is>
+auto mins(const Shape& s, std::index_sequence<Is...>) {
+  return std::make_tuple(s.template dim<Is>().min()...);
+}
+
+template <typename Shape>
+auto mins(const Shape& s) {
+  return mins(s, std::make_index_sequence<Shape::rank()>());
+}
+
+// Get a tuple of all of the extents of the shape.
+template <typename Shape, std::size_t... Is>
+auto extents(const Shape& s, std::index_sequence<Is...>) {
+  return std::make_tuple(s.template dim<Is>().extent()...);
+}
+
+template <typename Shape>
+auto extents(const Shape& s) {
+  return extents(s, std::make_index_sequence<Shape::rank()>());
+}
+
+// Get a tuple of all of the maxes of the shape.
+template <typename Shape, std::size_t... Is>
+auto maxes(const Shape& s, std::index_sequence<Is...>) {
+  return std::make_tuple(s.template dim<Is>().max()...);
+}
+
+template <typename Shape>
+auto maxes(const Shape& s) {
+  return maxes(s, std::make_index_sequence<Shape::rank()>());
+}
+
 // Resolve unknown dim quantities.
 inline void resolve_unknowns_impl(index_t current_stride) {}
 
@@ -342,6 +375,11 @@ class shape {
   template <typename... Indices>
   bool is_in_range(Indices... indices) const {
     return is_in_range(std::make_tuple<Indices...>(std::forward<Indices>(indices)...));
+  }
+
+  template <typename... OtherDims>
+  bool is_shape_in_range(const shape<OtherDims...>& other_shape) const {
+    return is_in_range(internal::mins(other_shape)) && is_in_range(internal::maxes(other_shape));
   }
 
   /** Compute the flat offset of the indices. If an index is out of

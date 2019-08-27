@@ -149,6 +149,20 @@ TEST(array_equality) {
   ASSERT(a != c);
 }
 
+TEST(array_copy) {
+  array_of_rank<int, 3> a({4, 5, 6}, 7);
+  dense_array<int, 3> b({4, 5, 6});
+  array_of_rank<int, 3> c({dim<>(0, 4, 2), 5, 6});
+
+  copy(a, b);
+  copy(b, c);
+
+  for_each_index(a.shape(), [&](const array_of_rank<int, 3>::index_type& index) {
+    ASSERT(a(index) == b(index));
+    ASSERT(a(index) == c(index));
+  });
+}
+
 struct lifetime_counter {
   static int default_constructs;
   static int copy_constructs;
