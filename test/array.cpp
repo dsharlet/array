@@ -257,4 +257,50 @@ TEST(array_clear_lifetime) {
   ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size());
 }
 
+TEST(array_lifetime_leaks) {
+  lifetime_counter::reset();
+  {
+    lifetime_array empty;
+    lifetime_array default_init(lifetime_shape);
+    lifetime_array default_init2({4, 9});
+    lifetime_array copy(default_init);
+    lifetime_array copy2(default_init2);
+    lifetime_array copy3(copy2);
+    lifetime_array copy_empty(empty);
+    lifetime_array assign_init = default_init;
+    lifetime_array assign_init_empty = empty;
+    lifetime_array assign;
+    assign = default_init;
+    assign = default_init2;
+    assign = default_init2;
+    assign = default_init;
+    assign = default_init;
+    assign = default_init2;
+    assign = default_init;
+    assign = default_init2;
+    assign = std::move(default_init);
+    assign = std::move(default_init2);
+    assign = std::move(default_init);
+    assign = std::move(default_init2);
+    assign = std::move(copy2);
+    assign = copy3;
+    assign = copy;
+    assign = copy;
+    copy.clear();
+    assign = copy;
+    lifetime_array assign2;
+    assign2.assign(default_init);
+    assign2.assign(default_init);
+    assign2.assign(default_init2);
+    assign2.assign(default_init);
+    assign2.assign(default_init2);
+    assign2.assign(lifetime_shape, lifetime_counter());
+    assign2.assign(std::move(default_init));
+    assign2.assign(std::move(default_init2));
+    assign2.assign(std::move(default_init));
+    assign2.assign(std::move(default_init));
+  }
+  ASSERT_EQ(lifetime_counter::destructs, lifetime_counter::constructs());
+}
+
 }  // namespace array

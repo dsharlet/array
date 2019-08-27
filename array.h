@@ -23,32 +23,32 @@ class array {
 
   // Call the constructor on all of the elements of the array.
   void construct() {
-    assert(base_);
+    assert(base_ || shape_.empty());
     for_each_value([&](T& x) {
       std::allocator_traits<Alloc>::construct(alloc_, &x);
     });
   }
   void construct(const T& init) {
-    assert(base_);
+    assert(base_ || shape_.empty());
     for_each_value([&](T& x) {
       std::allocator_traits<Alloc>::construct(alloc_, &x, init);
     });
   }
   void construct(const array& copy) {
-    assert(base_);
+    assert(base_ || shape_.empty());
     for_each_index(shape(), [&](const index_type& index) {
       std::allocator_traits<Alloc>::construct(alloc_, &operator()(index), copy(index));
     });
   }
   void construct(array& move) {
-    assert(base_);
+    assert(base_ || shape_.empty());
     for_each_index(shape(), [&](const index_type& index) {
       std::allocator_traits<Alloc>::construct(alloc_, &operator()(index), std::move(move(index)));
     });
   }
 
   void destroy() {
-    assert(base_);
+    assert(base_ || shape_.empty());
     for_each_value([&](T& x) {
       std::allocator_traits<Alloc>::destroy(alloc_, &x);
     });
