@@ -27,8 +27,8 @@ class stack_allocator {
   stack_allocator(const stack_allocator<U, U_N>&) noexcept : allocated(false) {}
   stack_allocator(const stack_allocator&) noexcept : allocated(false) {}
   stack_allocator(stack_allocator&&) noexcept : allocated(false) {}
-  stack_allocator& operator = (const stack_allocator&) { return *this; }
-  stack_allocator& operator = (stack_allocator&&) { return *this; }
+  stack_allocator& operator=(const stack_allocator&) { return *this; }
+  stack_allocator& operator=(stack_allocator&&) { return *this; }
 
   T* allocate(std::size_t n) {
     if (allocated) throw std::bad_alloc();
@@ -47,12 +47,12 @@ class stack_allocator {
 
 template <class T, std::size_t T_N, class U, std::size_t U_N>
 bool operator==(const stack_allocator<T, T_N>& a, const stack_allocator<U, U_N>& b) { 
-  return static_cast<void*>(&a) == static_cast<void*>(&b);
+  return reinterpret_cast<const void*>(&a) == reinterpret_cast<const void*>(&b);
 }
 
 template <class T, std::size_t T_N, class U, std::size_t U_N>
 bool operator!=(const stack_allocator<T, T_N>& a, const stack_allocator<U, U_N>& b) {
-  return static_cast<void*>(&a) != static_cast<void*>(&b);
+  return reinterpret_cast<const void*>(&a) != reinterpret_cast<const void*>(&b);
 }
 
 }  // namespace

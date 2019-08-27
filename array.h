@@ -47,23 +47,20 @@ class array {
     });
   }
 
+  void destroy() {
+    assert(base_);
+    for_each_value([&](T& x) {
+      std::allocator_traits<Alloc>::destroy(alloc_, &x);
+    });
+  }
+
   // Call the destructor on every element, and deallocate the array.
   void deallocate() {
     if (base_) {
-      for_each_value([&](T& x) {
-        std::allocator_traits<Alloc>::destroy(alloc_, &x);
-      });
+      destroy();
       std::allocator_traits<Alloc>::deallocate(alloc_, base_, shape_.flat_extent());
       base_ = nullptr;
     }
-  }
-
-  void reallocate(Shape shape) {
-    if (shape_ != shape) {
-      deallocate();
-      shape_ = std::move(shape);
-    }
-    allocate();
   }
 
  public:
@@ -95,9 +92,7 @@ class array {
   array(const array& copy, const Alloc& alloc) : array(alloc) {
     assign(copy);
   }
-  array(array&& other) : array() {
-    swap(other);
-  }
+  array(array&& other) : array(std::move(other), Alloc()) {}
   array(array&& other, const Alloc& alloc) : array(alloc) {
     using std::swap;
     if (alloc_ != other.get_allocator()) {
@@ -136,16 +131,34 @@ class array {
 
   void assign(const array& copy) {
     if (this == &copy) return;
-    reallocate(copy.shape());
+    if (shape_ == copy.shape()) {
+      destroy();
+    } else {
+      deallocate();
+      shape_ = copy.shape();
+      allocate();
+    }
     construct(copy);
   }
   void assign(array& move) {
     if (this == &move) return;
-    reallocate(move.shape());
+    if (shape_ == move.shape()) {
+      destroy();
+    } else {
+      deallocate();
+      shape_ = move.shape();
+      allocate();
+    }
     construct(move);
   }
   void assign(Shape shape, const T& value) {
-    reallocate(std::move(shape));
+    if (shape_ == shape) {
+      destroy();
+    } else {
+      deallocate();
+      shape_ = shape;
+      allocate();
+    }
     construct(value);
   }
 
@@ -211,7 +224,7 @@ class array {
    * array. */
   bool empty() const { return shape_.empty(); }
   /** Reset the shape of this array to empty. */
-  void clear() { reallocate(Shape()); }
+  void clear() { deallocate(); shape_ = Shape(); }
 
   /** Reshape the array. The new shape must not address any elements
    * not already addressable by the current shape of this array. */
