@@ -53,11 +53,14 @@ void multiply_cols_innermost(const matrix<T>& a, const matrix<T>& b, matrix<T>& 
 // the output matrix into chunks, and reorders the inner loops
 // innermost to form tiles. This implementation should allow the compiler
 // to keep all of the accumulators for the output in registers.
-// TODO: It's currently not doing this...
+// TODO: This is slow. It appears to currently keep the tile in registers,
+// but doesn't autovectorize like the above loop.
 template <typename T>
 void multiply_tiles_innermost(const matrix<T>& a, const matrix<T>& b, matrix<T>& c) {
+  // We want the tiles to be as big as possible without spilling any
+  // of the accumulator registers to the stack.
   constexpr int tile_M = 32;
-  constexpr int tile_N = 8;
+  constexpr int tile_N = 4;
   // TODO: Add helper functions to make this less disgusting.
   int tiles_m = rows(c).extent() / tile_M;
   int tiles_n = cols(c).extent() / tile_N;
