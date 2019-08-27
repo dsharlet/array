@@ -17,10 +17,15 @@ bin/test: $(TEST_OBJ)
 	mkdir -p $(@D)
 	$(CXX) -o $@ $^ $(LDFLAGS) -lstdc++ -lm
 
-.PHONY: all clean test
+bin/example: obj/examples/example.o
+	mkdir -p $(@D)
+	$(CXX) -o $@ $^ $(LDFLAGS) -lstdc++ -lm
+
+.PHONY: all clean test example
 
 clean:
 	rm -rf obj/* bin/*
 
-test: bin/test
+test: bin/test bin/example
 	bin/test $(FILTER)
+	bin/example
