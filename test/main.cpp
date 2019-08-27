@@ -67,5 +67,5 @@ int main(int argc, const char** argv) {
     total++;
   }
   std::cout << passed << " of " << total << " tests passed, " << tests().size() - total << " skipped" << std::endl;
-  return 0;
+  return passed < total ? -1 : 0;
 }
