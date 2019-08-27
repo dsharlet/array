@@ -7,15 +7,6 @@
 
 namespace array {
 
-namespace internal {
-
-template <typename Shape>
-bool mins_extents_equal(const Shape& a, const Shape& b) {
-  return mins(a) == mins(b) && extents(a) == extents(b);
-}
-
-}  // namespace internal
-
 /** A multi-dimensional array container that mirrors std::vector. */
 template <typename T, typename Shape, typename Alloc = std::allocator<T>>
 class array {
@@ -235,7 +226,8 @@ class array {
    * arrays to be considered equal, they must have the same shape, and
    * all elements addressable by the shape must also be equal. */
   bool operator!=(const array& other) const {
-    if (!internal::mins_extents_equal(shape(), other.shape())) {
+    if (internal::mins(shape()) != internal::mins(other.shape()) ||
+        internal::extents(shape()) != internal::extents(other.shape())) {
       return true;
     }
 
