@@ -21,11 +21,20 @@ bin/example: obj/examples/example.o
 	mkdir -p $(@D)
 	$(CXX) -o $@ $^ $(LDFLAGS) -lstdc++ -lm
 
-.PHONY: all clean test example
+bin/matrix: obj/examples/matrix.o
+	mkdir -p $(@D)
+	$(CXX) -o $@ $^ $(LDFLAGS) -lstdc++ -lm
+
+.PHONY: all clean test example matrix
 
 clean:
 	rm -rf obj/* bin/*
 
-test: bin/test bin/example
+test: bin/test bin/example bin/matrix
 	bin/test $(FILTER)
 	bin/example
+	bin/matrix
+
+examples: bin/example bin/matrix
+	bin/example
+	bin/matrix
