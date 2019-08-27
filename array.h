@@ -269,17 +269,6 @@ void swap(array<T, Shape, Alloc>& a, array<T, Shape, Alloc>& b) {
   a.swap(b);
 }
 
-template <typename T, typename Shape>
-array<T, Shape> make_array(const Shape& shape) {
-  return array<T, Shape>(shape);
-}
-
-template <typename T, typename... Extents>
-auto make_dense_array(Extents... extents) {
-  auto shape = make_dense_shape(std::forward<Extents>(extents)...);
-  return make_array<T>(shape);
-}
-
 /** Copy an src array to a dest array. The range of the shape of dest
  * will be copied, and must be in range of src. */
 template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc, typename AllocDest>
