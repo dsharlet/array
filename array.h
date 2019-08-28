@@ -932,9 +932,16 @@ class stack_allocator {
   typedef std::false_type propagate_on_container_move_assignment;
   typedef std::false_type propagate_on_container_swap;
 
+  static stack_allocator select_on_container_copy_construction(const stack_allocator& a) {
+    return stack_allocator();
+  }
+
   stack_allocator() : allocated(false) {}
   template <class U, std::size_t U_N> constexpr 
   stack_allocator(const stack_allocator<U, U_N>&) noexcept : allocated(false) {}
+  // TODO: Most of these constructors/assignment operators are hacks,
+  // because the C++ STL I'm using seems to not be respecting the
+  // propagate typedefs or the 'select_on_...' function above..
   stack_allocator(const stack_allocator&) noexcept : allocated(false) {}
   stack_allocator(stack_allocator&&) noexcept : allocated(false) {}
   stack_allocator& operator=(const stack_allocator&) { return *this; }
@@ -948,10 +955,6 @@ class stack_allocator {
   }
   void deallocate(T* p, std::size_t) noexcept {
     allocated = false;
-  }
-
-  static stack_allocator select_on_container_copy_construction(const stack_allocator& a) {
-    return stack_allocator();
   }
 };
 
