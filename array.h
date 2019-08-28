@@ -630,6 +630,136 @@ using shape_of_rank = decltype(internal::make_shape_from_tuple(typename internal
 template <std::size_t Rank>
 using dense_shape = decltype(internal::make_default_dense_shape<Rank>());
 
+/** A multi-dimensional wrapper around a pointer. */
+template <typename T, typename Shape>
+class array_ref {
+  T* base_;
+  Shape shape_;
+
+ public:
+  typedef T value_type;
+  typedef Shape shape_type;
+  typedef typename Shape::index_type index_type;
+  typedef std::size_t size_type;
+  typedef std::ptrdiff_t difference_type;
+  typedef value_type& reference;
+  typedef value_type* pointer;
+
+  array_ref(T* base, Shape shape) : base_(base), shape_(std::move(shape)) {}
+  array_ref(const array_ref& other) : array_ref(other.data(), other.shape()) {}
+
+  array_ref& operator=(const array_ref& other) {
+    if (this == &other) return *this;
+    assign(other);
+    return *this;
+  }
+  array_ref& operator=(array_ref&& other) {
+    assign(other);
+    return *this;
+  }
+
+  void assign(const array_ref& copy) const {
+    if (this == &copy) return;
+    if (!shape().is_shape_in_range(copy.shape())) {
+      throw std::out_of_range("assignment accesses indices out of range of src");
+    }
+    for_each_index(shape(), [&](const index_type& x) {
+      base_[shape_(x)] = copy(x);
+    });
+  }
+  void assign(array_ref& move) const {
+    if (this == &move) return;
+    if (!shape().is_shape_in_range(move.shape())) {
+      throw std::out_of_range("assignment accesses indices out of range of src");
+    }
+    for_each_index(shape(), [&](const index_type& x) {
+      base_[shape_(x)] = std::move(move(x));
+    });
+  }
+  void assign(const T& value) const {
+    for_each_index(shape(), [&](const index_type& x) {
+      base_[shape_(x)] = value;
+    });
+  }
+
+  template <typename... Indices>
+  reference at(const std::tuple<Indices...>& indices) const {
+    return base_[shape_.at(indices)];
+  }
+  template <typename... Indices>
+  reference at(Indices... indices) const {
+    return base_[shape_.at(std::forward<Indices>(indices)...)];
+  }
+
+  template <typename... Indices>
+  reference operator() (const std::tuple<Indices...>& indices) const {
+    return base_[shape_(indices)];
+  }
+  template <typename... Indices>
+  reference operator() (Indices... indices) const {
+    return base_[shape_(std::forward<Indices>(indices)...)];
+  }
+
+  /** Call a function with a reference to each value in this array_ref. */
+  template <typename Fn>
+  void for_each_value(const Fn& fn) const {
+    for_each_index(shape(), [&](const index_type& index) {
+      fn(base_[shape_(index)]);
+    });
+  }
+
+  /** Pointer to the start of the flattened array_ref. */
+  pointer data() const { return base_; }
+
+  /** Shape of this array_ref. */
+  const Shape& shape() const { return shape_; }
+  /** Number of elements addressable by the shape of this array_ref. */
+  size_type size() { return shape_.size(); }
+  /** True if there are zero addressable elements by the shape of this
+   * array_ref. */
+  bool empty() const { return shape_.empty(); }
+  /** True if this array_ref is dense in memory. */
+  bool is_dense() const { return shape_.is_dense(); }
+
+  /** Reshape the array_ref. The new shape must not address any elements
+   * not already addressable by the current shape of this array_ref. */
+  void reshape(Shape new_shape) {
+    if (!new_shape.is_subset_of(shape())) {
+      throw std::out_of_range("new_shape is not a subset of shape().");
+    }
+    shape_ = std::move(new_shape);
+  }
+
+  /** Compare the contents of this array_ref to the other array_ref. For two
+   * array_refs to be considered equal, they must have the same shape, and
+   * all elements addressable by the shape must also be equal. */
+  bool operator!=(const array_ref& other) const {
+    if (internal::mins(shape()) != internal::mins(other.shape()) ||
+        internal::extents(shape()) != internal::extents(other.shape())) {
+      return true;
+    }
+
+    // TODO: This currently calls operator!= on all elements of the
+    // array_ref, even after we find a non-equal element.
+    bool result = false;
+    for_each_index(shape(), [&](const index_type& x) {
+      if (base_[shape_(x)] != other(x)) {
+        result = true;
+      }
+    });
+    return result;
+  }
+  bool operator==(const array_ref& other) const {
+    return !operator!=(other);
+  }
+};
+
+template <typename T, std::size_t Rank>
+using array_ref_of_rank = array_ref<T, shape_of_rank<Rank>>;
+
+template <typename T, std::size_t Rank>
+using dense_array_ref = array_ref<T, dense_shape<Rank>>;
+
 /** A multi-dimensional array container that mirrors std::vector. */
 template <typename T, typename Shape, typename Alloc = std::allocator<T>>
 class array {
@@ -817,7 +947,7 @@ class array {
     return base_[shape_(indices)];
   }
   template <typename... Indices>
-  const_reference operator() (Indices... indices) const { 
+  const_reference operator() (Indices... indices) const {
     return base_[shape_(std::forward<Indices>(indices)...)];
   }
 
@@ -894,6 +1024,16 @@ class array {
     swap(base_, other.base_);
     swap(shape_, other.shape_);
   }
+
+  /** Make an array_ref referring to the data in this array. */
+  array_ref<T, Shape> ref() {
+    return array_ref<T, Shape>(data(), shape());
+  }
+  array_ref<const T, Shape> ref() const {
+    return array_ref<const T, Shape>(data(), shape());
+  }
+  operator array_ref<T, Shape>() { return ref(); }
+  operator array_ref<const T, Shape>() const { return ref(); }
 };
 
 template <typename T, std::size_t Rank, typename Alloc = std::allocator<T>>
@@ -909,23 +1049,49 @@ void swap(array<T, Shape, Alloc>& a, array<T, Shape, Alloc>& b) {
 
 /** Copy an src array to a dest array. The range of the shape of dest
  * will be copied, and must be in range of src. */
-template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc, typename AllocDest>
-void copy(const array<T, ShapeSrc, AllocSrc>& src, array<T, ShapeDest, AllocDest>& dest) {
-  if (!src.shape().is_shape_in_range(dest.shape())) {
+template <typename T, typename ShapeSrc, typename ShapeDest>
+void copy(const array_ref<const T, ShapeSrc>& src, const array_ref<T, ShapeDest>& dest) {
+  if (!dest.shape().is_shape_in_range(src.shape())) {
     throw std::out_of_range("dest indices are out of range of src");
   }
   for_each_index(dest.shape(), [&](const typename ShapeDest::index_type& index) {
     dest(index) = src(index);
   });
 }
+template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocDest>
+void copy(const array_ref<const T, ShapeSrc>& src, array<T, ShapeDest, AllocDest>& dest) {
+  copy(src, dest.ref());
+}
+template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc>
+void copy(const array<T, ShapeSrc, AllocSrc>& src, const array_ref<T, ShapeDest>& dest) {
+  copy(src.ref(), dest);
+}
+template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc, typename AllocDest>
+void copy(const array<T, ShapeSrc, AllocSrc>& src, array<T, ShapeDest, AllocDest>& dest) {
+  copy(src.ref(), dest.ref());
+}
+
+/** Make a copy of an array with a new shape. */
+template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocDest = std::allocator<T>>
+auto make_copy(const array_ref<const T, ShapeSrc>& src, const ShapeDest& copy_shape) {
+  dense_array<T, ShapeSrc::rank(), AllocDest> dest(copy_shape);
+  copy(src, dest);
+  return dest;
+}
+template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc, typename AllocDest = std::allocator<T>>
+auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const ShapeDest& copy_shape) {
+  return make_copy(src.ref(), copy_shape);
+}
 
 /** Make a copy of an array with the same shape as src, but with dense
  * strides. */
+template <typename T, typename ShapeSrc, typename AllocDest = std::allocator<T>>
+auto make_dense_copy(const array_ref<const T, ShapeSrc>& src) {
+  return make_copy(src, make_dense_shape(src.shape()));
+}
 template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = std::allocator<T>>
 auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src) {
-  dense_array<T, ShapeSrc::rank(), AllocDest> dest(make_dense_shape(src.shape()));
-  copy(src, dest);
-  return dest;
+  return make_dense_copy(src.ref());
 }
 
 /** Allocator that owns a buffer of fixed size, which will be placed
