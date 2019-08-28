@@ -909,6 +909,8 @@ void copy(const array<T, ShapeSrc, AllocSrc>& src, array<T, ShapeDest, AllocDest
   });
 }
 
+/** Make a copy of an array with the same shape as src, but with dense
+ * strides. */
 template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = std::allocator<T>>
 auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src) {
   dense_array<T, ShapeSrc::rank(), AllocDest> dest(make_dense_shape(src.shape()));
