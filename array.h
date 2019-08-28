@@ -24,9 +24,12 @@ namespace internal {
 template <index_t Value>
 index_t reconcile(index_t value) {
   if (Value != UNKNOWN) {
-    // If we have a compile-time known value, ensure that it
-    // matches the runtime value.
-    assert(Value == value);
+    // It would be nice to assert here that Value == value. But, this
+    // is used in the innermost loops, so when asserts are on, this
+    // ruins performance. It is also a less helpful place to catch
+    // errors like this, because the bug it is catching is caused by
+    // an issue much earlier than this, so it is better to assert
+    // there instead.
     return Value;
   } else {
     return value;
@@ -203,12 +206,17 @@ class folded_dim {
   }
 };
 
+/** Clamp an index to the range [min, max]. */
+inline index_t clamp(index_t x, index_t min, index_t max) {
+  if (x < min) return min;
+  if (x > max) return max;
+  return x;
+}
+
 /** Clamp an index to the range described by a dim. */
 template <typename Dim>
 inline index_t clamp(index_t x, const Dim& d) {
-  if (x < d.min()) return d.min();
-  if (x > d.max()) return d.max();
-  return x;
+  return clamp(x, d.min(), d.max());
 }
 
 namespace internal {
@@ -713,6 +721,8 @@ class array_ref {
 
   /** Shape of this array_ref. */
   const Shape& shape() const { return shape_; }
+  template <std::size_t D>
+  const auto& dim() const { return shape().template dim<D>(); }
   /** Number of elements addressable by the shape of this array_ref. */
   size_type size() { return shape_.size(); }
   /** True if there are zero addressable elements by the shape of this
@@ -971,6 +981,8 @@ class array {
 
   /** Shape of this array. */
   const Shape& shape() const { return shape_; }
+  template <std::size_t D>
+  const auto& dim() const { return shape().template dim<D>(); }
   /** Number of elements addressable by the shape of this array. */
   size_type size() { return shape_.size(); }
   /** True if there are zero addressable elements by the shape of this
@@ -1042,6 +1054,17 @@ using array_of_rank = array<T, shape_of_rank<Rank>, Alloc>;
 template <typename T, std::size_t Rank, typename Alloc = std::allocator<T>>
 using dense_array = array<T, dense_shape<Rank>, Alloc>;
 
+/** Make a new array from a shape. */
+template <typename T, typename Shape, typename Alloc = std::allocator<T>>
+auto make_array(const Shape& shape) {
+  return array<T, Shape, Alloc>(shape);
+}
+template <typename T, typename Shape, typename Alloc = std::allocator<T>>
+auto make_array(const Shape& shape, const T& value) {
+  return array<T, Shape, Alloc>(shape, value);
+}
+
+/** Swap the contents of two arrays. */
 template <typename T, typename Shape, typename Alloc>
 void swap(array<T, Shape, Alloc>& a, array<T, Shape, Alloc>& b) {
   a.swap(b);
