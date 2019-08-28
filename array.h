@@ -456,14 +456,6 @@ class shape {
   /** A shape is empty if its size is 0. */
   bool empty() const { return size() == 0; }
 
-  /** Returns true if this shape projects to a set of flat indices
-   * that is a subset of the other shape's projection to flat
-   * indices. */
-  bool is_subset_of(const shape& other) const {
-    // TODO: This is hard...
-    return true;
-  }
-
   /** Returns true if this shape is an injective function mapping
    * indices to flat indices. If the dims overlap, or a dim has stride
    * zero, multiple indices will map to the same flat index. */
@@ -482,7 +474,25 @@ class shape {
     //
     //   x0*S0 + x1*S1 + x2*S2 + ... == 0
     //
-    // where xN != 0.
+    // where xN != 0. This is a linear diophantine equation, and we
+    // already have one solution at xN = 0, so we just need to find
+    // other solutions, and check that they are in range.
+
+    // TODO: This is pretty hard. I think we need to rewrite the
+    // equation as a system of linear diophantine equations, and
+    // then use the "Hermite normal form" to get the unbounded
+    // solutions, and then do some combinatoric search for the
+    // in-bounds solutions. This is an NP-hard problem, but the
+    // size of the problems are small, and I don't think these
+    // functions need to be fast.
+    return true;
+  }
+
+  /** Returns true if this shape projects to a set of flat indices
+   * that is a subset of the other shape's projection to flat
+   * indices. */
+  bool is_subset_of(const shape& other) const {
+    // TODO: This is also hard, maybe even harder than is_one_to_one.
     return true;
   }
 
