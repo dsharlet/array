@@ -1,4 +1,4 @@
-CFLAGS := $(CFLAGS) -O2 -ffast-math #-I/usr/local/Cellar/llvm/6.0.1/include/c++/v1
+CFLAGS := $(CFLAGS) -O2 -mavx #-I/usr/local/Cellar/llvm/6.0.1/include/c++/v1
 CXXFLAGS := $(CXXFLAGS) -std=c++14 -march=native -Wall -Wno-unknown-pragmas -ferror-limit=3 -Wno-missing-braces
 LDFLAGS :=
 

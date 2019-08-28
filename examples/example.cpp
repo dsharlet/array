@@ -2,6 +2,9 @@
 #include "benchmark.h"
 
 #include <iostream>
+#ifdef __AVX2__
+#include <immintrin.h>
+#endif
 
 using namespace array;
 
@@ -75,7 +78,6 @@ int main(int argc, const char** argv) {
   typedef array<int, shape<dense_dim<>, dim<>, dim<>>> planar_image_type;
   planar_image_type planar_image({width, height, channels});
   planar_image_type planar_other_image({width, height, channels});
-  planar_image_type planar_sum_image({width, height, channels});
 
   // While array does have a full set of copy constructors and
   // assignment operators, these images have different types because
@@ -86,6 +88,7 @@ int main(int argc, const char** argv) {
   copy(other_image, planar_other_image);
 
   // We can use the same code above to process these images:
+  planar_image_type planar_sum_image({width, height, channels});
   double planar_sum_benchmark = benchmark([&]() {
     for_each_index(planar_sum_image.shape(), [&](const image_type::index_type& index) {
       planar_sum_image(index) =
@@ -97,6 +100,33 @@ int main(int argc, const char** argv) {
 
   // Arrays with a dense first dimension are common enough that these
   // have a built in alias 'dense_shape' and 'dense_array'.
+
+#ifdef __AVX2__
+  // For comparison, here is the code above implemented with SIMD
+  // intrinsics.
+  planar_image_type planar_sum_intrinsics_image({width, height, channels});
+  double planar_sum_intrinsics_benchmark = benchmark([&]() {
+    for (int y = 0; y < height; y++) {
+      for (int c = 0; c < channels; c++) {
+        const int* image_row = &planar_image(0, y, c);
+        const int* other_image_row = &planar_other_image(0, y, c);
+        int* sum_intrinsics_row = &planar_sum_intrinsics_image(0, y, c);
+        int x = 0;
+        for (; x + 7 < width; x += 8) {
+          __m256i a = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&image_row[x]));
+          __m256i b = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&other_image_row[x]));
+          __m256i c = _mm256_add_epi32(a, b);
+          _mm256_storeu_si256(reinterpret_cast<__m256i*>(&sum_intrinsics_row[x]), c);
+        }
+        for (; x < width; x++) {
+          sum_intrinsics_row[x] = image_row[x] + other_image_row[x];
+        }
+      }
+    }
+  });
+  std::cout << "Planar image sum (using intrinsics) took "
+            << planar_sum_intrinsics_benchmark * 1e3 << " ms" << std::endl;
+#endif
 
   // Another common form of image layout is an 'interleaved' image,
   // where the dense dimension is the channel dimension. For this
