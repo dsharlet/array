@@ -1,4 +1,4 @@
-#include "shape.h"
+#include "array.h"
 #include "test.h"
 
 namespace array {

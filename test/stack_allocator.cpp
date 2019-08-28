@@ -1,5 +1,4 @@
 #include "array.h"
-#include "stack_allocator.h"
 #include "test.h"
 #include "lifetime.h"
 

@@ -2,10 +2,7 @@ CFLAGS := $(CFLAGS) -O2 -mavx #-I/usr/local/Cellar/llvm/6.0.1/include/c++/v1
 CXXFLAGS := $(CXXFLAGS) -std=c++14 -march=native -Wall -Wno-unknown-pragmas -ferror-limit=3 -Wno-missing-braces
 LDFLAGS :=
 
-DEPS = \
-	shape.h \
-	array.h \
-	stack_allocator.h
+DEPS = array.h
 
 TEST_SRC = $(wildcard test/*.cpp)
 TEST_OBJ = $(TEST_SRC:%.cpp=obj/%.o)
