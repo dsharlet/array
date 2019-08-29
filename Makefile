@@ -1,4 +1,4 @@
-CFLAGS := $(CFLAGS) -O2 -mavx #-I/usr/local/Cellar/llvm/6.0.1/include/c++/v1
+CFLAGS := $(CFLAGS) -O2 -ffast-math -mavx #-I/usr/local/Cellar/llvm/6.0.1/include/c++/v1
 CXXFLAGS := $(CXXFLAGS) -std=c++14 -march=native -Wall -Wno-unknown-pragmas -ferror-limit=3 -Wno-missing-braces
 LDFLAGS :=
 
@@ -15,7 +15,7 @@ bin/test: $(TEST_OBJ)
 	mkdir -p $(@D)
 	$(CXX) -o $@ $^ $(LDFLAGS) -lstdc++ -lm
 
-bin/example: obj/examples/example.o
+bin/blur: obj/examples/blur.o
 	mkdir -p $(@D)
 	$(CXX) -o $@ $^ $(LDFLAGS) -lstdc++ -lm
 
@@ -23,16 +23,16 @@ bin/matrix: obj/examples/matrix.o
 	mkdir -p $(@D)
 	$(CXX) -o $@ $^ $(LDFLAGS) -lstdc++ -lm
 
-.PHONY: all clean test example matrix
+.PHONY: all clean test blur matrix
 
 clean:
 	rm -rf obj/* bin/*
 
-test: bin/test bin/example bin/matrix
+test: bin/test bin/blur bin/matrix
 	bin/test $(FILTER)
-	bin/example
+	bin/blur
 	bin/matrix
 
-examples: bin/example bin/matrix
-	bin/example
+examples: bin/blur bin/matrix
+	bin/blur
 	bin/matrix
