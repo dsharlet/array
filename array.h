@@ -623,7 +623,15 @@ auto make_dense_shape(const Shape& dims, std::index_sequence<Is...>) {
 
 }  // namespace internal
 
-/** Make a shape with equivalent indices, but with dense strides. */
+/** Create a new shape using a permutation DimIndices... of the
+ * dimensions of the shape. */
+template <std::size_t... DimIndices, typename Shape>
+auto transpose(const Shape& shape) {
+  return make_shape(shape.template dim<DimIndices>()...);
+}
+
+/** Make a shape with an equivalent domain of indices, but with dense
+ * strides. */
 template <typename... Dims>
 auto make_dense_shape(const shape<Dims...>& shape) {
   constexpr int rank = sizeof...(Dims);

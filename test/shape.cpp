@@ -270,4 +270,12 @@ TEST(shape_conversion) {
   //shape_of_rank<2> dense = static_dense;
 }
 
+TEST(shape_transpose) {
+  dense_shape<3> s(3, 5, 8);
+  auto transposed = transpose<1, 2, 0>(s);
+  ASSERT_EQ(transposed.template dim<0>().extent(), 5);
+  ASSERT_EQ(transposed.template dim<1>().extent(), 8);
+  ASSERT_EQ(transposed.template dim<2>().extent(), 3);
+}
+
 }  // namespace array
