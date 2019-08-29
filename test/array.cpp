@@ -158,9 +158,13 @@ TEST(array_copy) {
   copy(a, b);
   copy(b, c);
 
+  auto d = make_copy(a, c.shape());
+  ASSERT(c.shape() == d.shape());
+
   for_each_index(a.shape(), [&](const array_of_rank<int, 3>::index_type& index) {
     ASSERT_EQ(a(index), b(index));
     ASSERT_EQ(a(index), c(index));
+    ASSERT_EQ(a(index), d(index));
   });
 }
 

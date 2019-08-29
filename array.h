@@ -1105,7 +1105,7 @@ void copy(const array<T, ShapeSrc, AllocSrc>& src, array<T, ShapeDest, AllocDest
 /** Make a copy of an array with a new shape. */
 template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocDest = std::allocator<T>>
 auto make_copy(const array_ref<const T, ShapeSrc>& src, const ShapeDest& copy_shape) {
-  dense_array<T, ShapeSrc::rank(), AllocDest> dest(copy_shape);
+  array<T, ShapeDest, AllocDest> dest(copy_shape);
   copy(src, dest);
   return dest;
 }
