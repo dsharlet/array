@@ -30,7 +30,7 @@ TEST(reinterpret) {
   memcpy(&eight, &eight_int, sizeof(eight));
 
   dense_array<int, 3> int_array({4, 5, 6}, eight_int);
-  auto float_array = int_array.reinterpret<float>();
+  dense_array_ref<float, 3> float_array = int_array.reinterpret<float>();
   for_all_indices(int_array.shape(), [&](int x, int y, int z) {
     ASSERT_EQ(int_array(x, y, z), eight_int);
     ASSERT_EQ(float_array(x, y, z), eight);

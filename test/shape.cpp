@@ -56,8 +56,8 @@ TEST(shape_2d) {
 }
 
 TEST(make_dense_shape_1d) {
-  auto s = make_dense_shape(10);
-  auto x = s.template dim<0>();
+  dense_shape<1> s = make_dense_shape(10);
+  dense_dim<> x = s.template dim<0>();
   ASSERT_EQ(x.min(), 0);
   ASSERT_EQ(x.extent(), 10);
   ASSERT_EQ(x.stride(), 1);
@@ -65,8 +65,8 @@ TEST(make_dense_shape_1d) {
 
 TEST(make_dense_shape_2d) {
   dense_shape<2> s(10, 5);
-  auto x = s.template dim<0>();
-  auto y = s.template dim<1>();
+  dense_dim<> x = s.template dim<0>();
+  dim<> y = s.template dim<1>();
   ASSERT_EQ(x.min(), 0);
   ASSERT_EQ(x.extent(), 10);
   ASSERT_EQ(x.stride(), 1);
@@ -77,9 +77,9 @@ TEST(make_dense_shape_2d) {
 
 TEST(make_dense_shape_3d) {
   dense_shape<3> s(10, 5, 20);
-  auto x = s.template dim<0>();
-  auto y = s.template dim<1>();
-  auto z = s.template dim<2>();
+  dense_dim<> x = s.template dim<0>();
+  dim<> y = s.template dim<1>();
+  dim<> z = s.template dim<2>();
   ASSERT_EQ(x.min(), 0);
   ASSERT_EQ(x.extent(), 10);
   ASSERT_EQ(x.stride(), 1);
@@ -93,9 +93,9 @@ TEST(make_dense_shape_3d) {
 
 TEST(auto_strides) {
   shape_of_rank<3> s(10, 20, 3);
-  auto x = s.template dim<0>();
-  auto y = s.template dim<1>();
-  auto z = s.template dim<2>();
+  dim<> x = s.template dim<0>();
+  dim<> y = s.template dim<1>();
+  dim<> z = s.template dim<2>();
   ASSERT_EQ(x.min(), 0);
   ASSERT_EQ(x.extent(), 10);
   ASSERT_EQ(x.stride(), 1);
@@ -109,8 +109,8 @@ TEST(auto_strides) {
 
 TEST(auto_strides_interleaved) {
   shape<dim<>, dim<>, dense_dim<>> s(10, 20, 3);
-  auto x = s.template dim<0>();
-  auto y = s.template dim<1>();
+  dim<> x = s.template dim<0>();
+  dim<> y = s.template dim<1>();
   auto z = s.template dim<2>();
   ASSERT_EQ(x.min(), 0);
   ASSERT_EQ(x.extent(), 10);
@@ -154,7 +154,7 @@ TEST(clamp) {
 }
 
 TEST(for_all_indices_1d) {
-  auto s = make_dense_shape(20);
+  dense_shape<1> s = make_dense_shape(20);
   int expected_flat_offset = 0;
   for_all_indices(s, [&](int x) {
     ASSERT_EQ(s(x), expected_flat_offset);
@@ -187,7 +187,7 @@ TEST(for_all_indices_3d) {
 }
 
 TEST(for_each_index_1d) {
-  auto s = make_dense_shape(20);
+  dense_shape<1> s = make_dense_shape(20);
   int expected_flat_offset = 0;
   for_each_index(s, [&](std::tuple<int> x) {
     ASSERT_EQ(s(x), expected_flat_offset);
