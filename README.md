@@ -73,14 +73,23 @@ This library helps balance these two conflicting goals by enabling any of the ar
 Which parameters should be made into compile time constants will vary depending on the use case.
 A common case, such as the above examples, is to make the innermost dimension have stride 1:
 ```c++
-typedef shape<dim</*MIN=*/UNK, /*EXTENT=*/UNK, /*STRIDE=*/1>, dim<>, dim<>>
+typedef shape<dim</*Min=*/UNK, /*Extent=*/UNK, /*Stride=*/1>, dim<>, dim<>> my_dense_3d_shape_type;
 ```
 
-A dimension with unknown min and extent, and stride 1, is common enough that it has a builtin alias `dense_dim<>`.
+A dimension with unknown min and extent, and stride 1, is common enough that it has a built-in alias `dense_dim<>`, and shapes with a dense first dimension are common enough that they have the following built-in aliases:
+* `dense_shape<N>`, an N-dimensional dense shape, with the first dimension being dense.
+* `dense_array_ref<T, N>` and `dense_array<T, N, Allocator>`, N-dimensional arrays with a shape of `dense_shape<N>`.
+
+There are other common examples that are easy to support in this way.
 A very common kind of array is an image where 3-channel RGB or 4-channel RGBA pixels are stored together.
 ```c++
 template <typename T, int Channels>
 using interleaved_image_shape_type =
-   shape<dim<UNK, UNK, Channels>, dim<>, dense_dim<0, Channels>>;
+  shape<dim<UNK, UNK, Channels>, dim<>, dense_dim<0, Channels>>;
 ```
 
+Another common example is matrices indexed `(row, column)` with the column dimension stored densely:
+```c++
+template <typename T>
+using matrix_shape_type = shape<dim<>, dense_dim<>>;
+```
