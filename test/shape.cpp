@@ -276,6 +276,16 @@ TEST(shape_transpose) {
   ASSERT_EQ(transposed.template dim<0>().extent(), 5);
   ASSERT_EQ(transposed.template dim<1>().extent(), 8);
   ASSERT_EQ(transposed.template dim<2>().extent(), 3);
+
+  shape<dim<>, dim<>, dense_dim<>> interleaved(3, 5, 4);
+  ASSERT(interleaved.is_dense());
+  int expected_flat_offset = 0;
+  for_all_indices(transpose<2, 0, 1>(interleaved), [&](int c, int x, int y) {
+    ASSERT_EQ(interleaved(x, y, c), expected_flat_offset);
+    expected_flat_offset++;
+  });
+  // Ensure the for_each_index loop above actually ran.
+  ASSERT_EQ(expected_flat_offset, 60);
 }
 
 }  // namespace array
