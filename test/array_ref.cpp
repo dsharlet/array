@@ -23,4 +23,18 @@ TEST(array_ref_indices) {
   });
 }
 
+TEST(reinterpret) {
+  float eight = 8.0f;
+  int eight_int;
+  ASSERT_EQ(sizeof(eight), sizeof(eight_int));
+  memcpy(&eight, &eight_int, sizeof(eight));
+
+  dense_array<int, 3> int_array({4, 5, 6}, eight_int);
+  auto float_array = int_array.reinterpret<float>();
+  for_all_indices(int_array.shape(), [&](int x, int y, int z) {
+    ASSERT_EQ(int_array(x, y, z), eight_int);
+    ASSERT_EQ(float_array(x, y, z), eight);
+  });
+}
+
 }  // namespace array

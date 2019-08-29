@@ -770,6 +770,18 @@ class array_ref {
   bool operator==(const array_ref& other) const {
     return !operator!=(other);
   }
+
+  /** Reinterpret the data in this array as a different type. */
+  template <typename U>
+  array_ref<U, Shape> reinterpret() {
+    static_assert(sizeof(T) == sizeof(U), "sizeof(reinterpreted type U) != sizeof(array type T)");
+    return array_ref<U, Shape>(reinterpret_cast<U*>(data()), shape());
+  }
+  template <typename U>
+  array_ref<const U, Shape> reinterpret() const {
+    static_assert(sizeof(T) == sizeof(U), "sizeof(reinterpreted type U) != sizeof(array type T)");
+    return array_ref<const U, Shape>(reinterpret_cast<const U*>(data()), shape());
+  }
 };
 
 template <typename T, std::size_t Rank>
@@ -1054,6 +1066,18 @@ class array {
   }
   operator array_ref<T, Shape>() { return ref(); }
   operator array_ref<const T, Shape>() const { return ref(); }
+
+  /** Reinterpret the data in this array as a different type. */
+  template <typename U>
+  array_ref<U, Shape> reinterpret() {
+    static_assert(sizeof(T) == sizeof(U), "sizeof(reinterpreted type U) != sizeof(array type T)");
+    return array_ref<U, Shape>(reinterpret_cast<U*>(data()), shape());
+  }
+  template <typename U>
+  array_ref<const U, Shape> reinterpret() const {
+    static_assert(sizeof(T) == sizeof(U), "sizeof(reinterpreted type U) != sizeof(array type T)");
+    return array_ref<const U, Shape>(reinterpret_cast<const U*>(data()), shape());
+  }
 };
 
 template <typename T, std::size_t Rank, typename Alloc = std::allocator<T>>
