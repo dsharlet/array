@@ -59,8 +59,8 @@ template <typename T>
 void multiply_tiles_innermost(const matrix<T>& a, const matrix<T>& b, matrix<T>& c) {
   // We want the tiles to be as big as possible without spilling any
   // of the accumulator registers to the stack.
-  constexpr int tile_M = 32;
-  constexpr int tile_N = 4;
+  constexpr int tile_M = 4;
+  constexpr int tile_N = 32;
   // TODO: Add helper functions to make this less disgusting.
   int tiles_m = rows(c).extent() / tile_M;
   int tiles_n = cols(c).extent() / tile_N;
