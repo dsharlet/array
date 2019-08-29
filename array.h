@@ -1165,17 +1165,17 @@ class stack_allocator {
   void deallocate(T* p, std::size_t) noexcept {
     allocated = false;
   }
+
+  template <class U, std::size_t U_N>
+  friend bool operator==(const stack_allocator<T, N>& a, const stack_allocator<U, U_N>& b) {
+    return &a.alloc[0] == &b.alloc[0];
+  }
+
+  template <class U, std::size_t U_N>
+  friend bool operator!=(const stack_allocator<T, N>& a, const stack_allocator<U, U_N>& b) {
+    return &a.alloc[0] != &b.alloc[0];
+  }
 };
-
-template <class T, std::size_t T_N, class U, std::size_t U_N>
-bool operator==(const stack_allocator<T, T_N>& a, const stack_allocator<U, U_N>& b) { 
-  return reinterpret_cast<const void*>(&a) == reinterpret_cast<const void*>(&b);
-}
-
-template <class T, std::size_t T_N, class U, std::size_t U_N>
-bool operator!=(const stack_allocator<T, T_N>& a, const stack_allocator<U, U_N>& b) {
-  return reinterpret_cast<const void*>(&a) != reinterpret_cast<const void*>(&b);
-}
 
 }  // namespace array
 
