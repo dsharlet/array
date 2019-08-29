@@ -99,9 +99,9 @@ int main(int argc, const char** argv) {
   // object to describe that stride 1 dimension, and we can use the
   // template parameters of 'dim' objects to describe known constant
   // 'min', 'extent', and 'stride' parameters. These default to
-  // 'UNKNOWN', which means the runtime value of this parameter is
+  // 'UNK', which means the runtime value of this parameter is
   // used instead of the compile time parameter. 'dense_dim' is a
-  // synonym for 'dim<UNKNOWN, UNKNOWN, 1>'.
+  // synonym for 'dim<UNK, UNK, 1>'.
   typedef array<uint8_t, shape<dense_dim<>, dim<>, dim<0, channels>>> planar_image_type;
   planar_image_type planar_image({width, height, channels});
 
@@ -127,7 +127,7 @@ int main(int argc, const char** argv) {
   // dimension is constant, in addition to the dense dimension. It's
   // also often necessary to pad these images to 4 channels (32 bits
   // per pixel). We can express this with custom 'dim<>' objects.
-  typedef shape<dim<UNKNOWN, UNKNOWN, 4>, dim<>, dense_dim<0, channels>> interleaved_shape_type;
+  typedef shape<dim<UNK, UNK, 4>, dim<>, dense_dim<0, channels>> interleaved_shape_type;
   typedef array<uint8_t, interleaved_shape_type> interleaved_image_type;
   interleaved_image_type interleaved_image({width, height, channels});
   copy(image, interleaved_image);

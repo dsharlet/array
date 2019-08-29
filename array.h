@@ -14,7 +14,10 @@ typedef std::size_t size_t;
 typedef std::ptrdiff_t index_t;
 
 enum : index_t {
-  UNKNOWN = -1, //std::numeric_limits<index_t>::min(),
+  // TODO: It would be best to use a more unreasonable value for
+  // this (strides of -1 might be useful), but it makes error messages
+  // absurd.
+  UNK = -1, //std::numeric_limits<index_t>::min(),
 };
 
 namespace internal {
@@ -23,7 +26,7 @@ namespace internal {
 // static value and runtime value.
 template <index_t Value>
 index_t reconcile(index_t value) {
-  if (Value != UNKNOWN) {
+  if (Value != UNK) {
     // It would be nice to assert here that Value == value. But, this
     // is used in the innermost loops, so when asserts are on, this
     // ruins performance. It is also a less helpful place to catch
@@ -77,7 +80,7 @@ typedef dim_iterator const_dim_iterator;
 /** Describes one dimension of an array. The template parameters
  * enable providing compile time constants for the min, extent, and
  * stride of the dim. */
-template <index_t MIN = UNKNOWN, index_t EXTENT = UNKNOWN, index_t STRIDE = UNKNOWN>
+template <index_t MIN = UNK, index_t EXTENT = UNK, index_t STRIDE = UNK>
 class dim {
  protected:
   index_t min_;
@@ -87,9 +90,9 @@ class dim {
  public:
   dim(index_t min, index_t extent, index_t stride = STRIDE)
     : min_(min), extent_(extent), stride_(stride) {
-    assert(min == MIN || MIN == UNKNOWN);
-    assert(extent == EXTENT || EXTENT == UNKNOWN);
-    assert(stride == STRIDE || STRIDE == UNKNOWN);
+    assert(min == MIN || MIN == UNK);
+    assert(extent == EXTENT || EXTENT == UNK);
+    assert(stride == STRIDE || STRIDE == UNK);
   }
   dim(index_t extent = EXTENT) : dim(0, extent) {}
   dim(const dim&) = default;
@@ -104,19 +107,19 @@ class dim {
   /** Index of the first element in this dim. */
   index_t min() const { return internal::reconcile<MIN>(min_); }
   void set_min(index_t min) {
-    assert(min == MIN || MIN == UNKNOWN);
+    assert(min == MIN || MIN == UNK);
     min_ = min;
   }
   /** Number of elements in this dim. */
   index_t extent() const { return internal::reconcile<EXTENT>(extent_); }
   void set_extent(index_t extent) {
-    assert(extent == EXTENT || EXTENT == UNKNOWN);
+    assert(extent == EXTENT || EXTENT == UNK);
     extent_ = extent;
   }
   /** Distance betwen elements in this dim. */
   index_t stride() const { return internal::reconcile<STRIDE>(stride_); }
   void set_stride(index_t stride) {
-    assert(stride == STRIDE || STRIDE == UNKNOWN);
+    assert(stride == STRIDE || STRIDE == UNK);
     stride_ = stride;
   }
   /** Index of the last element in this dim. */
@@ -142,15 +145,15 @@ class dim {
 };
 
 /** A specialization of dim where the stride is known to be one. */
-template <index_t MIN = UNKNOWN, index_t EXTENT = UNKNOWN>
+template <index_t MIN = UNK, index_t EXTENT = UNK>
 using dense_dim = dim<MIN, EXTENT, 1>;
 
 /** A specialization of dim where the stride is known to be zero. */
-template <index_t MIN = UNKNOWN, index_t EXTENT = UNKNOWN>
+template <index_t MIN = UNK, index_t EXTENT = UNK>
 using broadcast_dim = dim<MIN, EXTENT, 0>;
 
 /** A dim where the indices wrap around outside the range of the dim. */
-template <index_t EXTENT = UNKNOWN, index_t STRIDE = UNKNOWN>
+template <index_t EXTENT = UNK, index_t STRIDE = UNK>
 class folded_dim {
  protected:
   index_t extent_;
@@ -159,8 +162,8 @@ class folded_dim {
  public:
   folded_dim(index_t extent = EXTENT, index_t stride = STRIDE)
     : extent_(extent), stride_(stride) {
-    assert(extent == EXTENT || EXTENT == UNKNOWN);
-    assert(stride == STRIDE || STRIDE == UNKNOWN);
+    assert(extent == EXTENT || EXTENT == UNK);
+    assert(stride == STRIDE || STRIDE == UNK);
   }
   folded_dim(const folded_dim&) = default;
   folded_dim(folded_dim&&) = default;
@@ -171,13 +174,13 @@ class folded_dim {
   /** Non-folded range of the dim. */
   index_t extent() const { return internal::reconcile<EXTENT>(extent_); }
   void set_extent(index_t extent) {
-    assert(extent == EXTENT || EXTENT == UNKNOWN);
+    assert(extent == EXTENT || EXTENT == UNK);
     extent_ = extent;
   }
   /** Distance in memory between indices of this dim. */
   index_t stride() const { return internal::reconcile<STRIDE>(stride_); }
   void set_stride(index_t stride) {
-    assert(stride == STRIDE || STRIDE == UNKNOWN);
+    assert(stride == STRIDE || STRIDE == UNK);
     stride_ = stride;
   }
 
@@ -340,10 +343,10 @@ inline void resolve_unknowns_impl(index_t current_stride) {}
 
 template <typename Dim0, typename... Dims>
 void resolve_unknowns_impl(index_t current_stride, Dim0& dim0, Dims&... dims) {
-  if (dim0.extent() == UNKNOWN) {
+  if (dim0.extent() == UNK) {
     dim0.set_extent(0);
   }
-  if (dim0.stride() == UNKNOWN) {
+  if (dim0.stride() == UNK) {
     dim0.set_stride(current_stride);
     current_stride *= dim0.extent();
   }
