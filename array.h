@@ -2,6 +2,7 @@
 #define ARRAY_ARRAY_H
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <functional>
 #include <limits>
@@ -367,16 +368,21 @@ void resolve_unknowns(Dims& dims) {
   resolve_unknowns(current_stride, dims, std::make_index_sequence<rank>());
 }
 
-// A helper to generate a tuple of Rank elements each with type T.
-template <typename T, std::size_t Rank>
-struct ReplicateType {
-  typedef decltype(std::tuple_cat(std::make_tuple(T()), typename ReplicateType<T, Rank - 1>::type())) type;
-};
+// A helper to transform an array to a tuple.
+template <typename T, std::size_t... Is>
+auto array_to_tuple(const std::array<T, sizeof...(Is)>& a, std::index_sequence<Is...>) {
+  return std::make_tuple(a[Is]...);
+}
 
-template <typename T>
-struct ReplicateType<T, 0> {
-  typedef std::tuple<> type;
-};
+template <typename T, std::size_t N>
+auto array_to_tuple(const std::array<T, N>& a) {
+  return array_to_tuple(a, std::make_index_sequence<N>());
+}
+
+template <typename T, std::size_t N>
+auto default_array_to_tuple() {
+  return array_to_tuple(std::array<T, N>());
+}
 
 }  // namespace internal
 
@@ -407,7 +413,7 @@ class shape {
   static bool is_scalar() { return rank() == 0; }
 
   /** The type of an index for this shape. */
-  typedef typename internal::ReplicateType<index_t, rank()>::type index_type;
+  typedef decltype(internal::default_array_to_tuple<index_t, rank()>()) index_type;
 
   /** Check if a list of indices is in range of this shape. */
   template <typename... Indices>
@@ -612,10 +618,10 @@ shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
   return shape<Dims...>(dims);
 }
 
-template <std::size_t Rank>
+template <std::size_t Rank, std::size_t... Is>
 auto make_default_dense_shape() {
   return make_shape_from_tuple(std::tuple_cat(std::make_tuple(dense_dim<>()),
-                                              typename internal::ReplicateType<dim<>, Rank - 1>::type()));
+                                              default_array_to_tuple<dim<>, Rank - 1>()));
 }
 
 template <typename Shape, std::size_t... Is>
@@ -644,7 +650,8 @@ auto make_dense_shape(const shape<Dims...>& shape) {
 // TODO: These are disgusting, we should be able to make a shape from a
 // tuple more easily.
 template <std::size_t Rank>
-using shape_of_rank = decltype(internal::make_shape_from_tuple(typename internal::ReplicateType<dim<>, Rank>::type()));
+using shape_of_rank =
+  decltype(internal::make_shape_from_tuple(internal::default_array_to_tuple<dim<>, Rank>()));
 
 template <std::size_t Rank>
 using dense_shape = decltype(internal::make_default_dense_shape<Rank>());
