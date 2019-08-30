@@ -76,7 +76,6 @@ class dim_iterator {
   dim_iterator operator++(int) { return dim_iterator(i++); }
   dim_iterator& operator++() { ++i; return *this; }
 };
-typedef dim_iterator const_dim_iterator;
 
 /** Describes one dimension of an array. The template parameters
  * enable providing compile time constants for the min, extent, and
@@ -133,9 +132,9 @@ class dim {
   bool is_in_range(index_t at) const { return min() <= at && at <= max(); }
 
   /** Make an iterator referring to the first element in this dim. */
-  const_dim_iterator begin() const { return const_dim_iterator(min()); }
+  dim_iterator begin() const { return dim_iterator(min()); }
   /** Make an iterator referring to one past the last element in this dim. */
-  const_dim_iterator end() const { return const_dim_iterator(max() + 1); }
+  dim_iterator end() const { return dim_iterator(max() + 1); }
 
   bool operator==(const dim& other) const {
     return min() == other.min() && extent() == other.extent() && stride() == other.stride();
@@ -190,9 +189,9 @@ class folded_dim {
   index_t max() const { return extent() - 1; }
 
   /** Make an iterator referring to the first element in this dim. */
-  const_dim_iterator begin() const { return const_dim_iterator(min()); }
+  dim_iterator begin() const { return dim_iterator(min()); }
   /** Make an iterator referring to one past the last element in this dim. */
-  const_dim_iterator end() const { return const_dim_iterator(max() + 1); }
+  dim_iterator end() const { return dim_iterator(max() + 1); }
 
   /** Offset in memory of an element in this dim. */
   index_t offset(index_t at) const {
