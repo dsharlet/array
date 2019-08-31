@@ -4,9 +4,9 @@ About
 This library provides a multidimensional array class for C++, with the following design goals:
 * Enabling specification of array parameters as compile-time constants, enabling significantly more efficient code generation in some cases.
 * Providing an API following the conventions of the C++ STL where possible.
-* Minimal dependencies and requirements (the library is currently a single header file).
+* Minimal dependencies and requirements (the library is currently a single header file, and depends only on the C++ STL).
 
-The library uses some ideas established in other existing projects, such as numpy and Halide.
+The library uses some ideas established in other existing projects, such as [numpy](https://numpy.org/doc/1.17/reference/arrays.ndarray.html) and [Halide](https://halide-lang.org/docs/class_halide_1_1_runtime_1_1_buffer.html).
 Array shapes are specified as a list of N dimensions, where each dimension has parameters such as an extent and a stride.
 Array references and objects use shape objects to map N-dimensional indices to a flat index.
 N-dimensional indices are mapped to flat offsets with the following formula:
