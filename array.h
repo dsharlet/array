@@ -831,8 +831,10 @@ class array {
 
   // After allocate the array is allocated but uninitialized.
   void allocate() {
-    if (!base_) {
-      base_ = std::allocator_traits<Alloc>::allocate(alloc_, shape_.flat_extent());
+    assert(!base_);
+    index_t flat_extent = shape_.flat_extent();
+    if (flat_extent > 0) {
+      base_ = std::allocator_traits<Alloc>::allocate(alloc_, flat_extent);
     }
   }
 
@@ -890,7 +892,7 @@ class array {
   typedef typename std::allocator_traits<Alloc>::pointer pointer;
   typedef typename std::allocator_traits<Alloc>::const_pointer const_pointer;
 
-  array() : base_(nullptr) {}
+  array() : array(Shape()) {}
   explicit array(const Alloc& alloc) : alloc_(alloc), base_(nullptr) {}
   array(Shape shape, const T& value, const Alloc& alloc = Alloc()) : array(alloc) {
     assign(std::move(shape), value);
@@ -1051,8 +1053,12 @@ class array {
   bool empty() const { return shape_.empty(); }
   /** True if this array is dense in memory. */
   bool is_dense() const { return shape_.is_dense(); }
-  /** Reset the shape of this array to empty. */
-  void clear() { deallocate(); shape_ = Shape(); }
+  /** Reset the shape of this array to default. */
+  void clear() { 
+    deallocate();
+    shape_ = Shape();
+    allocate();
+  }
 
   /** Reshape the array. The new shape must not address any elements
    * not already addressable by the current shape of this array. */

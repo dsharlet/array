@@ -193,6 +193,17 @@ TEST(array_default_init_lifetime) {
   ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size());
 }
 
+TEST(array_default_init_constant_lifetime) {
+  lifetime_counter::reset();
+  typedef shape<dim<0, 4>, dim<0, 5>, dim<0, 6>> ConstantShape;
+  {
+    array<lifetime_counter, ConstantShape> default_constant_init;
+  }
+  ConstantShape constant_shape;
+  ASSERT_EQ(lifetime_counter::default_constructs, constant_shape.size());
+  ASSERT_EQ(lifetime_counter::destructs, constant_shape.size());
+}
+
 TEST(array_copy_init_lifetime) {
   lifetime_counter::reset();
   {
