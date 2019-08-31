@@ -88,6 +88,9 @@ class dim {
   index_t stride_;
 
  public:
+  /** Construct a new dim object. If the Min, Extent, or Stride
+   * compile-time template parameters are not 'UNK', these runtime
+   * values must match the compile-time values. */
   dim(index_t min, index_t extent, index_t stride = Stride)
     : min_(min), extent_(extent), stride_(stride) {
     assert(min == Min || Min == UNK);
@@ -96,13 +99,26 @@ class dim {
   }
   dim(index_t extent = Extent) : dim(0, extent) {}
   dim(const dim&) = default;
+  dim(dim&&) = default;
+  /** Copy a dim object, possibly with different compile-time template
+   * parameters. */
   template <index_t CopyMin, index_t CopyExtent, index_t CopyStride>
   dim(const dim<CopyMin, CopyExtent, CopyStride>& copy)
       : dim(copy.min(), copy.extent(), copy.stride()) {}
-  dim(dim&&) = default;
 
   dim& operator=(const dim&) = default;
   dim& operator=(dim&&) = default;
+  /** Copy assignment of a dim object, possibly with different
+   * compile-time template parameters. */
+  template <index_t CopyMin, index_t CopyExtent, index_t CopyStride>
+  dim& operator=(const dim<CopyMin, CopyExtent, CopyStride>& copy) {
+    assert(copy.min() == Min || Min == UNK);
+    min_ = copy.min();
+    assert(copy.extent() == Extent || Extent == UNK);
+    extent_ = copy.extent();
+    assert(copy.stride() == Stride || Stride == UNK);
+    stride_ = copy.stride();
+  }
 
   /** Index of the first element in this dim. */
   index_t min() const { return internal::reconcile<Min>(min_); }
@@ -128,14 +144,17 @@ class dim {
   /** Offset in memory of an index in this dim. */
   index_t offset(index_t at) const { return (at - min()) * stride(); }
 
-  /** Check if the given index is within the range of this dim. */
+  /** Returns true if 'at' is within the range [min(), max()]. */
   bool is_in_range(index_t at) const { return min() <= at && at <= max(); }
 
   /** Make an iterator referring to the first element in this dim. */
   dim_iterator begin() const { return dim_iterator(min()); }
-  /** Make an iterator referring to one past the last element in this dim. */
+  /** Make an iterator referring to one past the last element in this
+   * dim. */
   dim_iterator end() const { return dim_iterator(max() + 1); }
 
+  /** dim objects are considered equal if their min, extent, and
+   * strides are equal. */
   bool operator==(const dim& other) const {
     return min() == other.min() && extent() == other.extent() && stride() == other.stride();
   }
@@ -160,6 +179,9 @@ class folded_dim {
   index_t stride_;
   
  public:
+  /** Construct a new dim object. If the Extent or Stride compile-time
+   * template parameters are not 'UNK', these runtime values must
+   * match the compile-time values. */
   folded_dim(index_t extent = Extent, index_t stride = Stride)
     : extent_(extent), stride_(stride) {
     assert(extent == Extent || Extent == UNK);
@@ -201,6 +223,8 @@ class folded_dim {
   /** In a folded dim, all indices are in range. */
   bool is_in_range(index_t at) const { return true; }
 
+  /** dim objects are considered equal if their min, extent, and
+   * strides are equal. */
   bool operator==(const folded_dim& other) const {
     return extent() == other.extent() && stride() == other.stride();
   }
@@ -338,7 +362,8 @@ auto maxes(const Shape& s) {
   return maxes(s, std::make_index_sequence<Shape::rank()>());
 }
 
-// Resolve unknown dim quantities.
+// Resolve unknown dim quantities. Unknown extents become zero, and
+// unknown strides are replaced with increasing strides.
 inline void resolve_unknowns_impl(index_t current_stride) {}
 
 template <typename Dim0, typename... Dims>
@@ -429,29 +454,22 @@ class shape {
     return is_in_range(internal::mins(other_shape)) && is_in_range(internal::maxes(other_shape));
   }
 
-  /** Compute the flat offset of the indices. If an index is out of
-   * range, throws std::out_of_range. */
+  /** Compute the flat offset of the indices. */
   template <typename... Indices>
   index_t at(const std::tuple<Indices...>& indices) const {
-    if (!is_in_range(indices)) {
-      throw std::out_of_range("indices are out of range");
-    }
-    return internal::flat_offset(dims_, std::make_tuple<Indices...>(std::forward<Indices>(indices)...));
+    return internal::flat_offset(dims_, indices);
   }
   template <typename... Indices>
   index_t at(Indices... indices) const {
     return at(std::make_tuple<Indices...>(std::forward<Indices>(indices)...));
   }
-
-  /** Compute the flat offset of the indices. Does not check if the
-   * indices are in range. */
   template <typename... Indices>
   index_t operator() (const std::tuple<Indices...>& indices) const {
-    return internal::flat_offset(dims_, indices);
+    return at(indices);
   }
   template <typename... Indices>
   index_t operator() (Indices... indices) const {
-    return operator()(std::make_tuple<Indices...>(std::forward<Indices>(indices)...));
+    return at(std::make_tuple<Indices...>(std::forward<Indices>(indices)...));
   }
   
   /** Get a specific dim of this shape. */
@@ -537,7 +555,6 @@ class shape<> {
 
   index_t at(const std::tuple<>& indices) const { return 0; }
   index_t at() const { return 0; }
-
   index_t operator() (const std::tuple<>& indices) const { return 0; }
   index_t operator() () const { return 0; }
 
@@ -707,15 +724,21 @@ class array_ref {
     });
   }
 
+  /** Compute the flat offset of the indices. If an index is out of
+   * range, throws std::out_of_range. */
   template <typename... Indices>
   reference at(const std::tuple<Indices...>& indices) const {
+    if (!shape_.is_in_range(indices)) {
+      throw std::out_of_range("indices are out of range");
+    }
     return base_[shape_.at(indices)];
   }
   template <typename... Indices>
   reference at(Indices... indices) const {
-    return base_[shape_.at(std::forward<Indices>(indices)...)];
+    return at(std::make_tuple(std::forward<Indices>(indices)...));
   }
 
+  /** Compute the flat offset of the indices. */
   template <typename... Indices>
   reference operator() (const std::tuple<Indices...>& indices) const {
     return base_[shape_(indices)];
@@ -956,23 +979,32 @@ class array {
 
   Alloc get_allocator() const { return alloc_; }
 
+  /** Compute the flat offset of the indices. If an index is out of
+   * range, throws std::out_of_range. */
   template <typename... Indices>
   reference at(const std::tuple<Indices...>& indices) {
+    if (!shape_.is_in_range(indices)) {
+      throw std::out_of_range("indices are out of range");
+    }
     return base_[shape_.at(indices)];
   }
   template <typename... Indices>
   reference at(Indices... indices) {
-    return base_[shape_.at(std::forward<Indices>(indices)...)];
+    return at(std::make_tuple(std::forward<Indices>(indices)...));
   }
   template <typename... Indices>
   const_reference at(const std::tuple<Indices...>& indices) const {
+    if (!shape_.is_in_range(indices)) {
+      throw std::out_of_range("indices are out of range");
+    }
     return base_[shape_.at(indices)];
   }
   template <typename... Indices>
   const_reference at(Indices... indices) const {
-    return base_[shape_.at(std::forward<Indices>(indices)...)];
+    return at(std::make_tuple(std::forward<Indices>(indices)...));
   }
 
+  /** Compute the flat offset of the indices. */
   template <typename... Indices>
   reference operator() (const std::tuple<Indices...>& indices) {
     return base_[shape_(indices)];
