@@ -15,11 +15,7 @@ bin/test: $(TEST_OBJ)
 	mkdir -p $(@D)
 	$(CXX) -o $@ $^ $(LDFLAGS) -lstdc++ -lm
 
-bin/blur: obj/examples/blur.o
-	mkdir -p $(@D)
-	$(CXX) -o $@ $^ $(LDFLAGS) -lstdc++ -lm
-
-bin/matrix: obj/examples/matrix.o
+bin/%: obj/examples/%.o
 	mkdir -p $(@D)
 	$(CXX) -o $@ $^ $(LDFLAGS) -lstdc++ -lm
 
