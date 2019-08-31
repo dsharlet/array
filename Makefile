@@ -1,5 +1,5 @@
-CFLAGS := $(CFLAGS) -O2 -ffast-math -mavx #-I/usr/local/Cellar/llvm/6.0.1/include/c++/v1
-CXXFLAGS := $(CXXFLAGS) -std=c++14 -march=native -Wall -Wno-unknown-pragmas -ferror-limit=3 -Wno-missing-braces
+CFLAGS := $(CFLAGS) -O2 -ffast-math -mavx
+CXXFLAGS := $(CXXFLAGS) -std=c++14 -march=native -Wall -ferror-limit=3
 LDFLAGS :=
 
 DEPS = array.h
