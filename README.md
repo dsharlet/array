@@ -136,7 +136,7 @@ using matrix_shape_type = shape<dim<>, dense_dim<>>;
 ```
 
 There are also many use cases for matrices with small constant sizes.
-This library provides `stack_allocator<T, N>`, an `std::allocator` compatible allocator that only allocates small fixed sized objects.
+This library provides `stack_allocator<T, N>`, an `std::allocator` compatible allocator that only allocates buffers of `N` small fixed sized objects.
 This makes it possible to define a small matrix type that will not use any dynamic memory allocation:
 ```c++
 template <int M, int N>
