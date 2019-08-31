@@ -72,6 +72,40 @@ for_each_index(my_3d_shape, [&](std::tuple<int, int, int> i) {
 });
 ```
 
+`transpose<D0, D1, ..., DN>` is a helper function that enables reordering the dimensions of a shape, and can be used to control the order in which loops are executed.
+`D0, D1, ..., DN` is a permutation of the dimension indices.
+The default loop order is to make the first dimension of a shape the innermost loop:
+```c++
+my_3d_shape_type shape(2, 2, 2);
+for_all_indices(shape, [](int x, int y, int z) {
+  std::cout << x << ", " << y << ", " << z << std::endl;
+});
+// Output:
+// 0, 0, 0
+// 1, 0, 0
+// 0, 1, 0
+// 1, 1, 0
+// 0, 0, 1
+// 1, 0, 1
+// 0, 1, 1
+// 1, 1, 1
+```
+We can change the order of the loops with a `transpose` (note the reordered indices as well):
+```c++
+for_all_indices(transpose<2, 0, 1>(shape), [](int z, int x, int y) {
+  std::cout << x << ", " << y << ", " << z << std::endl;
+});
+// Output:
+// 0, 0, 0
+// 0, 0, 1
+// 1, 0, 0
+// 1, 0, 1
+// 0, 1, 0
+// 0, 1, 1
+// 1, 1, 0
+// 1, 1, 1
+```
+
 In this example, no array parameters are compile time constants, so all of these accesses and loops expand to a `flat_offset` expression where the strides are runtime variables. 
 This can prevent the compiler from generating efficient code.
 For example, the compiler may be able to auto-vectorize these loops, but if the stride of the vectorized dimension is a runtime variable, the compiler will have to generate a gather instead of a load instruction, even if the stride is one.
