@@ -318,8 +318,8 @@ index_t is_in_range_impl(const Dims& dims, const Indices& indices, std::index_se
 
 template <typename Dims, typename Indices>
 bool is_in_range(const Dims& dims, const Indices& indices) {
-  constexpr std::size_t dims_rank = std::tuple_size<Dims>::value;
-  constexpr std::size_t indices_rank = std::tuple_size<Indices>::value;
+  constexpr size_t dims_rank = std::tuple_size<Dims>::value;
+  constexpr size_t indices_rank = std::tuple_size<Indices>::value;
   static_assert(dims_rank == indices_rank, "dims and indices must have the same rank.");
   return is_in_range_impl(dims, indices, std::make_index_sequence<dims_rank>());
 }
@@ -330,7 +330,7 @@ index_t max_stride(const Dims& dims, std::index_sequence<Is...>) {
 }
 
 // Get a tuple of all of the mins of the shape.
-template <typename Shape, std::size_t... Is>
+template <typename Shape, size_t... Is>
 auto mins(const Shape& s, std::index_sequence<Is...>) {
   return std::make_tuple(s.template dim<Is>().min()...);
 }
@@ -341,7 +341,7 @@ auto mins(const Shape& s) {
 }
 
 // Get a tuple of all of the extents of the shape.
-template <typename Shape, std::size_t... Is>
+template <typename Shape, size_t... Is>
 auto extents(const Shape& s, std::index_sequence<Is...>) {
   return std::make_tuple(s.template dim<Is>().extent()...);
 }
@@ -352,7 +352,7 @@ auto extents(const Shape& s) {
 }
 
 // Get a tuple of all of the maxes of the shape.
-template <typename Shape, std::size_t... Is>
+template <typename Shape, size_t... Is>
 auto maxes(const Shape& s, std::index_sequence<Is...>) {
   return std::make_tuple(s.template dim<Is>().max()...);
 }
@@ -385,7 +385,7 @@ void resolve_unknowns(index_t current_stride, Dims& dims, std::index_sequence<Is
 
 template <typename Dims>
 void resolve_unknowns(Dims& dims) {
-  constexpr std::size_t rank = std::tuple_size<Dims>::value;
+  constexpr size_t rank = std::tuple_size<Dims>::value;
   index_t known_stride = max_stride(dims, std::make_index_sequence<rank>());
   index_t current_stride = std::max(static_cast<index_t>(1), known_stride);
 
@@ -393,17 +393,17 @@ void resolve_unknowns(Dims& dims) {
 }
 
 // A helper to transform an array to a tuple.
-template <typename T, std::size_t... Is>
+template <typename T, size_t... Is>
 auto array_to_tuple(const std::array<T, sizeof...(Is)>& a, std::index_sequence<Is...>) {
   return std::make_tuple(a[Is]...);
 }
 
-template <typename T, std::size_t N>
+template <typename T, size_t N>
 auto array_to_tuple(const std::array<T, N>& a) {
   return array_to_tuple(a, std::make_index_sequence<N>());
 }
 
-template <typename T, std::size_t N>
+template <typename T, size_t N>
 auto default_array_to_tuple() {
   return array_to_tuple(std::array<T, N>());
 }
@@ -473,7 +473,7 @@ class shape {
   }
   
   /** Get a specific dim of this shape. */
-  template <std::size_t D>
+  template <size_t D>
   const auto& dim() const { return std::get<D>(dims_); }
 
   /** Get a tuple of the dims of this shape. */
@@ -634,13 +634,13 @@ shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
   return shape<Dims...>(dims);
 }
 
-template <std::size_t Rank, std::size_t... Is>
+template <size_t Rank, size_t... Is>
 auto make_default_dense_shape() {
   return make_shape_from_tuple(std::tuple_cat(std::make_tuple(dense_dim<>()),
                                               default_array_to_tuple<dim<>, Rank - 1>()));
 }
 
-template <typename Shape, std::size_t... Is>
+template <typename Shape, size_t... Is>
 auto make_dense_shape(const Shape& dims, std::index_sequence<Is...>) {
   return make_shape(dense_dim<>(std::get<0>(dims).min(), std::get<0>(dims).extent()),
                     dim<>(std::get<Is + 1>(dims).min(), std::get<Is + 1>(dims).extent())...);
@@ -650,7 +650,7 @@ auto make_dense_shape(const Shape& dims, std::index_sequence<Is...>) {
 
 /** Create a new shape using a permutation DimIndices... of the
  * dimensions of the shape. */
-template <std::size_t... DimIndices, typename Shape>
+template <size_t... DimIndices, typename Shape>
 auto transpose(const Shape& shape) {
   return make_shape(shape.template dim<DimIndices>()...);
 }
@@ -665,11 +665,11 @@ auto make_dense_shape(const shape<Dims...>& shape) {
 
 // TODO: These are disgusting, we should be able to make a shape from a
 // tuple more easily.
-template <std::size_t Rank>
+template <size_t Rank>
 using shape_of_rank =
   decltype(internal::make_shape_from_tuple(internal::default_array_to_tuple<dim<>, Rank>()));
 
-template <std::size_t Rank>
+template <size_t Rank>
 using dense_shape = decltype(internal::make_default_dense_shape<Rank>());
 
 /** A multi-dimensional wrapper around a pointer. */
@@ -682,7 +682,7 @@ class array_ref {
   typedef T value_type;
   typedef Shape shape_type;
   typedef typename Shape::index_type index_type;
-  typedef std::size_t size_type;
+  typedef size_t size_type;
   typedef std::ptrdiff_t difference_type;
   typedef value_type& reference;
   typedef value_type* pointer;
@@ -761,7 +761,7 @@ class array_ref {
 
   /** Shape of this array_ref. */
   const Shape& shape() const { return shape_; }
-  template <std::size_t D>
+  template <size_t D>
   const auto& dim() const { return shape().template dim<D>(); }
   /** Number of elements addressable by the shape of this array_ref. */
   size_type size() { return shape_.size(); }
@@ -816,10 +816,10 @@ class array_ref {
   }
 };
 
-template <typename T, std::size_t Rank>
+template <typename T, size_t Rank>
 using array_ref_of_rank = array_ref<T, shape_of_rank<Rank>>;
 
-template <typename T, std::size_t Rank>
+template <typename T, size_t Rank>
 using dense_array_ref = array_ref<T, dense_shape<Rank>>;
 
 /** A multi-dimensional array container that mirrors std::vector. */
@@ -883,7 +883,7 @@ class array {
   typedef Shape shape_type;
   typedef Alloc allocator_type;
   typedef typename Shape::index_type index_type;
-  typedef std::size_t size_type;
+  typedef size_t size_type;
   typedef std::ptrdiff_t difference_type;
   typedef value_type& reference;
   typedef const value_type& const_reference;
@@ -1042,7 +1042,7 @@ class array {
 
   /** Shape of this array. */
   const Shape& shape() const { return shape_; }
-  template <std::size_t D>
+  template <size_t D>
   const auto& dim() const { return shape().template dim<D>(); }
   /** Number of elements addressable by the shape of this array. */
   size_type size() { return shape_.size(); }
@@ -1121,10 +1121,10 @@ class array {
   }
 };
 
-template <typename T, std::size_t Rank, typename Alloc = std::allocator<T>>
+template <typename T, size_t Rank, typename Alloc = std::allocator<T>>
 using array_of_rank = array<T, shape_of_rank<Rank>, Alloc>;
 
-template <typename T, std::size_t Rank, typename Alloc = std::allocator<T>>
+template <typename T, size_t Rank, typename Alloc = std::allocator<T>>
 using dense_array = array<T, dense_shape<Rank>, Alloc>;
 
 /** Make a new array from a shape. */
@@ -1194,7 +1194,7 @@ auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src) {
  * on the stack if the owning container is allocated on the
  * stack. This can only be used with containers that have a maximum of
  * one live allocation, which is the case for array::array. */
-template <class T, std::size_t N>
+template <class T, size_t N>
 class stack_allocator {
   T alloc[N];
   bool allocated;
@@ -1211,7 +1211,7 @@ class stack_allocator {
   }
 
   stack_allocator() : allocated(false) {}
-  template <class U, std::size_t U_N> constexpr 
+  template <class U, size_t U_N> constexpr 
   stack_allocator(const stack_allocator<U, U_N>&) noexcept : allocated(false) {}
   // TODO: Most of these constructors/assignment operators are hacks,
   // because the C++ STL I'm using seems to not be respecting the
@@ -1221,22 +1221,22 @@ class stack_allocator {
   stack_allocator& operator=(const stack_allocator&) { return *this; }
   stack_allocator& operator=(stack_allocator&&) { return *this; }
 
-  T* allocate(std::size_t n) {
+  T* allocate(size_t n) {
     if (allocated) throw std::bad_alloc();
     if (n > N) throw std::bad_alloc();
     allocated = true;
     return &alloc[0];
   }
-  void deallocate(T* p, std::size_t) noexcept {
+  void deallocate(T* p, size_t) noexcept {
     allocated = false;
   }
 
-  template <class U, std::size_t U_N>
+  template <class U, size_t U_N>
   friend bool operator==(const stack_allocator<T, N>& a, const stack_allocator<U, U_N>& b) {
     return &a.alloc[0] == &b.alloc[0];
   }
 
-  template <class U, std::size_t U_N>
+  template <class U, size_t U_N>
   friend bool operator!=(const stack_allocator<T, N>& a, const stack_allocator<U, U_N>& b) {
     return &a.alloc[0] != &b.alloc[0];
   }
