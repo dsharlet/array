@@ -1200,9 +1200,11 @@ auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src) {
  * on the stack if the owning container is allocated on the
  * stack. This can only be used with containers that have a maximum of
  * one live allocation, which is the case for array::array. */
+// TODO: "stack_allocator" isn't a good name for this. It's a fixed
+// allocation, but not necessarily a stack allocation.
 template <class T, size_t N>
 class stack_allocator {
-  T alloc[N];
+  alignas(T) char alloc[N * sizeof(T)];
   bool allocated;
 
  public:  
@@ -1231,7 +1233,7 @@ class stack_allocator {
     if (allocated) throw std::bad_alloc();
     if (n > N) throw std::bad_alloc();
     allocated = true;
-    return &alloc[0];
+    return reinterpret_cast<T*>(&alloc[0]);
   }
   void deallocate(T* p, size_t) noexcept {
     allocated = false;
