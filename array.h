@@ -503,13 +503,13 @@ class shape {
     //
     //   (x0 - y0)*S0 + (x1 - y1)*S1 + ... == 0
     //
-    // We don't actually care what x0 and y0 are, so this is equivalent
+    // We don't actually care what xi and yi are, so this is equivalent
     // to:
     //
     //   x0*S0 + x1*S1 + x2*S2 + ... == 0
     //
-    // where xN != 0. This is a linear diophantine equation, and we
-    // already have one solution at xN = 0, so we just need to find
+    // where xi != 0. This is a linear diophantine equation, and we
+    // already have one solution at xi = 0, so we just need to find
     // other solutions, and check that they are in range.
 
     // TODO: This is pretty hard. I think we need to rewrite the
