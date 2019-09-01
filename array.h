@@ -757,6 +757,11 @@ class array_ref {
     });
   }
 
+  /** Allow conversion from array_ref<T> to array_ref<const T>. */
+  operator array_ref<const T, Shape>() const {
+    return array_ref<const T, Shape>(data(), shape());
+  }
+
   /** Get a reference to the element at the given indices. If the
    * indices are out of range of the shape, throws
    * std::out_of_range. */
@@ -1207,7 +1212,8 @@ void swap(array<T, Shape, Alloc>& a, array<T, Shape, Alloc>& b) {
 /** Copy an src array to a dest array. The range of the shape of dest
  * will be copied, and must be in range of src. */
 template <typename T, typename ShapeSrc, typename ShapeDest>
-void copy(const array_ref<const T, ShapeSrc>& src, const array_ref<T, ShapeDest>& dest) {
+void copy(const array_ref<T, ShapeSrc>& src,
+          const array_ref<typename std::remove_const<T>::type, ShapeDest>& dest) {
   if (!dest.shape().is_shape_in_range(src.shape())) {
     throw std::out_of_range("dest indices are out of range of src");
   }
@@ -1216,7 +1222,8 @@ void copy(const array_ref<const T, ShapeSrc>& src, const array_ref<T, ShapeDest>
   });
 }
 template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocDest>
-void copy(const array_ref<const T, ShapeSrc>& src, array<T, ShapeDest, AllocDest>& dest) {
+void copy(const array_ref<T, ShapeSrc>& src,
+          array<typename std::remove_const<T>::type, ShapeDest, AllocDest>& dest) {
   copy(src, dest.ref());
 }
 template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc>
@@ -1231,9 +1238,9 @@ void copy(const array<T, ShapeSrc, AllocSrc>& src, array<T, ShapeDest, AllocDest
 /** Make a copy of an array with a new shape. */
 template <typename T, typename ShapeSrc, typename ShapeDest,
   typename AllocDest = std::allocator<T>>
-auto make_copy(const array_ref<const T, ShapeSrc>& src, const ShapeDest& copy_shape,
+auto make_copy(const array_ref<T, ShapeSrc>& src, const ShapeDest& copy_shape,
                const AllocDest& alloc = AllocDest()) {
-  array<T, ShapeDest, AllocDest> dest(copy_shape, alloc);
+  array<typename std::remove_const<T>::type, ShapeDest, AllocDest> dest(copy_shape, alloc);
   copy(src, dest);
   return dest;
 }
@@ -1247,7 +1254,7 @@ auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const ShapeDest& copy_sh
 /** Make a copy of an array with the same shape as src, but with dense
  * strides. */
 template <typename T, typename ShapeSrc, typename AllocDest = std::allocator<T>>
-auto make_dense_copy(const array_ref<const T, ShapeSrc>& src,
+auto make_dense_copy(const array_ref<T, ShapeSrc>& src,
                      const AllocDest& alloc = AllocDest()) {
   return make_copy(src, make_dense_shape(src.shape()), alloc);
 }

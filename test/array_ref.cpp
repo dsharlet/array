@@ -1,23 +1,20 @@
 #include "array.h"
 #include "test.h"
-#include "lifetime.h"
-
-#include <vector>
 
 namespace array {
 
 TEST(array_ref_indices) {
-  std::vector<int> data(100);
-  for (std::size_t i = 0; i < data.size(); i++) {
+  int data[100];
+  for (int i = 0; i < 100; i++) {
     data[i] = i;
   }
 
-  dense_array_ref<int, 1> ref_1d(data.data(), make_dense_shape(100));
+  dense_array_ref<int, 1> ref_1d(data, make_dense_shape(100));
   for_all_indices(ref_1d.shape(), [&](int x) {
     ASSERT_EQ(ref_1d(x), x);
   });
 
-  dense_array_ref<int, 2> ref_2d(data.data(), make_dense_shape(20, 5));
+  dense_array_ref<int, 2> ref_2d(data, make_dense_shape(20, 5));
   for_all_indices(ref_2d.shape(), [&](int x, int y) {
     ASSERT_EQ(ref_2d(x, y), y*20 + x);
   });
@@ -35,6 +32,20 @@ TEST(reinterpret) {
     ASSERT_EQ(int_array(x, y, z), eight_int);
     ASSERT_EQ(float_array(x, y, z), eight);
   });
+}
+
+TEST(array_ref_copy) {
+  int data[100];
+  for (int i = 0; i < 100; i++) {
+    data[i] = i;
+  }
+
+  array_ref_of_rank<int, 1> evens(data, make_shape(dim<>(0, 50, 2)));
+  dense_array<int, 1> evens_copy = make_dense_copy(evens);
+  for (int i = 0; i < 50; i++) {
+    ASSERT_EQ(evens(i), i * 2);
+    ASSERT_EQ(evens_copy(i), i * 2);
+  }
 }
 
 }  // namespace array
