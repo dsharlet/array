@@ -158,13 +158,16 @@ TEST(array_copy) {
   copy(a, b);
   copy(b, c);
 
-  auto d = make_copy(a, c.shape());
+  array_of_rank<int, 3> d = make_copy(a, c.shape());
   ASSERT(c.shape() == d.shape());
+  dense_array<int, 3> e = make_copy(a, b.shape());
+  ASSERT(b.shape() == e.shape());
 
   for_each_index(a.shape(), [&](const array_of_rank<int, 3>::index_type& index) {
     ASSERT_EQ(a(index), b(index));
     ASSERT_EQ(a(index), c(index));
     ASSERT_EQ(a(index), d(index));
+    ASSERT_EQ(a(index), e(index));
   });
 }
 

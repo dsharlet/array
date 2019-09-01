@@ -29,7 +29,7 @@ TEST(shape_scalar) {
 TEST(shape_1d) {
   for (int stride : {1, 2, 10}) {
     dim<> x(0, 10, stride);
-    auto s = make_shape(x);
+    shape<dim<>> s = make_shape(x);
     for (int i : x) {
       ASSERT_EQ(s(i), i * stride);
     }
@@ -38,7 +38,7 @@ TEST(shape_1d) {
 
 TEST(shape_1d_dense) {
   dense_dim<> x(0, 10);
-  auto s = make_shape(x);
+  shape<dense_dim<>> s = make_shape(x);
   for (int i : x) {
     ASSERT_EQ(s(i), i);
   }
@@ -47,7 +47,7 @@ TEST(shape_1d_dense) {
 TEST(shape_2d) {
   dense_dim<> x(0, 10);
   dim<> y(0, 5, x.extent());
-  auto s = make_shape(x, y);
+  shape<dense_dim<>, dim<>> s = make_shape(x, y);
   for (int i : y) {
     for (int j : x) {
       ASSERT_EQ(s(j, i), i * x.extent() + j);
@@ -111,7 +111,7 @@ TEST(auto_strides_interleaved) {
   shape<dim<>, dim<>, dense_dim<>> s(10, 20, 3);
   dim<> x = s.template dim<0>();
   dim<> y = s.template dim<1>();
-  auto z = s.template dim<2>();
+  dense_dim<> z = s.template dim<2>();
   ASSERT_EQ(x.min(), 0);
   ASSERT_EQ(x.extent(), 10);
   ASSERT_EQ(x.stride(), 3);
@@ -126,7 +126,7 @@ TEST(auto_strides_interleaved) {
 TEST(folded_dim) {
   dim<> x(0, 10, 1);
   folded_dim<> y(4, 10);
-  auto s = make_shape(x, y);
+  shape<dim<>, folded_dim<>> s = make_shape(x, y);
   for (int i = 0; i < 10; i++) {
     for (int j : x) {
       ASSERT_EQ(s(j, i), (i % 4) * 10 + j);
@@ -137,7 +137,7 @@ TEST(folded_dim) {
 TEST(broadcast_dim) {
   dim<> x(0, 10, 1);
   broadcast_dim<> y;
-  auto s = make_shape(x, y);
+  shape<dim<>, broadcast_dim<>> s = make_shape(x, y);
   for (int i = 0; i < 10; i++) {
     for (int j : x) {
       ASSERT_EQ(s(j, i), j);
@@ -231,7 +231,7 @@ TEST(dim_is_in_range) {
 
 TEST(shape_is_in_range_1d) {
   dim<> x(2, 5);
-  auto s = make_shape(x);
+  shape<dim<>> s = make_shape(x);
 
   for (int i = 2; i < 7; i++) {
     ASSERT(s.is_in_range(i));
@@ -243,7 +243,7 @@ TEST(shape_is_in_range_1d) {
 TEST(shape_is_in_range_2d) {
   dim<> x(2, 5);
   dim<> y(-3, 6);
-  auto s = make_shape(x, y);
+  shape<dim<>, dim<>> s = make_shape(x, y);
 
   for (int i = -3; i < 3; i++) {
     for (int j = 2; j < 7; j++) {
@@ -272,7 +272,7 @@ TEST(shape_conversion) {
 
 TEST(shape_transpose) {
   dense_shape<3> s(3, 5, 8);
-  auto transposed = transpose<1, 2, 0>(s);
+  shape<dim<>, dim<>, dense_dim<>> transposed = transpose<1, 2, 0>(s);
   ASSERT_EQ(transposed.template dim<0>().extent(), 5);
   ASSERT_EQ(transposed.template dim<1>().extent(), 8);
   ASSERT_EQ(transposed.template dim<2>().extent(), 3);
