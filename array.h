@@ -455,7 +455,7 @@ class shape {
   static constexpr size_t rank() { return std::tuple_size<std::tuple<Dims...>>::value; }
 
   /** A shape is scalar if it is rank 0. */
-  static bool is_scalar() { return rank() == 0; }
+  static constexpr bool is_scalar() { return rank() == 0; }
 
   /** The type of an index for this shape. */
   typedef decltype(internal::default_array_to_tuple<index_t, rank()>()) index_type;
