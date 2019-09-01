@@ -449,6 +449,9 @@ class shape {
     return is_in_range(std::make_tuple<Indices...>(std::forward<Indices>(indices)...));
   }
 
+  /** Check to see if another shape is in range of this shape. A shape
+   * is in range of another shape if the min and max of each dimension
+   * is in range of the other shape. */
   template <typename... OtherDims>
   bool is_shape_in_range(const shape<OtherDims...>& other_shape) const {
     return is_in_range(internal::mins(other_shape)) && is_in_range(internal::maxes(other_shape));
@@ -535,6 +538,8 @@ class shape {
    * first and last addressable flat elements. */
   bool is_dense() const { return size() == flat_extent(); }
 
+  /** A shape is equal to another shape if all of the dimensions are
+   * equal. */
   bool operator==(const shape& other) const { return dims_ == other.dims_; }
   bool operator!=(const shape& other) const { return dims_ != other.dims_; }
 };
@@ -663,12 +668,16 @@ auto make_dense_shape(const shape<Dims...>& shape) {
   return internal::make_dense_shape(shape.dims(), std::make_index_sequence<rank - 1>());
 }
 
+/** An arbitrary shape (no compile-time constant parameters) with the
+ * specified Rank. */
 // TODO: These are disgusting, we should be able to make a shape from a
 // tuple more easily.
 template <size_t Rank>
 using shape_of_rank =
   decltype(internal::make_shape_from_tuple(internal::default_array_to_tuple<dim<>, Rank>()));
 
+/** An arbitrary dense shape with the specified Rank. Only the stride of
+ * the innermost dimension is a compile-time constant one. */
 template <size_t Rank>
 using dense_shape = decltype(internal::make_default_dense_shape<Rank>());
 
@@ -683,13 +692,17 @@ class array_ref {
   typedef Shape shape_type;
   typedef typename Shape::index_type index_type;
   typedef size_t size_type;
-  typedef std::ptrdiff_t difference_type;
   typedef value_type& reference;
   typedef value_type* pointer;
 
+  /** Make a reference to the given base pointer, interpreting it as
+   * having the given shape. */
   array_ref(T* base, Shape shape) : base_(base), shape_(std::move(shape)) {}
+  /** The copy constructor of a reference is a shallow copy. */
   array_ref(const array_ref& other) : array_ref(other.data(), other.shape()) {}
 
+  /** Assigning a reference performs a copy or move assignment of each
+   * element in this array from the corresponding element in 'other'. */
   array_ref& operator=(const array_ref& other) {
     if (this == &other) return *this;
     assign(other);
@@ -718,14 +731,16 @@ class array_ref {
       base_[shape_(x)] = std::move(move(x));
     });
   }
+  /** Copy-assign each element of this array to the given value. */
   void assign(const T& value) const {
     for_each_index(shape(), [&](const index_type& x) {
       base_[shape_(x)] = value;
     });
   }
 
-  /** Compute the flat offset of the indices. If an index is out of
-   * range, throws std::out_of_range. */
+  /** Get a reference to the element at the given indices. If the
+   * indices are out of range of the shape, throws
+   * std::out_of_range. */
   template <typename... Indices>
   reference at(const std::tuple<Indices...>& indices) const {
     if (!shape_.is_in_range(indices)) {
@@ -738,7 +753,7 @@ class array_ref {
     return at(std::make_tuple(std::forward<Indices>(indices)...));
   }
 
-  /** Compute the flat offset of the indices. */
+  /** Get a reference to the element at the given indices. */
   template <typename... Indices>
   reference operator() (const std::tuple<Indices...>& indices) const {
     return base_[shape_(indices)];
@@ -803,7 +818,7 @@ class array_ref {
     return !operator!=(other);
   }
 
-  /** Reinterpret the data in this array as a different type. */
+  /** Reinterpret the data in this array_ref as a different type. */
   template <typename U>
   array_ref<U, Shape> reinterpret() {
     static_assert(sizeof(T) == sizeof(U), "sizeof(reinterpreted type U) != sizeof(array type T)");
@@ -816,9 +831,12 @@ class array_ref {
   }
 };
 
+/** Reference to an array with an arbitrary shape of the given Rank. */
 template <typename T, size_t Rank>
 using array_ref_of_rank = array_ref<T, shape_of_rank<Rank>>;
 
+/** Reference to an array with a dense innermost dimension, and an
+ * arbitrary shape otherwise, of the given Rank. */
 template <typename T, size_t Rank>
 using dense_array_ref = array_ref<T, dense_shape<Rank>>;
 
@@ -886,22 +904,30 @@ class array {
   typedef Alloc allocator_type;
   typedef typename Shape::index_type index_type;
   typedef size_t size_type;
-  typedef std::ptrdiff_t difference_type;
   typedef value_type& reference;
   typedef const value_type& const_reference;
   typedef typename std::allocator_traits<Alloc>::pointer pointer;
   typedef typename std::allocator_traits<Alloc>::const_pointer const_pointer;
 
+  /** Construct an array with a default constructed Shape. Most shapes
+   * by default are empty, but a Shape with non-zero compile-time
+   * constants for all extents will be non-empty. */
   array() : array(Shape()) {}
-  explicit array(const Alloc& alloc) : alloc_(alloc), base_(nullptr) {}
+  explicit array(const Alloc& alloc) : array(Shape(), alloc) {}
+  /** Construct an array with a particular shape and value to
+   * copy-construct all elements in the array. */
   array(Shape shape, const T& value, const Alloc& alloc = Alloc()) : array(alloc) {
     assign(std::move(shape), value);
   }
+  /** Construct an array with a particular shape, with default
+   * constructed elements. */
   explicit array(Shape shape, const Alloc& alloc = Alloc())
       : alloc_(alloc), base_(nullptr), shape_(std::move(shape)) {
     allocate();
     construct();
   }
+  /** Copy construct from another array. This is a deep copy of the
+   * contents of the array. */
   array(const array& copy)
       : array(std::allocator_traits<Alloc>::select_on_container_copy_construction(copy.get_allocator())) {
     assign(copy);
@@ -909,6 +935,12 @@ class array {
   array(const array& copy, const Alloc& alloc) : array(alloc) {
     assign(copy);
   }
+  /** Move construct from another array. If the allocator of this and
+   * the other array are equal, this operation moves the allocation of
+   * other to this array, and the other array becomes a default
+   * constructed array. If the allocator of this and the other array
+   * are non-equal, each element is move-constructed into a new
+   * allocation. */
   array(array&& other) : array(std::move(other), Alloc()) {}
   array(array&& other, const Alloc& alloc) : array(alloc) {
     using std::swap;
@@ -979,7 +1011,7 @@ class array {
     construct(value);
   }
 
-  Alloc get_allocator() const { return alloc_; }
+  const Alloc& get_allocator() const { return alloc_; }
 
   /** Compute the flat offset of the indices. If an index is out of
    * range, throws std::out_of_range. */
