@@ -670,8 +670,6 @@ auto make_dense_shape(const shape<Dims...>& shape) {
 
 /** An arbitrary shape (no compile-time constant parameters) with the
  * specified Rank. */
-// TODO: These are disgusting, we should be able to make a shape from a
-// tuple more easily.
 template <size_t Rank>
 using shape_of_rank =
   decltype(internal::make_shape_from_tuple(internal::default_array_to_tuple<dim<>, Rank>()));
@@ -695,13 +693,13 @@ class array_ref {
   typedef value_type& reference;
   typedef value_type* pointer;
 
-  /** Make a reference to the given base pointer, interpreting it as
+  /** Make an array_ref to the given base pointer, interpreting it as
    * having the given shape. */
   array_ref(T* base, Shape shape) : base_(base), shape_(std::move(shape)) {}
   /** The copy constructor of a reference is a shallow copy. */
   array_ref(const array_ref& other) : array_ref(other.data(), other.shape()) {}
 
-  /** Assigning a reference performs a copy or move assignment of each
+  /** Assigning an array_ref performs a copy or move assignment of each
    * element in this array from the corresponding element in 'other'. */
   array_ref& operator=(const array_ref& other) {
     if (this == &other) return *this;
@@ -831,12 +829,12 @@ class array_ref {
   }
 };
 
-/** Reference to an array with an arbitrary shape of the given Rank. */
+/** array_ref with an arbitrary shape of the given Rank. */
 template <typename T, size_t Rank>
 using array_ref_of_rank = array_ref<T, shape_of_rank<Rank>>;
 
-/** Reference to an array with a dense innermost dimension, and an
- * arbitrary shape otherwise, of the given Rank. */
+/** array_ref with a dense innermost dimension, and an arbitrary shape
+ * otherwise, of the given Rank. */
 template <typename T, size_t Rank>
 using dense_array_ref = array_ref<T, dense_shape<Rank>>;
 
@@ -1011,6 +1009,7 @@ class array {
     construct(value);
   }
 
+  /** Get the allocator used to allocate memory for this buffer. */
   const Alloc& get_allocator() const { return alloc_; }
 
   /** Compute the flat offset of the indices. If an index is out of
@@ -1159,20 +1158,23 @@ class array {
   }
 };
 
+/** array with an arbitrary shape of the given Rank. */
 template <typename T, size_t Rank, typename Alloc = std::allocator<T>>
 using array_of_rank = array<T, shape_of_rank<Rank>, Alloc>;
 
+/** array with a dense innermost dimension, and an arbitrary shape
+ * otherwise. */
 template <typename T, size_t Rank, typename Alloc = std::allocator<T>>
 using dense_array = array<T, dense_shape<Rank>, Alloc>;
 
 /** Make a new array from a shape. */
 template <typename T, typename Shape, typename Alloc = std::allocator<T>>
-auto make_array(const Shape& shape) {
-  return array<T, Shape, Alloc>(shape);
+auto make_array(const Shape& shape, const Alloc& alloc = Alloc()) {
+  return array<T, Shape, Alloc>(shape, alloc);
 }
 template <typename T, typename Shape, typename Alloc = std::allocator<T>>
-auto make_array(const Shape& shape, const T& value) {
-  return array<T, Shape, Alloc>(shape, value);
+auto make_array(const Shape& shape, const T& value, const Alloc& alloc = Alloc()) {
+  return array<T, Shape, Alloc>(shape, value, alloc);
 }
 
 /** Swap the contents of two arrays. */
@@ -1206,26 +1208,32 @@ void copy(const array<T, ShapeSrc, AllocSrc>& src, array<T, ShapeDest, AllocDest
 }
 
 /** Make a copy of an array with a new shape. */
-template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocDest = std::allocator<T>>
-auto make_copy(const array_ref<const T, ShapeSrc>& src, const ShapeDest& copy_shape) {
-  array<T, ShapeDest, AllocDest> dest(copy_shape);
+template <typename T, typename ShapeSrc, typename ShapeDest,
+  typename AllocDest = std::allocator<T>>
+auto make_copy(const array_ref<const T, ShapeSrc>& src, const ShapeDest& copy_shape,
+               const AllocDest& alloc = AllocDest()) {
+  array<T, ShapeDest, AllocDest> dest(copy_shape, alloc);
   copy(src, dest);
   return dest;
 }
-template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc, typename AllocDest = std::allocator<T>>
-auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const ShapeDest& copy_shape) {
-  return make_copy(src.ref(), copy_shape);
+template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc,
+  typename AllocDest = std::allocator<T>>
+auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const ShapeDest& copy_shape,
+               const AllocDest& alloc = AllocDest()) {
+  return make_copy(src.ref(), copy_shape, alloc);
 }
 
 /** Make a copy of an array with the same shape as src, but with dense
  * strides. */
 template <typename T, typename ShapeSrc, typename AllocDest = std::allocator<T>>
-auto make_dense_copy(const array_ref<const T, ShapeSrc>& src) {
-  return make_copy(src, make_dense_shape(src.shape()));
+auto make_dense_copy(const array_ref<const T, ShapeSrc>& src,
+                     const AllocDest& alloc = AllocDest()) {
+  return make_copy(src, make_dense_shape(src.shape()), alloc);
 }
 template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = std::allocator<T>>
-auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src) {
-  return make_dense_copy(src.ref());
+auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src,
+                     const AllocDest& alloc = AllocDest()) {
+  return make_dense_copy(src.ref(), alloc);
 }
 
 /** Allocator that owns a buffer of fixed size, which will be placed
