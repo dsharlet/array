@@ -163,6 +163,15 @@ class dim {
   }
 };
 
+template <index_t Min, index_t Extent, index_t Stride>
+dim_iterator begin(const dim<Min, Extent, Stride>& d) {
+  return d.begin();
+}
+template <index_t Min, index_t Extent, index_t Stride>
+dim_iterator end(const dim<Min, Extent, Stride>& d) {
+  return d.end();
+}
+
 /** A specialization of dim where the stride is known to be one. */
 template <index_t Min = UNK, index_t Extent = UNK>
 using dense_dim = dim<Min, Extent, 1>;
@@ -232,6 +241,15 @@ class folded_dim {
     return extent() != other.extent() || stride() != other.stride();
   }
 };
+
+template <index_t Extent, index_t Stride>
+dim_iterator begin(const folded_dim<Extent, Stride>& d) {
+  return d.begin();
+}
+template <index_t Extent, index_t Stride>
+dim_iterator end(const folded_dim<Extent, Stride>& d) {
+  return d.end();
+}
 
 /** Clamp an index to the range [min, max]. */
 inline index_t clamp(index_t x, index_t min, index_t max) {
@@ -906,6 +924,7 @@ class array {
     });
   }
 
+  // Call the destructor on every element.
   void destroy() {
     assert(base_ || shape_.empty());
     for_each_value([&](T& x) {
@@ -913,7 +932,6 @@ class array {
     });
   }
 
-  // Call the destructor on every element, and deallocate the array.
   void deallocate() {
     if (base_) {
       destroy();
@@ -1291,7 +1309,7 @@ class stack_allocator {
   stack_allocator(const stack_allocator<U, U_N>&) noexcept : allocated(false) {}
   // TODO: Most of these constructors/assignment operators are hacks,
   // because the C++ STL I'm using seems to not be respecting the
-  // propagate typedefs or the 'select_on_...' function above..
+  // propagate typedefs or the 'select_on_...' function above.
   stack_allocator(const stack_allocator&) noexcept : allocated(false) {}
   stack_allocator(stack_allocator&&) noexcept : allocated(false) {}
   stack_allocator& operator=(const stack_allocator&) { return *this; }
