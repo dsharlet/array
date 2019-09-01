@@ -155,10 +155,12 @@ class dim {
 
   /** dim objects are considered equal if their min, extent, and
    * strides are equal. */
-  bool operator==(const dim& other) const {
+  template <index_t OtherMin, index_t OtherExtent, index_t OtherStride>
+  bool operator==(const dim<OtherMin, OtherExtent, OtherStride>& other) const {
     return min() == other.min() && extent() == other.extent() && stride() == other.stride();
   }
-  bool operator!=(const dim& other) const {
+  template <index_t OtherMin, index_t OtherExtent, index_t OtherStride>
+  bool operator!=(const dim<OtherMin, OtherExtent, OtherStride>& other) const {
     return min() != other.min() || extent() != other.extent() || stride() != other.stride();
   }
 };
@@ -234,10 +236,12 @@ class folded_dim {
 
   /** dim objects are considered equal if their min, extent, and
    * strides are equal. */
-  bool operator==(const folded_dim& other) const {
+  template <index_t OtherExtent, index_t OtherStride>
+  bool operator==(const folded_dim<OtherExtent, OtherStride>& other) const {
     return extent() == other.extent() && stride() == other.stride();
   }
-  bool operator!=(const folded_dim& other) const {
+  template <index_t OtherExtent, index_t OtherStride>
+  bool operator!=(const folded_dim<OtherExtent, OtherStride>& other) const {
     return extent() != other.extent() || stride() != other.stride();
   }
 };
@@ -579,8 +583,10 @@ class shape {
 
   /** A shape is equal to another shape if all of the dimensions are
    * equal. */
-  bool operator==(const shape& other) const { return dims_ == other.dims_; }
-  bool operator!=(const shape& other) const { return dims_ != other.dims_; }
+  template <typename... OtherDims>
+  bool operator==(const shape<OtherDims...>& other) const { return dims_ == other.dims(); }
+  template <typename... OtherDims>
+  bool operator!=(const shape<OtherDims...>& other) const { return dims_ != other.dims(); }
 };
 
 // TODO: Try to avoid needing this specialization. The only reason
