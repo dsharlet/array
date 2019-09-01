@@ -720,7 +720,7 @@ class array_ref {
       base_[shape_(x)] = copy(x);
     });
   }
-  void assign(array_ref& move) const {
+  void assign(array_ref&& move) const {
     if (this == &move) return;
     if (!shape().is_shape_in_range(move.shape())) {
       throw std::out_of_range("assignment accesses indices out of range of src");
@@ -873,7 +873,7 @@ class array {
       std::allocator_traits<Alloc>::construct(alloc_, &operator()(index), copy(index));
     });
   }
-  void construct(array& move) {
+  void construct(array&& move) {
     assert(base_ || shape_.empty());
     for_each_index(shape(), [&](const index_type& index) {
       std::allocator_traits<Alloc>::construct(alloc_, &operator()(index), std::move(move(index)));
@@ -945,7 +945,7 @@ class array {
     if (alloc_ != other.get_allocator()) {
       shape_ = other.shape_;
       allocate();
-      construct(other);
+      construct(std::move(other));
     } else {
       swap(shape_, other.shape_);
       swap(base_, other.base_);
@@ -971,7 +971,7 @@ class array {
       swap(other);
       other.clear();
     } else {
-      assign(other);
+      assign(std::move(other));
     }
     return *this;
   }
@@ -987,7 +987,7 @@ class array {
     }
     construct(copy);
   }
-  void assign(array& move) {
+  void assign(array&& move) {
     if (this == &move) return;
     if (shape_ == move.shape()) {
       destroy();
@@ -996,7 +996,7 @@ class array {
       shape_ = move.shape();
       allocate();
     }
-    construct(move);
+    construct(std::move(move));
   }
   void assign(Shape shape, const T& value) {
     if (shape_ == shape) {
