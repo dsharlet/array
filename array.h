@@ -379,7 +379,7 @@ void resolve_unknowns_impl(index_t current_stride, Dim0& dim0, Dims&... dims) {
 }
 
 template <typename Dims, size_t... Is>
-void resolve_unknowns(index_t current_stride, Dims& dims, std::index_sequence<Is...>) {
+void resolve_unknowns_impl(index_t current_stride, Dims& dims, std::index_sequence<Is...>) {
   resolve_unknowns_impl(current_stride, std::get<Is>(dims)...);
 }
 
@@ -389,23 +389,34 @@ void resolve_unknowns(Dims& dims) {
   index_t known_stride = max_stride(dims, std::make_index_sequence<rank>());
   index_t current_stride = std::max(static_cast<index_t>(1), known_stride);
 
-  resolve_unknowns(current_stride, dims, std::make_index_sequence<rank>());
+  resolve_unknowns_impl(current_stride, dims, std::make_index_sequence<rank>());
 }
 
 // A helper to transform an array to a tuple.
 template <typename T, size_t... Is>
-auto array_to_tuple(const std::array<T, sizeof...(Is)>& a, std::index_sequence<Is...>) {
+auto array_to_tuple_impl(const std::array<T, sizeof...(Is)>& a, std::index_sequence<Is...>) {
   return std::make_tuple(a[Is]...);
 }
 
 template <typename T, size_t N>
 auto array_to_tuple(const std::array<T, N>& a) {
-  return array_to_tuple(a, std::make_index_sequence<N>());
+  return array_to_tuple_impl(a, std::make_index_sequence<N>());
 }
 
 template <typename T, size_t N>
 auto default_array_to_tuple() {
   return array_to_tuple(std::array<T, N>());
+}
+
+template <typename... New, typename... Old, size_t... Is>
+std::tuple<New...> convert_tuple_impl(const std::tuple<Old...>& in, std::index_sequence<Is...>) {
+  return std::tuple<New...>(std::get<Is>(in)...);
+}
+
+template <typename... New, typename... Old>
+std::tuple<New...> convert_tuple(const std::tuple<Old...>& in) {
+  static_assert(sizeof...(New) == sizeof...(Old), "tuple conversion of differently sized tuples");
+  return convert_tuple_impl<New...>(in, std::make_index_sequence<sizeof...(Old)>());
 }
 
 }  // namespace internal
@@ -426,9 +437,19 @@ class shape {
   shape(Dims... dims) : dims_(std::forward<Dims>(dims)...) { internal::resolve_unknowns(dims_); }
   shape(const shape&) = default;
   shape(shape&&) = default;
+  /** Construct this shape from a different kind of shape. */
+  template <typename... OtherDims>
+  shape(const shape<OtherDims...>& conversion)
+    : dims_(internal::convert_tuple<Dims...>(conversion.dims())) {}
 
   shape& operator=(const shape&) = default;
   shape& operator=(shape&&) = default;
+
+  template <typename... OtherDims>
+  shape& operator=(const shape<OtherDims...>& conversion) {
+    dims_ = internal::convert_tuple<Dims...>(conversion.dims());
+    return *this;
+  }
 
   /** Number of dims in this shape. */
   static constexpr size_t rank() { return std::tuple_size<std::tuple<Dims...>>::value; }

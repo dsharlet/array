@@ -265,9 +265,15 @@ TEST(shape_conversion) {
   ASSERT_EQ(x.extent(), 10);
   ASSERT_EQ(x.stride(), 1);
 
-  // TODO: Enabling this leads to lots of overload ambiguity.
-  //dense_shape<2> static_dense(dense_dim<>(0, 10), dim<>(1, 5));
-  //shape_of_rank<2> dense = static_dense;
+  dense_shape<2> static_dense(dense_dim<>(0, 10), dim<>(1, 5));
+  shape_of_rank<2> dense = static_dense;
+  ASSERT(dense == static_dense);
+
+  static_dense = dense;
+  ASSERT(dense == static_dense);
+
+  dense_shape<2> static_dense2(dense);
+  ASSERT(dense == static_dense2);
 }
 
 TEST(shape_transpose) {
