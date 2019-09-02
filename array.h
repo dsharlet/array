@@ -921,13 +921,13 @@ class array {
       std::allocator_traits<Alloc>::construct(alloc_, &x, init);
     });
   }
-  void construct(const array& copy) {
+  void copy_construct(const array& copy) {
     assert(base_ || shape_.empty());
     for_each_index(shape(), [&](const index_type& index) {
       std::allocator_traits<Alloc>::construct(alloc_, &operator()(index), copy(index));
     });
   }
-  void construct(array&& move) {
+  void move_construct(array&& move) {
     assert(base_ || shape_.empty());
     for_each_index(shape(), [&](const index_type& index) {
       std::allocator_traits<Alloc>::construct(alloc_, &operator()(index), std::move(move(index)));
@@ -999,7 +999,7 @@ class array {
     if (alloc_ != other.get_allocator()) {
       shape_ = other.shape_;
       allocate();
-      construct(std::move(other));
+      move_construct(std::move(other));
     } else {
       swap(shape_, other.shape_);
       swap(base_, other.base_);
@@ -1039,7 +1039,7 @@ class array {
       shape_ = copy.shape();
       allocate();
     }
-    construct(copy);
+    copy_construct(copy);
   }
   void assign(array&& move) {
     if (this == &move) return;
@@ -1050,7 +1050,7 @@ class array {
       shape_ = move.shape();
       allocate();
     }
-    construct(std::move(move));
+    move_construct(std::move(move));
   }
   void assign(Shape shape, const T& value) {
     if (shape_ == shape) {
