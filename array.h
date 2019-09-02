@@ -781,11 +781,6 @@ class array_ref {
     });
   }
 
-  /** Allow conversion from array_ref<T> to array_ref<const T>. */
-  operator array_ref<const T, Shape>() const {
-    return array_ref<const T, Shape>(data(), shape());
-  }
-
   /** Get a reference to the element at the given indices. If the
    * indices are out of range of the shape, throws
    * std::out_of_range. */
@@ -864,6 +859,15 @@ class array_ref {
   }
   bool operator==(const array_ref& other) const {
     return !operator!=(other);
+  }
+
+  const array_ref<T, Shape>& ref() const {
+    return *this;
+  }
+
+  /** Allow conversion from array_ref<T> to array_ref<const T>. */
+  operator array_ref<const T, Shape>() const {
+    return array_ref<const T, Shape>(data(), shape());
   }
 
   /** Reinterpret the data in this array_ref as a different type. */
