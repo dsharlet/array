@@ -1261,7 +1261,7 @@ void copy(const array<T, ShapeSrc, AllocSrc>& src, array<T, ShapeDest, AllocDest
 
 /** Make a copy of an array with a new shape. */
 template <typename T, typename ShapeSrc, typename ShapeDest,
-  typename AllocDest = std::allocator<T>>
+  typename AllocDest = std::allocator<typename std::remove_const<T>::type>>
 auto make_copy(const array_ref<T, ShapeSrc>& src, const ShapeDest& copy_shape,
                const AllocDest& alloc = AllocDest()) {
   array<typename std::remove_const<T>::type, ShapeDest, AllocDest> dest(copy_shape, alloc);
@@ -1277,7 +1277,8 @@ auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const ShapeDest& copy_sh
 
 /** Make a copy of an array with the same shape as src, but with dense
  * strides. */
-template <typename T, typename ShapeSrc, typename AllocDest = std::allocator<T>>
+template <typename T, typename ShapeSrc,
+  typename AllocDest = std::allocator<typename std::remove_const<T>::type>>
 auto make_dense_copy(const array_ref<T, ShapeSrc>& src,
                      const AllocDest& alloc = AllocDest()) {
   return make_copy(src, make_dense_shape(src.shape()), alloc);
