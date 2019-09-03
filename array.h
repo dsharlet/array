@@ -747,7 +747,6 @@ class array_ref {
   /** Assigning an array_ref performs a copy or move assignment of each
    * element in this array from the corresponding element in 'other'. */
   array_ref& operator=(const array_ref& other) {
-    if (this == &other) return *this;
     assign(other);
     return *this;
   }
@@ -757,7 +756,10 @@ class array_ref {
   }
 
   void assign(const array_ref& copy) const {
-    if (this == &copy) return;
+    if (data() == copy.data()) {
+      assert(shape() == copy.shape());
+      return;
+    }
     if (!shape().is_shape_in_range(copy.shape())) {
       throw std::out_of_range("assignment accesses indices out of range of src");
     }
@@ -766,7 +768,10 @@ class array_ref {
     });
   }
   void assign(array_ref&& move) const {
-    if (this == &move) return;
+    if (data() == move.data()) {
+      assert(shape() == move.shape());
+      return;
+    }
     if (!shape().is_shape_in_range(move.shape())) {
       throw std::out_of_range("assignment accesses indices out of range of src");
     }
@@ -1010,7 +1015,10 @@ class array {
   }
 
   array& operator=(const array& other) {
-    if (this == &other) return *this;
+    if (data() == other.data()) {
+      assert(shape() == other.shape());
+      return *this;
+    }
 
     if (std::allocator_traits<Alloc>::propagate_on_container_copy_assignment::value) {
       deallocate();
@@ -1021,6 +1029,11 @@ class array {
     return *this;
   }
   array& operator=(array&& other) {
+    if (data() == other.data()) {
+      assert(shape() == other.shape());
+      return *this;
+    }
+
     if (std::allocator_traits<allocator_type>::propagate_on_container_move_assignment::value) {
       swap(other);
       other.clear();
@@ -1031,7 +1044,10 @@ class array {
   }
 
   void assign(const array& copy) {
-    if (this == &copy) return;
+    if (data() == copy.data()) {
+      assert(shape() == copy.shape());
+      return;
+    }
     if (shape_ == copy.shape()) {
       destroy();
     } else {
@@ -1042,7 +1058,10 @@ class array {
     copy_construct(copy);
   }
   void assign(array&& move) {
-    if (this == &move) return;
+    if (data() == move.data()) {
+      assert(shape() == move.shape());
+      return;
+    }
     if (shape_ == move.shape()) {
       destroy();
     } else {
