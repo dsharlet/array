@@ -12,19 +12,13 @@ using namespace array;
 template <typename T>
 using matrix = array<T, shape<dim<>, dense_dim<>>>;
 
-// Helper functions to get the rows and columns dimension of a matrix.
-template <typename T>
-const dim<>& rows(const matrix<T>& m) { return m.shape().template dim<0>(); }
-template <typename T>
-const dense_dim<>& cols(const matrix<T>& m) { return m.shape().template dim<1>(); }
-
 // A textbook implementation of matrix multiplication.
 template <typename T>
 void multiply_naive(const matrix<T>& a, const matrix<T>& b, matrix<T>& c) {
-  for (int i : rows(c)) {
-    for (int j : cols(c)) {
+  for (int i : c.i()) {
+    for (int j : c.j()) {
       T c_ij = 0;
-      for (int k : cols(a)) {
+      for (int k : a.j()) {
         c_ij += a(i, k) * b(k, j);
       }
       c(i, j) = c_ij;
@@ -37,12 +31,12 @@ void multiply_naive(const matrix<T>& a, const matrix<T>& b, matrix<T>& c) {
 // it possible to vectorize the inner loop.
 template <typename T>
 void multiply_cols_innermost(const matrix<T>& a, const matrix<T>& b, matrix<T>& c) {
-  for (int i : rows(c)) {
-    for (int j : cols(c)) {
+  for (int i : c.i()) {
+    for (int j : c.j()) {
       c(i, j) = 0;
     }
-    for (int k : cols(a)) {
-      for (int j : cols(c)) {
+    for (int k : a.j()) {
+      for (int j : c.j()) {
         c(i, j) += a(i, k) * b(k, j);
       }
     }
@@ -62,8 +56,8 @@ void multiply_tiles_innermost(const matrix<T>& a, const matrix<T>& b, matrix<T>&
   constexpr int tile_M = 4;
   constexpr int tile_N = 32;
   // TODO: Add helper functions to make this less disgusting.
-  int tiles_m = rows(c).extent() / tile_M;
-  int tiles_n = cols(c).extent() / tile_N;
+  int tiles_m = c.i().extent() / tile_M;
+  int tiles_n = c.j().extent() / tile_N;
   for (int io = 0; io < tiles_m; io++) {
     for (int jo = 0; jo < tiles_n; jo++) {
       for (int ii = 0; ii < tile_M; ii++) {
@@ -73,7 +67,7 @@ void multiply_tiles_innermost(const matrix<T>& a, const matrix<T>& b, matrix<T>&
           c(i, j) = 0;
         }
       }
-      for (int k : cols(a)) {
+      for (int k : a.j()) {
         for (int ii = 0; ii < tile_M; ii++) {
           int i = io * tile_M + ii;
           for (int ji = 0; ji < tile_N; ji++) {

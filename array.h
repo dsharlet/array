@@ -528,6 +528,8 @@ class shape {
 
   /** Get a specific dim of this shape. */
   template <size_t D>
+  auto& dim() { return std::get<D>(dims_); }
+  template <size_t D>
   const auto& dim() const { return std::get<D>(dims_); }
 
   /** Get a tuple of the dims of this shape. */
@@ -589,16 +591,36 @@ class shape {
    * first and last addressable flat elements. */
   bool is_dense() const { return size() == flat_extent(); }
 
+  /** Provide some common aliases for dimensions. */
+  auto& i() { return dim<0>(); }
+  const auto& i() const { return dim<0>(); }
+  auto& j() { return dim<1>(); }
+  const auto& j() const { return dim<1>(); }
+  auto& k() { return dim<2>(); }
+  const auto& k() const { return dim<2>(); }
+
+  auto& x() { return dim<0>(); }
+  const auto& x() const { return dim<0>(); }
+  auto& y() { return dim<1>(); }
+  const auto& y() const { return dim<1>(); }
+  auto& z() { return dim<2>(); }
+  const auto& z() const { return dim<2>(); }
+  auto& w() { return dim<3>(); }
+  const auto& w() const { return dim<3>(); }
+
+  auto& c() { return dim<2>(); }
+  const auto& c() const { return dim<2>(); }
+
   /** Assuming this array represents an image with dimensions {width,
    * height, channels}, get the extent of those dimensions. */
-  index_t width() const { return dim<0>().extent(); }
-  index_t height() const { return dim<1>().extent(); }
-  index_t channels() const { return dim<2>().extent(); }
+  index_t width() const { return x().extent(); }
+  index_t height() const { return y().extent(); }
+  index_t channels() const { return c().extent(); }
 
   /** Assuming this array represents a matrix with dimensions {rows,
    * cols}, get the extent of those dimensions. */
-  index_t rows() const { return dim<0>().extent(); }
-  index_t columns() const { return dim<1>().extent(); }
+  index_t rows() const { return i().extent(); }
+  index_t columns() const { return j().extent(); }
 
   /** A shape is equal to another shape if all of the dimensions are
    * equal. */
@@ -852,6 +874,18 @@ class array_ref {
   bool empty() const { return shape_.empty(); }
   /** True if this array_ref is dense in memory. */
   bool is_dense() const { return shape_.is_dense(); }
+
+  /** Provide some common aliases for dimensions. */
+  const auto& i() const { return shape().i(); }
+  const auto& j() const { return shape().j(); }
+  const auto& k() const { return shape().k(); }
+
+  const auto& x() const { return shape().x(); }
+  const auto& y() const { return shape().y(); }
+  const auto& z() const { return shape().z(); }
+  const auto& w() const { return shape().w(); }
+
+  const auto& c() const { return shape().c(); }
 
   /** Assuming this array represents an image with dimensions width,
    * height, channels, get the extent of those dimensions. */
@@ -1193,6 +1227,18 @@ class array {
     shape_ = Shape();
     allocate();
   }
+
+  /** Provide some common aliases for dimensions. */
+  const auto& i() const { return shape().i(); }
+  const auto& j() const { return shape().j(); }
+  const auto& k() const { return shape().k(); }
+
+  const auto& x() const { return shape().x(); }
+  const auto& y() const { return shape().y(); }
+  const auto& z() const { return shape().z(); }
+  const auto& w() const { return shape().w(); }
+
+  const auto& c() const { return shape().c(); }
 
   /** Assuming this array represents an image with dimensions width,
    * height, channels, get the extent of those dimensions. */

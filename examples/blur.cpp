@@ -14,36 +14,33 @@ T gaussian_blur_5(T x0, T x1, T x2, T x3, T x4) {
 // 2D blur an image with a 1 4 6 4 1 kernel in each dimension.
 template <typename Image>
 void gaussian_blur_5x5(const Image& in, Image& out) {
-  auto x_dim = out.template dim<0>();
-  auto y_dim = out.template dim<1>();
-  auto c_dim = out.template dim<2>();
   // The strategy here is to blur each row in y first, then blur that
   // in x, and do this per line of the output.
   // This means we need to store one line of the blur in y, so let's
   // define a shape of a buffer for a single line.
-  auto line_buffer_shape = make_shape(x_dim, c_dim);
+  auto line_buffer_shape = make_shape(out.x(), out.c());
   auto blur_y = make_array<typename Image::value_type>(line_buffer_shape);
-  for (int y : y_dim) {
+  for (int y : out.y()) {
     // Blur in y first.
-    for (int x : x_dim) {
-      for (int c : c_dim) {
-        auto y0 = in(x, clamp(y - 2, y_dim), c);
-        auto y1 = in(x, clamp(y - 1, y_dim), c);
-        auto y2 = in(x, clamp(y, y_dim), c);
-        auto y3 = in(x, clamp(y + 1, y_dim), c);
-        auto y4 = in(x, clamp(y + 2, y_dim), c);
+    for (int x : out.x()) {
+      for (int c : out.c()) {
+        auto y0 = in(x, clamp(y - 2, out.y()), c);
+        auto y1 = in(x, clamp(y - 1, out.y()), c);
+        auto y2 = in(x, clamp(y, out.y()), c);
+        auto y3 = in(x, clamp(y + 1, out.y()), c);
+        auto y4 = in(x, clamp(y + 2, out.y()), c);
         blur_y(x, c) = gaussian_blur_5(y0, y1, y2, y3, y4);
       }
     }
 
     // Blur in x.
-    for (int x : x_dim) {
-      for (int c : c_dim) {
-        auto x0 = blur_y(clamp(x - 2, x_dim), c);
-        auto x1 = blur_y(clamp(x - 1, x_dim), c);
-        auto x2 = blur_y(clamp(x, x_dim), c);
-        auto x3 = blur_y(clamp(x + 1, x_dim), c);
-        auto x4 = blur_y(clamp(x + 2, x_dim), c);
+    for (int x : out.x()) {
+      for (int c : out.c()) {
+        auto x0 = blur_y(clamp(x - 2, out.x()), c);
+        auto x1 = blur_y(clamp(x - 1, out.x()), c);
+        auto x2 = blur_y(clamp(x, out.x()), c);
+        auto x3 = blur_y(clamp(x + 1, out.x()), c);
+        auto x4 = blur_y(clamp(x + 2, out.x()), c);
         out(x, y, c) = gaussian_blur_5(x0, x1, x2, x3, x4);
       }
     }
@@ -141,7 +138,7 @@ int main(int argc, const char** argv) {
     gaussian_blur_5x5(interleaved_image, interleaved_blurred);
   });
   std::cout << interleaved_time * 1e3 << " ms" << std::endl;
-  
+
   // Check that the results of each computation above are correct.
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
