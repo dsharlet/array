@@ -188,7 +188,7 @@ class folded_dim {
  protected:
   index_t extent_;
   index_t stride_;
-  
+
  public:
   /** Construct a new dim object. If the Extent or Stride compile-time
    * template parameters are not 'UNK', these runtime values must
@@ -517,7 +517,7 @@ class shape {
   index_t operator() (Indices... indices) const {
     return at(std::make_tuple<Indices...>(std::forward<Indices>(indices)...));
   }
-  
+
   /** Get a specific dim of this shape. */
   template <size_t D>
   const auto& dim() const { return std::get<D>(dims_); }
@@ -580,6 +580,17 @@ class shape {
    * 'dense' if there are no unaddressable flat indices between the
    * first and last addressable flat elements. */
   bool is_dense() const { return size() == flat_extent(); }
+
+  /** Assuming this array represents an image with dimensions {width,
+   * height, channels}, get the extent of those dimensions. */
+  index_t width() const { return dim<0>().extent(); }
+  index_t height() const { return dim<1>().extent(); }
+  index_t channels() const { return dim<2>().extent(); }
+
+  /** Assuming this array represents a matrix with dimensions {rows,
+   * cols}, get the extent of those dimensions. */
+  index_t rows() const { return dim<0>().extent(); }
+  index_t columns() const { return dim<1>().extent(); }
 
   /** A shape is equal to another shape if all of the dimensions are
    * equal. */
@@ -663,7 +674,7 @@ void for_all_indices(const Shape& s, const Fn& fn) {
 template <typename Shape, typename Fn>
 void for_each_index(const Shape& s, const Fn& fn) {
   internal::for_each_index_impl<Shape::rank() - 1>(0, s, fn, std::tuple<>());
-} 
+}
 
 /** Helper function to make a tuple from a variadic list of dims. */
 template <typename... Dims>
@@ -833,6 +844,17 @@ class array_ref {
   bool empty() const { return shape_.empty(); }
   /** True if this array_ref is dense in memory. */
   bool is_dense() const { return shape_.is_dense(); }
+
+  /** Assuming this array represents an image with dimensions width,
+   * height, channels, get the extent of those dimensions. */
+  index_t width() const { return shape().width(); }
+  index_t height() const { return shape().height(); }
+  index_t channels() const { return shape().channels(); }
+
+  /** Assuming this array represents a matrix with dimensions {rows,
+   * cols}, get the extent of those dimensions. */
+  index_t rows() const { return shape().rows(); }
+  index_t columns() const { return shape().columns(); }
 
   /** Reshape the array_ref. The new shape must not address any elements
    * not already addressable by the current shape of this array_ref. */
@@ -1010,8 +1032,8 @@ class array {
       swap(base_, other.base_);
     }
   }
-  ~array() { 
-    deallocate(); 
+  ~array() {
+    deallocate();
   }
 
   array& operator=(const array& other) {
@@ -1158,11 +1180,22 @@ class array {
   /** True if this array is dense in memory. */
   bool is_dense() const { return shape_.is_dense(); }
   /** Reset the shape of this array to default. */
-  void clear() { 
+  void clear() {
     deallocate();
     shape_ = Shape();
     allocate();
   }
+
+  /** Assuming this array represents an image with dimensions width,
+   * height, channels, get the extent of those dimensions. */
+  index_t width() const { return shape().width(); }
+  index_t height() const { return shape().height(); }
+  index_t channels() const { return shape().channels(); }
+
+  /** Assuming this array represents a matrix with dimensions {rows,
+   * cols}, get the extent of those dimensions. */
+  index_t rows() const { return shape().rows(); }
+  index_t columns() const { return shape().columns(); }
 
   /** Reshape the array. The new shape must not address any elements
    * not already addressable by the current shape of this array. */
@@ -1323,7 +1356,7 @@ class stack_allocator {
   alignas(T) char alloc[N * sizeof(T)];
   bool allocated;
 
- public:  
+ public:
   typedef T value_type;
 
   typedef std::false_type propagate_on_container_copy_assignment;
@@ -1335,7 +1368,7 @@ class stack_allocator {
   }
 
   stack_allocator() : allocated(false) {}
-  template <class U, size_t U_N> constexpr 
+  template <class U, size_t U_N> constexpr
   stack_allocator(const stack_allocator<U, U_N>&) noexcept : allocated(false) {}
   // TODO: Most of these constructors/assignment operators are hacks,
   // because the C++ STL I'm using seems to not be respecting the

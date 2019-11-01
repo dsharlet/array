@@ -73,6 +73,11 @@ TEST(make_dense_shape_2d) {
   ASSERT_EQ(y.min(), 0);
   ASSERT_EQ(y.extent(), 5);
   ASSERT_EQ(y.stride(), 10);
+
+  ASSERT_EQ(s.width(), x.extent());
+  ASSERT_EQ(s.height(), y.extent());
+  ASSERT_EQ(s.rows(), x.extent());
+  ASSERT_EQ(s.columns(), y.extent());
 }
 
 TEST(make_dense_shape_3d) {
@@ -89,6 +94,12 @@ TEST(make_dense_shape_3d) {
   ASSERT_EQ(z.min(), 0);
   ASSERT_EQ(z.extent(), 20);
   ASSERT_EQ(z.stride(), 50);
+
+  ASSERT_EQ(s.width(), x.extent());
+  ASSERT_EQ(s.height(), y.extent());
+  ASSERT_EQ(s.channels(), z.extent());
+  ASSERT_EQ(s.rows(), x.extent());
+  ASSERT_EQ(s.columns(), y.extent());
 }
 
 TEST(auto_strides) {
@@ -162,7 +173,7 @@ TEST(for_all_indices_1d) {
   });
   // Ensure the for_all_indices loop above actually ran.
   ASSERT_EQ(expected_flat_offset, 20);
-}   
+}
 
 TEST(for_all_indices_2d) {
   dense_shape<2> s(10, 4);
@@ -173,7 +184,7 @@ TEST(for_all_indices_2d) {
   });
   // Ensure the for_all_indices loop above actually ran.
   ASSERT_EQ(expected_flat_offset, 40);
-}   
+}
 
 TEST(for_all_indices_3d) {
   dense_shape<3> s(3, 5, 8);
@@ -195,7 +206,7 @@ TEST(for_each_index_1d) {
   });
   // Ensure the for_each_index loop above actually ran.
   ASSERT_EQ(expected_flat_offset, 20);
-}   
+}
 
 TEST(for_each_index_2d) {
   dense_shape<2> s(10, 4);
@@ -206,7 +217,7 @@ TEST(for_each_index_2d) {
   });
   // Ensure the for_each_index loop above actually ran.
   ASSERT_EQ(expected_flat_offset, 40);
-}   
+}
 
 TEST(for_each_index_3d) {
   dense_shape<3> s(3, 5, 8);

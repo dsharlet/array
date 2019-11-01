@@ -15,6 +15,10 @@ TEST(array_ref_indices) {
   });
 
   dense_array_ref<int, 2> ref_2d(data, make_dense_shape(20, 5));
+  ASSERT_EQ(ref_2d.width(), 20);
+  ASSERT_EQ(ref_2d.height(), 5);
+  ASSERT_EQ(ref_2d.rows(), 20);
+  ASSERT_EQ(ref_2d.columns(), 5);
   for_all_indices(ref_2d.shape(), [&](int x, int y) {
     ASSERT_EQ(ref_2d(x, y), y*20 + x);
   });
@@ -28,6 +32,11 @@ TEST(reinterpret) {
 
   dense_array<int, 3> int_array({4, 5, 6}, eight_int);
   dense_array_ref<float, 3> float_array = int_array.reinterpret<float>();
+  ASSERT_EQ(float_array.width(), 4);
+  ASSERT_EQ(float_array.height(), 5);
+  ASSERT_EQ(float_array.channels(), 6);
+  ASSERT_EQ(float_array.rows(), 4);
+  ASSERT_EQ(float_array.columns(), 5);
   for_all_indices(int_array.shape(), [&](int x, int y, int z) {
     ASSERT_EQ(int_array(x, y, z), eight_int);
     ASSERT_EQ(float_array(x, y, z), eight);

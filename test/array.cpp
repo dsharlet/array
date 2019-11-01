@@ -11,6 +11,8 @@ TEST(array_default_constructor) {
   }
 
   dense_array<int, 2> b({7, 3});
+  ASSERT_EQ(b.width(), 7);
+  ASSERT_EQ(b.height(), 3);
   for (int y = 0; y < 3; y++) {
     for (int x = 0; x < 7; x++) {
       ASSERT_EQ(b(x, y), 0);
@@ -18,6 +20,9 @@ TEST(array_default_constructor) {
   }
 
   dense_array<int, 3> c({5, 9, 3});
+  ASSERT_EQ(c.width(), 5);
+  ASSERT_EQ(c.height(), 9);
+  ASSERT_EQ(c.channels(), 3);
   for (int z = 0; z < 3; z++) {
     for (int y = 0; y < 9; y++) {
       for (int x = 0; x < 5; x++) {
@@ -28,6 +33,8 @@ TEST(array_default_constructor) {
 
   auto sparse_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10, 20));
   array<int, shape<dim<>, dim<>>> sparse(sparse_shape);
+  ASSERT_EQ(sparse.rows(), 5);
+  ASSERT_EQ(sparse.columns(), 10);
   for (int y = 4; y < 14; y++) {
     for (int x = -2; x < 3; x++) {
       ASSERT_EQ(sparse(x, y), 0);
