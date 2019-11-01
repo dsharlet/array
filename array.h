@@ -9,6 +9,14 @@
 #include <memory>
 #include <tuple>
 
+#ifdef ARRAY_NO_EXCEPTIONS
+#define ARRAY_THROW_OUT_OF_RANGE(m) do { assert(!m); abort(); } while(0)
+#define ARRAY_THROW_BAD_ALLOC() do { assert(!"bad alloc"); abort(); } while(0)
+#else
+#define ARRAY_THROW_OUT_OF_RANGE(m) throw std::out_of_range(m)
+#define ARRAY_THROW_BAD_ALLOC() throw std::bad_alloc();
+#endif
+
 namespace array {
 
 typedef std::size_t size_t;
@@ -772,7 +780,7 @@ class array_ref {
       return;
     }
     if (!shape().is_shape_in_range(copy.shape())) {
-      throw std::out_of_range("assignment accesses indices out of range of src");
+      ARRAY_THROW_OUT_OF_RANGE("assignment accesses indices out of range of src");
     }
     for_each_index(shape(), [&](const index_type& x) {
       base_[shape_(x)] = copy(x);
@@ -784,7 +792,7 @@ class array_ref {
       return;
     }
     if (!shape().is_shape_in_range(move.shape())) {
-      throw std::out_of_range("assignment accesses indices out of range of src");
+      ARRAY_THROW_OUT_OF_RANGE("assignment accesses indices out of range of src");
     }
     for_each_index(shape(), [&](const index_type& x) {
       base_[shape_(x)] = std::move(move(x));
@@ -803,7 +811,7 @@ class array_ref {
   template <typename... Indices>
   reference at(const std::tuple<Indices...>& indices) const {
     if (!shape_.is_in_range(indices)) {
-      throw std::out_of_range("indices are out of range");
+      ARRAY_THROW_OUT_OF_RANGE("indices are out of range");
     }
     return base_[shape_.at(indices)];
   }
@@ -860,7 +868,7 @@ class array_ref {
    * not already addressable by the current shape of this array_ref. */
   void reshape(Shape new_shape) {
     if (!new_shape.is_subset_of(shape())) {
-      throw std::out_of_range("new_shape is not a subset of shape().");
+      ARRAY_THROW_OUT_OF_RANGE("new_shape is not a subset of shape().");
     }
     shape_ = std::move(new_shape);
   }
@@ -1112,7 +1120,7 @@ class array {
   template <typename... Indices>
   reference at(const std::tuple<Indices...>& indices) {
     if (!shape_.is_in_range(indices)) {
-      throw std::out_of_range("indices are out of range");
+      ARRAY_THROW_OUT_OF_RANGE("indices are out of range");
     }
     return base_[shape_.at(indices)];
   }
@@ -1123,7 +1131,7 @@ class array {
   template <typename... Indices>
   const_reference at(const std::tuple<Indices...>& indices) const {
     if (!shape_.is_in_range(indices)) {
-      throw std::out_of_range("indices are out of range");
+      ARRAY_THROW_OUT_OF_RANGE("indices are out of range");
     }
     return base_[shape_.at(indices)];
   }
@@ -1201,7 +1209,7 @@ class array {
    * not already addressable by the current shape of this array. */
   void reshape(Shape new_shape) {
     if (!new_shape.is_subset_of(shape())) {
-      throw std::out_of_range("new_shape is not a subset of shape().");
+      ARRAY_THROW_OUT_OF_RANGE("new_shape is not a subset of shape().");
     }
     shape_ = std::move(new_shape);
   }
@@ -1295,7 +1303,7 @@ template <typename T, typename ShapeSrc, typename ShapeDest>
 void copy(const array_ref<T, ShapeSrc>& src,
           const array_ref<typename std::remove_const<T>::type, ShapeDest>& dest) {
   if (!dest.shape().is_shape_in_range(src.shape())) {
-    throw std::out_of_range("dest indices are out of range of src");
+    ARRAY_THROW_OUT_OF_RANGE("dest indices are out of range of src");
   }
   for_each_index(dest.shape(), [&](const typename ShapeDest::index_type& index) {
     dest(index) = src(index);
@@ -1379,8 +1387,8 @@ class stack_allocator {
   stack_allocator& operator=(stack_allocator&&) { return *this; }
 
   T* allocate(size_t n) {
-    if (allocated) throw std::bad_alloc();
-    if (n > N) throw std::bad_alloc();
+    if (allocated) ARRAY_THROW_BAD_ALLOC();
+    if (n > N) ARRAY_THROW_BAD_ALLOC();
     allocated = true;
     return reinterpret_cast<T*>(&alloc[0]);
   }
