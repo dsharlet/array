@@ -637,7 +637,7 @@ class shape<> {
  public:
   shape() {}
 
-  constexpr size_t rank() const { return 0; }
+  static constexpr size_t rank() { return 0; }
 
   typedef std::tuple<> index_type;
 
@@ -864,6 +864,7 @@ class array_ref {
   pointer data() const { return base_; }
 
   /** Shape of this array_ref. */
+  static constexpr size_t rank() { return Shape::rank(); }
   const Shape& shape() const { return shape_; }
   template <size_t D>
   const auto& dim() const { return shape().template dim<D>(); }
@@ -1211,6 +1212,7 @@ class array {
   const_pointer data() const { return base_; }
 
   /** Shape of this array. */
+  static constexpr size_t rank() { return Shape::rank(); }
   const Shape& shape() const { return shape_; }
   template <size_t D>
   const auto& dim() const { return shape().template dim<D>(); }
