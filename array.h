@@ -186,6 +186,10 @@ dim_iterator end(const dim<Min, Extent, Stride>& d) {
 template <index_t Min = UNK, index_t Extent = UNK>
 using dense_dim = dim<Min, Extent, 1>;
 
+/** A specialization of dim where only the stride is specified. */
+template <index_t Stride>
+using strided_dim = dim<UNK, UNK, Stride>;
+
 /** A specialization of dim where the stride is known to be zero. */
 template <index_t Min = UNK, index_t Extent = UNK>
 using broadcast_dim = dim<Min, Extent, 0>;
