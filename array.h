@@ -873,7 +873,7 @@ class array_ref {
   template <size_t D>
   const auto& dim() const { return shape().template dim<D>(); }
   /** Number of elements addressable by the shape of this array_ref. */
-  size_type size() { return shape_.size(); }
+  size_type size() const { return shape_.size(); }
   /** True if there are zero addressable elements by the shape of this
    * array_ref. */
   bool empty() const { return shape_.empty(); }
@@ -1221,7 +1221,7 @@ class array {
   template <size_t D>
   const auto& dim() const { return shape().template dim<D>(); }
   /** Number of elements addressable by the shape of this array. */
-  size_type size() { return shape_.size(); }
+  size_type size() const { return shape_.size(); }
   /** True if there are zero addressable elements by the shape of this
    * array. */
   bool empty() const { return shape_.empty(); }
