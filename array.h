@@ -827,6 +827,27 @@ shape_of_rank<Shape::rank()> optimize_shape(const Shape& shape) {
   return make_shape_from_array<shape_of_rank<Shape::rank()>>(dims);
 }
 
+template <typename T, typename Shape, typename Fn>
+void for_each_value(T* base, const Shape& shape, const Fn& fn) {
+  // For this function, we don't care about the order in which the
+  // callback is called. Optimize the shape for memory access order.
+  auto opt_shape = optimize_shape(shape);
+
+  // If the optimized shape's first dimension is 1, we can convert
+  // this to a dense shape. This may help the compiler optimize this
+  // further.
+  if (opt_shape.template dim<0>().stride() == 1) {
+    dense_shape<Shape::rank()> dense_opt_shape = opt_shape;
+    for_each_index(dense_opt_shape, [&](const typename Shape::index_type& index) {
+      fn(base[dense_opt_shape(index)]);
+    });
+  } else {
+    for_each_index(opt_shape, [&](const typename Shape::index_type& index) {
+      fn(base[opt_shape(index)]);
+    });
+  }
+}
+
 }  // namespace internal
 
 /** A multi-dimensional wrapper around a pointer. */
@@ -918,23 +939,7 @@ class array_ref {
    * array_ref. The order in which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(const Fn& fn) const {
-    // For this function, we don't care about the order in which the
-    // callback is called. Optimize the shape for memory access order.
-    auto optimized_shape = internal::optimize_shape(shape());
-
-    // If the optimized shape's first dimension is 1, we can convert
-    // this to a dense shape. This may help the compiler optimize this
-    // further.
-    if (optimized_shape.template dim<0>().stride() == 1) {
-      dense_shape<rank()> dense_optimized_shape = optimized_shape;
-      for_each_index(dense_optimized_shape, [&](const index_type& index) {
-        fn(base_[dense_optimized_shape(index)]);
-      });
-    } else {
-      for_each_index(optimized_shape, [&](const index_type& index) {
-        fn(base_[optimized_shape(index)]);
-      });
-    }
+    internal::for_each_value(data(), shape(), fn);
   }
 
   /** Pointer to the start of the flattened array_ref. */
@@ -1274,11 +1279,11 @@ class array {
    * array. The order in which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(const Fn& fn) {
-    ref().for_each_value(fn);
+    internal::for_each_value(data(), shape(), fn);
   }
   template <typename Fn>
   void for_each_value(const Fn& fn) const {
-    ref().for_each_value(fn);
+    internal::for_each_value(data(), shape(), fn);
   }
 
   /** Pointer to the start of the flattened array. */
