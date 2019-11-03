@@ -294,7 +294,7 @@ TEST(shape_conversion) {
 
 TEST(shape_transpose) {
   dense_shape<3> s(3, 5, 8);
-  shape<dim<>, dim<>, dense_dim<>> transposed = transpose<1, 2, 0>(s);
+  shape<dim<>, dim<>, dense_dim<>> transposed = permute<1, 2, 0>(s);
   ASSERT_EQ(transposed.template dim<0>().extent(), 5);
   ASSERT_EQ(transposed.template dim<1>().extent(), 8);
   ASSERT_EQ(transposed.template dim<2>().extent(), 3);
@@ -302,7 +302,7 @@ TEST(shape_transpose) {
   shape<dim<>, dim<>, dense_dim<>> interleaved(3, 5, 4);
   ASSERT(interleaved.is_dense());
   int expected_flat_offset = 0;
-  for_all_indices(transpose<2, 0, 1>(interleaved), [&](int c, int x, int y) {
+  for_all_indices(permute<2, 0, 1>(interleaved), [&](int c, int x, int y) {
     ASSERT_EQ(interleaved(x, y, c), expected_flat_offset);
     expected_flat_offset++;
   });
@@ -328,7 +328,7 @@ TEST(shape_optimize) {
   ASSERT(internal::optimize_shape(d) == d_optimized);
 
   shape_of_rank<10> e(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-  shape_of_rank<10> e2 = transpose<9, 5, 3, 7, 2, 8, 4, 6, 0, 1>(e);
+  shape_of_rank<10> e2 = permute<9, 5, 3, 7, 2, 8, 4, 6, 0, 1>(e);
   shape_of_rank<10> e_optimized(3628800, 1, 1, 1, 1, 1, 1, 1, 1, 1);
   ASSERT(internal::optimize_shape(e) == e_optimized);
   ASSERT(internal::optimize_shape(e2) == e_optimized);

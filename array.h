@@ -790,7 +790,7 @@ auto make_dense_shape(const Shape& dims, std::index_sequence<Is...>) {
 /** Create a new shape using a permutation DimIndices... of the
  * dimensions of the shape. */
 template <size_t... DimIndices, typename Shape>
-auto transpose(const Shape& shape) {
+auto permute(const Shape& shape) {
   return make_shape(shape.template dim<DimIndices>()...);
 }
 
