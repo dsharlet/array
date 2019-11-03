@@ -305,4 +305,28 @@ TEST(shape_transpose) {
   ASSERT_EQ(expected_flat_offset, 60);
 }
 
+TEST(shape_optimize) {
+  shape_of_rank<3> a({0, 5, 21}, {0, 7, 3}, {5, 3, 1});
+  shape_of_rank<3> a_optimized({5, 105, 1}, {0, 1, 105}, {0, 1, 105});
+  ASSERT(internal::optimize_shape(a) == a_optimized);
+
+  shape_of_rank<3> b({0, 5, 42}, {3, 7, 6}, {0, 3, 2});
+  shape_of_rank<3> b_optimized({0, 105, 2}, {0, 1, 210}, {0, 1, 210});
+  ASSERT(internal::optimize_shape(b) == b_optimized);
+
+  shape_of_rank<3> c({0, 5, 40}, {0, 7, 3}, {0, 2, 1});
+  shape_of_rank<3> c_optimized({0, 2, 1}, {0, 7, 3}, {0, 5, 40});
+  ASSERT(internal::optimize_shape(c) == c_optimized);
+
+  shape_of_rank<3> d({0, 5, 28}, {0, 7, 4}, {0, 3, 1});
+  shape_of_rank<3> d_optimized({0, 3, 1}, {0, 35, 4}, {0, 1, 140});
+  ASSERT(internal::optimize_shape(d) == d_optimized);
+
+  shape_of_rank<10> e(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+  shape_of_rank<10> e2 = transpose<9, 5, 3, 7, 2, 8, 4, 6, 0, 1>(e);
+  shape_of_rank<10> e_optimized(3628800, 1, 1, 1, 1, 1, 1, 1, 1, 1);
+  ASSERT(internal::optimize_shape(e) == e_optimized);
+  ASSERT(internal::optimize_shape(e2) == e_optimized);
+}
+
 }  // namespace array

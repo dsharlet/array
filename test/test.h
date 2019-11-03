@@ -78,6 +78,11 @@ bool roughly_equal(T a, T b, double epsilon = 1e-6) {
     << "\n" << #a << "=" << a            \
     << "\n" << #b << "=" << b << " "
 
+#define ASSERT_LT(a, b)                 \
+  ASSERT(a < b)                         \
+    << "\n" << #a << "=" << a            \
+    << "\n" << #b << "=" << b << " "
+
 #define ASSERT_REQ(a, b, epsilon)      \
   ASSERT(roughly_equal(a, b, epsilon)) \
     << "\n" << #a << "=" << a           \

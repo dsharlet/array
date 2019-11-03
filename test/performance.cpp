@@ -20,7 +20,10 @@ double time_ms(F op) {
 template <typename T>
 __attribute__((noinline)) void AssertUsed(const T& x) {}
 
-TEST(set_dense3d_performance) {
+template <typename T>
+__attribute__((noinline)) T Unknown(T x) { return x; }
+
+TEST(performance_dense3d_assignment) {
   const int width = 1024;
   const int height = 1024;
   const int depth = 50;
@@ -56,13 +59,13 @@ TEST(set_dense3d_performance) {
   });
   AssertUsed(c);
 
-  // Check that timings are acceptable. These are actually a lot faster.
-  const double tolerance = loop_time * 0.25f;
+  // Check that timings are acceptable. These are actually a lot faster!?
+  const double tolerance = loop_time * 0.2f;
   ASSERT_REQ(for_all_indices_time, loop_time * 0.66f, tolerance);
   ASSERT_REQ(for_each_index_time, loop_time * 0.66f, tolerance);
 }
 
-TEST(copy_dense3d_performance) {
+TEST(performance_dense3d_copy) {
   int width = 500;
   int height = 200;
   int depth = 100;
@@ -82,7 +85,45 @@ TEST(copy_dense3d_performance) {
   });
   AssertUsed(c);
 
-  ASSERT_REQ(copy_time, memcpy_time, memcpy_time * 0.5f);
+  // copy should be about as fast as memcpy.
+  ASSERT_REQ(copy_time, memcpy_time, memcpy_time * 0.2f);
+}
+
+TEST(performance_for_each_value) {
+  int width = Unknown(500);
+  int height = Unknown(200);
+  int depth = Unknown(100);
+
+  shape_of_rank<3> s(width, height, depth);
+  s.dim<2>().set_stride(1);
+  s.dim<1>().set_stride(depth);
+  s.dim<0>().set_stride(height * depth);
+  ASSERT_EQ(s.flat_extent(), s.size());
+
+  int counter = 0;
+
+  array_of_rank<int, 3> a(s);
+  double loop_time = time_ms([&]() {
+    for (int z = 0; z < depth; z++) {
+      for (int y = 0; y < height; y++) {
+	for (int x = 0; x < width; x++) {
+	  a(x, y, z) = counter++;
+	}
+      }
+    }
+  });
+  AssertUsed(a);
+
+  counter = 0;
+
+  array_of_rank<int, 3> b(s);
+  double for_each_value_time = time_ms([&]() {
+    b.for_each_value([&](int& x) { x = counter++; });
+  });
+  AssertUsed(b);
+
+  // The optimized for_each_value should be quite a bit faster.
+  ASSERT_LT(for_each_value_time, loop_time / 2);
 }
 
 }  // namespace array

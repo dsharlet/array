@@ -453,6 +453,16 @@ std::tuple<New...> convert_tuple(const std::tuple<Old...>& in) {
   return convert_tuple_impl<New...>(in, std::make_index_sequence<sizeof...(Old)>());
 }
 
+template <typename... Dims, size_t... Is>
+std::array<dim<>, sizeof...(Is)> dims_as_array_impl(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
+  return {{std::get<Is>(dims)...}};
+}
+
+template <typename... Dims>
+std::array<dim<>, sizeof...(Dims)> dims_as_array(const std::tuple<Dims...>& dims) {
+  return dims_as_array_impl(dims, std::make_index_sequence<sizeof...(Dims)>());
+}
+
 }  // namespace internal
 
 /** A list of dims describing a multi-dimensional space of
@@ -535,6 +545,10 @@ class shape {
   auto& dim() { return std::get<D>(dims_); }
   template <size_t D>
   const auto& dim() const { return std::get<D>(dims_); }
+  /** Get a specific dim of this shape with a runtime dimension
+   * d. This will lose any compile-time constant dimension
+   * attributes. */
+  array::dim<> dim(size_t d) const { return internal::dims_as_array(dims_)[d]; }
 
   /** Get a tuple of the dims of this shape. */
   std::tuple<Dims...>& dims() { return dims_; }
@@ -729,6 +743,11 @@ shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
   return shape<Dims...>(dims);
 }
 
+template <typename Shape, size_t N>
+Shape make_shape_from_array(const std::array<dim<>, N>& dims) {
+  return Shape(dims);
+}
+
 template <size_t Rank, size_t... Is>
 auto make_default_dense_shape() {
   return make_shape_from_tuple(std::tuple_cat(std::make_tuple(dense_dim<>()),
@@ -768,6 +787,47 @@ using shape_of_rank =
  * the innermost dimension is a compile-time constant one. */
 template <size_t Rank>
 using dense_shape = decltype(internal::make_default_dense_shape<Rank>());
+
+namespace internal {
+
+// Sort the dims such that strides are increasing from dim 0, and
+// contiguous dimensions are fused.
+template <typename Shape>
+shape_of_rank<Shape::rank()> optimize_shape(const Shape& shape) {
+  auto dims = internal::dims_as_array(shape.dims());
+
+  // Sort the dims by stride.
+  std::sort(dims.begin(), dims.end(), [](const dim<>& l, const dim<>& r) {
+    return l.stride() < r.stride();
+  });
+
+  // Find dimensions that are contiguous and fuse them.
+  size_t size = dims.size();
+  for (size_t i = 0; i + 1 < size;) {
+    if (dims[i].stride() * dims[i].extent() == dims[i + 1].stride()) {
+      // These two dimensions are nested. Fuse them.
+      dims[i].set_extent(dims[i].extent() * dims[i + 1].extent());
+      // Move all of the following dimensions up by one, overwriting
+      // the outer dimension of the fuse.
+      for (size_t j = i + 1; j + 1 < size; j++) {
+	dims[j] = dims[j + 1];
+      }
+      size--;
+    } else {
+      i++;
+    }
+  }
+
+  // Unfortunately, we can't make the rank of the resulting shape dynamic.
+  // Fill the end of the array with size 1 dimensions.
+  for (size_t i = size; i < dims.size(); i++) {
+    dims[i] = dim<>(0, 1, dims[i - 1].stride() * dims[i - 1].extent());
+  }
+
+  return make_shape_from_array<shape_of_rank<Shape::rank()>>(dims);
+}
+
+}  // namespace internal
 
 /** A multi-dimensional wrapper around a pointer. */
 template <typename T, typename Shape>
@@ -826,9 +886,7 @@ class array_ref {
   }
   /** Copy-assign each element of this array to the given value. */
   void assign(const T& value) const {
-    for_each_index(shape(), [&](const index_type& x) {
-      base_[shape_(x)] = value;
-    });
+    for_each_value([&](T& x) { x = value; });
   }
 
   /** Get a reference to the element at the given indices. If the
@@ -856,12 +914,27 @@ class array_ref {
     return base_[shape_(std::forward<Indices>(indices)...)];
   }
 
-  /** Call a function with a reference to each value in this array_ref. */
+  /** Call a function with a reference to each value in this
+   * array_ref. The order in which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(const Fn& fn) const {
-    for_each_index(shape(), [&](const index_type& index) {
-      fn(base_[shape_(index)]);
-    });
+    // For this function, we don't care about the order in which the
+    // callback is called. Optimize the shape for memory access order.
+    auto optimized_shape = internal::optimize_shape(shape());
+
+    // If the optimized shape's first dimension is 1, we can convert
+    // this to a dense shape. This may help the compiler optimize this
+    // further.
+    if (optimized_shape.template dim<0>().stride() == 1) {
+      dense_shape<rank()> dense_optimized_shape = optimized_shape;
+      for_each_index(dense_optimized_shape, [&](const index_type& index) {
+        fn(base_[dense_optimized_shape(index)]);
+      });
+    } else {
+      for_each_index(optimized_shape, [&](const index_type& index) {
+        fn(base_[optimized_shape(index)]);
+      });
+    }
   }
 
   /** Pointer to the start of the flattened array_ref. */
@@ -1197,18 +1270,15 @@ class array {
     return base_[shape_(std::forward<Indices>(indices)...)];
   }
 
-  /** Call a function with a reference to each value in this array. */
+  /** Call a function with a reference to each value in this
+   * array. The order in which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(const Fn& fn) {
-    for_each_index(shape(), [&](const index_type& index) {
-      fn(base_[shape_(index)]);
-    });
+    ref().for_each_value(fn);
   }
   template <typename Fn>
   void for_each_value(const Fn& fn) const {
-    for_each_index(shape(), [&](const index_type& index) {
-      fn(base_[shape_(index)]);
-    });
+    ref().for_each_value(fn);
   }
 
   /** Pointer to the start of the flattened array. */
