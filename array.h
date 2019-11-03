@@ -1340,23 +1340,10 @@ class array {
    * arrays to be considered equal, they must have the same shape, and
    * all elements addressable by the shape must also be equal. */
   bool operator!=(const array& other) const {
-    if (internal::mins(shape()) != internal::mins(other.shape()) ||
-        internal::extents(shape()) != internal::extents(other.shape())) {
-      return true;
-    }
-
-    // TODO: This currently calls operator!= on all elements of the
-    // array, even after we find a non-equal element.
-    bool result = false;
-    for_each_index(shape(), [&](const index_type& x) {
-      if (base_[shape_(x)] != other(x)) {
-        result = true;
-      }
-    });
-    return result;
+    return ref() != other.ref();
   }
   bool operator==(const array& other) const {
-    return !operator!=(other);
+    return ref() == other.ref();
   }
 
   /** Swap the contents of two arrays. This performs zero copies or
