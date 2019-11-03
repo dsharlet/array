@@ -827,10 +827,10 @@ shape_of_rank<Shape::rank()> optimize_shape(const Shape& shape) {
   return make_shape_from_array<shape_of_rank<Shape::rank()>>(dims);
 }
 
+// Call fn on the values addressed by shape in any order.
 template <typename T, typename Shape, typename Fn>
 void for_each_value(T* base, const Shape& shape, const Fn& fn) {
-  // For this function, we don't care about the order in which the
-  // callback is called. Optimize the shape for memory access order.
+  // Optimize the shape for memory access order.
   auto opt_shape = optimize_shape(shape);
 
   // If the optimized shape's first dimension is 1, we can convert
@@ -846,6 +846,22 @@ void for_each_value(T* base, const Shape& shape, const Fn& fn) {
       fn(base[opt_shape(index)]);
     });
   }
+}
+
+// Call fn on the values of src and dest in any order.
+template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest, typename Fn>
+void for_each_src_dest(TSrc* src, TDest* dest, const ShapeSrc& shape_src, const ShapeDest& shape_dest,
+		       const Fn& fn) {
+  if (shape_dest.empty()) {
+    return;
+  }
+  if (!shape_src.is_shape_in_range(shape_dest)) {
+    ARRAY_THROW_OUT_OF_RANGE("dest indices out of range of src");
+  }
+
+  for_each_index(shape_dest, [&](const typename ShapeDest::index_type& index) {
+    fn(src[shape_src(index)], dest[shape_dest(index)]);
+  });
 }
 
 }  // namespace internal
@@ -886,11 +902,9 @@ class array_ref {
       assert(shape() == copy.shape());
       return;
     }
-    if (!copy.shape().is_shape_in_range(shape())) {
-      ARRAY_THROW_OUT_OF_RANGE("assignment accesses indices out of range of src");
-    }
-    for_each_index(shape(), [&](const index_type& x) {
-      base_[shape_(x)] = copy(x);
+    internal::for_each_src_dest(copy.data(), data(), copy.shape(), shape(),
+				[&](value_type& src, value_type& dest) {
+      dest = src;
     });
   }
   void assign(array_ref&& move) const {
@@ -898,11 +912,9 @@ class array_ref {
       assert(shape() == move.shape());
       return;
     }
-    if (!move.shape().is_shape_in_range(shape())) {
-      ARRAY_THROW_OUT_OF_RANGE("assignment accesses indices out of range of src");
-    }
-    for_each_index(shape(), [&](const index_type& x) {
-      base_[shape_(x)] = std::move(move(x));
+    internal::for_each_src_dest(move.data(), data(), move.shape(), shape(),
+				[&](value_type& src, value_type& dest) {
+      dest = std::move(src);
     });
   }
   /** Copy-assign each element of this array to the given value. */
@@ -1002,9 +1014,10 @@ class array_ref {
     // TODO: This currently calls operator!= on all elements of the
     // array_ref, even after we find a non-equal element.
     bool result = false;
-    for_each_index(shape(), [&](const index_type& x) {
-      if (base_[shape_(x)] != other(x)) {
-        result = true;
+    internal::for_each_src_dest(other.data(), data(), other.shape(), shape(),
+				[&](const value_type& src, const value_type& dest) {
+      if (src != dest) {
+	result = true;
       }
     });
     return result;
@@ -1075,14 +1088,16 @@ class array {
   }
   void copy_construct(const array& copy) {
     assert(base_ || shape_.empty());
-    for_each_index(shape(), [&](const index_type& index) {
-      std::allocator_traits<Alloc>::construct(alloc_, &operator()(index), copy(index));
+    internal::for_each_src_dest(copy.data(), data(), copy.shape(), shape(),
+				[&](const value_type& src, value_type& dest) {
+      std::allocator_traits<Alloc>::construct(alloc_, &dest, src);
     });
   }
   void move_construct(array& move) {
     assert(base_ || shape_.empty());
-    for_each_index(shape(), [&](const index_type& index) {
-      std::allocator_traits<Alloc>::construct(alloc_, &operator()(index), std::move(move(index)));
+    internal::for_each_src_dest(move.data(), data(), move.shape(), shape(),
+				[&](value_type& src, value_type& dest) {
+      std::allocator_traits<Alloc>::construct(alloc_, &dest, std::move(src));
     });
   }
 
@@ -1417,11 +1432,10 @@ void swap(array<T, Shape, Alloc>& a, array<T, Shape, Alloc>& b) {
 template <typename T, typename ShapeSrc, typename ShapeDest>
 void copy(const array_ref<T, ShapeSrc>& src,
           const array_ref<typename std::remove_const<T>::type, ShapeDest>& dest) {
-  if (!src.shape().is_shape_in_range(dest.shape())) {
-    ARRAY_THROW_OUT_OF_RANGE("dest indices are out of range of src");
-  }
-  for_each_index(dest.shape(), [&](const typename ShapeDest::index_type& index) {
-    dest(index) = src(index);
+  typedef typename std::remove_const<T>::type non_const_T;
+  internal::for_each_src_dest(src.data(), dest.data(), src.shape(), dest.shape(),
+			      [&](T& src, non_const_T& dest) {
+    dest = src;
   });
 }
 template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocDest>
@@ -1443,11 +1457,9 @@ void copy(const array<T, ShapeSrc, AllocSrc>& src, array<T, ShapeDest, AllocDest
  * be in range of src. */
 template <typename T, typename ShapeSrc, typename ShapeDest>
 void move(const array_ref<T, ShapeSrc>& src, const array_ref<T, ShapeDest>& dest) {
-  if (!src.shape().is_shape_in_range(dest.shape())) {
-    ARRAY_THROW_OUT_OF_RANGE("dest indices are out of range of src");
-  }
-  for_each_index(dest.shape(), [&](const typename ShapeDest::index_type& index) {
-    dest(index) = std::move(src(index));
+  internal::for_each_src_dest(src.data(), dest.data(), src.shape(), dest.shape(),
+			      [&](T& src, T& dest) {
+    dest = std::move(src);
   });
 }
 template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocDest>
