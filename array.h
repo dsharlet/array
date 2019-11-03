@@ -681,6 +681,31 @@ class shape<> {
 
 namespace internal {
 
+template <index_t Min, index_t Extent, index_t Stride, typename DimSrc>
+bool is_dim_compatible(const dim<Min, Extent, Stride>& dest, const DimSrc& src) {
+  return
+    (Min == UNK || src.min() == Min) &&
+    (Extent == UNK || src.extent() == Extent) &&
+    (Stride == UNK || src.stride() == Stride);
+}
+
+template <typename... DimsDest, typename ShapeSrc, size_t... Is>
+bool is_shape_compatible(const shape<DimsDest...>& dest, const ShapeSrc& src, std::index_sequence<Is...>) {
+  return sum((is_dim_compatible(DimsDest(), src.template dim<Is>()) ? 0 : 1)...) == 0;
+}
+
+}  // namespace internal
+
+/** Test if a shape src can be assigned to a shape of type
+ * ShapeDest. */
+template <typename ShapeDest, typename ShapeSrc>
+bool is_shape_compatible(const ShapeSrc& src) {
+  static_assert(ShapeSrc::rank() == ShapeDest::rank(), "shapes must have the same rank.");
+  return internal::is_shape_compatible(ShapeDest(), src, std::make_index_sequence<ShapeSrc::rank()>());
+}
+
+namespace internal {
+
 // This genius trick is from
 // https://github.com/halide/Halide/blob/30fb4fcb703f0ca4db6c1046e77c54d9b6d29a86/src/runtime/HalideBuffer.h#L2088-L2108
 template<size_t D, typename Shape, typename Fn, typename... Indices,
