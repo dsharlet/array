@@ -176,6 +176,54 @@ TEST(array_copy) {
     ASSERT_EQ(a(index), d(index));
     ASSERT_EQ(a(index), e(index));
   });
+
+  try {
+    // The destination wants indices out of range of the source.
+    array_of_rank<int, 3> f({5, 5, 6});
+    copy(a, f);
+    ASSERT(false);
+  } catch(std::out_of_range) {
+  }
+
+  dense_array<int, 3> g({4, {2, 2}, 5});
+  copy(a, g);
+  for_each_index(g.shape(), [&](const dense_array<int, 3>::index_type& index) {
+    ASSERT_EQ(a(index), g(index));
+  });
+}
+
+TEST(array_move) {
+  array_of_rank<int, 3> a({4, 5, 6}, 7);
+  dense_array<int, 3> b({4, 5, 6});
+  array_of_rank<int, 3> c({dim<>(0, 4, 2), 5, 6});
+
+  move(a, b);
+  move(b, c);
+
+  array_of_rank<int, 3> d = make_move(a, c.shape());
+  ASSERT(c.shape() == d.shape());
+  dense_array<int, 3> e = make_move(a, b.shape());
+  ASSERT(b.shape() == e.shape());
+  for_each_index(a.shape(), [&](const array_of_rank<int, 3>::index_type& index) {
+    ASSERT_EQ(a(index), b(index));
+    ASSERT_EQ(a(index), c(index));
+    ASSERT_EQ(a(index), d(index));
+    ASSERT_EQ(a(index), e(index));
+  });
+
+  try {
+    // The destination wants indices out of range of the source.
+    array_of_rank<int, 3> f({5, 5, 6});
+    move(a, f);
+    ASSERT(false);
+  } catch(std::out_of_range) {
+  }
+
+  dense_array<int, 3> g({4, {1, 2}, 5});
+  move(a, g);
+  for_each_index(g.shape(), [&](const dense_array<int, 3>::index_type& index) {
+    ASSERT_EQ(a(index), g(index));
+  });
 }
 
 TEST(array_dense_copy) {
@@ -189,8 +237,20 @@ TEST(array_dense_copy) {
   });
 }
 
+TEST(array_dense_move) {
+  array_of_rank<int, 3> source({dim<>(-3, 4, 2), 5, 6}, 7);
+  ASSERT(!source.is_dense());
+
+  dense_array<int, 3> dense_move = make_dense_move(source);
+  ASSERT(dense_move.is_dense());
+  for_each_index(dense_move.shape(), [&](const dense_shape<3>::index_type& index) {
+    ASSERT_EQ(dense_move(index), source(index));
+  });
+}
+
 typedef shape<dim<>, dim<>> LifetimeShape;
 auto lifetime_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10, 20));
+auto lifetime_subshape = make_shape(dim<>(-1, 4, 2), dim<>(5, 8, 20));
 
 typedef array<lifetime_counter, LifetimeShape> lifetime_array;
 
@@ -231,6 +291,14 @@ TEST(array_copy_lifetime) {
   }
   ASSERT_EQ(lifetime_counter::copy_constructs, lifetime_shape.size());
   ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size());
+
+  lifetime_counter::reset();
+  {
+    lifetime_array dest(lifetime_subshape);
+    copy(source, dest);
+  }
+  ASSERT_EQ(lifetime_counter::copy_assigns, lifetime_subshape.size());
+  ASSERT_EQ(lifetime_counter::destructs, lifetime_subshape.size());
 }
 
 TEST(array_move_lifetime) {
@@ -243,6 +311,16 @@ TEST(array_move_lifetime) {
   ASSERT_EQ(lifetime_counter::constructs(), 0);
   ASSERT_EQ(lifetime_counter::moves(), 0);
   ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size());
+
+  {
+    lifetime_array source(lifetime_shape);
+    lifetime_counter::reset();
+    lifetime_array dest(lifetime_subshape);
+    move(source, dest);
+  }
+  ASSERT_EQ(lifetime_counter::constructs(), lifetime_subshape.size());
+  ASSERT_EQ(lifetime_counter::move_assigns, lifetime_subshape.size());
+  ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size() + lifetime_subshape.size());
 }
 
 TEST(array_move_alloc_lifetime) {

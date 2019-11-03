@@ -847,7 +847,7 @@ class array_ref {
    * having the given shape. */
   array_ref(T* base, Shape shape) : base_(base), shape_(std::move(shape)) {}
   /** The copy constructor of a reference is a shallow copy. */
-  array_ref(const array_ref& other) : array_ref(other.data(), other.shape()) {}
+  array_ref(const array_ref& other) = default;
 
   /** Assigning an array_ref performs a copy or move assignment of each
    * element in this array from the corresponding element in 'other'. */
@@ -865,7 +865,7 @@ class array_ref {
       assert(shape() == copy.shape());
       return;
     }
-    if (!shape().is_shape_in_range(copy.shape())) {
+    if (!copy.shape().is_shape_in_range(shape())) {
       ARRAY_THROW_OUT_OF_RANGE("assignment accesses indices out of range of src");
     }
     for_each_index(shape(), [&](const index_type& x) {
@@ -877,7 +877,7 @@ class array_ref {
       assert(shape() == move.shape());
       return;
     }
-    if (!shape().is_shape_in_range(move.shape())) {
+    if (!move.shape().is_shape_in_range(shape())) {
       ARRAY_THROW_OUT_OF_RANGE("assignment accesses indices out of range of src");
     }
     for_each_index(shape(), [&](const index_type& x) {
@@ -1406,12 +1406,13 @@ void swap(array<T, Shape, Alloc>& a, array<T, Shape, Alloc>& b) {
   a.swap(b);
 }
 
-/** Copy an src array to a dest array. The range of the shape of dest
- * will be copied, and must be in range of src. */
+/** Copy the contents of src array or array_ref to dest array or
+ * array_ref. The range of the shape of dest will be copied, and must
+ * be in range of src. */
 template <typename T, typename ShapeSrc, typename ShapeDest>
 void copy(const array_ref<T, ShapeSrc>& src,
           const array_ref<typename std::remove_const<T>::type, ShapeDest>& dest) {
-  if (!dest.shape().is_shape_in_range(src.shape())) {
+  if (!src.shape().is_shape_in_range(dest.shape())) {
     ARRAY_THROW_OUT_OF_RANGE("dest indices are out of range of src");
   }
   for_each_index(dest.shape(), [&](const typename ShapeDest::index_type& index) {
@@ -1432,6 +1433,31 @@ void copy(const array<T, ShapeSrc, AllocSrc>& src, array<T, ShapeDest, AllocDest
   copy(src.ref(), dest.ref());
 }
 
+/** Move the contents from src array or array_ref to dest array or
+ * array_ref. The range of the shape of dest will be moved, and must
+ * be in range of src. */
+template <typename T, typename ShapeSrc, typename ShapeDest>
+void move(const array_ref<T, ShapeSrc>& src, const array_ref<T, ShapeDest>& dest) {
+  if (!src.shape().is_shape_in_range(dest.shape())) {
+    ARRAY_THROW_OUT_OF_RANGE("dest indices are out of range of src");
+  }
+  for_each_index(dest.shape(), [&](const typename ShapeDest::index_type& index) {
+    dest(index) = std::move(src(index));
+  });
+}
+template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocDest>
+void move(const array_ref<T, ShapeSrc>& src, array<T, ShapeDest, AllocDest>& dest) {
+  move(src, dest.ref());
+}
+template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc>
+void move(array<T, ShapeSrc, AllocSrc>& src, const array_ref<T, ShapeDest>& dest) {
+  move(src.ref(), dest);
+}
+template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc, typename AllocDest>
+void move(array<T, ShapeSrc, AllocSrc>& src, array<T, ShapeDest, AllocDest>& dest) {
+  move(src.ref(), dest.ref());
+}
+
 /** Make a copy of an array with a new shape. */
 template <typename T, typename ShapeSrc, typename ShapeDest,
   typename AllocDest = std::allocator<typename std::remove_const<T>::type>>
@@ -1448,6 +1474,21 @@ auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const ShapeDest& copy_sh
   return make_copy(src.ref(), copy_shape, alloc);
 }
 
+/** Make an array with a new shape and move the contents of src into it. */
+template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocDest = std::allocator<T>>
+auto make_move(const array_ref<T, ShapeSrc>& src, const ShapeDest& move_shape,
+               const AllocDest& alloc = AllocDest()) {
+  array<T, ShapeDest, AllocDest> dest(move_shape, alloc);
+  move(src, dest);
+  return dest;
+}
+template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc,
+  typename AllocDest = std::allocator<T>>
+auto make_move(array<T, ShapeSrc, AllocSrc>& src, const ShapeDest& move_shape,
+               const AllocDest& alloc = AllocDest()) {
+  return make_move(src.ref(), move_shape, alloc);
+}
+
 /** Make a copy of an array with the same shape as src, but with dense
  * strides. */
 template <typename T, typename ShapeSrc,
@@ -1460,6 +1501,17 @@ template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest =
 auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src,
                      const AllocDest& alloc = AllocDest()) {
   return make_dense_copy(src.ref(), alloc);
+}
+
+/** Make a move of an array with the same shape as src, but with dense
+ * strides. */
+template <typename T, typename ShapeSrc, typename AllocDest = std::allocator<T>>
+auto make_dense_move(const array_ref<T, ShapeSrc>& src, const AllocDest& alloc = AllocDest()) {
+  return make_move(src, make_dense_shape(src.shape()), alloc);
+}
+template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = std::allocator<T>>
+auto make_dense_move(array<T, ShapeSrc, AllocSrc>& src, const AllocDest& alloc = AllocDest()) {
+  return make_dense_move(src.ref(), alloc);
 }
 
 /** Allocator that owns a buffer of fixed size, which will be placed
