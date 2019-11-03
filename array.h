@@ -855,7 +855,6 @@ shape_of_rank<Shape::rank()> optimize_shape(const Shape& shape) {
 // Call fn on the values addressed by shape in any order.
 template <typename T, typename Shape, typename Fn>
 void for_each_value(T* base, const Shape& shape, const Fn& fn) {
-  // Optimize the shape for memory access order.
   auto opt_shape = optimize_shape(shape);
 
   // If the optimized shape's first dimension is 1, we can convert
@@ -869,6 +868,29 @@ void for_each_value(T* base, const Shape& shape, const Fn& fn) {
   } else {
     for_each_index(opt_shape, [&](const typename Shape::index_type& index) {
       fn(base[opt_shape(index)]);
+    });
+  }
+}
+
+// Call fn on the values of src and dest both addressed by shape in
+// any order.
+template <typename TSrc, typename TDest, typename Shape, typename Fn>
+void for_each_src_dest(TSrc* src, TDest* dest, const Shape& shape, const Fn& fn) {
+  auto opt_shape = optimize_shape(shape);
+
+  // If the optimized shape's first dimension is 1, we can convert
+  // this to a dense shape. This may help the compiler optimize this
+  // further.
+  if (opt_shape.template dim<0>().stride() == 1) {
+    dense_shape<Shape::rank()> dense_opt_shape = opt_shape;
+    for_each_index(dense_opt_shape, [&](const typename Shape::index_type& index) {
+      index_t flat_index = dense_opt_shape(index);
+      fn(src[flat_index], dest[flat_index]);
+    });
+  } else {
+    for_each_index(opt_shape, [&](const typename Shape::index_type& index) {
+      index_t flat_index = opt_shape(index);
+      fn(src[flat_index], dest[flat_index]);
     });
   }
 }
@@ -1199,14 +1221,16 @@ class array {
   }
   void copy_construct(const array& copy) {
     assert(base_ || shape_.empty());
-    internal::for_each_src_dest(copy.data(), data(), copy.shape(), shape(),
+    assert(shape_ == copy.shape());
+    internal::for_each_src_dest(copy.data(), base_, shape_,
 				[&](const value_type& src, value_type& dest) {
       std::allocator_traits<Alloc>::construct(alloc_, &dest, src);
     });
   }
   void move_construct(array& move) {
     assert(base_ || shape_.empty());
-    internal::for_each_src_dest(move.data(), data(), move.shape(), shape(),
+    assert(shape_ == move.shape());
+    internal::for_each_src_dest(move.data(), base_, shape_,
 				[&](value_type& src, value_type& dest) {
       std::allocator_traits<Alloc>::construct(alloc_, &dest, std::move(src));
     });
