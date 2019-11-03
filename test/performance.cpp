@@ -23,6 +23,8 @@ __attribute__((noinline)) void AssertUsed(const T& x) {}
 template <typename T>
 __attribute__((noinline)) T Unknown(T x) { return x; }
 
+typedef shape<strided_dim<3>, dim<>, dense_dim<0, 3>> interleaved_shape;
+
 TEST(performance_dense3d_assignment) {
   const int width = 1024;
   const int height = 1024;
@@ -79,6 +81,30 @@ TEST(performance_dense3d_copy) {
   AssertUsed(b);
 
   dense_array<int, 3> c({width, height, depth});
+  ASSERT_EQ(c.shape().flat_extent(), c.size());
+  double memcpy_time = time_ms([&] {
+    memcpy(&c(0, 0, 0), &a(0, 0, 0), a.size() * sizeof(int));
+  });
+  AssertUsed(c);
+
+  // copy should be about as fast as memcpy.
+  ASSERT_REQ(copy_time, memcpy_time, memcpy_time * 0.2f);
+}
+
+TEST(performance_interleaved_copy) {
+  int width = 5000;
+  int height = 500;
+  int depth = 3;
+
+  array<int, interleaved_shape> a({width, height, depth}, 3);
+
+  array<int, interleaved_shape> b({width, height, depth});
+  double copy_time = time_ms([&]() {
+    copy(a, b);
+  });
+  AssertUsed(b);
+
+  array<int, interleaved_shape> c({width, height, depth});
   ASSERT_EQ(c.shape().flat_extent(), c.size());
   double memcpy_time = time_ms([&] {
     memcpy(&c(0, 0, 0), &a(0, 0, 0), a.size() * sizeof(int));
