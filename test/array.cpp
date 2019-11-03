@@ -228,10 +228,10 @@ TEST(array_move) {
 
 TEST(array_dense_copy) {
   array_of_rank<int, 3> source({dim<>(-3, 4, 2), 5, 6}, 7);
-  ASSERT(!source.is_dense());
+  ASSERT(!source.is_compact());
 
   dense_array<int, 3> dense_copy = make_dense_copy(source);
-  ASSERT(dense_copy.is_dense());
+  ASSERT(dense_copy.is_compact());
   for_each_index(dense_copy.shape(), [&](const dense_shape<3>::index_type& index) {
     ASSERT_EQ(dense_copy(index), source(index));
   });
@@ -239,10 +239,10 @@ TEST(array_dense_copy) {
 
 TEST(array_dense_move) {
   array_of_rank<int, 3> source({dim<>(-3, 4, 2), 5, 6}, 7);
-  ASSERT(!source.is_dense());
+  ASSERT(!source.is_compact());
 
   dense_array<int, 3> dense_move = make_dense_move(source);
-  ASSERT(dense_move.is_dense());
+  ASSERT(dense_move.is_compact());
   for_each_index(dense_move.shape(), [&](const dense_shape<3>::index_type& index) {
     ASSERT_EQ(dense_move(index), source(index));
   });

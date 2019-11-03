@@ -300,7 +300,7 @@ TEST(shape_transpose) {
   ASSERT_EQ(transposed.template dim<2>().extent(), 3);
 
   shape<dim<>, dim<>, dense_dim<>> interleaved(3, 5, 4);
-  ASSERT(interleaved.is_dense());
+  ASSERT(interleaved.is_compact());
   int expected_flat_offset = 0;
   for_all_indices(permute<2, 0, 1>(interleaved), [&](int c, int x, int y) {
     ASSERT_EQ(interleaved(x, y, c), expected_flat_offset);

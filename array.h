@@ -140,7 +140,7 @@ class dim {
     assert(extent == Extent || Extent == UNK);
     extent_ = extent;
   }
-  /** Distance betwen elements in this dim. */
+  /** Distance in flat indices between neighboring elements in this dim. */
   index_t stride() const { return internal::reconcile<Stride>(stride_); }
   void set_stride(index_t stride) {
     assert(stride == Stride || Stride == UNK);
@@ -149,7 +149,7 @@ class dim {
   /** Index of the last element in this dim. */
   index_t max() const { return min() + extent() - 1; }
 
-  /** Offset in memory of an index in this dim. */
+  /** Flat offset of an index in this dim. */
   index_t offset(index_t at) const { return (at - min()) * stride(); }
 
   /** Returns true if 'at' is within the range [min(), max()]. */
@@ -222,7 +222,7 @@ class folded_dim {
     assert(extent == Extent || Extent == UNK);
     extent_ = extent;
   }
-  /** Distance in memory between indices of this dim. */
+  /** Distance in flat indices between neighboring elements of this dim. */
   index_t stride() const { return internal::reconcile<Stride>(stride_); }
   void set_stride(index_t stride) {
     assert(stride == Stride || Stride == UNK);
@@ -238,7 +238,7 @@ class folded_dim {
   /** Make an iterator referring to one past the last element in this dim. */
   dim_iterator end() const { return dim_iterator(max() + 1); }
 
-  /** Offset in memory of an element in this dim. */
+  /** Flat offset of an element in this dim. */
   index_t offset(index_t at) const {
     return internal::euclidean_mod(at, extent()) * stride();
   }
@@ -246,7 +246,7 @@ class folded_dim {
   /** In a folded dim, all indices are in range. */
   bool is_in_range(index_t at) const { return true; }
 
-  /** dim objects are considered equal if their min, extent, and
+  /** folded_dim objects are considered equal if their extent, and
    * strides are equal. */
   template <index_t OtherExtent, index_t OtherStride>
   bool operator==(const folded_dim<OtherExtent, OtherStride>& other) const {
@@ -546,8 +546,8 @@ class shape {
   template <size_t D>
   const auto& dim() const { return std::get<D>(dims_); }
   /** Get a specific dim of this shape with a runtime dimension
-   * d. This will lose any compile-time constant dimension
-   * attributes. */
+   * d. This will lose knowledge of any compile-time constant
+   * dimension attributes. */
   array::dim<> dim(size_t d) const { return internal::dims_as_array(dims_)[d]; }
 
   /** Get a tuple of the dims of this shape. */
@@ -604,10 +604,10 @@ class shape {
     return true;
   }
 
-  /** Returns true if this shape is dense in memory. A shape is
-   * 'dense' if there are no unaddressable flat indices between the
+  /** Returns true if this shape is compact in memory. A shape is
+   * 'compact' if there are no unaddressable flat indices between the
    * first and last addressable flat elements. */
-  bool is_dense() const { return size() == flat_extent(); }
+  bool is_compact() const { return size() == flat_extent(); }
 
   /** Provide some common aliases for dimensions. */
   auto& i() { return dim<0>(); }
@@ -656,6 +656,7 @@ class shape<> {
   shape() {}
 
   static constexpr size_t rank() { return 0; }
+  static constexpr bool is_scalar() { return true; }
 
   typedef std::tuple<> index_type;
 
@@ -673,7 +674,7 @@ class shape<> {
 
   bool is_subset_of(const shape<>& other) const { return true; }
   bool is_one_to_one() const { return true; }
-  bool is_dense() const { return true; }
+  bool is_compact() const { return true; }
 
   bool operator==(const shape<>& other) const { return true; }
   bool operator!=(const shape<>& other) const { return false; }
@@ -1097,17 +1098,16 @@ class array_ref {
   pointer data() const { return base_; }
 
   /** Shape of this array_ref. */
-  static constexpr size_t rank() { return Shape::rank(); }
   const Shape& shape() const { return shape_; }
+
+  static constexpr size_t rank() { return Shape::rank(); }
+  static constexpr bool is_scalar() { return Shape::is_scalar(); }
   template <size_t D>
   const auto& dim() const { return shape().template dim<D>(); }
-  /** Number of elements addressable by the shape of this array_ref. */
+  array::dim<> dim(size_t d) const { return shape().dim(d); }
   size_type size() const { return shape_.size(); }
-  /** True if there are zero addressable elements by the shape of this
-   * array_ref. */
   bool empty() const { return shape_.empty(); }
-  /** True if this array_ref is dense in memory. */
-  bool is_dense() const { return shape_.is_dense(); }
+  bool is_compact() const { return shape_.is_compact(); }
 
   /** Provide some common aliases for dimensions. */
   const auto& i() const { return shape().i(); }
@@ -1174,7 +1174,8 @@ class array_ref {
     return array_ref<const T, Shape>(data(), shape());
   }
 
-  /** Reinterpret the data in this array_ref as a different type. */
+  /** Create a reference of this array_ref, interpreting the data as a
+   * different type. */
   template <typename U>
   array_ref<U, Shape> reinterpret() {
     static_assert(sizeof(T) == sizeof(U), "sizeof(reinterpreted type U) != sizeof(array type T)");
@@ -1447,17 +1448,17 @@ class array {
   const_pointer data() const { return base_; }
 
   /** Shape of this array. */
-  static constexpr size_t rank() { return Shape::rank(); }
   const Shape& shape() const { return shape_; }
+
+  static constexpr size_t rank() { return Shape::rank(); }
+  static constexpr bool is_scalar() { return Shape::is_scalar(); }
   template <size_t D>
   const auto& dim() const { return shape().template dim<D>(); }
-  /** Number of elements addressable by the shape of this array. */
+  ::array::dim<> dim(size_t d) const { return shape().dim(d); }
   size_type size() const { return shape_.size(); }
-  /** True if there are zero addressable elements by the shape of this
-   * array. */
   bool empty() const { return shape_.empty(); }
-  /** True if this array is dense in memory. */
-  bool is_dense() const { return shape_.is_dense(); }
+  bool is_compact() const { return shape_.is_compact(); }
+
   /** Reset the shape of this array to default. */
   void clear() {
     deallocate();
@@ -1529,7 +1530,8 @@ class array {
   operator array_ref<T, Shape>() { return ref(); }
   operator array_ref<const T, Shape>() const { return ref(); }
 
-  /** Reinterpret the data in this array as a different type. */
+  /** Create a reference of this array, interpreting the data as a
+   * different type. */
   template <typename U>
   array_ref<U, Shape> reinterpret() {
     static_assert(sizeof(T) == sizeof(U), "sizeof(reinterpreted type U) != sizeof(array type T)");
@@ -1551,7 +1553,7 @@ using array_of_rank = array<T, shape_of_rank<Rank>, Alloc>;
 template <typename T, size_t Rank, typename Alloc = std::allocator<T>>
 using dense_array = array<T, dense_shape<Rank>, Alloc>;
 
-/** Make a new array from a shape. */
+/** Make a new array with a given shape. */
 template <typename T, typename Shape, typename Alloc = std::allocator<T>>
 auto make_array(const Shape& shape, const Alloc& alloc = Alloc()) {
   return array<T, Shape, Alloc>(shape, alloc);
@@ -1647,8 +1649,7 @@ auto make_move(array<T, ShapeSrc, AllocSrc>& src, const ShapeDest& move_shape,
   return make_move(src.ref(), move_shape, alloc);
 }
 
-/** Make a copy of an array with the same shape as src, but with dense
- * strides. */
+/** Make a copy of an array with a dense shape of the same rank as src. */
 template <typename T, typename ShapeSrc,
   typename AllocDest = std::allocator<typename std::remove_const<T>::type>>
 auto make_dense_copy(const array_ref<T, ShapeSrc>& src,
@@ -1661,8 +1662,7 @@ auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src,
   return make_dense_copy(src.ref(), alloc);
 }
 
-/** Make a move of an array with the same shape as src, but with dense
- * strides. */
+/** Make a move of an array with a dense shape of the same rank as src. */
 template <typename T, typename ShapeSrc, typename AllocDest = std::allocator<T>>
 auto make_dense_move(const array_ref<T, ShapeSrc>& src, const AllocDest& alloc = AllocDest()) {
   return make_move(src, make_dense_shape(src.shape()), alloc);
@@ -1675,7 +1675,7 @@ auto make_dense_move(array<T, ShapeSrc, AllocSrc>& src, const AllocDest& alloc =
 /** Allocator that owns a buffer of fixed size, which will be placed
  * on the stack if the owning container is allocated on the
  * stack. This can only be used with containers that have a maximum of
- * one live allocation, which is the case for array::array. */
+ * one concurrent live allocation, which is the case for array::array. */
 // TODO: "stack_allocator" isn't a good name for this. It's a fixed
 // allocation, but not necessarily a stack allocation.
 template <class T, size_t N>
