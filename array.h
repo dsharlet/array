@@ -827,25 +827,24 @@ shape_of_rank<Shape::rank()> optimize_shape(const Shape& shape) {
   });
 
   // Find dimensions that are contiguous and fuse them.
-  size_t size = dims.size();
-  for (size_t i = 0; i + 1 < size;) {
+  size_t rank = dims.size();
+  for (size_t i = 0; i + 1 < rank;) {
     if (dims[i].stride() * dims[i].extent() == dims[i + 1].stride()) {
-      // These two dimensions are nested. Fuse them.
+      // These two dimensions are contiguous. Fuse them and move
+      // the rest of the dimensions up to replace the fused dimension.
       dims[i].set_extent(dims[i].extent() * dims[i + 1].extent());
-      // Move all of the following dimensions up by one, overwriting
-      // the outer dimension of the fuse.
-      for (size_t j = i + 1; j + 1 < size; j++) {
+      for (size_t j = i + 1; j + 1 < rank; j++) {
 	dims[j] = dims[j + 1];
       }
-      size--;
+      rank--;
     } else {
       i++;
     }
   }
 
-  // Unfortunately, we can't make the rank of the resulting shape dynamic.
+  // Unfortunately, we can't make the rank of the resulting shape smaller.
   // Fill the end of the array with size 1 dimensions.
-  for (size_t i = size; i < dims.size(); i++) {
+  for (size_t i = rank; i < dims.size(); i++) {
     dims[i] = dim<>(0, 1, dims[i - 1].stride() * dims[i - 1].extent());
   }
 
@@ -860,13 +859,14 @@ void for_each_value(T* base, const Shape& shape, const Fn& fn) {
   // If the optimized shape's first dimension is 1, we can convert
   // this to a dense shape. This may help the compiler optimize this
   // further.
+  typedef typename Shape::index_type index_type;
   if (opt_shape.template dim<0>().stride() == 1) {
     dense_shape<Shape::rank()> dense_opt_shape = opt_shape;
-    for_each_index(dense_opt_shape, [&](const typename Shape::index_type& index) {
+    for_each_index(dense_opt_shape, [&](const index_type& index) {
       fn(base[dense_opt_shape(index)]);
     });
   } else {
-    for_each_index(opt_shape, [&](const typename Shape::index_type& index) {
+    for_each_index(opt_shape, [&](const index_type& index) {
       fn(base[opt_shape(index)]);
     });
   }
@@ -881,14 +881,15 @@ void for_each_src_dest(TSrc* src, TDest* dest, const Shape& shape, const Fn& fn)
   // If the optimized shape's first dimension is 1, we can convert
   // this to a dense shape. This may help the compiler optimize this
   // further.
+  typedef typename Shape::index_type index_type;
   if (opt_shape.template dim<0>().stride() == 1) {
     dense_shape<Shape::rank()> dense_opt_shape = opt_shape;
-    for_each_index(dense_opt_shape, [&](const typename Shape::index_type& index) {
+    for_each_index(dense_opt_shape, [&](const index_type& index) {
       index_t flat_index = dense_opt_shape(index);
       fn(src[flat_index], dest[flat_index]);
     });
   } else {
-    for_each_index(opt_shape, [&](const typename Shape::index_type& index) {
+    for_each_index(opt_shape, [&](const index_type& index) {
       index_t flat_index = opt_shape(index);
       fn(src[flat_index], dest[flat_index]);
     });
@@ -920,19 +921,18 @@ optimize_src_dest_shapes(const ShapeSrc& src, const ShapeDest& dest) {
   });
 
   // Find dimensions that are contiguous and fuse them.
-  size_t size = dims.size();
-  for (size_t i = 0; i + 1 < size;) {
+  size_t new_rank = dims.size();
+  for (size_t i = 0; i + 1 < new_rank;) {
     if (dims[i].src.stride() * dims[i].src.extent() == dims[i + 1].src.stride() &&
 	dims[i].dest.stride() * dims[i].dest.extent() == dims[i + 1].dest.stride()) {
-      // These two dimensions are nested in both the src and dest. Fuse them.
+      // These two dimensions are contiguous. Fuse them and move
+      // the rest of the dimensions up to replace the fused dimension.
       dims[i].src.set_extent(dims[i].src.extent() * dims[i + 1].src.extent());
       dims[i].dest.set_extent(dims[i].dest.extent() * dims[i + 1].dest.extent());
-      // Move all of the following dimensions up by one, overwriting
-      // the outer dimension of the fuse.
-      for (size_t j = i + 1; j + 1 < size; j++) {
+      for (size_t j = i + 1; j + 1 < new_rank; j++) {
 	dims[j] = dims[j + 1];
       }
-      size--;
+      new_rank--;
     } else {
       i++;
     }
@@ -940,7 +940,7 @@ optimize_src_dest_shapes(const ShapeSrc& src, const ShapeDest& dest) {
 
   // Unfortunately, we can't make the rank of the resulting shape dynamic.
   // Fill the end of the array with size 1 dimensions.
-  for (size_t i = size; i < dims.size(); i++) {
+  for (size_t i = new_rank; i < dims.size(); i++) {
     dims[i] = {
       dim<>(0, 1, dims[i - 1].src.stride() * dims[i - 1].src.extent()),
       dim<>(0, 1, dims[i - 1].dest.stride() * dims[i - 1].dest.extent()),
@@ -953,8 +953,8 @@ optimize_src_dest_shapes(const ShapeSrc& src, const ShapeDest& dest) {
   }
 
   return {
-      make_shape_from_array<shape_of_rank<ShapeSrc::rank()>>(src_dims),
-      make_shape_from_array<shape_of_rank<ShapeDest::rank()>>(dest_dims),
+      make_shape_from_array<shape_of_rank<rank>>(src_dims),
+      make_shape_from_array<shape_of_rank<rank>>(dest_dims),
   };
 }
 
@@ -978,23 +978,29 @@ void for_each_src_dest(TSrc* src, TDest* dest, const ShapeSrc& shape_src, const 
   // If the optimized shape's first dimension is 1, we can convert
   // this to a dense shape. This may help the compiler optimize this
   // further.
+  typedef typename ShapeDest::index_type index_type;
   if (opt_shape_src.template dim<0>().stride() == 1 &&
       opt_shape_dest.template dim<0>().stride() == 1) {
     dense_shape<ShapeSrc::rank()> dense_opt_shape_src = opt_shape_src;
     dense_shape<ShapeDest::rank()> dense_opt_shape_dest = opt_shape_dest;
-    for_each_index(dense_opt_shape_dest, [&](const typename ShapeDest::index_type& index) {
+    for_each_index(dense_opt_shape_dest, [&](const index_type& index) {
       fn(src[dense_opt_shape_src(index)], dest[dense_opt_shape_dest(index)]);
     });
   } else if (opt_shape_dest.template dim<0>().stride() == 1) {
     dense_shape<ShapeDest::rank()> dense_opt_shape_dest = opt_shape_dest;
-    for_each_index(dense_opt_shape_dest, [&](const typename ShapeDest::index_type& index) {
+    for_each_index(dense_opt_shape_dest, [&](const index_type& index) {
       fn(src[opt_shape_src(index)], dest[dense_opt_shape_dest(index)]);
     });
   } else {
-    for_each_index(opt_shape_dest, [&](const typename ShapeDest::index_type& index) {
+    for_each_index(opt_shape_dest, [&](const index_type& index) {
       fn(src[opt_shape_src(index)], dest[opt_shape_dest(index)]);
     });
   }
+  // The dense src, non-dense dest case is omitted. That seems unlikely
+  // given that we sorted the dimensions to make the dest dense,
+  // but it could happen if the dest does not have any dense dimensions,
+  // and the source has one in the same place as the innermost dimension
+  // of dest.
 }
 
 }  // namespace internal
