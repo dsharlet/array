@@ -2,7 +2,7 @@ CFLAGS := $(CFLAGS) -O2 -ffast-math -mavx
 CXXFLAGS := $(CXXFLAGS) -std=c++14 -march=native -Wall -ferror-limit=3
 LDFLAGS :=
 
-DEPS = array.h
+DEPS = array.h image.h
 
 TEST_SRC = $(wildcard test/*.cpp)
 TEST_OBJ = $(TEST_SRC:%.cpp=obj/%.o)
