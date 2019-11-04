@@ -5,12 +5,28 @@ namespace array {
 
 // Benchmark a call.
 template <typename F>
-double time_ms(F op) {
+double benchmark(F op) {
   op();
-  auto t1 = std::chrono::high_resolution_clock::now();
-  op();
-  auto t2 = std::chrono::high_resolution_clock::now();
-  return std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count() / 1e6;
+
+  const int max_trials = 10;
+  const double min_time_s = 0.5;
+  double time_per_iteration_s = 0;
+  long iterations = 1;
+  for (int trials = 0; trials < max_trials; trials++) {
+    auto t1 = std::chrono::high_resolution_clock::now();
+    for (int j = 0; j < iterations; j++) {
+      op();
+    }
+    auto t2 = std::chrono::high_resolution_clock::now();
+    time_per_iteration_s = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count() / (iterations * 1e9);
+    if (time_per_iteration_s * iterations > min_time_s) {
+      break;
+    }
+
+    long next_iterations = std::ceil((min_time_s * 2) / time_per_iteration_s);
+    iterations = std::min(std::max(next_iterations, iterations), iterations * 10);
+  }
+  return time_per_iteration_s;
 }
 
 // Tricks the compiler into not stripping away dead objects.

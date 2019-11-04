@@ -839,6 +839,7 @@ shape_of_rank<Shape::rank()> optimize_shape(const Shape& shape) {
     if (dims[i].stride() * dims[i].extent() == dims[i + 1].stride()) {
       // These two dimensions are contiguous. Fuse them and move
       // the rest of the dimensions up to replace the fused dimension.
+      dims[i].set_min(dims[i].min() + dims[i + 1].min() * dims[i + 1].stride());
       dims[i].set_extent(dims[i].extent() * dims[i + 1].extent());
       for (size_t j = i + 1; j + 1 < rank; j++) {
 	dims[j] = dims[j + 1];
@@ -930,11 +931,14 @@ optimize_src_dest_shapes(const ShapeSrc& src, const ShapeDest& dest) {
   // Find dimensions that are contiguous and fuse them.
   size_t new_rank = dims.size();
   for (size_t i = 0; i + 1 < new_rank;) {
-    if (dims[i].src.stride() * dims[i].src.extent() == dims[i + 1].src.stride() &&
+    if (dims[i + 1].src.stride() == dims[i + 1].dest.stride() &&
+	dims[i].src.stride() * dims[i].src.extent() == dims[i + 1].src.stride() &&
 	dims[i].dest.stride() * dims[i].dest.extent() == dims[i + 1].dest.stride()) {
       // These two dimensions are contiguous. Fuse them and move
       // the rest of the dimensions up to replace the fused dimension.
+      dims[i].src.set_min(dims[i].src.min() + dims[i + 1].src.min() * dims[i + 1].src.stride());
       dims[i].src.set_extent(dims[i].src.extent() * dims[i + 1].src.extent());
+      dims[i].dest.set_min(dims[i].dest.min() + dims[i + 1].dest.min() * dims[i + 1].dest.stride());
       dims[i].dest.set_extent(dims[i].dest.extent() * dims[i + 1].dest.extent());
       for (size_t j = i + 1; j + 1 < new_rank; j++) {
 	dims[j] = dims[j + 1];

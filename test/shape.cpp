@@ -316,7 +316,7 @@ TEST(shape_optimize) {
   ASSERT(internal::optimize_shape(a) == a_optimized);
 
   shape_of_rank<3> b({0, 5, 42}, {3, 7, 6}, {0, 3, 2});
-  shape_of_rank<3> b_optimized({0, 105, 2}, {0, 1, 210}, {0, 1, 210});
+  shape_of_rank<3> b_optimized({18, 105, 2}, {0, 1, 210}, {0, 1, 210});
   ASSERT(internal::optimize_shape(b) == b_optimized);
 
   shape_of_rank<3> c({0, 5, 40}, {0, 7, 3}, {0, 2, 1});
@@ -332,6 +332,15 @@ TEST(shape_optimize) {
   shape_of_rank<10> e_optimized(3628800, 1, 1, 1, 1, 1, 1, 1, 1, 1);
   ASSERT(internal::optimize_shape(e) == e_optimized);
   ASSERT(internal::optimize_shape(e2) == e_optimized);
+
+  shape_of_rank<2> f({0, 2}, {1, 2});
+  shape_of_rank<2> f_optimized({2, 4}, {0, 1});
+  ASSERT(internal::optimize_shape(f) == f_optimized);
+
+  shape_of_rank<2> g({1, 2}, {1, 2});
+  shape_of_rank<2> g_optimized({3, 4}, {0, 1});
+  ASSERT(internal::optimize_shape(g) == g_optimized);
+
 }
 
 }  // namespace array

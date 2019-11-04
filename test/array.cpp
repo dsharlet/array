@@ -158,7 +158,10 @@ TEST(array_equality) {
 }
 
 TEST(array_copy) {
-  array_of_rank<int, 3> a({4, 5, 6}, 7);
+  array_of_rank<int, 3> a({4, 5, 6});
+  for_all_indices(a.shape(), [&](int x, int y, int z) {
+    return x * 100 + y * 10 + z;
+  });
   dense_array<int, 3> b({4, 5, 6});
   array_of_rank<int, 3> c({dim<>(0, 4, 2), 5, 6});
 
@@ -185,7 +188,7 @@ TEST(array_copy) {
   } catch(std::out_of_range) {
   }
 
-  dense_array<int, 3> g({4, {2, 2}, 5});
+  dense_array<int, 3> g({{1, 2}, {1, 3}, {1, 4}});
   copy(a, g);
   for_each_index(g.shape(), [&](const dense_array<int, 3>::index_type& index) {
     ASSERT_EQ(a(index), g(index));
