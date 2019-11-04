@@ -1065,7 +1065,7 @@ class array_ref {
   }
   /** Copy-assign each element of this array to the given value. */
   void assign(const T& value) const {
-    for_each_value([&](T& x) { x = value; });
+    internal::for_each_value(data(), shape(), [&](T& x) { x = value; });
   }
 
   /** Get a reference to the element at the given indices. If the
@@ -1222,13 +1222,13 @@ class array {
   // Call the constructor on all of the elements of the array.
   void construct() {
     assert(base_ || shape_.empty());
-    for_each_value([&](T& x) {
+    internal::for_each_value(base_, shape_, [&](T& x) {
       std::allocator_traits<Alloc>::construct(alloc_, &x);
     });
   }
   void construct(const T& init) {
     assert(base_ || shape_.empty());
-    for_each_value([&](T& x) {
+    internal::for_each_value(base_, shape_, [&](T& x) {
       std::allocator_traits<Alloc>::construct(alloc_, &x, init);
     });
   }
@@ -1252,7 +1252,7 @@ class array {
   // Call the destructor on every element.
   void destroy() {
     assert(base_ || shape_.empty());
-    for_each_value([&](T& x) {
+    internal::for_each_value(base_, shape_, [&](T& x) {
       std::allocator_traits<Alloc>::destroy(alloc_, &x);
     });
   }
