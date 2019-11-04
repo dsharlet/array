@@ -1642,30 +1642,30 @@ void move(array<T, ShapeSrc, AllocSrc>& src, array<T, ShapeDest, AllocDest>& des
 
 /** Make a copy of an array with a new shape. */
 template <typename T, typename ShapeSrc, typename ShapeDest,
-  typename AllocDest = std::allocator<typename std::remove_const<T>::type>>
+  typename Alloc = std::allocator<typename std::remove_const<T>::type>>
 auto make_copy(const array_ref<T, ShapeSrc>& src, const ShapeDest& copy_shape,
-               const AllocDest& alloc = AllocDest()) {
-  array<typename std::remove_const<T>::type, ShapeDest, AllocDest> dest(copy_shape, alloc);
+               const Alloc& alloc = Alloc()) {
+  array<typename std::remove_const<T>::type, ShapeDest, Alloc> dest(copy_shape, alloc);
   copy(src, dest);
   return dest;
 }
 template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc,
-  typename AllocDest = std::allocator<T>>
+  typename AllocDest = AllocSrc>
 auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const ShapeDest& copy_shape,
                const AllocDest& alloc = AllocDest()) {
   return make_copy(src.ref(), copy_shape, alloc);
 }
 
 /** Make an array with a new shape and move the contents of src into it. */
-template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocDest = std::allocator<T>>
+template <typename T, typename ShapeSrc, typename ShapeDest, typename Alloc = std::allocator<T>>
 auto make_move(const array_ref<T, ShapeSrc>& src, const ShapeDest& move_shape,
-               const AllocDest& alloc = AllocDest()) {
-  array<T, ShapeDest, AllocDest> dest(move_shape, alloc);
+               const Alloc& alloc = Alloc()) {
+  array<T, ShapeDest, Alloc> dest(move_shape, alloc);
   move(src, dest);
   return dest;
 }
 template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc,
-  typename AllocDest = std::allocator<T>>
+  typename AllocDest = AllocSrc>
 auto make_move(array<T, ShapeSrc, AllocSrc>& src, const ShapeDest& move_shape,
                const AllocDest& alloc = AllocDest()) {
   return make_move(src.ref(), move_shape, alloc);
@@ -1673,47 +1673,47 @@ auto make_move(array<T, ShapeSrc, AllocSrc>& src, const ShapeDest& move_shape,
 
 /** Make a copy of an array with a dense shape of the same rank as src. */
 template <typename T, typename ShapeSrc,
-  typename AllocDest = std::allocator<typename std::remove_const<T>::type>>
+  typename Alloc = std::allocator<typename std::remove_const<T>::type>>
 auto make_dense_copy(const array_ref<T, ShapeSrc>& src,
-                     const AllocDest& alloc = AllocDest()) {
+                     const Alloc& alloc = Alloc()) {
   return make_copy(src, make_dense(src.shape()), alloc);
 }
-template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = std::allocator<T>>
+template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = AllocSrc>
 auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src,
                      const AllocDest& alloc = AllocDest()) {
   return make_dense_copy(src.ref(), alloc);
 }
 
 /** Make a move of an array with a dense shape of the same rank as src. */
-template <typename T, typename ShapeSrc, typename AllocDest = std::allocator<T>>
-auto make_dense_move(const array_ref<T, ShapeSrc>& src, const AllocDest& alloc = AllocDest()) {
+template <typename T, typename ShapeSrc, typename Alloc = std::allocator<T>>
+auto make_dense_move(const array_ref<T, ShapeSrc>& src, const Alloc& alloc = Alloc()) {
   return make_move(src, make_dense(src.shape()), alloc);
 }
-template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = std::allocator<T>>
+template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = AllocSrc>
 auto make_dense_move(array<T, ShapeSrc, AllocSrc>& src, const AllocDest& alloc = AllocDest()) {
   return make_dense_move(src.ref(), alloc);
 }
 
 /** Make a copy of an array with a compact shape of the same rank as src. */
-template <typename T, typename ShapeSrc,
-  typename AllocDest = std::allocator<typename std::remove_const<T>::type>>
-auto make_compact_copy(const array_ref<T, ShapeSrc>& src,
-		       const AllocDest& alloc = AllocDest()) {
+template <typename T, typename Shape,
+  typename Alloc = std::allocator<typename std::remove_const<T>::type>>
+auto make_compact_copy(const array_ref<T, Shape>& src,
+		       const Alloc& alloc = Alloc()) {
   return make_copy(src, make_compact(src.shape()), alloc);
 }
-template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = std::allocator<T>>
-auto make_compact_copy(const array<T, ShapeSrc, AllocSrc>& src,
+template <typename T, typename Shape, typename AllocSrc, typename AllocDest = AllocSrc>
+auto make_compact_copy(const array<T, Shape, AllocSrc>& src,
 		       const AllocDest& alloc = AllocDest()) {
   return make_compact_copy(src.ref(), alloc);
 }
 
 /** Make a move of an array with a compact shape of the same rank as src. */
-template <typename T, typename ShapeSrc, typename AllocDest = std::allocator<T>>
-auto make_compact_move(const array_ref<T, ShapeSrc>& src, const AllocDest& alloc = AllocDest()) {
+template <typename T, typename Shape, typename Alloc = std::allocator<T>>
+auto make_compact_move(const array_ref<T, Shape>& src, const Alloc& alloc = Alloc()) {
   return make_move(src, make_compact(src.shape()), alloc);
 }
-template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = std::allocator<T>>
-auto make_compact_move(array<T, ShapeSrc, AllocSrc>& src, const AllocDest& alloc = AllocDest()) {
+template <typename T, typename Shape, typename AllocSrc, typename AllocDest = AllocSrc>
+auto make_compact_move(array<T, Shape, AllocSrc>& src, const AllocDest& alloc = AllocDest()) {
   return make_compact_move(src.ref(), alloc);
 }
 
