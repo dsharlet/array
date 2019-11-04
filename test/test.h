@@ -6,8 +6,22 @@
 #include <sstream>
 #include <functional>
 #include <limits>
+#include <iostream>
+
+#include "array.h"
 
 namespace array {
+
+template <typename... Dims>
+std::ostream& operator<<(std::ostream& s, const shape<Dims...>& sh) {
+  s << "{";
+  for (size_t d = 0; d < sh.rank(); d++) {
+    if (d != 0) s << ", ";
+    s << "<" << sh.dim(d).min() << ", " << sh.dim(d).extent() << ", " << sh.dim(d).stride() << ">";
+  }
+  s << "}";
+  return s;
+}
 
 inline float randf() {
   return rand() / static_cast<float>(RAND_MAX);

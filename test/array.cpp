@@ -169,9 +169,9 @@ TEST(array_copy) {
   copy(b, c);
 
   array_of_rank<int, 3> d = make_copy(a, c.shape());
-  ASSERT(c.shape() == d.shape());
+  ASSERT_EQ(c.shape(), d.shape());
   dense_array<int, 3> e = make_copy(a, b.shape());
-  ASSERT(b.shape() == e.shape());
+  ASSERT_EQ(b.shape(), e.shape());
 
   for_each_index(a.shape(), [&](const array_of_rank<int, 3>::index_type& index) {
     ASSERT_EQ(a(index), b(index));
@@ -204,9 +204,9 @@ TEST(array_move) {
   move(b, c);
 
   array_of_rank<int, 3> d = make_move(a, c.shape());
-  ASSERT(c.shape() == d.shape());
+  ASSERT_EQ(c.shape(), d.shape());
   dense_array<int, 3> e = make_move(a, b.shape());
-  ASSERT(b.shape() == e.shape());
+  ASSERT_EQ(b.shape(), e.shape());
   for_each_index(a.shape(), [&](const array_of_rank<int, 3>::index_type& index) {
     ASSERT_EQ(a(index), b(index));
     ASSERT_EQ(a(index), c(index));
