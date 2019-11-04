@@ -248,6 +248,41 @@ TEST(array_dense_move) {
   });
 }
 
+TEST(array_for_each_value) {
+  array_of_rank<int, 3> in_order({dim<>(0, 4, 1), dim<>(0, 4, 4), dim<>(0, 4, 16)});
+  array_of_rank<int, 3> out_of_order({dim<>(0, 4, 16), dim<>(0, 4, 1), dim<>(0, 4, 4)});
+
+  int out_of_order_counter = 0;
+  out_of_order.for_each_value([&](int& v) {
+    v = out_of_order_counter++;
+  });
+
+  int in_order_counter = 0;
+  in_order.for_each_value([&](int& v) {
+    v = in_order_counter++;
+  });
+
+  in_order_counter = 0;
+  for (int z : in_order.z()) {
+    for (int y : in_order.y()) {
+      for (int x : in_order.x()) {
+	int expected = in_order_counter++;
+	ASSERT_EQ(in_order(x, y, z), expected);
+      }
+    }
+  }
+
+  out_of_order_counter = 0;
+  for (int x : out_of_order.x()) {
+    for (int z : out_of_order.z()) {
+      for (int y : out_of_order.y()) {
+	int expected = out_of_order_counter++;
+	ASSERT_EQ(out_of_order(x, y, z), expected);
+      }
+    }
+  }
+}
+
 typedef shape<dim<>, dim<>> LifetimeShape;
 auto lifetime_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10, 20));
 auto lifetime_subshape = make_shape(dim<>(-1, 4, 2), dim<>(5, 8, 20));
