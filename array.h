@@ -32,6 +32,9 @@ enum : index_t {
   UNK = -9,
 };
 
+#define ARRAY_CHECK_CONSTRAIT(constant, runtime) \
+  assert(constant == runtime || constant == UNK);
+
 namespace internal {
 
 // Given a compile-time static value, reconcile a compile-time
@@ -104,9 +107,9 @@ class dim {
    * values must match the compile-time values. */
   dim(index_t min, index_t extent, index_t stride = Stride)
     : min_(min), extent_(extent), stride_(stride) {
-    assert(min == Min || Min == UNK);
-    assert(extent == Extent || Extent == UNK);
-    assert(stride == Stride || Stride == UNK);
+    ARRAY_CHECK_CONSTRAIT(Min, min);
+    ARRAY_CHECK_CONSTRAIT(Extent, extent);
+    ARRAY_CHECK_CONSTRAIT(Stride, stride);
   }
   dim(index_t extent = Extent) : dim(0, extent) {}
   dim(const dim&) = default;
@@ -123,30 +126,30 @@ class dim {
    * compile-time template parameters. */
   template <index_t CopyMin, index_t CopyExtent, index_t CopyStride>
   dim& operator=(const dim<CopyMin, CopyExtent, CopyStride>& copy) {
-    assert(copy.min() == Min || Min == UNK);
+    ARRAY_CHECK_CONSTRAIT(Min, copy.min());
     min_ = copy.min();
-    assert(copy.extent() == Extent || Extent == UNK);
+    ARRAY_CHECK_CONSTRAIT(Extent, copy.extent());
     extent_ = copy.extent();
-    assert(copy.stride() == Stride || Stride == UNK);
+    ARRAY_CHECK_CONSTRAIT(Stride, copy.stride());
     stride_ = copy.stride();
   }
 
   /** Index of the first element in this dim. */
   index_t min() const { return internal::reconcile<Min>(min_); }
   void set_min(index_t min) {
-    assert(min == Min || Min == UNK);
+    ARRAY_CHECK_CONSTRAIT(Min, min);
     min_ = min;
   }
   /** Number of elements in this dim. */
   index_t extent() const { return internal::reconcile<Extent>(extent_); }
   void set_extent(index_t extent) {
-    assert(extent == Extent || Extent == UNK);
+    ARRAY_CHECK_CONSTRAIT(Extent, extent);
     extent_ = extent;
   }
   /** Distance in flat indices between neighboring elements in this dim. */
   index_t stride() const { return internal::reconcile<Stride>(stride_); }
   void set_stride(index_t stride) {
-    assert(stride == Stride || Stride == UNK);
+    ARRAY_CHECK_CONSTRAIT(Stride, stride);
     stride_ = stride;
   }
   /** Index of the last element in this dim. */
@@ -210,8 +213,8 @@ class folded_dim {
    * match the compile-time values. */
   folded_dim(index_t extent = Extent, index_t stride = Stride)
     : extent_(extent), stride_(stride) {
-    assert(extent == Extent || Extent == UNK);
-    assert(stride == Stride || Stride == UNK);
+    ARRAY_CHECK_CONSTRAIT(Extent, extent);
+    ARRAY_CHECK_CONSTRAIT(Stride, stride);
   }
   folded_dim(const folded_dim&) = default;
   folded_dim(folded_dim&&) = default;
@@ -222,13 +225,13 @@ class folded_dim {
   /** Non-folded range of the dim. */
   index_t extent() const { return internal::reconcile<Extent>(extent_); }
   void set_extent(index_t extent) {
-    assert(extent == Extent || Extent == UNK);
+    ARRAY_CHECK_CONSTRAIT(Extent, extent);
     extent_ = extent;
   }
   /** Distance in flat indices between neighboring elements of this dim. */
   index_t stride() const { return internal::reconcile<Stride>(stride_); }
   void set_stride(index_t stride) {
-    assert(stride == Stride || Stride == UNK);
+    ARRAY_CHECK_CONSTRAIT(Stride, stride);
     stride_ = stride;
   }
 
