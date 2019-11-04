@@ -701,11 +701,6 @@ bool is_shape_compatible(const shape<DimsDest...>& dest, const ShapeSrc& src, st
   return sum((is_dim_compatible(DimsDest(), src.template dim<Is>()) ? 0 : 1)...) == 0;
 }
 
-template <typename... Dims, size_t... Is>
-shape<Dims...> make_compact(const shape<Dims...>& s, std::index_sequence<Is...>) {
-  return {{s.template dim<Is>().min(), s.template dim<Is>().extent()}...};
-}
-
 }  // namespace internal
 
 /** Test if a shape src can be assigned to a shape of type
@@ -714,13 +709,6 @@ template <typename ShapeDest, typename ShapeSrc>
 bool is_compatible(const ShapeSrc& src) {
   static_assert(ShapeSrc::rank() == ShapeDest::rank(), "shapes must have the same rank.");
   return internal::is_shape_compatible(ShapeDest(), src, std::make_index_sequence<ShapeSrc::rank()>());
-}
-
-/** Make a compact shape with the same coordinates as s. Only the
- * required strides are respected. */
-template <typename Shape>
-Shape make_compact(const Shape& s) {
-  return internal::make_compact(s, std::make_index_sequence<Shape::rank()>());
 }
 
 namespace internal {
@@ -804,6 +792,11 @@ auto make_dense_shape(const Shape& dims, std::index_sequence<Is...>) {
                     dim<>(std::get<Is + 1>(dims).min(), std::get<Is + 1>(dims).extent())...);
 }
 
+template <typename... Dims, size_t... Is>
+shape<Dims...> make_compact_shape(const shape<Dims...>& s, std::index_sequence<Is...>) {
+  return {{s.template dim<Is>().min(), s.template dim<Is>().extent()}...};
+}
+
 }  // namespace internal
 
 /** Create a new shape using a permutation DimIndices... of the
@@ -816,9 +809,16 @@ auto permute(const Shape& shape) {
 /** Make a shape with an equivalent domain of indices, but with dense
  * strides. */
 template <typename... Dims>
-auto make_dense_shape(const shape<Dims...>& shape) {
+auto make_dense(const shape<Dims...>& shape) {
   constexpr int rank = sizeof...(Dims);
   return internal::make_dense_shape(shape.dims(), std::make_index_sequence<rank - 1>());
+}
+
+/** Make a shape with an equivalent domain of indices, but with compact
+ * strides. Only required strides are respected. */
+template <typename Shape>
+Shape make_compact(const Shape& s) {
+  return internal::make_compact_shape(s, std::make_index_sequence<Shape::rank()>());
 }
 
 /** An arbitrary shape (no compile-time constant parameters) with the
@@ -1676,7 +1676,7 @@ template <typename T, typename ShapeSrc,
   typename AllocDest = std::allocator<typename std::remove_const<T>::type>>
 auto make_dense_copy(const array_ref<T, ShapeSrc>& src,
                      const AllocDest& alloc = AllocDest()) {
-  return make_copy(src, make_dense_shape(src.shape()), alloc);
+  return make_copy(src, make_dense(src.shape()), alloc);
 }
 template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = std::allocator<T>>
 auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src,
@@ -1687,11 +1687,34 @@ auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src,
 /** Make a move of an array with a dense shape of the same rank as src. */
 template <typename T, typename ShapeSrc, typename AllocDest = std::allocator<T>>
 auto make_dense_move(const array_ref<T, ShapeSrc>& src, const AllocDest& alloc = AllocDest()) {
-  return make_move(src, make_dense_shape(src.shape()), alloc);
+  return make_move(src, make_dense(src.shape()), alloc);
 }
 template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = std::allocator<T>>
 auto make_dense_move(array<T, ShapeSrc, AllocSrc>& src, const AllocDest& alloc = AllocDest()) {
   return make_dense_move(src.ref(), alloc);
+}
+
+/** Make a copy of an array with a compact shape of the same rank as src. */
+template <typename T, typename ShapeSrc,
+  typename AllocDest = std::allocator<typename std::remove_const<T>::type>>
+auto make_compact_copy(const array_ref<T, ShapeSrc>& src,
+		       const AllocDest& alloc = AllocDest()) {
+  return make_copy(src, make_compact(src.shape()), alloc);
+}
+template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = std::allocator<T>>
+auto make_compact_copy(const array<T, ShapeSrc, AllocSrc>& src,
+		       const AllocDest& alloc = AllocDest()) {
+  return make_compact_copy(src.ref(), alloc);
+}
+
+/** Make a move of an array with a compact shape of the same rank as src. */
+template <typename T, typename ShapeSrc, typename AllocDest = std::allocator<T>>
+auto make_compact_move(const array_ref<T, ShapeSrc>& src, const AllocDest& alloc = AllocDest()) {
+  return make_move(src, make_compact(src.shape()), alloc);
+}
+template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = std::allocator<T>>
+auto make_compact_move(array<T, ShapeSrc, AllocSrc>& src, const AllocDest& alloc = AllocDest()) {
+  return make_compact_move(src.ref(), alloc);
 }
 
 /** Allocator that owns a buffer of fixed size, which will be placed
