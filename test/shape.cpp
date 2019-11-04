@@ -286,10 +286,10 @@ TEST(shape_conversion) {
   dense_shape<2> static_dense2(dense);
   ASSERT(dense == static_dense2);
 
-  ASSERT(is_shape_compatible<dense_shape<2>>(dense));
+  ASSERT(is_compatible<dense_shape<2>>(dense));
 
   shape_of_rank<2> sparse(dim<>(0, 10, 2), dim<>(1, 5, 20));
-  ASSERT(!is_shape_compatible<dense_shape<2>>(sparse));
+  ASSERT(!is_compatible<dense_shape<2>>(sparse));
 }
 
 TEST(shape_transpose) {
@@ -340,7 +340,20 @@ TEST(shape_optimize) {
   shape_of_rank<2> g({1, 2}, {1, 2});
   shape_of_rank<2> g_optimized({3, 4}, {0, 1});
   ASSERT(internal::optimize_shape(g) == g_optimized);
+}
 
+TEST(shape_make_compact) {
+  shape<dim<>> s1(dim<>(3, 5, 2));
+  shape<dim<>> s1_compact(dim<>(3, 5, 1));
+  ASSERT(make_compact(s1) == s1_compact);
+
+  shape<dim<>, dim<>> s2(dim<>(3, 5, 8), dim<>(1, 4, 1));
+  shape<dim<>, dim<>> s2_compact(dim<>(3, 5, 1), dim<>(1, 4, 5));
+  ASSERT(make_compact(s2) == s2_compact);
+
+  shape<dim<>, dense_dim<>> s3(dim<>(3, 5, 8), dense_dim<>(1, 4));
+  shape<dim<>, dense_dim<>> s3_compact(dim<>(3, 5, 4), dense_dim<>(1, 4));
+  ASSERT(make_compact(s3) == s3_compact);
 }
 
 }  // namespace array

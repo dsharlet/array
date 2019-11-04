@@ -701,14 +701,26 @@ bool is_shape_compatible(const shape<DimsDest...>& dest, const ShapeSrc& src, st
   return sum((is_dim_compatible(DimsDest(), src.template dim<Is>()) ? 0 : 1)...) == 0;
 }
 
+template <typename... Dims, size_t... Is>
+shape<Dims...> make_compact(const shape<Dims...>& s, std::index_sequence<Is...>) {
+  return {{s.template dim<Is>().min(), s.template dim<Is>().extent()}...};
+}
+
 }  // namespace internal
 
 /** Test if a shape src can be assigned to a shape of type
  * ShapeDest. */
 template <typename ShapeDest, typename ShapeSrc>
-bool is_shape_compatible(const ShapeSrc& src) {
+bool is_compatible(const ShapeSrc& src) {
   static_assert(ShapeSrc::rank() == ShapeDest::rank(), "shapes must have the same rank.");
   return internal::is_shape_compatible(ShapeDest(), src, std::make_index_sequence<ShapeSrc::rank()>());
+}
+
+/** Make a compact shape with the same coordinates as s. Only the
+ * required strides are respected. */
+template <typename Shape>
+Shape make_compact(const Shape& s) {
+  return internal::make_compact(s, std::make_index_sequence<Shape::rank()>());
 }
 
 namespace internal {
