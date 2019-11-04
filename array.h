@@ -23,10 +23,13 @@ typedef std::size_t size_t;
 typedef std::ptrdiff_t index_t;
 
 enum : index_t {
-  // TODO: It would be best to use a more unreasonable value for
-  // this (strides of -1 might be useful), but it makes error messages
-  // absurd.
-  UNK = -1, //std::numeric_limits<index_t>::min(),
+  /** This value indicates a compile-time constant stride is unknown,
+   * and to use the runtime value instead. */
+  // It would be better to use a more unreasonable value that would
+  // never be used in practice. Fortunately, this does not affect
+  // correctness, only performance, and it is hard to imagine a use
+  // case for this where performance matters.
+  UNK = -9,
 };
 
 namespace internal {
