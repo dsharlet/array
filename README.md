@@ -127,7 +127,7 @@ A dimension with unknown min and extent, and stride 1, is common enough that it 
 There are other common examples that are easy to support in this way.
 A very common array is an image where 3-channel RGB or 4-channel RGBA pixels are stored together in a 'chunky' format.
 ```c++
-template <typename T, int Channels>
+template <int Channels>
 using chunky_image_shape = shape<dim<UNK, UNK, Channels>, dim<>, dense_dim<0, Channels>>;
 ```
 
