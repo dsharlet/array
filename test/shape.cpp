@@ -3,22 +3,6 @@
 
 namespace array {
 
-TEST(euclidean_div_mod) {
-  const int values[] = {
-    -1000, -100, -10, -2, -1, 0, 1, 2, 10, 100, 1000,
-  };
-
-  for (int b : values) {
-    if (b == 0) continue;
-    for (int a : values) {
-      int q = internal::euclidean_div(a, b);
-      int r = internal::euclidean_mod(a, b);
-      ASSERT_EQ(q * b + r, a);
-      ASSERT(0 <= r && r < std::abs(b));
-    }
-  }
-}
-
 TEST(shape_scalar) {
   shape<> s;
   ASSERT_EQ(s.flat_extent(), 1);
@@ -132,17 +116,6 @@ TEST(auto_strides_interleaved) {
   ASSERT_EQ(z.min(), 0);
   ASSERT_EQ(z.extent(), 3);
   ASSERT_EQ(z.stride(), 1);
-}
-
-TEST(folded_dim) {
-  dim<> x(0, 10, 1);
-  folded_dim<> y(4, 10);
-  shape<dim<>, folded_dim<>> s = make_shape(x, y);
-  for (int i = 0; i < 10; i++) {
-    for (int j : x) {
-      ASSERT_EQ(s(j, i), (i % 4) * 10 + j);
-    }
-  }
 }
 
 TEST(broadcast_dim) {

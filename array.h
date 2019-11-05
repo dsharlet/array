@@ -54,25 +54,6 @@ index_t reconcile(index_t value) {
   }
 }
 
-// Signed integer division in C/C++ is terrible. These implementations
-// of Euclidean division and mod are taken from:
-// https://github.com/halide/Halide/blob/1a0552bb6101273a0e007782c07e8dafe9bc5366/src/CodeGen_Internal.cpp#L358-L408
-template <typename T>
-T euclidean_div(T a, T b) {
-  T q = a / b;
-  T r = a - q * b;
-  T bs = b >> (sizeof(T) * 8 - 1);
-  T rs = r >> (sizeof(T) * 8 - 1);
-  return q - (rs & bs) + (rs & ~bs);
-}
-
-template <typename T>
-T euclidean_mod(T a, T b) {
-  T r = a % b;
-  T sign_mask = r >> (sizeof(T) * 8 - 1);
-  return r + (sign_mask & std::abs(b));
-}
-
 }  // namespace internal
 
 /** An iterator over a range of indices. */
@@ -206,79 +187,6 @@ using strided_dim = dim<UNK, UNK, Stride>;
  * is known to be zero. */
 template <index_t Min = UNK, index_t Extent = UNK>
 using broadcast_dim = dim<Min, Extent, 0>;
-
-/** A dim where the indices wrap around outside the range of the dim. */
-template <index_t Extent = UNK, index_t Stride = UNK>
-class folded_dim {
- protected:
-  index_t extent_;
-  index_t stride_;
-
- public:
-  /** Construct a new dim object. If the Extent or Stride compile-time
-   * template parameters are not 'UNK', these runtime values must
-   * match the compile-time values. */
-  folded_dim(index_t extent = Extent, index_t stride = Stride)
-    : extent_(extent), stride_(stride) {
-    ARRAY_CHECK_CONSTRAIT(Extent, extent);
-    ARRAY_CHECK_CONSTRAIT(Stride, stride);
-  }
-  folded_dim(const folded_dim&) = default;
-  folded_dim(folded_dim&&) = default;
-
-  folded_dim& operator=(const folded_dim&) = default;
-  folded_dim& operator=(folded_dim&&) = default;
-
-  /** Non-folded range of the dim. */
-  index_t extent() const { return internal::reconcile<Extent>(extent_); }
-  void set_extent(index_t extent) {
-    ARRAY_CHECK_CONSTRAIT(Extent, extent);
-    extent_ = extent;
-  }
-  /** Distance in flat indices between neighboring elements of this dim. */
-  index_t stride() const { return internal::reconcile<Stride>(stride_); }
-  void set_stride(index_t stride) {
-    ARRAY_CHECK_CONSTRAIT(Stride, stride);
-    stride_ = stride;
-  }
-
-  /** In a folded dim, the min and max are unbounded. */
-  index_t min() const { return 0; }
-  index_t max() const { return extent() - 1; }
-
-  /** Make an iterator referring to the first element in this dim. */
-  dim_iterator begin() const { return dim_iterator(min()); }
-  /** Make an iterator referring to one past the last element in this dim. */
-  dim_iterator end() const { return dim_iterator(max() + 1); }
-
-  /** Flat offset of an element in this dim. */
-  index_t offset(index_t at) const {
-    return internal::euclidean_mod(at, extent()) * stride();
-  }
-
-  /** In a folded dim, all indices are in range. */
-  bool is_in_range(index_t at) const { return true; }
-
-  /** folded_dim objects are considered equal if their extent, and
-   * strides are equal. */
-  template <index_t OtherExtent, index_t OtherStride>
-  bool operator==(const folded_dim<OtherExtent, OtherStride>& other) const {
-    return extent() == other.extent() && stride() == other.stride();
-  }
-  template <index_t OtherExtent, index_t OtherStride>
-  bool operator!=(const folded_dim<OtherExtent, OtherStride>& other) const {
-    return extent() != other.extent() || stride() != other.stride();
-  }
-};
-
-template <index_t Extent, index_t Stride>
-dim_iterator begin(const folded_dim<Extent, Stride>& d) {
-  return d.begin();
-}
-template <index_t Extent, index_t Stride>
-dim_iterator end(const folded_dim<Extent, Stride>& d) {
-  return d.end();
-}
 
 /** Clamp an index to the range [min, max]. */
 inline index_t clamp(index_t x, index_t min, index_t max) {
