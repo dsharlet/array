@@ -1111,17 +1111,11 @@ class array_ref {
     return array_ref<const T, Shape>(data(), shape());
   }
 
-  /** Create a reference of this array_ref, interpreting the data as a
-   * different type. */
-  template <typename U>
-  array_ref<U, Shape> reinterpret() {
-    static_assert(sizeof(T) == sizeof(U), "sizeof(reinterpreted type U) != sizeof(array type T)");
-    return array_ref<U, Shape>(reinterpret_cast<U*>(data()), shape());
-  }
-  template <typename U>
-  array_ref<const U, Shape> reinterpret() const {
-    static_assert(sizeof(T) == sizeof(U), "sizeof(reinterpreted type U) != sizeof(array type T)");
-    return array_ref<const U, Shape>(reinterpret_cast<const U*>(data()), shape());
+  /** Change the shape of the array to 'new_shape', and move the base
+   * pointer by 'offset'. */
+  void reshape(Shape new_shape, index_t offset = 0) {
+    shape_ = std::move(new_shape);
+    base_ += offset;
   }
 };
 
@@ -1141,16 +1135,20 @@ using dense_array_ref = array_ref<T, dense_shape<Rank>>;
 template <typename T, typename Shape, typename Alloc = std::allocator<T>>
 class array {
   Alloc alloc_;
+  T* buffer_;
+  index_t buffer_size_;
   T* base_;
   Shape shape_;
 
   // After allocate the array is allocated but uninitialized.
   void allocate() {
-    assert(!base_);
+    assert(!buffer_);
     index_t flat_extent = shape_.flat_extent();
     if (flat_extent > 0) {
-      base_ = std::allocator_traits<Alloc>::allocate(alloc_, flat_extent);
+      buffer_size_ = flat_extent;
+      buffer_ = std::allocator_traits<Alloc>::allocate(alloc_, flat_extent);
     }
+    base_ = buffer_;
   }
 
   // Call the constructor on all of the elements of the array.
@@ -1194,8 +1192,9 @@ class array {
   void deallocate() {
     if (base_) {
       destroy();
-      std::allocator_traits<Alloc>::deallocate(alloc_, base_, shape_.flat_extent());
       base_ = nullptr;
+      std::allocator_traits<Alloc>::deallocate(alloc_, buffer_, buffer_size_);
+      buffer_ = nullptr;
     }
   }
 
@@ -1224,7 +1223,7 @@ class array {
   /** Construct an array with a particular 'shape', allocated by
    * 'alloc', with default constructed elements. */
   explicit array(Shape shape, const Alloc& alloc = Alloc())
-      : alloc_(alloc), base_(nullptr), shape_(std::move(shape)) {
+      : alloc_(alloc), buffer_(nullptr), buffer_size_(0), base_(nullptr), shape_(std::move(shape)) {
     allocate();
     construct();
   }
@@ -1253,8 +1252,10 @@ class array {
       allocate();
       move_construct(other);
     } else {
-      swap(shape_, other.shape_);
+      swap(buffer_, other.buffer_);
+      swap(buffer_size_, other.buffer_size_);
       swap(base_, other.base_);
+      swap(shape_, other.shape_);
     }
   }
   ~array() {
@@ -1401,7 +1402,8 @@ class array {
     internal::for_each_value(data(), shape(), fn);
   }
 
-  /** Pointer to the start of the flat array allocation. */
+  /** Pointer to the start of the flat array, which is a pointer to
+   * the min index of the shape. */
   pointer data() { return base_; }
   const_pointer data() const { return base_; }
 
@@ -1466,6 +1468,8 @@ class array {
     // TODO: This probably should respect
     // std::allocator_traits<Alloc>::propagate_on_container_swap::value
     swap(alloc_, other.alloc_);
+    swap(buffer_, other.buffer_);
+    swap(buffer_size_, other.buffer_size_);
     swap(base_, other.base_);
     swap(shape_, other.shape_);
   }
@@ -1480,17 +1484,11 @@ class array {
   operator array_ref<T, Shape>() { return ref(); }
   operator array_ref<const T, Shape>() const { return ref(); }
 
-  /** Create a reference of this array, interpreting the data as a
-   * different type. */
-  template <typename U>
-  array_ref<U, Shape> reinterpret() {
-    static_assert(sizeof(T) == sizeof(U), "sizeof(reinterpreted type U) != sizeof(array type T)");
-    return array_ref<U, Shape>(reinterpret_cast<U*>(data()), shape());
-  }
-  template <typename U>
-  array_ref<const U, Shape> reinterpret() const {
-    static_assert(sizeof(T) == sizeof(U), "sizeof(reinterpreted type U) != sizeof(array type T)");
-    return array_ref<const U, Shape>(reinterpret_cast<const U*>(data()), shape());
+  /** Change the shape of the array to 'new_shape', and move the base
+   * pointer by 'offset'. */
+  void reshape(Shape new_shape, index_t offset = 0) {
+    shape_ = std::move(new_shape);
+    base_ += offset;
   }
 };
 
@@ -1650,6 +1648,38 @@ auto make_compact_move(array<T, Shape, AllocSrc>& src, const AllocDest& alloc = 
   return make_compact_move(src.ref(), alloc);
 }
 
+/** Reinterpret the array or array_ref 'a' of type 'T' to have a
+ * different type 'U'. The size of 'T' must be equal to the size of
+ * 'U'. */
+template <typename U, typename T, typename Shape>
+array_ref<U, Shape> reinterpret(const array_ref<T, Shape>& a) {
+  static_assert(sizeof(T) == sizeof(U), "sizeof(reinterpreted type U) != sizeof(array type T)");
+  return array_ref<U, Shape>(reinterpret_cast<U*>(a.data()), a.shape());
+}
+template <typename U, typename T, typename Shape, typename Alloc>
+array_ref<U, Shape> reinterpret(array<T, Shape, Alloc>& a) {
+  return reinterpret<U>(a.ref());
+}
+template <typename U, typename T, typename Shape, typename Alloc>
+array_ref<const U, Shape> reinterpret(const array<T, Shape, Alloc>& a) {
+  return reinterpret<const U>(a.ref());
+}
+
+/** Reshape the array or array_ref 'a' to have a new shape 'new_shape', with a
+ * base pointer offset 'offset'. */
+template <typename NewShape, typename T, typename OldShape>
+array_ref<T, NewShape> reshape(const array_ref<T, OldShape>& a, NewShape new_shape, index_t offset = 0) {
+  return array_ref<T, NewShape>(a.data() + offset, std::move(new_shape));
+}
+template <typename NewShape, typename T, typename OldShape, typename Allocator>
+array_ref<T, NewShape> reshape(array<T, OldShape, Allocator>& a, NewShape new_shape, index_t offset = 0) {
+  return reshape(a.ref(), new_shape, offset);
+}
+template <typename NewShape, typename T, typename OldShape, typename Allocator>
+array_ref<const T, NewShape> reshape(const array<T, OldShape, Allocator>& a, NewShape new_shape, index_t offset = 0) {
+  return reshape(a.ref(), new_shape, offset);
+}
+
 /** std::allocator-compatible Allocator that owns a buffer of fixed
  * size, which will be placed on the stack if the owning container is
  * allocated on the stack. This can only be used with containers that
@@ -1659,7 +1689,7 @@ auto make_compact_move(array<T, Shape, AllocSrc>& src, const AllocDest& alloc = 
 // allocation, but not necessarily a stack allocation.
 template <class T, size_t N>
 class stack_allocator {
-  alignas(T) char alloc[N * sizeof(T)];
+  alignas(T) char buffer[N * sizeof(T)];
   bool allocated;
 
  public:
@@ -1688,7 +1718,7 @@ class stack_allocator {
     if (allocated) ARRAY_THROW_BAD_ALLOC();
     if (n > N) ARRAY_THROW_BAD_ALLOC();
     allocated = true;
-    return reinterpret_cast<T*>(&alloc[0]);
+    return reinterpret_cast<T*>(&buffer[0]);
   }
   void deallocate(T* p, size_t) noexcept {
     allocated = false;
@@ -1696,12 +1726,12 @@ class stack_allocator {
 
   template <class U, size_t U_N>
   friend bool operator==(const stack_allocator<T, N>& a, const stack_allocator<U, U_N>& b) {
-    return &a.alloc[0] == &b.alloc[0];
+    return &a.buffer[0] == &b.buffer[0];
   }
 
   template <class U, size_t U_N>
   friend bool operator!=(const stack_allocator<T, N>& a, const stack_allocator<U, U_N>& b) {
-    return &a.alloc[0] != &b.alloc[0];
+    return &a.buffer[0] != &b.buffer[0];
   }
 };
 

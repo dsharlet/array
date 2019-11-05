@@ -31,7 +31,7 @@ TEST(reinterpret) {
   memcpy(&eight, &eight_int, sizeof(eight));
 
   dense_array<int, 3> int_array({4, 5, 6}, eight_int);
-  dense_array_ref<float, 3> float_array = int_array.reinterpret<float>();
+  dense_array_ref<float, 3> float_array = reinterpret<float>(int_array);
   ASSERT_EQ(float_array.width(), 4);
   ASSERT_EQ(float_array.height(), 5);
   ASSERT_EQ(float_array.channels(), 6);
