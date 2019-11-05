@@ -23,9 +23,9 @@ Usage
 
 The basic types provided by the library are:
 * `dim<Min, Extent, Stride>`, a description of a single dimension. The template parameters specify compile-time constant mins, extents, and strides, or are `UNK` (the default, meaning unknown) and are specified at runtime.
-* `shape<Dim0, Dim1, ..., DimN>`, a description of multiple dimensions.
+* `shape<Dim0, Dim1, ...>`, a description of multiple dimensions.
 * `array<T, Shape, Allocator>`, a container following the conventions of `std::vector` where possible. This container manages the allocation of a buffer associated with a `Shape`.
-* `array_ref<T, Shape>`, a wrapper for addressing existing memory with a shape of the Shape object.
+* `array_ref<T, Shape>`, a wrapper for addressing existing memory with a shape 'Shape'.
 
 To define an array, define a shape type, and use it to define an array object:
 ```c++
@@ -106,7 +106,7 @@ for_all_indices(transpose<2, 0, 1>(shape), [](int z, int x, int y) {
 // 1, 1, 1
 ```
 
-In this example, no array parameters are compile time constants, so all of these accesses and loops expand to a `flat_offset` expression where the strides are runtime variables. 
+In this example, no array parameters are compile time constants, so all of these accesses and loops expand to a `flat_offset` expression where the strides are runtime variables.
 This can prevent the compiler from generating efficient code.
 For example, the compiler may be able to auto-vectorize these loops, but if the stride of the vectorized dimension is a runtime variable, the compiler will have to generate a gather instead of a load instruction, even if the stride is one.
 To avoid this, we need to make array parameters compile time constants.
@@ -123,16 +123,15 @@ A dimension with unknown min and extent, and stride 1, is common enough that it 
 * `dense_array_ref<T, N>` and `dense_array<T, N, Allocator>`, N-dimensional arrays with a shape of `dense_shape<N>`.
 
 There are other common examples that are easy to support in this way.
-A very common array is an image where 3-channel RGB or 4-channel RGBA pixels are stored together.
+A very common array is an image where 3-channel RGB or 4-channel RGBA pixels are stored together in a 'chunky' format.
 ```c++
 template <typename T, int Channels>
-using interleaved_image_shape_type =
-  shape<dim<UNK, UNK, Channels>, dim<>, dense_dim<0, Channels>>;
+using chunky_image_shape = shape<dim<UNK, UNK, Channels>, dim<>, dense_dim<0, Channels>>;
 ```
 
 Another common example is matrices indexed `(row, column)` with the column dimension stored densely:
 ```c++
-using matrix_shape_type = shape<dim<>, dense_dim<>>;
+using matrix_shape = shape<dim<>, dense_dim<>>;
 ```
 
 There are also many use cases for matrices with small constant sizes.
@@ -140,7 +139,7 @@ This library provides `stack_allocator<T, N>`, an `std::allocator` compatible al
 This makes it possible to define a small matrix type that will not use any dynamic memory allocation:
 ```c++
 template <int M, int N>
-using small_matrix_shape_type = shape<dim<0, M>, dense_dim<0, N>>;
+using small_matrix_shape = shape<dim<0, M>, dense_dim<0, N>>;
 template <typename T, int M, int N>
-using small_matrix_type = array<T, small_matrix_shape_type, stack_allocator<T, M*N>>;
+using small_matrix = array<T, small_matrix_shape, stack_allocator<T, M*N>>;
 ```
