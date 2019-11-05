@@ -126,13 +126,15 @@ void fill_pattern(array<T, Shape>& a) {
 
 // Check an array matches the pattern.
 template <typename T, typename Shape>
-void check_pattern(const array_ref<T, Shape>& a, const typename Shape::index_type& offset = typename Shape::index_type()) {
+void check_pattern(const array_ref<T, Shape>& a,
+		   const typename Shape::index_type& offset = typename Shape::index_type()) {
   for_each_index(a.shape(), [&](const typename Shape::index_type& i) {
     ASSERT_EQ(a(i), pattern<T>(i, offset));
   });
 }
 template <typename T, typename Shape, typename Alloc>
-void check_pattern(const array<T, Shape, Alloc>& a, const typename Shape::index_type& offset = typename Shape::index_type()) {
+void check_pattern(const array<T, Shape, Alloc>& a,
+		   const typename Shape::index_type& offset = typename Shape::index_type()) {
   check_pattern(a.ref(), offset);
 }
 

@@ -144,10 +144,13 @@ TEST(sparse_array) {
 }
 
 TEST(array_equality) {
-  array_of_rank<int, 3> a({4, 5, 6}, 7);
-  array_of_rank<int, 3> b({4, 5, 6}, 7);
+  array_of_rank<int, 3> a({4, 5, 6});
+  fill_pattern(a);
+  array_of_rank<int, 3> b({4, 5, 6});
+  fill_pattern(b);
   // A sparse array with a different stride than the above should still be equal to the above.
-  array_of_rank<int, 3> c({dim<>(0, 4, 2), 5, 6}, 7);
+  array_of_rank<int, 3> c({dim<>(0, 4, 2), 5, 6});
+  fill_pattern(c);
 
   ASSERT(a == b);
   ASSERT(a == c);
@@ -159,26 +162,23 @@ TEST(array_equality) {
 
 TEST(array_copy) {
   array_of_rank<int, 3> a({4, 5, 6});
-  for_all_indices(a.shape(), [&](int x, int y, int z) {
-    return x * 100 + y * 10 + z;
-  });
-  dense_array<int, 3> b({4, 5, 6});
-  array_of_rank<int, 3> c({dim<>(0, 4, 2), 5, 6});
+  fill_pattern(a);
 
+  dense_array<int, 3> b({4, 5, 6});
   copy(a, b);
+  check_pattern(b);
+
+  array_of_rank<int, 3> c({dim<>(0, 4, 2), 5, 6});
   copy(b, c);
+  check_pattern(c);
 
   array_of_rank<int, 3> d = make_copy(a, c.shape());
   ASSERT_EQ(c.shape(), d.shape());
+  check_pattern(d);
+
   dense_array<int, 3> e = make_copy(a, b.shape());
   ASSERT_EQ(b.shape(), e.shape());
-
-  for_each_index(a.shape(), [&](const array_of_rank<int, 3>::index_type& index) {
-    ASSERT_EQ(a(index), b(index));
-    ASSERT_EQ(a(index), c(index));
-    ASSERT_EQ(a(index), d(index));
-    ASSERT_EQ(a(index), e(index));
-  });
+  check_pattern(e);
 
   try {
     // The destination wants indices out of range of the source.
@@ -190,29 +190,28 @@ TEST(array_copy) {
 
   dense_array<int, 3> g({{1, 2}, {1, 3}, {1, 4}});
   copy(a, g);
-  for_each_index(g.shape(), [&](const dense_array<int, 3>::index_type& index) {
-    ASSERT_EQ(a(index), g(index));
-  });
+  check_pattern(g);
 }
 
 TEST(array_move) {
-  array_of_rank<int, 3> a({4, 5, 6}, 7);
-  dense_array<int, 3> b({4, 5, 6});
-  array_of_rank<int, 3> c({dim<>(0, 4, 2), 5, 6});
+  array_of_rank<int, 3> a({4, 5, 6});
+  fill_pattern(a);
 
+  dense_array<int, 3> b({4, 5, 6});
   move(a, b);
+  check_pattern(b);
+
+  array_of_rank<int, 3> c({dim<>(0, 4, 2), 5, 6});
   move(b, c);
+  check_pattern(c);
 
   array_of_rank<int, 3> d = make_move(a, c.shape());
   ASSERT_EQ(c.shape(), d.shape());
+  check_pattern(d);
+
   dense_array<int, 3> e = make_move(a, b.shape());
   ASSERT_EQ(b.shape(), e.shape());
-  for_each_index(a.shape(), [&](const array_of_rank<int, 3>::index_type& index) {
-    ASSERT_EQ(a(index), b(index));
-    ASSERT_EQ(a(index), c(index));
-    ASSERT_EQ(a(index), d(index));
-    ASSERT_EQ(a(index), e(index));
-  });
+  check_pattern(e);
 
   try {
     // The destination wants indices out of range of the source.
@@ -224,31 +223,27 @@ TEST(array_move) {
 
   dense_array<int, 3> g({4, {1, 2}, 5});
   move(a, g);
-  for_each_index(g.shape(), [&](const dense_array<int, 3>::index_type& index) {
-    ASSERT_EQ(a(index), g(index));
-  });
+  check_pattern(g);
 }
 
 TEST(array_dense_copy) {
-  array_of_rank<int, 3> source({dim<>(-3, 4, 2), 5, 6}, 7);
+  array_of_rank<int, 3> source({dim<>(-3, 4, 2), 5, 6});
+  fill_pattern(source);
   ASSERT(!source.is_compact());
 
   dense_array<int, 3> dense_copy = make_dense_copy(source);
   ASSERT(dense_copy.is_compact());
-  for_each_index(dense_copy.shape(), [&](const dense_shape<3>::index_type& index) {
-    ASSERT_EQ(dense_copy(index), source(index));
-  });
+  check_pattern(dense_copy);
 }
 
 TEST(array_dense_move) {
-  array_of_rank<int, 3> source({dim<>(-3, 4, 2), 5, 6}, 7);
+  array_of_rank<int, 3> source({dim<>(-3, 4, 2), 5, 6});
+  fill_pattern(source);
   ASSERT(!source.is_compact());
 
   dense_array<int, 3> dense_move = make_dense_move(source);
   ASSERT(dense_move.is_compact());
-  for_each_index(dense_move.shape(), [&](const dense_shape<3>::index_type& index) {
-    ASSERT_EQ(dense_move(index), source(index));
-  });
+  check_pattern(dense_move);
 }
 
 TEST(array_for_each_value) {
