@@ -23,7 +23,7 @@ Usage
 
 The basic types provided by the library are:
 * `dim<Min, Extent, Stride>`, a description of a single dimension. The template parameters specify compile-time constant mins, extents, and strides, or are `UNK` (the default, meaning unknown) and are specified at runtime.
-* `shape<Dim0, Dim1, ...>`, a description of multiple dimensions.
+* `shape<Dim0, Dim1, ...>`, a description of multiple dimensions. `Dim0` is referred to as the innermost dimension.
 * `array<T, Shape, Allocator>`, a container following the conventions of `std::vector` where possible. This container manages the allocation of a buffer associated with a `Shape`.
 * `array_ref<T, Shape>`, a wrapper for addressing existing memory with a shape 'Shape'.
 
@@ -55,6 +55,7 @@ for (int z = 0; z < depth; z++) {
 ```
 
 `array::for_each_value`, calls a function with a reference to each value in the array.
+The order in which `for_each_value` calls the function with references is undefined, allowing the implementation to reorder the traversal to optimize memory access patterns.
 ```c++
 my_array.for_each_value([](int& value) {
   value = 5;
@@ -62,19 +63,17 @@ my_array.for_each_value([](int& value) {
 ```
 
 `for_all_indices` is a free function taking a shape object and a function to call with every index in the shape.
-`for_each_index` is similar, calling a free function with the index as a tuple.
+`for_each_index` is similar, calling a free function with the index as an instance of the index type `my_3d_shape_type::index_type`.
 ```c++
 for_all_indices(my_3d_shape, [&](int x, int y, int z) {
   my_array(x, y, z) = 5;
 });
-for_each_index(my_3d_shape, [&](std::tuple<int, int, int> i) {
+for_each_index(my_3d_shape, [&](my_3d_shape_type::index_type i) {
   my_array(i) = 5;
 });
 ```
 
-`transpose<D0, D1, ..., DN>` is a helper function that enables reordering the dimensions of a shape, and can be used to control the order in which loops are executed.
-`D0, D1, ..., DN` is a permutation of the dimension indices.
-The default loop order is to make the first dimension of a shape the innermost loop:
+The innermost dimension of the shape corresponds to the innermost loop, and subsequent loops are nested outside.
 ```c++
 my_3d_shape_type shape(2, 2, 2);
 for_all_indices(shape, [](int x, int y, int z) {
@@ -90,9 +89,12 @@ for_all_indices(shape, [](int x, int y, int z) {
 // 0, 1, 1
 // 1, 1, 1
 ```
-We can change the order of the loops with a `transpose` (note the reordered indices as well):
+
+`permute<D0, D1, ..., DN>` is a helper function that enables reordering the dimensions of a shape, and can be used to control the order in which loops are executed.
+`D0, D1, ..., DN` is a permutation of the dimension indices.
+We can change the order of the loops with a `permute` operation (note the reordered indices as well):
 ```c++
-for_all_indices(transpose<2, 0, 1>(shape), [](int z, int x, int y) {
+for_all_indices(permute<2, 0, 1>(shape), [](int z, int x, int y) {
   std::cout << x << ", " << y << ", " << z << std::endl;
 });
 // Output:
@@ -106,7 +108,7 @@ for_all_indices(transpose<2, 0, 1>(shape), [](int z, int x, int y) {
 // 1, 1, 1
 ```
 
-In this example, no array parameters are compile time constants, so all of these accesses and loops expand to a `flat_offset` expression where the strides are runtime variables.
+In these examples, no array parameters are compile time constants, so all of these accesses and loops expand to a `flat_offset` expression where the strides are runtime variables.
 This can prevent the compiler from generating efficient code.
 For example, the compiler may be able to auto-vectorize these loops, but if the stride of the vectorized dimension is a runtime variable, the compiler will have to generate a gather instead of a load instruction, even if the stride is one.
 To avoid this, we need to make array parameters compile time constants.
