@@ -5,17 +5,20 @@
 
 namespace array {
 
-/** A generic image is any 3D array with dimensions x, y, c. */
+/** A generic image is any 3D array with dimensions x, y, c. c
+ * represents the channels of the image, typically it will have
+ * extent 3 or 4, with red, green, and blue mapped to indices in
+ * this dimension. */
 using image_shape = shape_of_rank<3>;
 template <typename T>
 using image = array_of_rank<T, 3>;
 template <typename T>
 using image_ref = array_ref_of_rank<T, 3>;
 
-/** A chunky image is an array with 3 dimensions x, y, c, where c
- * is dense, and the dimension with the next stride is x. This is
- * the typical image storage format used by most programs working
- * with images. */
+/** A 'chunky' image is an array with 3 dimensions x, y, c, where c is
+ * dense, and the dimension with the next stride is x. This is a
+ * common image storage format used by many programs working with
+ * images. */
 template <index_t Channels>
 using chunky_image_shape =
   shape<strided_dim<Channels>, dim<>, dense_dim<0, Channels>>;
@@ -24,9 +27,10 @@ using chunky_image = array<T, chunky_image_shape<Channels>>;
 template <typename T, index_t Channels>
 using chunky_image_ref = array_ref<T, chunky_image_shape<Channels>>;
 
-/** A planar iamge is a dense 3D array with dimensions x, y, c.
- * This format is less common, but more convenient for optimization,
- * particularly SIMD vectorization. */
+/** A 'planar' iamge is an array with dimensions x, y, c, where x is
+ * dense. This format is less common, but more convenient for
+ * optimization, particularly SIMD vectorization. Note that this
+ * shape also supports 'line-chunky' storage orders. */
 using planar_image_shape = dense_shape<3>;
 template <typename T>
 using planar_image = dense_array<T, 3>;
@@ -34,14 +38,16 @@ template <typename T>
 using planar_image_ref = dense_array_ref<T, 3>;
 
 enum class crop_origin {
-  /** The result of a crop has min 0, 0. */
+  /** The result of the crop has min 0, 0. */
   zero,
-  /** The result of the crop has the same coordinates as the original,
-   * but with new mins and extents. */
+  /** The result indices inside the crop are the same as the original
+   * indices, and the result indices outside the crop are out of
+   * bounds. */
   crop,
 };
 
-/** Crop an image shape to the given range of coordinates. */
+/** Crop an image shape 's' to the indices [x0, x1) x [y0, y1). The
+ * origin of the new shape is determined by 'origin'. */
 template <typename Shape>
 Shape crop_image_shape(Shape s, index_t x0, index_t y0, index_t x1, index_t y1,
 		       crop_origin origin = crop_origin::crop) {
@@ -60,8 +66,9 @@ Shape crop_image_shape(Shape s, index_t x0, index_t y0, index_t x1, index_t y1,
   return s;
 }
 
-/** Crop an image or image ref to the given range of coordinates. The
- * result is a ref. */
+/** Crop the 'im' image or image ref to the range of indices [x0, x1)
+ * x [y0, y1). The result is a ref of the input image. The origin of
+ * the result is determined by 'origin'. */
 template <typename T, typename Shape>
 array_ref<T, Shape> crop(const array_ref<T, Shape>& im,
 			 index_t x0, index_t y0, index_t x1, index_t y1,
@@ -87,7 +94,8 @@ array_ref<T, Shape> crop(array<T, Shape>& im,
   return crop(im.ref(), x0, y0, x1, y1, origin);
 }
 
-/** Get a 2D ref of one channel of an image or image ref. */
+/** Get a 2-dimensional ref of the 'Channel' channel of the 'im' image
+ * or image ref. */
 template <index_t Channel, typename T, typename Shape>
 auto slice_channel(const array_ref<T, Shape>& im) {
   auto shape = permute<0, 1>(im.shape());
