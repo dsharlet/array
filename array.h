@@ -1084,15 +1084,6 @@ class array_ref {
   index_t rows() const { return shape().rows(); }
   index_t columns() const { return shape().columns(); }
 
-  /** Reshape the array_ref. The new shape must not address any elements
-   * not already addressable by the current shape of this array_ref. */
-  void reshape(Shape new_shape) {
-    if (!new_shape.is_subset_of(shape())) {
-      ARRAY_THROW_OUT_OF_RANGE("new_shape is not a subset of shape().");
-    }
-    shape_ = std::move(new_shape);
-  }
-
   /** Compare the contents of this array_ref to 'other'. For two
    * array_refs to be considered equal, they must have the same shape, and
    * all elements addressable by the shape must also be equal. */
@@ -1462,15 +1453,6 @@ class array {
    * cols}, get the extent of those dimensions. */
   index_t rows() const { return shape().rows(); }
   index_t columns() const { return shape().columns(); }
-
-  /** Reshape the array. The new shape must not address any elements
-   * not already addressable by the current shape of this array. */
-  void reshape(Shape new_shape) {
-    if (!new_shape.is_subset_of(shape())) {
-      ARRAY_THROW_OUT_OF_RANGE("new_shape is not a subset of shape().");
-    }
-    shape_ = std::move(new_shape);
-  }
 
   /** Compare the contents of this array to 'other'. For two arrays to
    * be considered equal, they must have the same shape, and all
