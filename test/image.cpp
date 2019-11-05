@@ -4,30 +4,6 @@
 
 namespace array {
 
-template <typename T>
-T pattern(int x, int y, int c) {
-  return static_cast<T>(y * 10000 + x * 1000 + c);
-}
-
-template <typename T, typename Shape>
-void fill_pattern(array<T, Shape>& a) {
-  for_all_indices(a.shape(), [&](int x, int y, int c) {
-    a(x, y, c) = pattern<T>(x, y, c);
-  });
-}
-
-template <typename T, typename Shape>
-void check_pattern(const array_ref<T, Shape>& a, int dx = 0, int dy = 0) {
-  for_all_indices(a.shape(), [&](int x, int y, int c) {
-    ASSERT_EQ(a(x, y, c), pattern<T>(x + dx, y + dy, c));
-  });
-}
-
-template <typename T, typename Shape>
-void check_pattern(const array<T, Shape>& a, int dx = 0, int dy = 0) {
-  check_pattern(a.ref(), dx, dy);
-}
-
 template <typename Shape>
 void test_crop() {
   array<int, Shape> base({100, 80, 3});
@@ -37,7 +13,7 @@ void test_crop() {
   check_pattern(crop_xy);
 
   auto crop_zero_xy = crop(base, 3, 2, 95, 76, crop_origin::zero);
-  check_pattern(crop_zero_xy, 3, 2);
+  check_pattern(crop_zero_xy, std::make_tuple(3, 2, 0));
 
   auto crop2_xy = crop(crop_xy, 4, 3, 92, 73, crop_origin::crop);
   check_pattern(crop2_xy);

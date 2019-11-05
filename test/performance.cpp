@@ -6,24 +6,6 @@
 
 namespace array {
 
-int pattern(int x, int y, int c) {
-  return y * 10000 + x * 1000 + c;
-}
-
-template <typename T, typename Shape>
-void fill_pattern(array<T, Shape>& a) {
-  for_all_indices(a.shape(), [&](int x, int y, int c) {
-    a(x, y, c) = pattern(x, y, c);
-  });
-}
-
-template <typename T, typename Shape>
-void check_pattern(const array<T, Shape>& a) {
-  for_all_indices(a.shape(), [&](int x, int y, int c) {
-    ASSERT_EQ(a(x, y, c), pattern(x, y, c));
-  });
-}
-
 TEST(performance_dense_copy) {
   dense_array<int, 3> a({100, 100, 100}, 3);
   fill_pattern(a);

@@ -103,6 +103,39 @@ bool roughly_equal(T a, T b, double epsilon = 1e-6) {
     << "\n" << #b << "=" << b           \
     << "\nepsilon=" << epsilon << " "
 
+template <typename T, typename IndexType, size_t... Is>
+T pattern_impl(const IndexType& indices, const IndexType& offset, std::index_sequence<Is...>) {
+  static const index_t pattern_basis[] = { 10000, 100, 10, 7, 5, 3 };
+  return internal::sum((std::get<Is>(indices) + std::get<Is>(offset)) * pattern_basis[Is]...);
+}
+
+// Generate a pattern from multi-dimensional indices that is generally
+// suitable for detecting bugs in array operations.
+template <typename T, typename IndexType>
+T pattern(const IndexType& indices, const IndexType& offset = IndexType()) {
+  return pattern_impl<T>(indices, offset, std::make_index_sequence<std::tuple_size<IndexType>::value>());
+}
+
+// Fill an array with the pattern.
+template <typename T, typename Shape>
+void fill_pattern(array<T, Shape>& a) {
+  for_each_index(a.shape(), [&](const typename Shape::index_type& i) {
+    a(i) = pattern<T>(i);
+  });
+}
+
+// Check an array matches the pattern.
+template <typename T, typename Shape>
+void check_pattern(const array_ref<T, Shape>& a, const typename Shape::index_type& offset = typename Shape::index_type()) {
+  for_each_index(a.shape(), [&](const typename Shape::index_type& i) {
+    ASSERT_EQ(a(i), pattern<T>(i, offset));
+  });
+}
+template <typename T, typename Shape, typename Alloc>
+void check_pattern(const array<T, Shape, Alloc>& a, const typename Shape::index_type& offset = typename Shape::index_type()) {
+  check_pattern(a.ref(), offset);
+}
+
 }  // namespace array
 
 #endif
