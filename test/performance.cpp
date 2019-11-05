@@ -77,28 +77,22 @@ TEST(performance_copy) {
 }
 
 TEST(performance_for_each_value) {
-  array_of_rank<int, 3> a({dim<>(0, 100, 10000), dim<>(0, 100, 100), dim<>(0, 100, 1)});
-  int counter = 0;
+  array_of_rank<int, 12> a({2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2});
   double loop_time = benchmark([&]() {
-    for (int z : a.z()) {
-      for (int y : a.y()) {
-	for (int x : a.x()) {
-	  a(x, y, z) = counter++;
-	}
-      }
-    }
+    for_each_index(a.shape(), [&](const array_of_rank<int, 12>::index_type& i) {
+      a(i) = 3;
+    });
   });
   assert_used(a);
 
-  counter = 0;
-  array_of_rank<int, 3> b(a.shape());
+  array_of_rank<int, 12> b(a.shape());
   double for_each_value_time = benchmark([&]() {
-    b.for_each_value([&](int& x) { x = counter++; });
+    b.for_each_value([](int& x) { x = 3; });
   });
   assert_used(b);
 
-  // The optimized for_each_value should be quite a bit faster.
-  ASSERT_LT(for_each_value_time, loop_time * 0.5);
+  // The optimized for_each_value should be much faster.
+  ASSERT_LT(for_each_value_time, loop_time * 0.1);
 }
 
 }  // namespace array
