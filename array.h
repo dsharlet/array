@@ -120,21 +120,21 @@ class dim {
   /** Copy another dim object, possibly with different compile-time
    * template parameters. */
   template <index_t CopyMin, index_t CopyExtent, index_t CopyStride>
-  dim(const dim<CopyMin, CopyExtent, CopyStride>& copy)
-      : dim(copy.min(), copy.extent(), copy.stride()) {}
+  dim(const dim<CopyMin, CopyExtent, CopyStride>& other)
+      : dim(other.min(), other.extent(), other.stride()) {}
 
   dim& operator=(const dim&) = default;
   dim& operator=(dim&&) = default;
   /** Copy assignment of a dim object, possibly with different
    * compile-time template parameters. */
   template <index_t CopyMin, index_t CopyExtent, index_t CopyStride>
-  dim& operator=(const dim<CopyMin, CopyExtent, CopyStride>& copy) {
-    ARRAY_CHECK_CONSTRAIT(Min, copy.min());
-    min_ = copy.min();
-    ARRAY_CHECK_CONSTRAIT(Extent, copy.extent());
-    extent_ = copy.extent();
-    ARRAY_CHECK_CONSTRAIT(Stride, copy.stride());
-    stride_ = copy.stride();
+  dim& operator=(const dim<CopyMin, CopyExtent, CopyStride>& other) {
+    ARRAY_CHECK_CONSTRAIT(Min, other.min());
+    min_ = other.min();
+    ARRAY_CHECK_CONSTRAIT(Extent, other.extent());
+    extent_ = other.extent();
+    ARRAY_CHECK_CONSTRAIT(Stride, other.stride());
+    stride_ = other.stride();
     return *this;
   }
 
@@ -1080,22 +1080,22 @@ class array_ref {
     return *this;
   }
 
-  void assign(const array_ref& copy) const {
-    if (data() == copy.data()) {
-      assert(shape() == copy.shape());
+  void assign(const array_ref& other) const {
+    if (data() == other.data()) {
+      assert(shape() == other.shape());
       return;
     }
-    internal::for_each_src_dest(copy.data(), data(), copy.shape(), shape(),
+    internal::for_each_src_dest(other.data(), data(), other.shape(), shape(),
 				[&](value_type& src, value_type& dest) {
       dest = src;
     });
   }
-  void assign(array_ref&& move) const {
-    if (data() == move.data()) {
-      assert(shape() == move.shape());
+  void assign(array_ref&& other) const {
+    if (data() == other.data()) {
+      assert(shape() == other.shape());
       return;
     }
-    internal::for_each_src_dest(move.data(), data(), move.shape(), shape(),
+    internal::for_each_src_dest(other.data(), data(), other.shape(), shape(),
 				[&](value_type& src, value_type& dest) {
       dest = std::move(src);
     });
@@ -1273,18 +1273,18 @@ class array {
       std::allocator_traits<Alloc>::construct(alloc_, &x, init);
     });
   }
-  void copy_construct(const array& copy) {
+  void copy_construct(const array& other) {
     assert(base_ || shape_.empty());
-    assert(shape_ == copy.shape());
-    internal::for_each_src_dest(copy.data(), base_, shape_,
+    assert(shape_ == other.shape());
+    internal::for_each_src_dest(other.data(), base_, shape_,
 				[&](const value_type& src, value_type& dest) {
       std::allocator_traits<Alloc>::construct(alloc_, &dest, src);
     });
   }
-  void move_construct(array& move) {
+  void move_construct(array& other) {
     assert(base_ || shape_.empty());
-    assert(shape_ == move.shape());
-    internal::for_each_src_dest(move.data(), base_, shape_,
+    assert(shape_ == other.shape());
+    internal::for_each_src_dest(other.data(), base_, shape_,
 				[&](value_type& src, value_type& dest) {
       std::allocator_traits<Alloc>::construct(alloc_, &dest, std::move(src));
     });
@@ -1335,16 +1335,16 @@ class array {
     allocate();
     construct();
   }
-  /** Copy construct from another array 'copy', using copy's
-   * allocator. This is a deep copy of the contents of 'copy'. */
-  array(const array& copy)
-      : array(std::allocator_traits<Alloc>::select_on_container_copy_construction(copy.get_allocator())) {
-    assign(copy);
+  /** Copy construct from another array 'other', using copy's
+   * allocator. This is a deep copy of the contents of 'other'. */
+  array(const array& other)
+      : array(std::allocator_traits<Alloc>::select_on_container_copy_construction(other.get_allocator())) {
+    assign(other);
   }
-  /** Copy construct from another array 'copy'. The array is allocated
-   * using 'alloc'. This is a deep copy of the contents of 'copy'. */
-  array(const array& copy, const Alloc& alloc) : array(alloc) {
-    assign(copy);
+  /** Copy construct from another array 'other'. The array is allocated
+   * using 'alloc'. This is a deep copy of the contents of 'other'. */
+  array(const array& other, const Alloc& alloc) : array(alloc) {
+    assign(other);
   }
   /** Move construct from another array 'other'. If the allocator of
    * this array and the other array are equal, this operation moves
