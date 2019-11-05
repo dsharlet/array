@@ -190,9 +190,7 @@ using broadcast_dim = dim<Min, Extent, 0>;
 
 /** Clamp an index to the range [min, max]. */
 inline index_t clamp(index_t x, index_t min, index_t max) {
-  if (x < min) return min;
-  if (x > max) return max;
-  return x;
+  return std::min(std::max(x, min), max);
 }
 
 /** Clamp an index to the range described by a dim. */
@@ -203,25 +201,21 @@ inline index_t clamp(index_t x, const Dim& d) {
 
 namespace internal {
 
-// Base and general case for the sum of a variadic list of values.
-inline index_t sum() {
-  return 0;
-}
-inline index_t product() {
-  return 1;
-}
-inline index_t variadic_max() {
-  return std::numeric_limits<index_t>::min();
-}
+// Some variadic reduction helpers.
+inline index_t sum() { return 0; }
+inline index_t product() { return 1; }
+inline index_t variadic_max() { return std::numeric_limits<index_t>::min(); }
 
 template <typename... Rest>
 index_t sum(index_t first, Rest... rest) {
   return first + sum(rest...);
 }
+
 template <typename... Rest>
 index_t product(index_t first, Rest... rest) {
   return first * product(rest...);
 }
+
 template <typename... Rest>
 index_t variadic_max(index_t first, Rest... rest) {
   return std::max(first, variadic_max(rest...));
