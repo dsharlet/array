@@ -99,7 +99,7 @@ array_ref<T, Shape> crop(array<T, Shape>& im,
 template <index_t Channel, typename T, typename Shape>
 auto slice_channel(const array_ref<T, Shape>& im) {
   auto shape = permute<0, 1>(im.shape());
-  T base = im.data() + Channel * im.shape().c().stride();
+  T* base = &im(im.x().min(), im.y().min(), Channel);
   return array_ref<T, decltype(shape)>(base, shape);
 }
 template <index_t Channel, typename T, typename Shape>
