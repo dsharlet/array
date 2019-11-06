@@ -664,27 +664,27 @@ namespace internal {
 // https://github.com/halide/Halide/blob/30fb4fcb703f0ca4db6c1046e77c54d9b6d29a86/src/runtime/HalideBuffer.h#L2088-L2108
 template<size_t D, typename Shape, typename Fn, typename... Indices,
   typename = decltype(std::declval<Fn>()(std::declval<Indices>()...))>
-void for_all_indices_impl(int, const Shape& shape, Fn &&f, Indices... indices) {
-  f(indices...);
+void for_all_indices_impl(int, const Shape& shape, Fn &&fn, Indices... indices) {
+  std::forward<Fn>(fn)(indices...);
 }
 
 template<size_t D, typename Shape, typename Fn, typename... Indices>
-void for_all_indices_impl(double, const Shape& shape, Fn &&f, Indices... indices) {
+void for_all_indices_impl(double, const Shape& shape, Fn &&fn, Indices... indices) {
   for (index_t i : shape.template dim<D>()) {
-    for_all_indices_impl<D - 1>(0, shape, std::forward<Fn>(f), i, indices...);
+    for_all_indices_impl<D - 1>(0, shape, std::forward<Fn>(fn), i, indices...);
   }
 }
 
 template<size_t D, typename Shape, typename Fn, typename... Indices,
   typename = decltype(std::declval<Fn>()(std::declval<std::tuple<Indices...>>()))>
-void for_each_index_impl(int, const Shape& shape, Fn &&f, const std::tuple<Indices...>& indices) {
-  f(indices);
+void for_each_index_impl(int, const Shape& shape, Fn &&fn, const std::tuple<Indices...>& indices) {
+  std::forward<Fn>(fn)(indices);
 }
 
 template<size_t D, typename Shape, typename Fn, typename... Indices>
-void for_each_index_impl(double, const Shape& shape, Fn &&f, const std::tuple<Indices...>& indices) {
+void for_each_index_impl(double, const Shape& shape, Fn &&fn, const std::tuple<Indices...>& indices) {
   for (index_t i : shape.template dim<D>()) {
-    for_each_index_impl<D - 1>(0, shape, std::forward<Fn>(f), std::tuple_cat(std::make_tuple(i), indices));
+    for_each_index_impl<D - 1>(0, shape, std::forward<Fn>(fn), std::tuple_cat(std::make_tuple(i), indices));
   }
 }
 
@@ -697,12 +697,12 @@ void for_each_index_impl(double, const Shape& shape, Fn &&f, const std::tuple<In
  * with a list of arguments corresponding to each dim. 'for_each_index'
  * calls 'fn' with a Shape::index_type object describing the indices. */
 template <typename Shape, typename Fn>
-void for_all_indices(const Shape& s, const Fn& fn) {
-  internal::for_all_indices_impl<Shape::rank() - 1>(0, s, fn);
+void for_all_indices(const Shape& s, Fn&& fn) {
+  internal::for_all_indices_impl<Shape::rank() - 1>(0, s, std::forward<Fn>(fn));
 }
 template <typename Shape, typename Fn>
-void for_each_index(const Shape& s, const Fn& fn) {
-  internal::for_each_index_impl<Shape::rank() - 1>(0, s, fn, std::tuple<>());
+void for_each_index(const Shape& s, Fn&& fn) {
+  internal::for_each_index_impl<Shape::rank() - 1>(0, s, std::forward<Fn>(fn), std::tuple<>());
 }
 
 /** Helper function to make a tuple from a variadic list of dims. */
@@ -822,7 +822,7 @@ shape_of_rank<Shape::rank()> optimize_shape(const Shape& shape) {
 
 // Call fn on the values addressed by shape in any order.
 template <typename T, typename Shape, typename Fn>
-void for_each_value(T* base, const Shape& shape, const Fn& fn) {
+void for_each_value(T* base, const Shape& shape, Fn&& fn) {
   auto opt_shape = optimize_shape(shape);
 
   // If the optimized shape's first dimension is 1, we can convert
@@ -844,7 +844,7 @@ void for_each_value(T* base, const Shape& shape, const Fn& fn) {
 // Call fn on the values of src and dest both addressed by shape in
 // any order.
 template <typename TSrc, typename TDest, typename Shape, typename Fn>
-void for_each_src_dest(TSrc* src, TDest* dest, const Shape& shape, const Fn& fn) {
+void for_each_src_dest(TSrc* src, TDest* dest, const Shape& shape, Fn&& fn) {
   auto opt_shape = optimize_shape(shape);
 
   // If the optimized shape's first dimension is 1, we can convert
@@ -933,7 +933,7 @@ optimize_src_dest_shapes(const ShapeSrc& src, const ShapeDest& dest) {
 // Call fn on the values of src and dest in any order.
 template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest, typename Fn>
 void for_each_src_dest(TSrc* src, TDest* dest, const ShapeSrc& shape_src, const ShapeDest& shape_dest,
-		       const Fn& fn) {
+		       Fn&& fn) {
   if (shape_dest.empty()) {
     return;
   }
@@ -1062,8 +1062,8 @@ class array_ref {
   /** Call a function with a reference to each value in this
    * array_ref. The order in which 'fn' is called is undefined. */
   template <typename Fn>
-  void for_each_value(const Fn& fn) const {
-    internal::for_each_value(data(), shape(), fn);
+  void for_each_value(Fn&& fn) const {
+    internal::for_each_value(data(), shape(), std::forward<Fn>(fn));
   }
 
   /** Pointer to the start of the flattened array_ref. */
@@ -1415,12 +1415,12 @@ class array {
   /** Call a function with a reference to each value in this
    * array. The order in which 'fn' is called is undefined. */
   template <typename Fn>
-  void for_each_value(const Fn& fn) {
-    internal::for_each_value(data(), shape(), fn);
+  void for_each_value(Fn&& fn) {
+    internal::for_each_value(data(), shape(), std::forward<Fn>(fn));
   }
   template <typename Fn>
-  void for_each_value(const Fn& fn) const {
-    internal::for_each_value(data(), shape(), fn);
+  void for_each_value(Fn&& fn) const {
+    internal::for_each_value(data(), shape(), std::forward<Fn>(fn));
   }
 
   /** Pointer to the start of the flat array, which is a pointer to
