@@ -1,5 +1,5 @@
-#ifndef ARRAY_TEST_IMAGE_H
-#define ARRAY_TEST_IMAGE_H
+#ifndef ARRAY_IMAGE_H
+#define ARRAY_IMAGE_H
 
 #include "array.h"
 
