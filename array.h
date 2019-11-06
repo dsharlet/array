@@ -442,22 +442,28 @@ class shape {
     return is_in_range(internal::mins(other_shape)) && is_in_range(internal::maxes(other_shape));
   }
 
-  /** Compute the flat offset of the index 'indices'. */
+  /** Compute the flat offset of the index 'indices'. If the
+   * 'indices' are out of range of this shape, throws
+   * std::out_of_range. */
   template <typename... Indices>
   index_t at(const std::tuple<Indices...>& indices) const {
+    if (!is_in_range(indices)) {
+      ARRAY_THROW_OUT_OF_RANGE("indices are out of range");
+    }
     return internal::flat_offset(dims_, indices);
   }
   template <typename... Indices>
   index_t at(Indices... indices) const {
-    return at(std::make_tuple<Indices...>(std::forward<Indices>(indices)...));
+    return at(std::make_tuple(std::forward<Indices>(indices)...));
   }
+  /** Compute the flat offset of the index 'indices'. */
   template <typename... Indices>
   index_t operator() (const std::tuple<Indices...>& indices) const {
-    return at(indices);
+    return internal::flat_offset(dims_, indices);
   }
   template <typename... Indices>
   index_t operator() (Indices... indices) const {
-    return at(std::make_tuple<Indices...>(std::forward<Indices>(indices)...));
+    return (*this)(std::make_tuple(std::forward<Indices>(indices)...));
   }
 
   /** Get a specific dim of this shape. */
@@ -1007,19 +1013,16 @@ class array_ref {
     internal::for_each_value(data(), shape(), [&](T& x) { x = value; });
   }
 
-  /** Get a reference to the element at the given indices. If the
-   * indices are out of range of the shape, throws
+  /** Get a reference to the element at the given 'indices'. If the
+   * 'indices' are out of range of 'shape()', throws
    * std::out_of_range. */
   template <typename... Indices>
   reference at(const std::tuple<Indices...>& indices) const {
-    if (!shape_.is_in_range(indices)) {
-      ARRAY_THROW_OUT_OF_RANGE("indices are out of range");
-    }
     return base_[shape_.at(indices)];
   }
   template <typename... Indices>
   reference at(Indices... indices) const {
-    return at(std::make_tuple(std::forward<Indices>(indices)...));
+    return base_[shape_.at(std::forward<Indices>(indices)...)];
   }
 
   /** Get a reference to the element at the given indices. */
@@ -1351,25 +1354,19 @@ class array {
    * bounds, throws std::out_of_range. */
   template <typename... Indices>
   reference at(const std::tuple<Indices...>& indices) {
-    if (!shape_.is_in_range(indices)) {
-      ARRAY_THROW_OUT_OF_RANGE("indices are out of range");
-    }
     return base_[shape_.at(indices)];
   }
   template <typename... Indices>
   reference at(Indices... indices) {
-    return at(std::make_tuple(std::forward<Indices>(indices)...));
+    return base_[shape_.at(std::forward<Indices>(indices)...)];
   }
   template <typename... Indices>
   const_reference at(const std::tuple<Indices...>& indices) const {
-    if (!shape_.is_in_range(indices)) {
-      ARRAY_THROW_OUT_OF_RANGE("indices are out of range");
-    }
     return base_[shape_.at(indices)];
   }
   template <typename... Indices>
   const_reference at(Indices... indices) const {
-    return at(std::make_tuple(std::forward<Indices>(indices)...));
+    return base_[shape_.at(std::forward<Indices>(indices)...)];
   }
 
   /** Compute the flat offset of the indices. Does not check if the
