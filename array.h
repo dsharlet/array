@@ -378,6 +378,30 @@ std::array<dim<>, sizeof...(Dims)> dims_as_array(const std::tuple<Dims...>& dims
   return dims_as_array_impl(dims, std::make_index_sequence<sizeof...(Dims)>());
 }
 
+// https://github.com/halide/Halide/blob/fc8cfb078bed19389f72883a65d56d979d18aebe/src/runtime/HalideBuffer.h#L43-L63
+// A helper to check if a parameter pack is entirely implicitly
+// int-convertible to use with std::enable_if
+template<typename... Args>
+struct all_integral : std::false_type {};
+
+template<>
+struct all_integral<> : std::true_type {};
+
+template<typename T, typename... Args>
+struct all_integral<T, Args...> {
+  static constexpr bool value =
+      std::is_convertible<T, index_t>::value && all_integral<Args...>::value;
+};
+
+// Floats and doubles are technically implicitly int-convertible, but
+// doing so produces a warning we treat as an error, so just disallow
+// it here.
+template<typename... Args>
+struct all_integral<float, Args...> : std::false_type {};
+
+template<typename... Args>
+struct all_integral<double, Args...> : std::false_type {};
+
 }  // namespace internal
 
 /** A list of 'dim' objects describing a multi-dimensional space of
@@ -426,13 +450,13 @@ class shape {
   typedef decltype(internal::default_array_to_tuple<index_t, rank()>()) index_type;
 
   /** Returns true if the index 'indices' are in range of this shape. */
-  template <typename... Indices>
-  bool is_in_range(const std::tuple<Indices...>& indices) const {
+  bool is_in_range(const index_type& indices) const {
     return internal::is_in_range(dims_, indices);
   }
-  template <typename... Indices>
+  template <typename... Indices,
+      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   bool is_in_range(Indices... indices) const {
-    return is_in_range(std::make_tuple<Indices...>(std::forward<Indices>(indices)...));
+    return is_in_range(std::make_tuple(std::forward<Indices>(indices)...));
   }
 
   /** Returns true if all of the indices in bounds of 'other_shape'
@@ -445,23 +469,23 @@ class shape {
   /** Compute the flat offset of the index 'indices'. If the
    * 'indices' are out of range of this shape, throws
    * std::out_of_range. */
-  template <typename... Indices>
-  index_t at(const std::tuple<Indices...>& indices) const {
+  index_t at(const index_type& indices) const {
     if (!is_in_range(indices)) {
       ARRAY_THROW_OUT_OF_RANGE("indices are out of range");
     }
     return internal::flat_offset(dims_, indices);
   }
-  template <typename... Indices>
+  template <typename... Indices,
+      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   index_t at(Indices... indices) const {
     return at(std::make_tuple(std::forward<Indices>(indices)...));
   }
   /** Compute the flat offset of the index 'indices'. */
-  template <typename... Indices>
-  index_t operator() (const std::tuple<Indices...>& indices) const {
+  index_t operator() (const index_type& indices) const {
     return internal::flat_offset(dims_, indices);
   }
-  template <typename... Indices>
+  template <typename... Indices,
+      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   index_t operator() (Indices... indices) const {
     return (*this)(std::make_tuple(std::forward<Indices>(indices)...));
   }
@@ -684,7 +708,7 @@ void for_each_index(const Shape& s, const Fn& fn) {
 /** Helper function to make a tuple from a variadic list of dims. */
 template <typename... Dims>
 auto make_shape(Dims... dims) {
-  return shape<Dims...>(std::make_tuple(std::forward<Dims>(dims)...));
+  return shape<Dims...>(std::forward<Dims>(dims)...);
 }
 
 /** Helper function to make a dense shape from a variadic list of extents. */
@@ -1016,21 +1040,21 @@ class array_ref {
   /** Get a reference to the element at the given 'indices'. If the
    * 'indices' are out of range of 'shape()', throws
    * std::out_of_range. */
-  template <typename... Indices>
-  reference at(const std::tuple<Indices...>& indices) const {
+  reference at(const index_type& indices) const {
     return base_[shape_.at(indices)];
   }
-  template <typename... Indices>
+  template <typename... Indices,
+      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   reference at(Indices... indices) const {
     return base_[shape_.at(std::forward<Indices>(indices)...)];
   }
 
   /** Get a reference to the element at the given indices. */
-  template <typename... Indices>
-  reference operator() (const std::tuple<Indices...>& indices) const {
+  reference operator() (const index_type& indices) const {
     return base_[shape_(indices)];
   }
-  template <typename... Indices>
+  template <typename... Indices,
+      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   reference operator() (Indices... indices) const {
     return base_[shape_(std::forward<Indices>(indices)...)];
   }
@@ -1352,38 +1376,38 @@ class array {
 
   /** Compute the flat offset of the indices. If an index is out of
    * bounds, throws std::out_of_range. */
-  template <typename... Indices>
-  reference at(const std::tuple<Indices...>& indices) {
+  reference at(const index_type& indices) {
     return base_[shape_.at(indices)];
   }
-  template <typename... Indices>
+  template <typename... Indices,
+      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   reference at(Indices... indices) {
     return base_[shape_.at(std::forward<Indices>(indices)...)];
   }
-  template <typename... Indices>
-  const_reference at(const std::tuple<Indices...>& indices) const {
+  const_reference at(const index_type& indices) const {
     return base_[shape_.at(indices)];
   }
-  template <typename... Indices>
+  template <typename... Indices,
+      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   const_reference at(Indices... indices) const {
     return base_[shape_.at(std::forward<Indices>(indices)...)];
   }
 
   /** Compute the flat offset of the indices. Does not check if the
    * indices are in bounds. */
-  template <typename... Indices>
-  reference operator() (const std::tuple<Indices...>& indices) {
+  reference operator() (const index_type& indices) {
     return base_[shape_(indices)];
   }
-  template <typename... Indices>
+  template <typename... Indices,
+      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   reference operator() (Indices... indices) {
     return base_[shape_(std::forward<Indices>(indices)...)];
   }
-  template <typename... Indices>
-  const_reference operator() (const std::tuple<Indices...>& indices) const {
+  const_reference operator() (const index_type& indices) const {
     return base_[shape_(indices)];
   }
-  template <typename... Indices>
+  template <typename... Indices,
+      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   const_reference operator() (Indices... indices) const {
     return base_[shape_(std::forward<Indices>(indices)...)];
   }
