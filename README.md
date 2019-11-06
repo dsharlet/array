@@ -6,7 +6,7 @@ This library provides a multidimensional array class for C++, with the following
 * Providing an API following the conventions of the C++ STL where possible.
 * Minimal dependencies and requirements (the library is currently a single header file, and depends only on the C++ STL).
 
-The library uses some ideas established in other existing projects, such as [numpy](https://numpy.org/doc/1.17/reference/arrays.ndarray.html) and [Halide](https://halide-lang.org/docs/class_halide_1_1_runtime_1_1_buffer.html).
+The library uses some ideas established in other existing projects, such as [numpy](https://numpy.org/doc/1.17/reference/arrays.ndarray.html), [Halide](https://halide-lang.org/docs/class_halide_1_1_runtime_1_1_buffer.html), and [Eigen](http://eigen.tuxfamily.org).
 Array shapes are specified as a list of N dimensions, where each dimension has parameters such as an extent and a stride.
 Array references and objects use shape objects to map N-dimensional indices to a flat index.
 N-dimensional indices are mapped to flat offsets with the following formula:
@@ -124,7 +124,7 @@ A dimension with unknown min and extent, and stride 1, is common enough that it 
 * `dense_shape<N>`, an N-dimensional dense shape, with the first dimension being dense.
 * `dense_array_ref<T, N>` and `dense_array<T, N, Allocator>`, N-dimensional arrays with a shape of `dense_shape<N>`.
 
-There are other common examples that are easy to support in this way.
+There are other common examples that are easy to support.
 A very common array is an image where 3-channel RGB or 4-channel RGBA pixels are stored together in a 'chunky' format.
 ```c++
 template <int Channels>
