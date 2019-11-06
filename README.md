@@ -40,21 +40,24 @@ array<int, my_3d_shape> my_array(my_3d_shape);
 The array can be accessed in a number of ways.
 `array::operator()(...)` and `array::at(...)` have similar semantics to `std::vector::operator[]` and `std::vector::at`.
 `array::at` will check that the index is in range, and throws `std::out_of_range` if it is not.
-There are both variadic and `std::tuple` overloads of both of these accessors.
+There are both variadic and `index_type` overloads of both of these accessors.
+`index_type` is a specialization of `std::tuple` defined by `shape<>`, e.g. `my_3d_shape_type::index_type`.
 ```c++
 for (int z = 0; z < depth; z++) {
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
+      // Variadic verions:
       my_array.at(x, y, z) = 5;
       my_array(x, y, z) = 5;
-      my_array.at(std::make_tuple(x, y, z)) = 5;
-      my_array(std::make_tuple(x, y, z)) = 5;
+      // Or the index_type versions:
+      my_array.at(my_3d_shape_type::index_type(x, y, z)) = 5;
+      my_array({x, y, z}) = 5;
     }
   }
 }
 ```
 
-`array::for_each_value`, calls a function with a reference to each value in the array.
+`array::for_each_value` calls a function with a reference to each value in the array.
 The order in which `for_each_value` calls the function with references is undefined, allowing the implementation to reorder the traversal to optimize memory access patterns.
 ```c++
 my_array.for_each_value([](int& value) {
