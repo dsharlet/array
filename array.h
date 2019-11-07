@@ -1012,12 +1012,15 @@ class array_ref {
   Shape shape_;
 
  public:
+  /** Type of elements referenced in this array_ref. */
   typedef T value_type;
-  typedef Shape shape_type;
-  typedef typename Shape::index_type index_type;
-  typedef size_t size_type;
   typedef value_type& reference;
   typedef value_type* pointer;
+  /** Type of the shape of this array_ref. */
+  typedef Shape shape_type;
+  /** Type of the indices used to access this array_ref. */
+  typedef typename Shape::index_type index_type;
+  typedef size_t size_type;
 
   /** Make an array_ref to the given 'base' pointer, interpreting it as
    * having the shape 'shape'. */
@@ -1245,15 +1248,18 @@ class array {
   }
 
  public:
+  /** Type of the values stored in this array. */
   typedef T value_type;
-  typedef Shape shape_type;
-  typedef Alloc allocator_type;
-  typedef typename Shape::index_type index_type;
-  typedef size_t size_type;
   typedef value_type& reference;
   typedef const value_type& const_reference;
   typedef typename std::allocator_traits<Alloc>::pointer pointer;
   typedef typename std::allocator_traits<Alloc>::const_pointer const_pointer;
+  /** Type of the shape of this array. */
+  typedef Shape shape_type;
+  typedef typename Shape::index_type index_type;
+  typedef size_t size_type;
+  /** Type of the allocator used to allocate memory in this array. */
+  typedef Alloc allocator_type;
 
   /** Construct an array with a default constructed Shape. Most shapes
    * by default are empty, but a Shape with non-zero compile-time
