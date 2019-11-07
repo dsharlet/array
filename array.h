@@ -1042,7 +1042,7 @@ class array_ref {
       return;
     }
     for_each_index(shape(), [&](const index_type& i) {
-        dest(i) = src(i);
+      dest(i) = src(i);
     });
   }
   void assign(array_ref&& other) const {
@@ -1051,7 +1051,7 @@ class array_ref {
       return;
     }
     for_each_index(shape(), [&](const index_type& i) {
-        dest(i) = std::move(src(i));
+      dest(i) = std::move(src(i));
     });
   }
   /** Copy-assign each element of this array to the given value. */
