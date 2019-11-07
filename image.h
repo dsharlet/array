@@ -27,6 +27,26 @@ using chunky_image = array<T, chunky_image_shape<Channels>>;
 template <typename T, index_t Channels>
 using chunky_image_ref = array_ref<T, chunky_image_shape<Channels>>;
 
+template <index_t Channels>
+class shape_traits<chunky_image_shape<Channels>> {
+ public:
+  template <typename Fn>
+  static void for_each_index(const chunky_image_shape<Channels>& s, Fn&& fn) {
+    // chunky images should be iterated on in this order due to
+    // c being dense.
+    for (index_t y : s.y()) {
+      for (index_t x : s.x()) {
+	for (index_t c : s.c()) {
+	  std::forward<Fn>(fn)(std::make_tuple(x, y, c));
+	}
+      }
+    }
+  }
+
+  // We want for_each_value to just use for_each_index on this shape.
+  using optimize_for_each_value_at_runtime = std::false_type;
+};
+
 /** A 'planar' iamge is an array with dimensions x, y, c, where x is
  * dense. This format is less common, but more convenient for
  * optimization, particularly SIMD vectorization. Note that this

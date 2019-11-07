@@ -459,13 +459,6 @@ class shape {
     return is_in_range(std::make_tuple(std::forward<Indices>(indices)...));
   }
 
-  /** Returns true if all of the indices in bounds of 'other_shape'
-   * are in bounds of this shape. */
-  template <typename... OtherDims>
-  bool is_shape_in_range(const shape<OtherDims...>& other_shape) const {
-    return is_in_range(internal::mins(other_shape)) && is_in_range(internal::maxes(other_shape));
-  }
-
   /** Compute the flat offset of the index 'indices'. If the
    * 'indices' are out of range of this shape, throws
    * std::out_of_range. */
@@ -503,6 +496,11 @@ class shape {
   /** Get a tuple of all of the dims of this shape. */
   std::tuple<Dims...>& dims() { return dims_; }
   const std::tuple<Dims...>& dims() const { return dims_; }
+
+  /** Get an index pointing to the min or max index in each dimension
+   * of this shape. */
+  index_type min() const { return internal::mins(*this); }
+  index_type max() const { return internal::maxes(*this); }
 
   /** Compute the flat extent of this shape. This is the extent of the
    * valid range of values returned by at or operator(). */
@@ -666,10 +664,17 @@ void for_each_index_in_order(const Shape& shape, Fn &&fn) {
 template <typename Shape>
 class shape_traits {
  public:
+  /** The for_each_index implementation for the shape may choose
+   * to iterate in a different order than the default. */
   template <typename Fn>
   static void for_each_index(const Shape& shape, Fn&& fn) {
     for_each_index_in_order(shape, std::forward<Fn>(fn));
   }
+
+  /** optimize_for_each_value_at_runtime indicates whether
+   * for_each_value should attempt to optimize the shape at runtime,
+   * or if it should simply use shape_traits<>::for_each_index. */
+  using optimize_for_each_value_at_runtime = std::true_type;
 };
 
 /** Helper function to make a tuple from a variadic list of dims. */
@@ -821,7 +826,7 @@ shape_of_rank<Shape::rank()> optimize_shape(const Shape& shape) {
       dims[i].set_min(dims[i].min() + dims[i + 1].min() * dims[i + 1].stride());
       dims[i].set_extent(dims[i].extent() * dims[i + 1].extent());
       for (size_t j = i + 1; j + 1 < rank; j++) {
-	dims[j] = dims[j + 1];
+        dims[j] = dims[j + 1];
       }
       rank--;
     } else {
@@ -838,24 +843,32 @@ shape_of_rank<Shape::rank()> optimize_shape(const Shape& shape) {
   return make_shape_from_array<shape_of_rank<Shape::rank()>>(dims);
 }
 
-// Call fn on the values base, in any order.
 template <typename Shape, typename Fn, typename... T>
-void for_each_value_optimized(const Shape& shape, Fn&& fn, T... base) {
-  auto opt_shape = optimize_shape(shape);
+void for_each_value(const Shape& shape, Fn&& fn, T... base) {
+  // TODO: Do this with SFINAE rather than a runtime if. It will
+  // get optimized anyways though.
+  if (typename shape_traits<Shape>::optimize_for_each_value_at_runtime()) {
+    auto opt_shape = optimize_shape(shape);
 
-  // If the optimized shape's first dimension is 1, we can convert
-  // this to a dense shape. This may help the compiler optimize this
-  // further.
-  typedef typename Shape::index_type index_type;
-  if (opt_shape.template dim<0>().stride() == 1) {
-    dense_shape<Shape::rank()> dense_opt_shape = opt_shape;
-    for_each_index(dense_opt_shape, [&](const index_type& index) {
-      index_t flat_index = dense_opt_shape(index);
-      fn(base[flat_index]...);
-    });
+    // If the optimized shape's first dimension is 1, we can convert
+    // this to a dense shape. This may help the compiler optimize this
+    // further.
+    typedef typename Shape::index_type index_type;
+    if (opt_shape.template dim<0>().stride() == 1) {
+      dense_shape<Shape::rank()> dense_opt_shape = opt_shape;
+      for_each_index(dense_opt_shape, [&](const index_type& index) {
+        index_t flat_index = dense_opt_shape(index);
+        fn(base[flat_index]...);
+      });
+    } else {
+      for_each_index(opt_shape, [&](const index_type& index) {
+        index_t flat_index = opt_shape(index);
+        fn(base[flat_index]...);
+      });
+    }
   } else {
-    for_each_index(opt_shape, [&](const index_type& index) {
-      index_t flat_index = opt_shape(index);
+    for_each_index(shape, [&](const typename Shape::index_type& i) {
+      index_t flat_index = shape(i);
       fn(base[flat_index]...);
     });
   }
@@ -904,7 +917,7 @@ class array_ref {
       return;
     }
     for_each_index(shape(), [&](const index_type& i) {
-	dest(i) = src(i);
+        dest(i) = src(i);
     });
   }
   void assign(array_ref&& other) const {
@@ -913,7 +926,7 @@ class array_ref {
       return;
     }
     for_each_index(shape(), [&](const index_type& i) {
-	dest(i) = std::move(src(i));
+        dest(i) = std::move(src(i));
     });
   }
   /** Copy-assign each element of this array to the given value. */
@@ -947,7 +960,7 @@ class array_ref {
    * array_ref. The order in which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
-    internal::for_each_value_optimized(shape(), std::forward<Fn>(fn), data());
+    internal::for_each_value(shape(), std::forward<Fn>(fn), data());
   }
 
   /** Pointer to the start of the flattened array_ref. */
@@ -1003,7 +1016,7 @@ class array_ref {
     bool result = false;
     for_each_index(shape(), [&](const index_type& i) {
       if ((*this)(i) != other(i)) {
-	result = true;
+        result = true;
       }
     });
     return result;
@@ -1077,14 +1090,14 @@ class array {
   void copy_construct(const array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
-    internal::for_each_value_optimized(shape_, [&](value_type& dest, const value_type& src) {
+    internal::for_each_value(shape_, [&](value_type& dest, const value_type& src) {
       std::allocator_traits<Alloc>::construct(alloc_, &dest, src);
     }, base_, other.data());
   }
   void move_construct(array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
-    internal::for_each_value_optimized(shape_, [&](value_type& dest, value_type& src) {
+    internal::for_each_value(shape_, [&](value_type& dest, value_type& src) {
       std::allocator_traits<Alloc>::construct(alloc_, &dest, std::move(src));
     }, base_, other.data());
   }
@@ -1297,11 +1310,11 @@ class array {
    * array. The order in which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) {
-    internal::for_each_value_optimized(shape(), std::forward<Fn>(fn), data());
+    internal::for_each_value(shape(), std::forward<Fn>(fn), data());
   }
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
-    internal::for_each_value_optimized(shape(), std::forward<Fn>(fn), data());
+    internal::for_each_value(shape(), std::forward<Fn>(fn), data());
   }
 
   /** Pointer to the start of the flat array, which is a pointer to
@@ -1425,6 +1438,10 @@ void swap(array<T, Shape, Alloc>& a, array<T, Shape, Alloc>& b) {
 template <typename T, typename ShapeSrc, typename ShapeDest>
 void copy(const array_ref<T, ShapeSrc>& src,
           const array_ref<typename std::remove_const<T>::type, ShapeDest>& dest) {
+  if (!src.shape().is_in_range(dest.shape().min()) ||
+      !src.shape().is_in_range(dest.shape().max())) {
+    ARRAY_THROW_OUT_OF_RANGE("indices are out of range");
+  }
   for_each_index(dest.shape(), [&](const typename ShapeDest::index_type& i) {
     dest(i) = src(i);
   });
@@ -1448,6 +1465,10 @@ void copy(const array<T, ShapeSrc, AllocSrc>& src, array<T, ShapeDest, AllocDest
  * and must be in bounds of 'src'. */
 template <typename T, typename ShapeSrc, typename ShapeDest>
 void move(const array_ref<T, ShapeSrc>& src, const array_ref<T, ShapeDest>& dest) {
+  if (!src.shape().is_in_range(dest.shape().min()) ||
+      !src.shape().is_in_range(dest.shape().max())) {
+    ARRAY_THROW_OUT_OF_RANGE("indices are out of range");
+  }
   for_each_index(dest.shape(), [&](const typename ShapeDest::index_type& i) {
     dest(i) = std::move(src(i));
   });
@@ -1527,12 +1548,12 @@ auto make_dense_move(array<T, ShapeSrc, AllocSrc>& src, const AllocDest& alloc =
 template <typename T, typename Shape,
   typename Alloc = std::allocator<typename std::remove_const<T>::type>>
 auto make_compact_copy(const array_ref<T, Shape>& src,
-		       const Alloc& alloc = Alloc()) {
+                       const Alloc& alloc = Alloc()) {
   return make_copy(src, make_compact(src.shape()), alloc);
 }
 template <typename T, typename Shape, typename AllocSrc, typename AllocDest = AllocSrc>
 auto make_compact_copy(const array<T, Shape, AllocSrc>& src,
-		       const AllocDest& alloc = AllocDest()) {
+                       const AllocDest& alloc = AllocDest()) {
   return make_compact_copy(src.ref(), alloc);
 }
 
