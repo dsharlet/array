@@ -638,7 +638,7 @@ namespace internal {
 template<size_t D, typename Dims, typename Fn, typename... Indices,
   typename = decltype(std::declval<Fn>()(std::declval<std::tuple<Indices...>>()))>
 void for_each_index_impl(int, const Dims& dims, Fn &&fn, const std::tuple<Indices...>& indices) {
-  std::forward<Fn>(fn)(indices);
+  fn(indices);
 }
 
 template<size_t D, typename Dims, typename Fn, typename... Indices>

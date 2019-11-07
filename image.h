@@ -37,7 +37,7 @@ class shape_traits<chunky_image_shape<Channels>> {
     for (index_t y : s.y()) {
       for (index_t x : s.x()) {
 	for (index_t c : s.c()) {
-	  std::forward<Fn>(fn)(std::make_tuple(x, y, c));
+	  fn(std::make_tuple(x, y, c));
 	}
       }
     }
