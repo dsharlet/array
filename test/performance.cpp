@@ -56,8 +56,7 @@ TEST(performance_copy) {
 
   array_of_rank<int, 3> b(a.shape());
   double copy_time = benchmark([&]() {
-    // TODO: copy() should be fast too.
-    b = a;
+    copy(a, b);
   });
   check_pattern(b);
 
