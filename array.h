@@ -850,11 +850,13 @@ void for_each_value(T* base, const Shape& shape, Fn&& fn) {
   if (opt_shape.template dim<0>().stride() == 1) {
     dense_shape<Shape::rank()> dense_opt_shape = opt_shape;
     for_each_index(dense_opt_shape, [&](const index_type& index) {
-      fn(base[dense_opt_shape(index)]);
+      index_t flat_index = dense_opt_shape(index);
+      fn(base[flat_index]);
     });
   } else {
     for_each_index(opt_shape, [&](const index_type& index) {
-      fn(base[opt_shape(index)]);
+      index_t flat_index = opt_shape(index);
+      fn(base[flat_index]);
     });
   }
 }
@@ -881,116 +883,6 @@ void for_each_src_dest(TSrc* src, TDest* dest, const Shape& shape, Fn&& fn) {
       fn(src[flat_index], dest[flat_index]);
     });
   }
-}
-
-// Optimize a src and dest shape. The dest shape is made dense, and contiguous
-// dimensions are fused.
-template <typename ShapeSrc, typename ShapeDest>
-std::pair<shape_of_rank<ShapeSrc::rank()>, shape_of_rank<ShapeDest::rank()>>
-optimize_src_dest_shapes(const ShapeSrc& src, const ShapeDest& dest) {
-  constexpr size_t rank = ShapeSrc::rank();
-  static_assert(rank == ShapeDest::rank(), "copy shapes must have same rank.");
-  auto src_dims = internal::dims_as_array(src.dims());
-  auto dest_dims = internal::dims_as_array(dest.dims());
-
-  struct copy_dims {
-    dim<> src;
-    dim<> dest;
-  };
-  std::array<copy_dims, rank> dims;
-  for (int i = 0; i < rank; i++) {
-    dims[i] = {src_dims[i], dest_dims[i]};
-  }
-
-  // Sort the dims by the dest stride.
-  std::sort(dims.begin(), dims.end(), [](const copy_dims& l, const copy_dims& r) {
-    return l.dest.stride() < r.dest.stride();
-  });
-
-  // Find dimensions that are contiguous and fuse them.
-  size_t new_rank = dims.size();
-  for (size_t i = 0; i + 1 < new_rank;) {
-    if (dims[i + 1].src.stride() == dims[i + 1].dest.stride() &&
-	dims[i].src.stride() * dims[i].src.extent() == dims[i + 1].src.stride() &&
-	dims[i].dest.stride() * dims[i].dest.extent() == dims[i + 1].dest.stride()) {
-      // These two dimensions are contiguous. Fuse them and move
-      // the rest of the dimensions up to replace the fused dimension.
-      dims[i].src.set_min(dims[i].src.min() + dims[i + 1].src.min() * dims[i + 1].src.stride());
-      dims[i].src.set_extent(dims[i].src.extent() * dims[i + 1].src.extent());
-      dims[i].dest.set_min(dims[i].dest.min() + dims[i + 1].dest.min() * dims[i + 1].dest.stride());
-      dims[i].dest.set_extent(dims[i].dest.extent() * dims[i + 1].dest.extent());
-      for (size_t j = i + 1; j + 1 < new_rank; j++) {
-	dims[j] = dims[j + 1];
-      }
-      new_rank--;
-    } else {
-      i++;
-    }
-  }
-
-  // Unfortunately, we can't make the rank of the resulting shape dynamic.
-  // Fill the end of the array with size 1 dimensions.
-  for (size_t i = new_rank; i < dims.size(); i++) {
-    dims[i] = {
-      dim<>(0, 1, dims[i - 1].src.stride() * dims[i - 1].src.extent()),
-      dim<>(0, 1, dims[i - 1].dest.stride() * dims[i - 1].dest.extent()),
-    };
-  }
-
-  for (int i = 0; i < dims.size(); i++) {
-    src_dims[i] = dims[i].src;
-    dest_dims[i] = dims[i].dest;
-  }
-
-  return {
-      make_shape_from_array<shape_of_rank<rank>>(src_dims),
-      make_shape_from_array<shape_of_rank<rank>>(dest_dims),
-  };
-}
-
-// Call fn on the values of src and dest in any order.
-template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest, typename Fn>
-void for_each_src_dest(TSrc* src, TDest* dest, const ShapeSrc& shape_src, const ShapeDest& shape_dest,
-		       Fn&& fn) {
-  if (shape_dest.empty()) {
-    return;
-  }
-  if (!shape_src.is_shape_in_range(shape_dest)) {
-    ARRAY_THROW_OUT_OF_RANGE("dest indices out of range of src");
-  }
-
-  // For this function, we don't care about the order in which the
-  // callback is called. Optimize the shapes for memory access order.
-  auto opt_shape = optimize_src_dest_shapes(shape_src, shape_dest);
-  const auto& opt_shape_src = opt_shape.first;
-  const auto& opt_shape_dest = opt_shape.second;
-
-  // If the optimized shape's first dimension is 1, we can convert
-  // this to a dense shape. This may help the compiler optimize this
-  // further.
-  typedef typename ShapeDest::index_type index_type;
-  if (opt_shape_src.template dim<0>().stride() == 1 &&
-      opt_shape_dest.template dim<0>().stride() == 1) {
-    dense_shape<ShapeSrc::rank()> dense_opt_shape_src = opt_shape_src;
-    dense_shape<ShapeDest::rank()> dense_opt_shape_dest = opt_shape_dest;
-    for_each_index(dense_opt_shape_dest, [&](const index_type& index) {
-      fn(src[dense_opt_shape_src(index)], dest[dense_opt_shape_dest(index)]);
-    });
-  } else if (opt_shape_dest.template dim<0>().stride() == 1) {
-    dense_shape<ShapeDest::rank()> dense_opt_shape_dest = opt_shape_dest;
-    for_each_index(dense_opt_shape_dest, [&](const index_type& index) {
-      fn(src[opt_shape_src(index)], dest[dense_opt_shape_dest(index)]);
-    });
-  } else {
-    for_each_index(opt_shape_dest, [&](const index_type& index) {
-      fn(src[opt_shape_src(index)], dest[opt_shape_dest(index)]);
-    });
-  }
-  // The dense src, non-dense dest case is omitted. That seems unlikely
-  // given that we sorted the dimensions to make the dest dense,
-  // but it could happen if the dest does not have any dense dimensions,
-  // and the source has one in the same place as the innermost dimension
-  // of dest.
 }
 
 }  // namespace internal
@@ -1035,9 +927,8 @@ class array_ref {
       assert(shape() == other.shape());
       return;
     }
-    internal::for_each_src_dest(other.data(), data(), other.shape(), shape(),
-				[&](value_type& src, value_type& dest) {
-      dest = src;
+    for_each_index(shape(), [&](const index_type& i) {
+	dest(i) = src(i);
     });
   }
   void assign(array_ref&& other) const {
@@ -1045,9 +936,8 @@ class array_ref {
       assert(shape() == other.shape());
       return;
     }
-    internal::for_each_src_dest(other.data(), data(), other.shape(), shape(),
-				[&](value_type& src, value_type& dest) {
-      dest = std::move(src);
+    for_each_index(shape(), [&](const index_type& i) {
+	dest(i) = std::move(src(i));
     });
   }
   /** Copy-assign each element of this array to the given value. */
@@ -1135,9 +1025,8 @@ class array_ref {
     // TODO: This currently calls operator!= on all elements of the
     // array_ref, even after we find a non-equal element.
     bool result = false;
-    internal::for_each_src_dest(other.data(), data(), other.shape(), shape(),
-				[&](const value_type& src, const value_type& dest) {
-      if (src != dest) {
+    for_each_index(shape(), [&](const index_type& i) {
+      if ((*this)(i) != other(i)) {
 	result = true;
       }
     });
@@ -1562,10 +1451,8 @@ void swap(array<T, Shape, Alloc>& a, array<T, Shape, Alloc>& b) {
 template <typename T, typename ShapeSrc, typename ShapeDest>
 void copy(const array_ref<T, ShapeSrc>& src,
           const array_ref<typename std::remove_const<T>::type, ShapeDest>& dest) {
-  typedef typename std::remove_const<T>::type non_const_T;
-  internal::for_each_src_dest(src.data(), dest.data(), src.shape(), dest.shape(),
-			      [&](T& src, non_const_T& dest) {
-    dest = src;
+  for_each_index(dest.shape(), [&](const typename ShapeDest::index_type& i) {
+    dest(i) = src(i);
   });
 }
 template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocDest>
@@ -1587,9 +1474,8 @@ void copy(const array<T, ShapeSrc, AllocSrc>& src, array<T, ShapeDest, AllocDest
  * and must be in bounds of 'src'. */
 template <typename T, typename ShapeSrc, typename ShapeDest>
 void move(const array_ref<T, ShapeSrc>& src, const array_ref<T, ShapeDest>& dest) {
-  internal::for_each_src_dest(src.data(), dest.data(), src.shape(), dest.shape(),
-			      [&](T& src, T& dest) {
-    dest = std::move(src);
+  for_each_index(dest.shape(), [&](const typename ShapeDest::index_type& i) {
+    dest(i) = std::move(src(i));
   });
 }
 template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocDest>
