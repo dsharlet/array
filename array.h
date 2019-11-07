@@ -795,7 +795,7 @@ auto tuple_arg_to_parameter_pack(Fn&& fn, const IndexType& i) {
  * object describing the indices. */
 template <typename Shape, typename Fn>
 void for_each_index(const Shape& s, Fn&& fn) {
-  shape_traits<Shape>::for_each_index(s, fn);
+  shape_traits<Shape>::for_each_index(s, std::forward<Fn>(fn));
 }
 template <typename Shape, typename Fn>
 void for_all_indices(const Shape& s, Fn&& fn) {
