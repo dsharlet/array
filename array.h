@@ -677,6 +677,17 @@ class shape_traits {
   using optimize_for_each_value_at_runtime = std::true_type;
 };
 
+template <>
+class shape_traits<shape<>> {
+ public:
+  template <typename Fn>
+  static void for_each_index(const shape<>&, Fn&& fn) {
+    fn(std::tuple<>());
+  }
+
+  using optimize_for_each_value_at_runtime = std::false_type;
+};
+
 /** Helper function to make a tuple from a variadic list of dims. */
 template <typename... Dims>
 auto make_shape(Dims... dims) {

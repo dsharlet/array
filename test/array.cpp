@@ -246,6 +246,14 @@ TEST(array_dense_move) {
   check_pattern(dense_move);
 }
 
+TEST(array_for_each_value_scalar) {
+  array_of_rank<int, 0> scalar;
+  scalar.for_each_value([](int& v) {
+    v = 3;
+  });
+  ASSERT_EQ(scalar(), 3);
+}
+
 TEST(array_for_each_value) {
   array_of_rank<int, 3> in_order({dim<>(0, 4, 1), dim<>(0, 4, 4), dim<>(0, 4, 16)});
   array_of_rank<int, 3> out_of_order({dim<>(0, 4, 16), dim<>(0, 4, 1), dim<>(0, 4, 4)});

@@ -137,6 +137,15 @@ TEST(clamp) {
   }
 }
 
+TEST(for_all_indices_scalar) {
+  shape<> s;
+  int count = 0;
+  for_all_indices(s, [&]() {
+    count++;
+  });
+  ASSERT_EQ(count, 1);
+}
+
 TEST(for_all_indices_1d) {
   dense_shape<1> s = make_dense_shape(20);
   int expected_flat_offset = 0;
@@ -168,6 +177,15 @@ TEST(for_all_indices_3d) {
   });
   // Ensure the for_all_indices loop above actually ran.
   ASSERT_EQ(expected_flat_offset, 120);
+}
+
+TEST(for_each_index_scalar) {
+  shape<> s;
+  int count = 0;
+  for_each_index(s, [&](std::tuple<>) {
+    count++;
+  });
+  ASSERT_EQ(count, 1);
 }
 
 TEST(for_each_index_1d) {
