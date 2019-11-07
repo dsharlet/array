@@ -1044,18 +1044,18 @@ class array_ref {
       assert(shape() == other.shape());
       return;
     }
-    for_each_index(shape(), [&](const index_type& i) {
-      dest(i) = src(i);
-    });
+    for_each_src_dest(other.shape(), shape(), [&](const value_type& src, value_type& dest) {
+      dest = src;
+    }, other.data(), data());
   }
   void assign(array_ref&& other) const {
     if (data() == other.data()) {
       assert(shape() == other.shape());
       return;
     }
-    for_each_index(shape(), [&](const index_type& i) {
-      dest(i) = std::move(src(i));
-    });
+    for_each_src_dest(other.shape(), shape(), [&](value_type& src, value_type& dest) {
+      dest = std::move(src);
+    }, other.data(), data());
   }
   /** Copy-assign each element of this array to the given value. */
   void assign(const T& value) const {
