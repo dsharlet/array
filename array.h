@@ -843,8 +843,9 @@ shape_of_rank<Shape::rank()> optimize_shape(const Shape& shape) {
   return make_shape_from_array<shape_of_rank<Shape::rank()>>(dims);
 }
 
-template <typename Shape, typename Fn, typename... T>
-void for_each_value_optimized(const Shape& shape, Fn&& fn, T... base) {
+template <typename Shape, typename Fn, typename... T,
+  std::enable_if_t<shape_traits<Shape>::optimize_for_each_value_at_runtime::value, int> = 0>
+void for_each_value(const Shape& shape, Fn&& fn, T... base) {
   auto opt_shape = optimize_shape(shape);
 
   // If the optimized shape's first dimension has stride 1, we can
@@ -865,18 +866,13 @@ void for_each_value_optimized(const Shape& shape, Fn&& fn, T... base) {
   }
 }
 
-template <typename Shape, typename Fn, typename... T>
+template <typename Shape, typename Fn, typename... T,
+  std::enable_if_t<!shape_traits<Shape>::optimize_for_each_value_at_runtime::value, int> = 0>
 void for_each_value(const Shape& shape, Fn&& fn, T... base) {
-  // TODO: Do this with SFINAE rather than a runtime if. It will
-  // get optimized anyways though.
-  if (typename shape_traits<Shape>::optimize_for_each_value_at_runtime()) {
-    for_each_value_optimized(shape, fn, base...);
-  } else {
-    for_each_index(shape, [&](const typename Shape::index_type& i) {
-      index_t flat_index = shape(i);
-      fn(base[flat_index]...);
-    });
-  }
+  for_each_index(shape, [&](const typename Shape::index_type& i) {
+    index_t flat_index = shape(i);
+    fn(base[flat_index]...);
+  });
 }
 
 // Optimize a src and dest shape. The dest shape is made dense, and contiguous
@@ -945,9 +941,10 @@ optimize_src_dest_shapes(const ShapeSrc& src, const ShapeDest& dest) {
 }
 
  // Call fn on the values of src and dest in any order.
-template <typename ShapeSrc, typename ShapeDest, typename Fn, typename TSrc, typename TDest>
-void for_each_src_dest_optimized(const ShapeSrc& shape_src, const ShapeDest& shape_dest,
-				 Fn&& fn, TSrc* src, TDest* dest) {
+template <typename ShapeSrc, typename ShapeDest, typename Fn, typename TSrc, typename TDest,
+  std::enable_if_t<shape_traits<ShapeDest>::optimize_for_each_value_at_runtime::value, int> = 0>
+void for_each_src_dest(const ShapeSrc& shape_src, const ShapeDest& shape_dest,
+		       Fn&& fn, TSrc* src, TDest* dest) {
   // For this function, we don't care about the order in which the
   // callback is called. Optimize the shapes for memory access order.
   auto opt_shape = optimize_src_dest_shapes(shape_src, shape_dest);
@@ -982,26 +979,13 @@ void for_each_src_dest_optimized(const ShapeSrc& shape_src, const ShapeDest& sha
   // of dest.
 }
 
-template <typename ShapeSrc, typename ShapeDest, typename Fn, typename TSrc, typename TDest>
+template <typename ShapeSrc, typename ShapeDest, typename Fn, typename TSrc, typename TDest,
+  std::enable_if_t<!shape_traits<ShapeDest>::optimize_for_each_value_at_runtime::value, int> = 0>
 void for_each_src_dest(const ShapeSrc& shape_src, const ShapeDest& shape_dest,
 		       Fn&& fn, TSrc* src, TDest* dest) {
-  if (shape_dest.empty()) {
-    return;
-  }
-  if (!shape_src.is_in_range(shape_dest.min()) ||
-      !shape_src.is_in_range(shape_dest.max())) {
-    ARRAY_THROW_OUT_OF_RANGE("dest indices out of range of src");
-  }
-
-  // TODO: Do this with SFINAE rather than a runtime if. It will
-  // get optimized anyways though.
-  if (typename shape_traits<ShapeDest>::optimize_for_each_value_at_runtime()) {
-    for_each_src_dest_optimized(shape_src, shape_dest, std::forward<Fn>(fn), src, dest);
-  } else {
-    for_each_index(shape_dest, [&](const typename ShapeDest::index_type& index) {
-      fn(src[shape_src(index)], dest[shape_dest(index)]);
-    });
-  }
+  for_each_index(shape_dest, [&](const typename ShapeDest::index_type& index) {
+    fn(src[shape_src(index)], dest[shape_dest(index)]);
+  });
 }
 
 }  // namespace internal
@@ -1568,6 +1552,14 @@ void swap(array<T, Shape, Alloc>& a, array<T, Shape, Alloc>& b) {
 template <typename T, typename ShapeSrc, typename ShapeDest>
 void copy(const array_ref<T, ShapeSrc>& src,
           const array_ref<typename std::remove_const<T>::type, ShapeDest>& dest) {
+  if (dest.shape().empty()) {
+    return;
+  }
+  if (!src.shape().is_in_range(dest.shape().min()) ||
+      !src.shape().is_in_range(dest.shape().max())) {
+    ARRAY_THROW_OUT_OF_RANGE("dest indices out of range of src");
+  }
+
   typedef typename std::remove_const<T>::type non_const_T;
   internal::for_each_src_dest(src.shape(), dest.shape(), [](const T& src, non_const_T& dest) {
     dest = src;
@@ -1592,6 +1584,14 @@ void copy(const array<T, ShapeSrc, AllocSrc>& src, array<T, ShapeDest, AllocDest
  * and must be in bounds of 'src'. */
 template <typename T, typename ShapeSrc, typename ShapeDest>
 void move(const array_ref<T, ShapeSrc>& src, const array_ref<T, ShapeDest>& dest) {
+  if (dest.shape().empty()) {
+    return;
+  }
+  if (!src.shape().is_in_range(dest.shape().min()) ||
+      !src.shape().is_in_range(dest.shape().max())) {
+    ARRAY_THROW_OUT_OF_RANGE("dest indices out of range of src");
+  }
+
   internal::for_each_src_dest(src.shape(), dest.shape(), [](T& src, T& dest) {
     dest = std::move(src);
   }, src.data(), dest.data());
