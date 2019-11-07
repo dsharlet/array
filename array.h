@@ -838,9 +838,9 @@ shape_of_rank<Shape::rank()> optimize_shape(const Shape& shape) {
   return make_shape_from_array<shape_of_rank<Shape::rank()>>(dims);
 }
 
-// Call fn on the values addressed by shape in any order.
-template <typename T, typename Shape, typename Fn>
-void for_each_value(T* base, const Shape& shape, Fn&& fn) {
+// Call fn on the values base, in any order.
+template <typename Shape, typename Fn, typename... T>
+void for_each_value_optimized(const Shape& shape, Fn&& fn, T... base) {
   auto opt_shape = optimize_shape(shape);
 
   // If the optimized shape's first dimension is 1, we can convert
@@ -851,36 +851,12 @@ void for_each_value(T* base, const Shape& shape, Fn&& fn) {
     dense_shape<Shape::rank()> dense_opt_shape = opt_shape;
     for_each_index(dense_opt_shape, [&](const index_type& index) {
       index_t flat_index = dense_opt_shape(index);
-      fn(base[flat_index]);
+      fn(base[flat_index]...);
     });
   } else {
     for_each_index(opt_shape, [&](const index_type& index) {
       index_t flat_index = opt_shape(index);
-      fn(base[flat_index]);
-    });
-  }
-}
-
-// Call fn on the values of src and dest both addressed by shape in
-// any order.
-template <typename TSrc, typename TDest, typename Shape, typename Fn>
-void for_each_src_dest(TSrc* src, TDest* dest, const Shape& shape, Fn&& fn) {
-  auto opt_shape = optimize_shape(shape);
-
-  // If the optimized shape's first dimension is 1, we can convert
-  // this to a dense shape. This may help the compiler optimize this
-  // further.
-  typedef typename Shape::index_type index_type;
-  if (opt_shape.template dim<0>().stride() == 1) {
-    dense_shape<Shape::rank()> dense_opt_shape = opt_shape;
-    for_each_index(dense_opt_shape, [&](const index_type& index) {
-      index_t flat_index = dense_opt_shape(index);
-      fn(src[flat_index], dest[flat_index]);
-    });
-  } else {
-    for_each_index(opt_shape, [&](const index_type& index) {
-      index_t flat_index = opt_shape(index);
-      fn(src[flat_index], dest[flat_index]);
+      fn(base[flat_index]...);
     });
   }
 }
@@ -971,7 +947,7 @@ class array_ref {
    * array_ref. The order in which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
-    internal::for_each_value(data(), shape(), std::forward<Fn>(fn));
+    internal::for_each_value_optimized(shape(), std::forward<Fn>(fn), data());
   }
 
   /** Pointer to the start of the flattened array_ref. */
@@ -1101,18 +1077,16 @@ class array {
   void copy_construct(const array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
-    internal::for_each_src_dest(other.data(), base_, shape_,
-				[&](const value_type& src, value_type& dest) {
+    internal::for_each_value_optimized(shape_, [&](value_type& dest, const value_type& src) {
       std::allocator_traits<Alloc>::construct(alloc_, &dest, src);
-    });
+    }, base_, other.data());
   }
   void move_construct(array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
-    internal::for_each_src_dest(other.data(), base_, shape_,
-				[&](value_type& src, value_type& dest) {
+    internal::for_each_value_optimized(shape_, [&](value_type& dest, value_type& src) {
       std::allocator_traits<Alloc>::construct(alloc_, &dest, std::move(src));
-    });
+    }, base_, other.data());
   }
 
   // Call the destructor on every element.
@@ -1323,11 +1297,11 @@ class array {
    * array. The order in which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) {
-    internal::for_each_value(data(), shape(), std::forward<Fn>(fn));
+    internal::for_each_value_optimized(shape(), std::forward<Fn>(fn), data());
   }
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
-    internal::for_each_value(data(), shape(), std::forward<Fn>(fn));
+    internal::for_each_value_optimized(shape(), std::forward<Fn>(fn), data());
   }
 
   /** Pointer to the start of the flat array, which is a pointer to
