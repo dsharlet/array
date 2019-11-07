@@ -402,27 +402,6 @@ struct all_integral<float, Args...> : std::false_type {};
 template<typename... Args>
 struct all_integral<double, Args...> : std::false_type {};
 
-// This genius trick is from
-// https://github.com/halide/Halide/blob/30fb4fcb703f0ca4db6c1046e77c54d9b6d29a86/src/runtime/HalideBuffer.h#L2088-L2108
-template<size_t D, typename Dims, typename Fn, typename... Indices,
-  typename = decltype(std::declval<Fn>()(std::declval<std::tuple<Indices...>>()))>
-void for_each_index_impl(int, const Dims& dims, Fn &&fn, const std::tuple<Indices...>& indices) {
-  std::forward<Fn>(fn)(indices);
-}
-
-template<size_t D, typename Dims, typename Fn, typename... Indices>
-void for_each_index_impl(double, const Dims& dims, Fn &&fn, const std::tuple<Indices...>& indices) {
-  for (index_t i : std::get<D>(dims)) {
-    for_each_index_impl<D - 1>(0, dims, std::forward<Fn>(fn), std::tuple_cat(std::make_tuple(i), indices));
-  }
-}
-
-template<typename Dims, typename Fn>
-void for_each_index_impl(const Dims& dims, Fn &&fn) {
-  constexpr size_t dims_rank = std::tuple_size<Dims>::value;
-  for_each_index_impl<dims_rank - 1>(0, dims, std::forward<Fn>(fn), std::tuple<>());
-}
-
 }  // namespace internal
 
 /** A list of 'dim' objects describing a multi-dimensional space of
@@ -654,52 +633,21 @@ class shape<> {
   bool operator!=(const shape<>& other) const { return false; }
 };
 
-/** Shape traits enable some behaviors to be overriden per shape
- * type. */
-template <typename Shape>
-class shape_traits {
- public:
-  template <typename Fn>
-  static void for_each_index(const Shape& shape, Fn&& fn) {
-    internal::for_each_index_impl(shape.dims(), std::forward<Fn>(fn));
+namespace internal {
+
+// This genius trick is from
+// https://github.com/halide/Halide/blob/30fb4fcb703f0ca4db6c1046e77c54d9b6d29a86/src/runtime/HalideBuffer.h#L2088-L2108
+template<size_t D, typename Dims, typename Fn, typename... Indices,
+  typename = decltype(std::declval<Fn>()(std::declval<std::tuple<Indices...>>()))>
+void for_each_index_impl(int, const Dims& dims, Fn &&fn, const std::tuple<Indices...>& indices) {
+  std::forward<Fn>(fn)(indices);
+}
+
+template<size_t D, typename Dims, typename Fn, typename... Indices>
+void for_each_index_impl(double, const Dims& dims, Fn &&fn, const std::tuple<Indices...>& indices) {
+  for (index_t i : std::get<D>(dims)) {
+    for_each_index_impl<D - 1>(0, dims, std::forward<Fn>(fn), std::tuple_cat(std::make_tuple(i), indices));
   }
-};
-
-namespace internal {
-
-template <index_t Min, index_t Extent, index_t Stride, typename DimSrc>
-bool is_dim_compatible(const dim<Min, Extent, Stride>& dest, const DimSrc& src) {
-  return
-    (Min == UNK || src.min() == Min) &&
-    (Extent == UNK || src.extent() == Extent) &&
-    (Stride == UNK || src.stride() == Stride);
-}
-
-template <typename... DimsDest, typename ShapeSrc, size_t... Is>
-bool is_shape_compatible(const shape<DimsDest...>& dest, const ShapeSrc& src, std::index_sequence<Is...>) {
-  return sum((is_dim_compatible(DimsDest(), src.template dim<Is>()) ? 0 : 1)...) == 0;
-}
-
-}  // namespace internal
-
-/** Test if a shape 'src' can be assigned to a shape of type
- * 'ShapeDest' without error. */
-template <typename ShapeDest, typename ShapeSrc>
-bool is_compatible(const ShapeSrc& src) {
-  static_assert(ShapeSrc::rank() == ShapeDest::rank(), "shapes must have the same rank.");
-  return internal::is_shape_compatible(ShapeDest(), src, std::make_index_sequence<ShapeSrc::rank()>());
-}
-
-namespace internal {
-
-template <typename Fn, typename IndexType, size_t... Is>
-auto tuple_arg_to_parameter_pack(Fn&& fn, const IndexType& i, std::index_sequence<Is...>) {
-  fn(std::get<Is>(i)...);
-}
-
-template <typename Fn, typename IndexType>
-auto tuple_arg_to_parameter_pack(Fn&& fn, const IndexType& i) {
-  tuple_arg_to_parameter_pack(fn, i, std::make_index_sequence<std::tuple_size<IndexType>::value>());
 }
 
 }  // namespace internal
@@ -707,19 +655,22 @@ auto tuple_arg_to_parameter_pack(Fn&& fn, const IndexType& i) {
 /** Iterate over all indices in the shape, calling a function 'fn' for
  * each set of indices. The indices are in the same order as the dims
  * in the shape. The first dim is the 'inner' loop of the iteration,
- * and the last dim is the 'outer' loop. 'for_all_indices' calls 'fn'
- * with a list of arguments corresponding to each dim. 'for_each_index'
- * calls 'fn' with a Shape::index_type object describing the indices. */
-template <typename Shape, typename Fn>
-void for_each_index(const Shape& s, Fn&& fn) {
-  shape_traits<Shape>::for_each_index(s, fn);
+ * and the last dim is the 'outer' loop. */
+template<typename Shape, typename Fn>
+void for_each_index_in_order(const Shape& shape, Fn &&fn) {
+  internal::for_each_index_impl<Shape::rank() - 1>(0, shape.dims(), std::forward<Fn>(fn), std::tuple<>());
 }
-template <typename Shape, typename Fn>
-void for_all_indices(const Shape& s, Fn&& fn) {
-  for_each_index(s, [&](const typename Shape::index_type&i) {
-    internal::tuple_arg_to_parameter_pack(std::forward<Fn>(fn), i);
-  });
-}
+
+/** Shape traits enable some behaviors to be overriden per shape
+ * type. */
+template <typename Shape>
+class shape_traits {
+ public:
+  template <typename Fn>
+  static void for_each_index(const Shape& shape, Fn&& fn) {
+    for_each_index_in_order(shape, std::forward<Fn>(fn));
+  }
+};
 
 /** Helper function to make a tuple from a variadic list of dims. */
 template <typename... Dims>
@@ -762,6 +713,19 @@ shape<Dims...> make_compact_shape(const shape<Dims...>& s, std::index_sequence<I
   return {{s.template dim<Is>().min(), s.template dim<Is>().extent()}...};
 }
 
+template <index_t Min, index_t Extent, index_t Stride, typename DimSrc>
+bool is_dim_compatible(const dim<Min, Extent, Stride>& dest, const DimSrc& src) {
+  return
+    (Min == UNK || src.min() == Min) &&
+    (Extent == UNK || src.extent() == Extent) &&
+    (Stride == UNK || src.stride() == Stride);
+}
+
+template <typename... DimsDest, typename ShapeSrc, size_t... Is>
+bool is_shape_compatible(const shape<DimsDest...>& dest, const ShapeSrc& src, std::index_sequence<Is...>) {
+  return sum((is_dim_compatible(DimsDest(), src.template dim<Is>()) ? 0 : 1)...) == 0;
+}
+
 }  // namespace internal
 
 /** Create a new shape using a permutation DimIndices... of the
@@ -796,6 +760,44 @@ using shape_of_rank =
  * all other dimensions are arbitrary. */
 template <size_t Rank>
 using dense_shape = decltype(internal::make_default_dense_shape<Rank>());
+
+/** Test if a shape 'src' can be assigned to a shape of type
+ * 'ShapeDest' without error. */
+template <typename ShapeDest, typename ShapeSrc>
+bool is_compatible(const ShapeSrc& src) {
+  static_assert(ShapeSrc::rank() == ShapeDest::rank(), "shapes must have the same rank.");
+  return internal::is_shape_compatible(ShapeDest(), src, std::make_index_sequence<ShapeSrc::rank()>());
+}
+
+namespace internal {
+
+template <typename Fn, typename IndexType, size_t... Is>
+auto tuple_arg_to_parameter_pack(Fn&& fn, const IndexType& i, std::index_sequence<Is...>) {
+  fn(std::get<Is>(i)...);
+}
+
+template <typename Fn, typename IndexType>
+auto tuple_arg_to_parameter_pack(Fn&& fn, const IndexType& i) {
+  tuple_arg_to_parameter_pack(fn, i, std::make_index_sequence<std::tuple_size<IndexType>::value>());
+}
+
+}  // namespace internal
+
+/** Iterate over all indices in the shape, calling a function 'fn' for
+ * each set of indices. The order is defined by 'shape_traits<Shape>'.
+ * 'for_all_indices' calls 'fn' with a list of arguments corresponding
+ * to each dim. 'for_each_index' calls 'fn' with a Shape::index_type
+ * object describing the indices. */
+template <typename Shape, typename Fn>
+void for_each_index(const Shape& s, Fn&& fn) {
+  shape_traits<Shape>::for_each_index(s, fn);
+}
+template <typename Shape, typename Fn>
+void for_all_indices(const Shape& s, Fn&& fn) {
+  shape_traits<Shape>::for_each_index(s, [&](const typename Shape::index_type&i) {
+    internal::tuple_arg_to_parameter_pack(std::forward<Fn>(fn), i);
+  });
+}
 
 namespace internal {
 
