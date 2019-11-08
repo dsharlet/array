@@ -306,7 +306,7 @@ void resolve_unknowns_impl(index_t current_stride, Dim0& dim0, Dims&... dims) {
     dim0.set_stride(current_stride);
     current_stride *= dim0.extent();
   }
-  resolve_unknowns_impl(current_stride, std::forward<Dims&>(dims)...);
+  resolve_unknowns_impl(current_stride, dims...);
 }
 
 template <typename Dims, size_t... Is>
@@ -402,7 +402,7 @@ class shape {
    * stride. This is done in innermost-to-outermost order. */
   shape() { internal::resolve_unknowns(dims_); }
   shape(std::tuple<Dims...> dims) : dims_(std::move(dims)) { internal::resolve_unknowns(dims_); }
-  shape(Dims... dims) : dims_(std::forward<Dims>(dims)...) { internal::resolve_unknowns(dims_); }
+  shape(Dims&&... dims) : dims_(dims...) { internal::resolve_unknowns(dims_); }
   shape(const shape&) = default;
   shape(shape&&) = default;
   /** Construct this shape from a different type of
@@ -438,7 +438,7 @@ class shape {
   template <typename... Indices,
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   bool is_in_range(Indices... indices) const {
-    return is_in_range(std::make_tuple(std::forward<Indices>(indices)...));
+    return is_in_range(std::make_tuple(indices...));
   }
 
   /** Compute the flat offset of the index 'indices'. If the
@@ -453,7 +453,7 @@ class shape {
   template <typename... Indices,
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   index_t at(Indices... indices) const {
-    return at(std::make_tuple(std::forward<Indices>(indices)...));
+    return at(std::make_tuple(indices...));
   }
   /** Compute the flat offset of the index 'indices'. */
   index_t operator() (const index_type& indices) const {
@@ -462,7 +462,7 @@ class shape {
   template <typename... Indices,
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   index_t operator() (Indices... indices) const {
-    return (*this)(std::make_tuple(std::forward<Indices>(indices)...));
+    return (*this)(std::make_tuple(indices...));
   }
 
   /** Get a specific dim of this shape. */
@@ -1052,7 +1052,7 @@ class array_ref {
   template <typename... Indices,
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   reference at(Indices... indices) const {
-    return base_[shape_.at(std::forward<Indices>(indices)...)];
+    return base_[shape_.at(indices...)];
   }
 
   /** Get a reference to the element at the given indices. */
@@ -1062,7 +1062,7 @@ class array_ref {
   template <typename... Indices,
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   reference operator() (Indices... indices) const {
-    return base_[shape_(std::forward<Indices>(indices)...)];
+    return base_[shape_(indices...)];
   }
 
   /** Call a function with a reference to each value in this
@@ -1388,7 +1388,7 @@ class array {
   template <typename... Indices,
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   reference at(Indices... indices) {
-    return base_[shape_.at(std::forward<Indices>(indices)...)];
+    return base_[shape_.at(indices...)];
   }
   const_reference at(const index_type& indices) const {
     return base_[shape_.at(indices)];
@@ -1396,7 +1396,7 @@ class array {
   template <typename... Indices,
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   const_reference at(Indices... indices) const {
-    return base_[shape_.at(std::forward<Indices>(indices)...)];
+    return base_[shape_.at(indices...)];
   }
 
   /** Compute the flat offset of the indices. Does not check if the
@@ -1407,7 +1407,7 @@ class array {
   template <typename... Indices,
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   reference operator() (Indices... indices) {
-    return base_[shape_(std::forward<Indices>(indices)...)];
+    return base_[shape_(indices...)];
   }
   const_reference operator() (const index_type& indices) const {
     return base_[shape_(indices)];
@@ -1415,7 +1415,7 @@ class array {
   template <typename... Indices,
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   const_reference operator() (Indices... indices) const {
-    return base_[shape_(std::forward<Indices>(indices)...)];
+    return base_[shape_(indices...)];
   }
 
   /** Call a function with a reference to each value in this
