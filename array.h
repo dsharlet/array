@@ -626,14 +626,14 @@ namespace internal {
 // https://github.com/halide/Halide/blob/30fb4fcb703f0ca4db6c1046e77c54d9b6d29a86/src/runtime/HalideBuffer.h#L2088-L2108
 template<size_t D, typename Dims, typename Fn, typename... Indices,
   typename = decltype(std::declval<Fn>()(std::declval<std::tuple<Indices...>>()))>
-void for_each_index_impl(int, const Dims& dims, Fn &&fn, const std::tuple<Indices...>& indices) {
+void for_each_index_in_order_impl(int, const Dims& dims, Fn &&fn, const std::tuple<Indices...>& indices) {
   fn(indices);
 }
 
 template<size_t D, typename Dims, typename Fn, typename... Indices>
-void for_each_index_impl(double, const Dims& dims, Fn &&fn, const std::tuple<Indices...>& indices) {
+void for_each_index_in_order_impl(double, const Dims& dims, Fn &&fn, const std::tuple<Indices...>& indices) {
   for (index_t i : std::get<D>(dims)) {
-    for_each_index_impl<D - 1>(0, dims, std::forward<Fn>(fn), std::tuple_cat(std::make_tuple(i), indices));
+    for_each_index_in_order_impl<D - 1>(0, dims, std::forward<Fn>(fn), std::tuple_cat(std::make_tuple(i), indices));
   }
 }
 
@@ -645,7 +645,7 @@ void for_each_index_impl(double, const Dims& dims, Fn &&fn, const std::tuple<Ind
  * and the last dim is the 'outer' loop. */
 template<typename Shape, typename Fn>
 void for_each_index_in_order(const Shape& shape, Fn &&fn) {
-  internal::for_each_index_impl<Shape::rank() - 1>(0, shape.dims(), std::forward<Fn>(fn), std::tuple<>());
+  internal::for_each_index_in_order_impl<Shape::rank() - 1>(0, shape.dims(), std::forward<Fn>(fn), std::tuple<>());
 }
 
 /** Shape traits enable some behaviors to be overriden per shape
@@ -654,15 +654,15 @@ template <typename Shape>
 class shape_traits {
  public:
   /** The for_each_index implementation for the shape may choose
-   * to iterate in a different order than the default. */
+   * to iterate in a different order than the default (in-order). */
   template <typename Fn>
   static void for_each_index(const Shape& shape, Fn&& fn) {
     for_each_index_in_order(shape, std::forward<Fn>(fn));
   }
 
-  /** optimize_for_each_value_at_runtime indicates whether
-   * for_each_value should attempt to optimize the shape at runtime,
-   * or if it should simply use shape_traits<>::for_each_index. */
+  /** Indicates whether for_each_value should attempt to optimize the
+   * shape at runtime, or if it should simply use
+   * shape_traits<>::for_each_index. */
   using optimize_for_each_value_at_runtime = std::true_type;
 };
 
@@ -1021,22 +1021,22 @@ class array_ref {
   }
 
   void assign(const array_ref& other) const {
-    if (data() == other.data()) {
-      assert(shape() == other.shape());
+    if (base_ == other.data()) {
+      assert(shape_ == other.shape());
       return;
     }
-    for_each_src_dest(other.shape(), shape(), [&](const value_type& src, value_type& dest) {
+    for_each_src_dest(other.shape(), shape_, [&](const value_type& src, value_type& dest) {
       dest = src;
-    }, other.data(), data());
+    }, other.data(), base_);
   }
   void assign(array_ref&& other) const {
-    if (data() == other.data()) {
-      assert(shape() == other.shape());
+    if (base_ == other.data()) {
+      assert(shape_ == other.shape());
       return;
     }
-    for_each_src_dest(other.shape(), shape(), [&](value_type& src, value_type& dest) {
+    for_each_src_dest(other.shape(), shape_, [&](value_type& src, value_type& dest) {
       dest = std::move(src);
-    }, other.data(), data());
+    }, other.data(), base_);
   }
   /** Copy-assign each element of this array to the given value. */
   void assign(const T& value) const {
@@ -1069,7 +1069,7 @@ class array_ref {
    * array_ref. The order in which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
-    internal::for_each_value(shape(), std::forward<Fn>(fn), data());
+    internal::for_each_value(shape_, std::forward<Fn>(fn), base_);
   }
 
   /** Pointer to the start of the flattened array_ref. */
@@ -1081,49 +1081,49 @@ class array_ref {
   static constexpr size_t rank() { return Shape::rank(); }
   static constexpr bool is_scalar() { return Shape::is_scalar(); }
   template <size_t D>
-  const auto& dim() const { return shape().template dim<D>(); }
-  array::dim<> dim(size_t d) const { return shape().dim(d); }
+  const auto& dim() const { return shape_.template dim<D>(); }
+  array::dim<> dim(size_t d) const { return shape_.dim(d); }
   size_type size() const { return shape_.size(); }
   bool empty() const { return shape_.empty(); }
   bool is_compact() const { return shape_.is_compact(); }
 
   /** Provide some aliases for common interpretations of
    * dimensions. */
-  const auto& i() const { return shape().i(); }
-  const auto& j() const { return shape().j(); }
-  const auto& k() const { return shape().k(); }
+  const auto& i() const { return shape_.i(); }
+  const auto& j() const { return shape_.j(); }
+  const auto& k() const { return shape_.k(); }
 
-  const auto& x() const { return shape().x(); }
-  const auto& y() const { return shape().y(); }
-  const auto& z() const { return shape().z(); }
-  const auto& w() const { return shape().w(); }
+  const auto& x() const { return shape_.x(); }
+  const auto& y() const { return shape_.y(); }
+  const auto& z() const { return shape_.z(); }
+  const auto& w() const { return shape_.w(); }
 
-  const auto& c() const { return shape().c(); }
+  const auto& c() const { return shape_.c(); }
 
   /** Assuming this array represents an image with dimensions width,
    * height, channels, get the extent of those dimensions. */
-  index_t width() const { return shape().width(); }
-  index_t height() const { return shape().height(); }
-  index_t channels() const { return shape().channels(); }
+  index_t width() const { return shape_.width(); }
+  index_t height() const { return shape_.height(); }
+  index_t channels() const { return shape_.channels(); }
 
   /** Assuming this array represents a matrix with dimensions {rows,
    * cols}, get the extent of those dimensions. */
-  index_t rows() const { return shape().rows(); }
-  index_t columns() const { return shape().columns(); }
+  index_t rows() const { return shape_.rows(); }
+  index_t columns() const { return shape_.columns(); }
 
   /** Compare the contents of this array_ref to 'other'. For two
    * array_refs to be considered equal, they must have the same shape, and
    * all elements addressable by the shape must also be equal. */
   bool operator!=(const array_ref& other) const {
-    if (shape().min() != other.shape().min() ||
-	shape().extent() != other.shape().extent()) {
+    if (shape_.min() != other.shape_.min() ||
+	shape_.extent() != other.shape_.extent()) {
       return true;
     }
 
     // TODO: This currently calls operator!= on all elements of the
     // array_ref, even after we find a non-equal element.
     bool result = false;
-    for_each_index(shape(), [&](const index_type& i) {
+    for_each_index(shape_, [&](const index_type& i) {
       if ((*this)(i) != other(i)) {
         result = true;
       }
@@ -1140,7 +1140,7 @@ class array_ref {
 
   /** Allow conversion from array_ref<T> to array_ref<const T>. */
   operator array_ref<const T, Shape>() const {
-    return array_ref<const T, Shape>(data(), shape());
+    return array_ref<const T, Shape>(base_, shape_);
   }
 
   /** Change the shape of the array to 'new_shape', and move the base
@@ -1300,8 +1300,8 @@ class array {
    * assignment. The array is then reallocated if necessary, and each
    * element in the array is copy constructed from other. */
   array& operator=(const array& other) {
-    if (data() == other.data()) {
-      assert(shape() == other.shape());
+    if (base_ == other.data()) {
+      assert(shape_ == other.shape());
       return *this;
     }
 
@@ -1318,8 +1318,8 @@ class array {
    * 'other' is moved in an O(1) operation. If the allocator cannot be
    * propagated, each element is move-assigned from 'other'. */
   array& operator=(array&& other) {
-    if (data() == other.data()) {
-      assert(shape() == other.shape());
+    if (base_ == other.data()) {
+      assert(shape_ == other.shape());
       return *this;
     }
 
@@ -1336,8 +1336,8 @@ class array {
    * array is destroyed, reallocated if necessary, and then each
    * element is copy- or move-constructed from 'other'. */
   void assign(const array& other) {
-    if (data() == other.data()) {
-      assert(shape() == other.shape());
+    if (base_ == other.data()) {
+      assert(shape_ == other.shape());
       return;
     }
     if (shape_ == other.shape()) {
@@ -1350,8 +1350,8 @@ class array {
     copy_construct(other);
   }
   void assign(array&& other) {
-    if (data() == other.data()) {
-      assert(shape() == other.shape());
+    if (base_ == other.data()) {
+      assert(shape_ == other.shape());
       return;
     }
     if (shape_ == other.shape()) {
@@ -1422,11 +1422,11 @@ class array {
    * array. The order in which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) {
-    internal::for_each_value(shape(), std::forward<Fn>(fn), data());
+    internal::for_each_value(shape_, std::forward<Fn>(fn), base_);
   }
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
-    internal::for_each_value(shape(), std::forward<Fn>(fn), data());
+    internal::for_each_value(shape_, std::forward<Fn>(fn), base_);
   }
 
   /** Pointer to the start of the flat array, which is a pointer to
@@ -1440,8 +1440,8 @@ class array {
   static constexpr size_t rank() { return Shape::rank(); }
   static constexpr bool is_scalar() { return Shape::is_scalar(); }
   template <size_t D>
-  const auto& dim() const { return shape().template dim<D>(); }
-  ::array::dim<> dim(size_t d) const { return shape().dim(d); }
+  const auto& dim() const { return shape_.template dim<D>(); }
+  ::array::dim<> dim(size_t d) const { return shape_.dim(d); }
   size_type size() const { return shape_.size(); }
   bool empty() const { return shape_.empty(); }
   bool is_compact() const { return shape_.is_compact(); }
@@ -1455,27 +1455,27 @@ class array {
 
   /** Provide some aliases for common interpretations of
    * dimensions. */
-  const auto& i() const { return shape().i(); }
-  const auto& j() const { return shape().j(); }
-  const auto& k() const { return shape().k(); }
+  const auto& i() const { return shape_.i(); }
+  const auto& j() const { return shape_.j(); }
+  const auto& k() const { return shape_.k(); }
 
-  const auto& x() const { return shape().x(); }
-  const auto& y() const { return shape().y(); }
-  const auto& z() const { return shape().z(); }
-  const auto& w() const { return shape().w(); }
+  const auto& x() const { return shape_.x(); }
+  const auto& y() const { return shape_.y(); }
+  const auto& z() const { return shape_.z(); }
+  const auto& w() const { return shape_.w(); }
 
-  const auto& c() const { return shape().c(); }
+  const auto& c() const { return shape_.c(); }
 
   /** Assuming this array represents an image with dimensions width,
    * height, channels, get the extent of those dimensions. */
-  index_t width() const { return shape().width(); }
-  index_t height() const { return shape().height(); }
-  index_t channels() const { return shape().channels(); }
+  index_t width() const { return shape_.width(); }
+  index_t height() const { return shape_.height(); }
+  index_t channels() const { return shape_.channels(); }
 
   /** Assuming this array represents a matrix with dimensions {rows,
    * cols}, get the extent of those dimensions. */
-  index_t rows() const { return shape().rows(); }
-  index_t columns() const { return shape().columns(); }
+  index_t rows() const { return shape_.rows(); }
+  index_t columns() const { return shape_.columns(); }
 
   /** Compare the contents of this array to 'other'. For two arrays to
    * be considered equal, they must have the same shape, and all
@@ -1503,10 +1503,10 @@ class array {
 
   /** Make an array_ref referring to the data in this array. */
   array_ref<T, Shape> ref() {
-    return array_ref<T, Shape>(data(), shape());
+    return array_ref<T, Shape>(base_, shape_);
   }
   array_ref<const T, Shape> ref() const {
-    return array_ref<const T, Shape>(data(), shape());
+    return array_ref<const T, Shape>(base_, shape_);
   }
   operator array_ref<T, Shape>() { return ref(); }
   operator array_ref<const T, Shape>() const { return ref(); }
