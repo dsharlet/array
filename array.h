@@ -111,11 +111,11 @@ class dim {
   dim(const dim<CopyMin, CopyExtent, CopyStride>& other)
       : dim(other.min(), other.extent(), other.stride()) {
     static_assert(Min == UNK || CopyMin == UNK || Min == CopyMin,
-		  "incompatible mins.");
+                  "incompatible mins.");
     static_assert(Extent == UNK || CopyExtent == UNK || Extent == CopyExtent,
-		  "incompatible extents.");
+                  "incompatible extents.");
     static_assert(Stride == UNK || CopyStride == UNK || Stride == CopyStride,
-		  "incompatible strides.");
+                  "incompatible strides.");
   }
 
   dim& operator=(const dim&) = default;
@@ -125,11 +125,11 @@ class dim {
   template <index_t CopyMin, index_t CopyExtent, index_t CopyStride>
   dim& operator=(const dim<CopyMin, CopyExtent, CopyStride>& other) {
     static_assert(Min == UNK || CopyMin == UNK || Min == CopyMin,
-		  "incompatible mins.");
+                  "incompatible mins.");
     static_assert(Extent == UNK || CopyExtent == UNK || Extent == CopyExtent,
-		  "incompatible extents.");
+                  "incompatible extents.");
     static_assert(Stride == UNK || CopyStride == UNK || Stride == CopyStride,
-		  "incompatible strides.");
+                  "incompatible strides.");
     ARRAY_CHECK_CONSTRAIT(Min, other.min());
     min_ = other.min();
     ARRAY_CHECK_CONSTRAIT(Extent, other.extent());
@@ -306,6 +306,11 @@ auto mins(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
 template <typename... Dims, size_t... Is>
 auto extents(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
   return std::make_tuple(std::get<Is>(dims).extent()...);
+}
+
+template <typename... Dims, size_t... Is>
+auto strides(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
+  return std::make_tuple(std::get<Is>(dims).stride()...);
 }
 
 template <typename... Dims, size_t... Is>
@@ -509,6 +514,9 @@ class shape {
   }
   index_type extent() const {
     return internal::extents(dims(), std::make_index_sequence<rank()>());
+  }
+  index_type stride() const {
+    return internal::strides(dims(), std::make_index_sequence<rank()>());
   }
 
   /** Compute the flat extent of this shape. This is the extent of the
@@ -948,8 +956,8 @@ optimize_src_dest_shapes(const ShapeSrc& src, const ShapeDest& dest) {
   size_t new_rank = dims.size();
   for (size_t i = 0; i + 1 < new_rank;) {
     if (dims[i + 1].src.stride() == dims[i + 1].dest.stride() &&
-	dims[i].src.stride() * dims[i].src.extent() == dims[i + 1].src.stride() &&
-	dims[i].dest.stride() * dims[i].dest.extent() == dims[i + 1].dest.stride()) {
+        dims[i].src.stride() * dims[i].src.extent() == dims[i + 1].src.stride() &&
+        dims[i].dest.stride() * dims[i].dest.extent() == dims[i + 1].dest.stride()) {
       // These two dimensions are contiguous. Fuse them and move
       // the rest of the dimensions up to replace the fused dimension.
       dims[i].src.set_min(dims[i].src.min() + dims[i + 1].src.min() * dims[i + 1].src.stride());
@@ -957,7 +965,7 @@ optimize_src_dest_shapes(const ShapeSrc& src, const ShapeDest& dest) {
       dims[i].dest.set_min(dims[i].dest.min() + dims[i + 1].dest.min() * dims[i + 1].dest.stride());
       dims[i].dest.set_extent(dims[i].dest.extent() * dims[i + 1].dest.extent());
       for (size_t j = i + 1; j + 1 < new_rank; j++) {
-	dims[j] = dims[j + 1];
+        dims[j] = dims[j + 1];
       }
       new_rank--;
     } else {
@@ -989,7 +997,7 @@ optimize_src_dest_shapes(const ShapeSrc& src, const ShapeDest& dest) {
 template <typename ShapeSrc, typename ShapeDest, typename Fn, typename TSrc, typename TDest,
   std::enable_if_t<shape_traits<ShapeDest>::optimize_for_each_value_at_runtime::value, int> = 0>
 void for_each_src_dest(const ShapeSrc& shape_src, const ShapeDest& shape_dest,
-		       Fn&& fn, TSrc* src, TDest* dest) {
+                       Fn&& fn, TSrc* src, TDest* dest) {
   // For this function, we don't care about the order in which the
   // callback is called. Optimize the shapes for memory access order.
   auto opt_shape = optimize_src_dest_shapes(shape_src, shape_dest);
@@ -1027,7 +1035,7 @@ void for_each_src_dest(const ShapeSrc& shape_src, const ShapeDest& shape_dest,
 template <typename ShapeSrc, typename ShapeDest, typename Fn, typename TSrc, typename TDest,
   std::enable_if_t<!shape_traits<ShapeDest>::optimize_for_each_value_at_runtime::value, int> = 0>
 void for_each_src_dest(const ShapeSrc& shape_src, const ShapeDest& shape_dest,
-		       Fn&& fn, TSrc* src, TDest* dest) {
+                       Fn&& fn, TSrc* src, TDest* dest) {
   for_each_index(shape_dest, [&](const typename ShapeDest::index_type& index) {
     fn(src[shape_src(index)], dest[shape_dest(index)]);
   });
@@ -1179,7 +1187,7 @@ class array_ref {
    * all elements addressable by the shape must also be equal. */
   bool operator!=(const array_ref& other) const {
     if (shape_.min() != other.shape_.min() ||
-	shape_.extent() != other.shape_.extent()) {
+        shape_.extent() != other.shape_.extent()) {
       return true;
     }
 
@@ -1208,7 +1216,7 @@ class array_ref {
 
   /** Change the shape of the array to 'new_shape', and move the base
    * pointer by 'offset'. */
-  void reshape(Shape new_shape, index_t offset = 0) {
+  void set_shape(Shape new_shape, index_t offset = 0) {
     shape_ = std::move(new_shape);
     base_ += offset;
   }
@@ -1517,6 +1525,29 @@ class array {
     construct();
   }
 
+  /** Reallocate the array, and move the intersection of the old and new
+   * shapes to the new array. */
+  void reshape(Shape new_shape) {
+    // Allocate an array with the new shape.
+    array<T, Shape, Alloc> new_array(new_shape);
+
+    // Move the common elements to the new array.
+    Shape intersection = intersect(shape_, new_shape);
+    internal::for_each_src_dest(shape_, intersection, [](T& src, T& dest) {
+      dest = std::move(src);
+    }, base_, new_array.data());
+
+    // Swap this with the new array.
+    swap(new_array);
+  }
+
+  /** Change the shape of the array to 'new_shape', and move the base
+   * pointer by 'offset'. */
+  void set_shape(Shape new_shape, index_t offset = 0) {
+    shape_ = std::move(new_shape);
+    base_ += offset;
+  }
+
   /** Provide some aliases for common interpretations of
    * dimensions. */
   const auto& i() const { return shape_.i(); }
@@ -1574,13 +1605,6 @@ class array {
   }
   operator array_ref<T, Shape>() { return ref(); }
   operator array_ref<const T, Shape>() const { return ref(); }
-
-  /** Change the shape of the array to 'new_shape', and move the base
-   * pointer by 'offset'. */
-  void reshape(Shape new_shape, index_t offset = 0) {
-    shape_ = std::move(new_shape);
-    base_ += offset;
-  }
 };
 
 /** An array type with an arbitrary shape of rank 'Rank'. */
@@ -1770,19 +1794,22 @@ array_ref<const U, Shape> reinterpret(const array<T, Shape, Alloc>& a) {
   return reinterpret<const U>(a.ref());
 }
 
-/** Reshape the array or array_ref 'a' to have a new shape 'new_shape', with a
- * base pointer offset 'offset'. */
+/** Reinterpret the shape of the array or array_ref 'a' to be a new
+ * shape 'new_shape', with a base pointer offset 'offset'. */
 template <typename NewShape, typename T, typename OldShape>
-array_ref<T, NewShape> reshape(const array_ref<T, OldShape>& a, NewShape new_shape, index_t offset = 0) {
+array_ref<T, NewShape> reinterpret_shape(const array_ref<T, OldShape>& a,
+                                         NewShape new_shape, index_t offset = 0) {
   return array_ref<T, NewShape>(a.data() + offset, std::move(new_shape));
 }
 template <typename NewShape, typename T, typename OldShape, typename Allocator>
-array_ref<T, NewShape> reshape(array<T, OldShape, Allocator>& a, NewShape new_shape, index_t offset = 0) {
-  return reshape(a.ref(), new_shape, offset);
+array_ref<T, NewShape> reinterpret_shape(array<T, OldShape, Allocator>& a,
+                                         NewShape new_shape, index_t offset = 0) {
+  return reinterpret_shape(a.ref(), new_shape, offset);
 }
 template <typename NewShape, typename T, typename OldShape, typename Allocator>
-array_ref<const T, NewShape> reshape(const array<T, OldShape, Allocator>& a, NewShape new_shape, index_t offset = 0) {
-  return reshape(a.ref(), new_shape, offset);
+array_ref<const T, NewShape> reinterpret_shape(const array<T, OldShape, Allocator>& a,
+                                               NewShape new_shape, index_t offset = 0) {
+  return reinterpret_shape(a.ref(), new_shape, offset);
 }
 
 /** std::allocator-compatible Allocator that owns a buffer of fixed

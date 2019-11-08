@@ -289,6 +289,14 @@ TEST(array_for_each_value) {
   }
 }
 
+TEST(array_reshape) {
+  array_of_rank<int, 3> a({{-1, 10}, {-2, 10}, {-3, 10}});
+  fill_pattern(a);
+  a.reshape({5, 5, 5});
+  check_pattern(a);
+  ASSERT_EQ(a.shape().flat_extent(), 125);
+}
+
 typedef shape<dim<>, dim<>> LifetimeShape;
 auto lifetime_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10, 20));
 auto lifetime_subshape = make_shape(dim<>(-1, 4, 2), dim<>(5, 8, 20));
