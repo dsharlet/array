@@ -19,16 +19,14 @@ bin/%: obj/examples/%.o
 	mkdir -p $(@D)
 	$(CXX) -o $@ $^ $(LDFLAGS) -lstdc++ -lm
 
-.PHONY: all clean test blur matrix
+.PHONY: all clean test matrix
 
 clean:
 	rm -rf obj/* bin/*
 
 test: bin/test bin/blur bin/matrix
 	bin/test $(FILTER)
-	bin/blur
 	bin/matrix
 
 examples: bin/blur bin/matrix
-	bin/blur
 	bin/matrix
