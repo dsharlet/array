@@ -78,7 +78,7 @@ class dim_iterator {
  * indices of the dimension to offsets: offset(x) = (x - min)*stride.
  * The extent does not affect the mapping directly. Values not in the
  * range [min, min + extent) are considered to be out of bounds. */
-template <index_t Min = UNK, index_t Extent = UNK, index_t Stride = UNK>
+template <index_t Min_ = UNK, index_t Extent_ = UNK, index_t Stride_ = UNK>
 class dim {
  protected:
   index_t min_;
@@ -86,6 +86,13 @@ class dim {
   index_t stride_;
 
  public:
+  enum {
+    Min = Min_,
+    Extent = Extent_,
+    Max = Min != UNK && Extent != UNK ? Min + Extent - 1 : UNK,
+    Stride = Stride_,
+  };
+
   /** Construct a new dim object. If the class template parameters
    * 'Min', 'Extent', or 'Stride' are not 'UNK', these runtime values
    * must match the compile-time values. */
@@ -621,6 +628,13 @@ class shape<> {
   index_t operator() (const std::tuple<>& indices) const { return 0; }
   index_t operator() () const { return 0; }
 
+  array::dim<> dim(size_t d) const { return array::dim<>(); }
+  std::tuple<> dims() const { return std::tuple<>(); }
+
+  index_type min() const { return std::tuple<>(); }
+  index_type max() const { return std::tuple<>(); }
+  index_type extent() const { return std::tuple<>(); }
+
   index_t flat_extent() const { return 1; }
   index_t size() const { return 1; }
   bool empty() const { return false; }
@@ -744,6 +758,23 @@ bool is_shape_compatible(const shape<DimsDest...>& dest, const ShapeSrc& src, st
   return sum((is_dim_compatible(DimsDest(), src.template dim<Is>()) ? 0 : 1)...) == 0;
 }
 
+template <typename DimA, typename DimB>
+auto intersect_dims(const DimA& a, const DimB& b) {
+  constexpr index_t Min = DimA::Min == UNK || DimB::Min == UNK ? UNK : (DimA::Min > DimB::Min ? DimA::Min : DimB::Min);
+  constexpr index_t Max = DimA::Max == UNK || DimB::Max == UNK ? UNK : (DimA::Max < DimB::Max ? DimA::Max : DimB::Max);
+  constexpr index_t Extent = Min == UNK || Max == UNK ? UNK : Max - Min + 1;
+  constexpr index_t Stride = DimA::Stride == DimB::Stride ? DimA::Stride : UNK;
+  index_t min = std::max(a.min(), b.min());
+  index_t max = std::min(a.max(), b.max());
+  index_t extent = max - min + 1;
+  return dim<Min, Extent, Stride>(min, extent);
+}
+
+template <typename... DimsA, typename... DimsB, size_t... Is>
+auto intersect(const std::tuple<DimsA...>& a, const std::tuple<DimsB...>& b, std::index_sequence<Is...>) {
+  return make_shape(intersect_dims(std::get<Is>(a), std::get<Is>(b))...);
+}
+
 // Call 'fn' with the elements of tuple 'args' unwrapped from the tuple.
 template <typename Fn, typename IndexType, size_t... Is>
 auto tuple_arg_to_parameter_pack(Fn&& fn, const IndexType& args, std::index_sequence<Is...>) {
@@ -791,6 +822,15 @@ template <typename ShapeDest, typename ShapeSrc>
 bool is_compatible(const ShapeSrc& src) {
   static_assert(ShapeSrc::rank() == ShapeDest::rank(), "shapes must have the same rank.");
   return internal::is_shape_compatible(ShapeDest(), src, std::make_index_sequence<ShapeSrc::rank()>());
+}
+
+/** Compute the intersection of two shapes 'a' and 'b'. The
+ * intersection is the shape containing the indices in bounds of both
+ * 'a' and 'b'. */
+template <typename ShapeA, typename ShapeB>
+auto intersect(const ShapeA& a, const ShapeB& b) {
+  constexpr size_t rank = ShapeA::rank() < ShapeB::rank() ? ShapeA::rank() : ShapeB::rank();
+  return internal::intersect(a.dims(), b.dims(), std::make_index_sequence<rank>());
 }
 
 /** Iterate over all indices in the shape, calling a function 'fn' for
@@ -1474,6 +1514,7 @@ class array {
     deallocate();
     shape_ = Shape();
     allocate();
+    construct();
   }
 
   /** Provide some aliases for common interpretations of

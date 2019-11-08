@@ -347,4 +347,21 @@ TEST(shape_make_compact) {
   ASSERT_EQ(make_compact(s3), s3_compact);
 }
 
+TEST(shape_intersect) {
+  shape<> s0;
+  shape<dim<>> s1({1, 9});
+  shape<dim<0, UNK>, dim<>> s2({0, 12}, {-10, 100});
+  shape<dense_dim<-1, 5>, dim<>, dim<>> s3({-1, 5}, {10, 20}, {-100, 1000});
+  shape<dense_dim<0, 3>, dim<>, dim<>, dim<>> s4({0, 3}, {20, 40}, {-100, 1000}, {0, 1});
+
+  shape<> s0_s1;
+  shape<dim<>> s1_s2({1, 9});
+  shape<dim<0, UNK>, dim<>> s2_s3({0, 4}, {10, 20});
+  shape<dim<0, 3>, dim<>, dim<>> s3_s4({0, 3}, {20, 10}, {-100, 1000});
+  ASSERT_EQ(intersect(s0, s1), s0_s1);
+  ASSERT_EQ(intersect(s1, s2), s1_s2);
+  ASSERT_EQ(intersect(s2, s3), s2_s3);
+  ASSERT_EQ(intersect(s3, s4), s3_s4);
+}
+
 }  // namespace array
