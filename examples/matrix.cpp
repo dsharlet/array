@@ -11,8 +11,8 @@ using namespace array;
 // to make the second dimension the dense dim.
 template <index_t Rows = UNK, index_t Cols = UNK>
 using matrix_shape = shape<dim<UNK, Rows>, dense_dim<UNK, Cols>>;
-template <typename T, index_t Rows = UNK, index_t Cols = UNK>
-using matrix = array<T, matrix_shape<Rows, Cols>>;
+template <typename T, index_t Rows = UNK, index_t Cols = UNK, typename Alloc = std::allocator<T>>
+using matrix = array<T, matrix_shape<Rows, Cols>, Alloc>;
 template <typename T, index_t Rows = UNK, index_t Cols = UNK>
 using matrix_ref = array_ref<T, matrix_shape<Rows, Cols>>;
 
@@ -91,12 +91,20 @@ void multiply_tiles_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b
   // of the accumulator registers to the stack.
   constexpr int tile_rows = 4;
   constexpr int tile_cols = 32;
+  using matrix_tile =
+      matrix<TC, tile_rows, tile_cols, stack_allocator<TC, tile_rows * tile_cols>>;
+
   assert(c.rows() % tile_rows == 0);
   assert(c.columns() % tile_cols == 0);
   for (index_t i = 0; i < c.rows(); i += tile_rows) {
     for (index_t j = 0; j < c.columns(); j += tile_cols) {
-      auto sub_c = submatrix<tile_rows, tile_cols>(c.ref(), i, j);
-      multiply_tile(a, b, sub_c);
+      // Make a local accumulator matrix. Hopefully this is only ever
+      // stored in registers.
+      matrix_tile tile({{i, tile_rows}, {j, tile_cols}});
+      // Compute this tile of the result.
+      multiply_tile(a, b, tile.ref());
+      // Copy this tile to the result.
+      copy(tile, submatrix<tile_rows, tile_cols>(c.ref(), i, j));
     }
   }
 }
