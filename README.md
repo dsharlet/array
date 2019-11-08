@@ -2,8 +2,8 @@ About
 -----
 
 This library provides a multidimensional array class for C++, with the following design goals:
-* Enabling specification of array parameters as compile-time constants, enabling significantly more efficient code generation in some cases.
-* Providing an API following the conventions of the C++ STL where possible.
+* Enable specification of array parameters as compile-time constants, enabling significantly more efficient code generation in some cases.
+* Provide an API following the conventions of the C++ STL where possible.
 * Minimal dependencies and requirements (the library is currently a single header file, and depends only on the C++ STL).
 
 The library uses some ideas established in other existing projects, such as [numpy](https://numpy.org/doc/1.17/reference/arrays.ndarray.html), [Halide](https://halide-lang.org/docs/class_halide_1_1_runtime_1_1_buffer.html), and [Eigen](http://eigen.tuxfamily.org).
@@ -34,14 +34,14 @@ constexpr int width = 16;
 constexpr int height = 10;
 constexpr int depth = 3;
 my_3d_shape_type my_3d_shape(width, height, depth);
-array<int, my_3d_shape> my_array(my_3d_shape);
+array<int, my_3d_shape_type> my_array(my_3d_shape);
 ```
 
 The array can be accessed in a number of ways.
 `array::operator()(...)` and `array::at(...)` have similar semantics to `std::vector::operator[]` and `std::vector::at`.
 `array::at` will check that the index is in range, and throws `std::out_of_range` if it is not.
 There are both variadic and `index_type` overloads of both of these accessors.
-`index_type` is a specialization of `std::tuple` defined by `shape<>`, e.g. `my_3d_shape_type::index_type`.
+`index_type` is a specialization of `std::tuple` defined by `shape` (and `array` and `array_ref`), e.g. `my_3d_shape_type::index_type`.
 ```c++
 for (int z = 0; z < depth; z++) {
   for (int y = 0; y < height; y++) {
@@ -57,7 +57,7 @@ for (int z = 0; z < depth; z++) {
 }
 ```
 
-`array::for_each_value` calls a function with a reference to each value in the array.
+`array::for_each_value` and `array_ref::for_each_value` calls a function with a reference to each value in the array.
 The order in which `for_each_value` calls the function with references is undefined, allowing the implementation to reorder the traversal to optimize memory access patterns.
 ```c++
 my_array.for_each_value([](int& value) {
@@ -113,7 +113,7 @@ for_all_indices(permute<2, 0, 1>(shape), [](int z, int x, int y) {
 
 In these examples, no array parameters are compile time constants, so all of these accesses and loops expand to a `flat_offset` expression where the strides are runtime variables.
 This can prevent the compiler from generating efficient code.
-For example, the compiler may be able to auto-vectorize these loops, but if the stride of the vectorized dimension is a runtime variable, the compiler will have to generate a gather instead of a load instruction, even if the stride is one.
+For example, the compiler may be able to auto-vectorize these loops, but if the stride of the vectorized dimension is a runtime variable, the compiler will have to generate gather and scatter instructions instead of load and store instructions, even if the stride is one.
 To avoid this, we need to make array parameters compile time constants.
 However, while making array parameters compile time constants helps the compiler generate efficient code, it also makes the program less flexible.
 This library helps balance these two conflicting goals by enabling any of the array parameters to be compile time constants, but not require it.
