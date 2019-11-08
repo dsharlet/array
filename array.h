@@ -278,37 +278,19 @@ index_t max_stride(const Dims& dims, std::index_sequence<Is...>) {
   return variadic_max(std::get<Is>(dims).stride() * std::get<Is>(dims).extent()...);
 }
 
-// Get a tuple of all of the mins of the shape.
-template <typename Shape, size_t... Is>
-auto mins(const Shape& s, std::index_sequence<Is...>) {
-  return std::make_tuple(s.template dim<Is>().min()...);
+template <typename... Dims, size_t... Is>
+auto mins(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
+  return std::make_tuple(std::get<Is>(dims).min()...);
 }
 
-template <typename Shape>
-auto mins(const Shape& s) {
-  return mins(s, std::make_index_sequence<Shape::rank()>());
+template <typename... Dims, size_t... Is>
+auto extents(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
+  return std::make_tuple(std::get<Is>(dims).extent()...);
 }
 
-// Get a tuple of all of the extents of the shape.
-template <typename Shape, size_t... Is>
-auto extents(const Shape& s, std::index_sequence<Is...>) {
-  return std::make_tuple(s.template dim<Is>().extent()...);
-}
-
-template <typename Shape>
-auto extents(const Shape& s) {
-  return extents(s, std::make_index_sequence<Shape::rank()>());
-}
-
-// Get a tuple of all of the maxes of the shape.
-template <typename Shape, size_t... Is>
-auto maxes(const Shape& s, std::index_sequence<Is...>) {
-  return std::make_tuple(s.template dim<Is>().max()...);
-}
-
-template <typename Shape>
-auto maxes(const Shape& s) {
-  return maxes(s, std::make_index_sequence<Shape::rank()>());
+template <typename... Dims, size_t... Is>
+auto maxs(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
+  return std::make_tuple(std::get<Is>(dims).max()...);
 }
 
 // Resolve unknown dim quantities. Unknown extents become zero, and
@@ -499,8 +481,15 @@ class shape {
 
   /** Get an index pointing to the min or max index in each dimension
    * of this shape. */
-  index_type min() const { return internal::mins(*this); }
-  index_type max() const { return internal::maxes(*this); }
+  index_type min() const {
+    return internal::mins(dims(), std::make_index_sequence<rank()>());
+  }
+  index_type max() const {
+    return internal::maxs(dims(), std::make_index_sequence<rank()>());
+  }
+  index_type extent() const {
+    return internal::extents(dims(), std::make_index_sequence<rank()>());
+  }
 
   /** Compute the flat extent of this shape. This is the extent of the
    * valid range of values returned by at or operator(). */
@@ -742,6 +731,12 @@ bool is_shape_compatible(const shape<DimsDest...>& dest, const ShapeSrc& src, st
   return sum((is_dim_compatible(DimsDest(), src.template dim<Is>()) ? 0 : 1)...) == 0;
 }
 
+// Call 'fn' with the elements of tuple 'args' unwrapped from the tuple.
+template <typename Fn, typename IndexType, size_t... Is>
+auto tuple_arg_to_parameter_pack(Fn&& fn, const IndexType& args, std::index_sequence<Is...>) {
+  fn(std::get<Is>(args)...);
+}
+
 }  // namespace internal
 
 /** Create a new shape using a permutation DimIndices... of the
@@ -785,20 +780,6 @@ bool is_compatible(const ShapeSrc& src) {
   return internal::is_shape_compatible(ShapeDest(), src, std::make_index_sequence<ShapeSrc::rank()>());
 }
 
-namespace internal {
-
-template <typename Fn, typename IndexType, size_t... Is>
-auto tuple_arg_to_parameter_pack(Fn&& fn, const IndexType& i, std::index_sequence<Is...>) {
-  fn(std::get<Is>(i)...);
-}
-
-template <typename Fn, typename IndexType>
-auto tuple_arg_to_parameter_pack(Fn&& fn, const IndexType& i) {
-  tuple_arg_to_parameter_pack(fn, i, std::make_index_sequence<std::tuple_size<IndexType>::value>());
-}
-
-}  // namespace internal
-
 /** Iterate over all indices in the shape, calling a function 'fn' for
  * each set of indices. The order is defined by 'shape_traits<Shape>'.
  * 'for_all_indices' calls 'fn' with a list of arguments corresponding
@@ -811,7 +792,7 @@ void for_each_index(const Shape& s, Fn&& fn) {
 template <typename Shape, typename Fn>
 void for_all_indices(const Shape& s, Fn&& fn) {
   shape_traits<Shape>::for_each_index(s, [&](const typename Shape::index_type&i) {
-    internal::tuple_arg_to_parameter_pack(std::forward<Fn>(fn), i);
+    internal::tuple_arg_to_parameter_pack(std::forward<Fn>(fn), i, std::make_index_sequence<Shape::rank()>());
   });
 }
 
@@ -1134,8 +1115,8 @@ class array_ref {
    * array_refs to be considered equal, they must have the same shape, and
    * all elements addressable by the shape must also be equal. */
   bool operator!=(const array_ref& other) const {
-    if (internal::mins(shape()) != internal::mins(other.shape()) ||
-        internal::extents(shape()) != internal::extents(other.shape())) {
+    if (shape().min() != other.shape().min() ||
+	shape().extent() != other.shape().extent()) {
       return true;
     }
 
