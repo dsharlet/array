@@ -66,26 +66,6 @@ void multiply_cols_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
   }
 }
 
-// This implementation reorders the accumulator loop outermost.
-// This is suitable for use when c is small (even if a and b are
-// not).
-template <typename TAB, typename TC, index_t Rows, index_t Cols>
-void multiply_tile(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-		   const matrix_ref<TC, Rows, Cols>& c) {
-  for (int i : c.i()) {
-    for (int j : c.j()) {
-      c(i, j) = 0;
-    }
-  }
-  for (int k : a.j()) {
-    for (int i : c.i()) {
-      for (int j : c.j()) {
-        c(i, j) += a(i, k) * b(k, j);
-      }
-    }
-  }
-}
-
 // This implementation of matrix multiplication splits the loops over
 // the output matrix into chunks, and reorders the inner loops
 // innermost to form tiles. This implementation should allow the compiler
@@ -103,15 +83,21 @@ void multiply_tiles_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b
 
   assert(c.rows() % tile_rows == 0);
   assert(c.columns() % tile_cols == 0);
-  for (index_t i = 0; i < c.rows(); i += tile_rows) {
-    for (index_t j = 0; j < c.columns(); j += tile_cols) {
+  for (index_t io = 0; io < c.rows(); io += tile_rows) {
+    for (index_t jo = 0; jo < c.columns(); jo += tile_cols) {
       // Make a local accumulator matrix. Hopefully this is only ever
       // stored in registers.
-      matrix_tile tile({{i, tile_rows}, {j, tile_cols}});
+      matrix_tile c_tile({{io, tile_rows}, {jo, tile_cols}}, 0);
       // Compute this tile of the result.
-      multiply_tile(a, b, tile.ref());
+      for (int k : a.j()) {
+	for (int i : c_tile.i()) {
+	  for (int j : c_tile.j()) {
+	    c_tile(i, j) += a(i, k) * b(k, j);
+	  }
+	}
+      }
       // Copy this tile to the result.
-      copy(tile, submatrix<tile_rows, tile_cols>(c.ref(), i, j));
+      copy(c_tile, submatrix<tile_rows, tile_cols>(c.ref(), io, jo));
     }
   }
 }
