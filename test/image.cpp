@@ -128,4 +128,25 @@ TEST(image_deinterleave) {
   test_copy_all_types<chunky_image_shape<4>, planar_image_shape>(4);
 }
 
+TEST(image_chunky_padded) {
+  chunky_image<int, 4> src({40, 30, 4});
+  fill_pattern(src);
+  chunky_image<int, 4> dest(src.shape(), 5);
+
+  chunky_image_ref<const int, 3, 4> src_rgb(src.data(), {src.width(), src.height(), 3});
+  chunky_image_ref<int, 3, 4> dest_rgb(dest.data(), {src.width(), src.height(), 3});
+  copy(src_rgb, dest_rgb);
+
+  for (int y = 0; y < dest.height(); y++) {
+    for (int x = 0; x < dest.width(); x++) {
+      ASSERT_EQ(dest(x, y, 0), src(x, y, 0));
+      ASSERT_EQ(dest(x, y, 1), src(x, y, 1));
+      ASSERT_EQ(dest(x, y, 2), src(x, y, 2));
+      // The channel corresponding to padding should not have been
+      // overwritten by the pattern.
+      ASSERT_EQ(dest(x, y, 3), 5);
+    }
+  }
+}
+
 }  // namespace array

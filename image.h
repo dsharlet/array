@@ -32,7 +32,7 @@ template <index_t Channels, index_t ChannelStride>
 class shape_traits<chunky_image_shape<Channels, ChannelStride>> {
  public:
   template <typename Fn>
-  static void for_each_index(const chunky_image_shape<Channels>& s, Fn&& fn) {
+  static void for_each_index(const chunky_image_shape<Channels, ChannelStride>& s, Fn&& fn) {
     // chunky images should be iterated on in this order due to
     // c being dense.
     for (index_t y : s.y()) {
