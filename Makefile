@@ -24,7 +24,7 @@ bin/%: obj/examples/%.o
 clean:
 	rm -rf obj/* bin/*
 
-test: bin/test bin/blur bin/matrix
+test: bin/test bin/matrix
 	bin/test $(FILTER)
 	bin/matrix
 
