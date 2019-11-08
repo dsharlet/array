@@ -24,6 +24,33 @@ TEST(image_crop) {
   test_crop<chunky_image_shape<3>>();
 }
 
+template <typename Shape, index_t Channel>
+void test_slice() {
+  array<int, Shape> base({100, 80, 3});
+  fill_pattern(base);
+
+  auto slice = slice_channel<Channel>(base);
+  for_all_indices(slice.shape(), [&](int x, int y) {
+    ASSERT_EQ(slice(x, y), pattern<int>(std::make_tuple(x, y, Channel)));
+  });
+
+  auto crop_slice = slice_channel<Channel>(crop(base, 5, 3, 80, 70, crop_origin::crop));
+  for_all_indices(crop_slice.shape(), [&](int x, int y) {
+    ASSERT_EQ(crop_slice(x, y), pattern<int>(std::make_tuple(x, y, Channel)));
+  });
+}
+
+template <typename Shape>
+void test_all_slices() {
+  test_slice<Shape, 0>();
+  test_slice<Shape, 1>();
+  test_slice<Shape, 2>();
+}
+
+TEST(image_slice) {
+  test_all_slices<planar_image_shape>();
+  test_all_slices<chunky_image_shape<3>>();
+}
 
 template <typename T, typename ShapeSrc, typename ShapeDest>
 void test_copy(index_t channels) {
@@ -80,7 +107,7 @@ TEST(image_chunky_copy) {
 }
 
 TEST(image_planar_copy) {
-  for (int i = 1; i <= 5; i++) {
+  for (int i = 1; i <= 4; i++) {
     test_copy_all_types<planar_image_shape, planar_image_shape>(i);
   }
 }
