@@ -8,19 +8,27 @@ using namespace array;
 
 // The standard matrix notation is to refer to elements by 'row,
 // column'. To make this efficient for typical programs, we're going
-// to make the second dimension the dense dim.
+// to make the second dimension the dense dim. This shape has the
+// option of making the size of the matrix compile-time constant via
+// the template parameters.
 template <index_t Rows = UNK, index_t Cols = UNK>
 using matrix_shape = shape<dim<UNK, Rows>, dense_dim<UNK, Cols>>;
-template <typename T, index_t Rows = UNK, index_t Cols = UNK, typename Alloc = std::allocator<T>>
+
+// A matrix or matrix_ref is an array or array_ref with Shape =
+// matrix_shape.
+template <typename T, index_t Rows = UNK, index_t Cols = UNK,
+	  typename Alloc = std::allocator<T>>
 using matrix = array<T, matrix_shape<Rows, Cols>, Alloc>;
 template <typename T, index_t Rows = UNK, index_t Cols = UNK>
 using matrix_ref = array_ref<T, matrix_shape<Rows, Cols>>;
 
+// Make a reference to a submatrix of 'm', of size 'rows' x 'cols',
+// starting at 'row', 'col'.
 template <index_t Rows = UNK, index_t Cols = UNK, typename T>
-matrix_ref<T> submatrix(const matrix_ref<T>& m, index_t row, index_t col, index_t rows = Rows, index_t cols = Cols) {
-  return matrix_ref<T>(&m(row, col),
-		       matrix_shape<Rows, Cols>(dim<>(row, rows, m.i().stride()),
-						dense_dim<>(col, cols)));
+matrix_ref<T> submatrix(const matrix_ref<T>& m, index_t row, index_t col,
+			index_t rows = Rows, index_t cols = Cols) {
+  matrix_shape<Rows, Cols> s({row, rows, m.i().stride()}, {col, cols});
+  return matrix_ref<T>(&m(row, col), s);
 }
 
 // A textbook implementation of matrix multiplication.
@@ -62,7 +70,6 @@ void multiply_cols_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
 // This is suitable for use when c is small (even if a and b are
 // not).
 template <typename TAB, typename TC, index_t Rows, index_t Cols>
-__attribute__((noinline))
 void multiply_tile(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
 		   const matrix_ref<TC, Rows, Cols>& c) {
   for (int i : c.i()) {
@@ -110,7 +117,7 @@ void multiply_tiles_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b
 }
 
 int main(int argc, const char** argv) {
-  // Generate two random input matrices.
+  // Define two input matrices.
   constexpr int M = 128;
   constexpr int K = 256;
   constexpr int N = 512;
@@ -119,7 +126,7 @@ int main(int argc, const char** argv) {
 
   // 'for_each_value' calls the given function with a reference to
   // each value in the array. Use this to randomly initialize the
-  // matrices.
+  // matrices with random values.
   std::mt19937_64 rng;
   std::uniform_real_distribution<float> uniform(0, 1);
   a.for_each_value([&](float& x) { x = uniform(rng); });
@@ -152,15 +159,16 @@ int main(int argc, const char** argv) {
         std::cout
           << "c_cols_innermost(" << i << ", " << j << ") = " << c_cols_innermost(i, j)
           << " != c_naive(" << i << ", " << j << ") = " << c_naive(i, j) << std::endl;
-        abort();
+        return -1;
       }
       if (std::abs(c_tiles_innermost(i, j) - c_naive(i, j)) > epsilon) {
         std::cout
           << "c_tiles_innermost(" << i << ", " << j << ") = " << c_tiles_innermost(i, j)
           << " != c_naive(" << i << ", " << j << ") = " << c_naive(i, j) << std::endl;
-        abort();
+        return -1;
       }
     }
   }
+  return 0;
 }
 
