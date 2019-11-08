@@ -1081,6 +1081,8 @@ class array_ref {
   static constexpr size_t rank() { return Shape::rank(); }
   static constexpr bool is_scalar() { return Shape::is_scalar(); }
   template <size_t D>
+  auto& dim() { return shape_.template dim<D>(); }
+  template <size_t D>
   const auto& dim() const { return shape_.template dim<D>(); }
   array::dim<> dim(size_t d) const { return shape_.dim(d); }
   size_type size() const { return shape_.size(); }
@@ -1089,15 +1091,23 @@ class array_ref {
 
   /** Provide some aliases for common interpretations of
    * dimensions. */
+  auto& i() { return shape_.i(); }
   const auto& i() const { return shape_.i(); }
+  auto& j() { return shape_.j(); }
   const auto& j() const { return shape_.j(); }
+  auto& k() { return shape_.k(); }
   const auto& k() const { return shape_.k(); }
 
+  auto& x() { return shape_.x(); }
   const auto& x() const { return shape_.x(); }
+  auto& y() { return shape_.y(); }
   const auto& y() const { return shape_.y(); }
+  auto& z() { return shape_.z(); }
   const auto& z() const { return shape_.z(); }
+  auto& w() { return shape_.w(); }
   const auto& w() const { return shape_.w(); }
 
+  auto& c() { return shape_.c(); }
   const auto& c() const { return shape_.c(); }
 
   /** Assuming this array represents an image with dimensions width,
