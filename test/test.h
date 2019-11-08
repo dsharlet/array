@@ -12,15 +12,41 @@
 
 namespace array {
 
-template <typename... Dims>
-std::ostream& operator<<(std::ostream& s, const shape<Dims...>& sh) {
+inline void ostream_comma_separated_list(std::ostream& s) {}
+
+template <typename T>
+void ostream_comma_separated_list(std::ostream& s, T item) {
+  s << item;
+}
+
+template <typename T, typename... Ts>
+void ostream_comma_separated_list(std::ostream& s, T item, Ts... items) {
+  s << item << ", ";
+  ostream_comma_separated_list(s, items...);
+}
+
+template <typename... Ts, size_t... Is>
+void ostream_tuple(std::ostream& s, const std::tuple<Ts...>& t, std::index_sequence<Is...>) {
+  ostream_comma_separated_list(s, std::get<Is>(t)...);
+}
+
+template <typename... Ts>
+std::ostream& operator<<(std::ostream& s, const std::tuple<Ts...>& t) {
   s << "{";
-  for (size_t d = 0; d < sh.rank(); d++) {
-    if (d != 0) s << ", ";
-    s << "<" << sh.dim(d).min() << ", " << sh.dim(d).extent() << ", " << sh.dim(d).stride() << ">";
-  }
+  ostream_tuple(s, t, std::make_index_sequence<sizeof...(Ts)>());
   s << "}";
   return s;
+}
+
+template <index_t Min, index_t Extent, index_t Stride>
+std::ostream& operator<<(std::ostream& s, const dim<Min, Extent, Stride>& d) {
+  s << "<" << d.min() << ", " << d.extent() << ", " << d.stride() << ">";
+  return s;
+}
+
+template <typename... Dims>
+std::ostream& operator<<(std::ostream& s, const shape<Dims...>& sh) {
+  return s << sh.dims();
 }
 
 inline float randf() {
@@ -129,7 +155,7 @@ template <typename T, typename Shape>
 void check_pattern(const array_ref<T, Shape>& a,
 		   const typename Shape::index_type& offset = typename Shape::index_type()) {
   for_each_index(a.shape(), [&](const typename Shape::index_type& i) {
-    ASSERT_EQ(a(i), pattern<T>(i, offset));
+    ASSERT_EQ(a(i), pattern<T>(i, offset)) << "i=" << i << ", offset=" << offset;
   });
 }
 template <typename T, typename Shape, typename Alloc>
