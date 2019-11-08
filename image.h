@@ -16,19 +16,20 @@ template <typename T>
 using image_ref = array_ref_of_rank<T, 3>;
 
 /** A 'chunky' image is an array with 3 dimensions x, y, c, where c is
- * dense, and the dimension with the next stride is x. This is a
- * common image storage format used by many programs working with
- * images. */
-template <index_t Channels>
+ * dense, and the dimension with the next stride is x. The stride in x
+ * may be larger than the number of channels, to allow for padding
+ * pixels to a convenient alignment. This is a common image storage
+ * format used by many programs working with images. */
+template <index_t Channels, index_t ChannelStride = Channels>
 using chunky_image_shape =
-  shape<strided_dim<Channels>, dim<>, dense_dim<0, Channels>>;
-template <typename T, index_t Channels>
-using chunky_image = array<T, chunky_image_shape<Channels>>;
-template <typename T, index_t Channels>
-using chunky_image_ref = array_ref<T, chunky_image_shape<Channels>>;
+  shape<strided_dim<ChannelStride>, dim<>, dense_dim<0, Channels>>;
+template <typename T, index_t Channels, index_t ChannelStride = Channels>
+using chunky_image = array<T, chunky_image_shape<Channels, ChannelStride>>;
+template <typename T, index_t Channels, index_t ChannelStride = Channels>
+using chunky_image_ref = array_ref<T, chunky_image_shape<Channels, ChannelStride>>;
 
-template <index_t Channels>
-class shape_traits<chunky_image_shape<Channels>> {
+template <index_t Channels, index_t ChannelStride>
+class shape_traits<chunky_image_shape<Channels, ChannelStride>> {
  public:
   template <typename Fn>
   static void for_each_index(const chunky_image_shape<Channels>& s, Fn&& fn) {
