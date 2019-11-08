@@ -102,7 +102,14 @@ class dim {
    * template parameters. */
   template <index_t CopyMin, index_t CopyExtent, index_t CopyStride>
   dim(const dim<CopyMin, CopyExtent, CopyStride>& other)
-      : dim(other.min(), other.extent(), other.stride()) {}
+      : dim(other.min(), other.extent(), other.stride()) {
+    static_assert(Min == UNK || CopyMin == UNK || Min == CopyMin,
+		  "incompatible mins.");
+    static_assert(Extent == UNK || CopyExtent == UNK || Extent == CopyExtent,
+		  "incompatible extents.");
+    static_assert(Stride == UNK || CopyStride == UNK || Stride == CopyStride,
+		  "incompatible strides.");
+  }
 
   dim& operator=(const dim&) = default;
   dim& operator=(dim&&) = default;
@@ -110,6 +117,12 @@ class dim {
    * compile-time template parameters. */
   template <index_t CopyMin, index_t CopyExtent, index_t CopyStride>
   dim& operator=(const dim<CopyMin, CopyExtent, CopyStride>& other) {
+    static_assert(Min == UNK || CopyMin == UNK || Min == CopyMin,
+		  "incompatible mins.");
+    static_assert(Extent == UNK || CopyExtent == UNK || Extent == CopyExtent,
+		  "incompatible extents.");
+    static_assert(Stride == UNK || CopyStride == UNK || Stride == CopyStride,
+		  "incompatible strides.");
     ARRAY_CHECK_CONSTRAIT(Min, other.min());
     min_ = other.min();
     ARRAY_CHECK_CONSTRAIT(Extent, other.extent());
