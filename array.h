@@ -1517,7 +1517,9 @@ class array {
   bool empty() const { return shape_.empty(); }
   bool is_compact() const { return shape_.is_compact(); }
 
-  /** Reset the shape of this array to default. */
+  /** Reset the shape of this array to default. If the default Shape
+   * is non-empty, the elements of the array will be default
+   * constructed. */
   void clear() {
     deallocate();
     shape_ = Shape();
