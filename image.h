@@ -156,7 +156,7 @@ array_ref<T, Shape> crop(array<T, Shape>& im,
  * or image ref. */
 template <index_t Channel, typename T, typename Shape>
 auto slice_channel(const array_ref<T, Shape>& im) {
-  auto shape = permute<0, 1>(im.shape());
+  auto shape = reorder<0, 1>(im.shape());
   T* base = &im(im.x().min(), im.y().min(), Channel);
   return array_ref<T, decltype(shape)>(base, shape);
 }

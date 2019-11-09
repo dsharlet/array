@@ -987,10 +987,10 @@ class copy_shape_traits {
 };
 
 
-/** Create a new shape using a permutation DimIndices... of the
+/** Create a new shape using a list of DimIndices to use as the
  * dimensions of the shape. */
 template <size_t... DimIndices, typename Shape>
-auto permute(const Shape& shape) {
+auto reorder(const Shape& shape) {
   return make_shape(shape.template dim<DimIndices>()...);
 }
 
