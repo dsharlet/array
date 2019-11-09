@@ -573,7 +573,7 @@ class shape {
   /** Returns true if this shape is 'compact' in memory. A shape is
    * compact if there are no unaddressable flat indices between the
    * first and last addressable flat elements. */
-  bool is_compact() const { return size() == flat_extent(); }
+  bool is_compact() const { return flat_extent() <= size(); }
 
   /** Provide some aliases for common interpretations of
    * dimensions. */
