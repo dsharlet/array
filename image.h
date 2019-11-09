@@ -76,12 +76,8 @@ class shape_traits<chunky_image_shape<Channels>> {
   // by fusing the x and c dimensions.
   template <typename Fn, typename... T>
   static void for_each_value(const shape_type& s, Fn&& fn, T... base) {
-    for (index_t y = 0; y < s.height(); y++) {
-      for (index_t x = 0; x < s.width() * Channels; x++) {
-	index_t offset = y * s.y().stride() + x;
-	fn(base[offset]...);
-      }
-    }
+    dense_shape<2> opt_s({s.x().min() * Channels, s.x().extent() * Channels}, s.y());
+    for_each_value_in_order(opt_s, fn, base...);
   }
 };
 

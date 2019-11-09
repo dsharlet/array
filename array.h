@@ -408,7 +408,7 @@ class shape {
    * stride. This is done in innermost-to-outermost order. */
   shape() { internal::resolve_unknowns(dims_); }
   shape(std::tuple<Dims...> dims) : dims_(std::move(dims)) { internal::resolve_unknowns(dims_); }
-  shape(Dims&&... dims) : dims_(dims...) { internal::resolve_unknowns(dims_); }
+  shape(Dims... dims) : dims_(std::move(dims)...) { internal::resolve_unknowns(dims_); }
   shape(const shape&) = default;
   shape(shape&&) = default;
   /** Construct this shape from a different type of
@@ -656,18 +656,55 @@ auto make_dense_shape(index_t dim0_extent, Extents... extents) {
 
 namespace internal {
 
-// This genius trick is from
-// https://github.com/halide/Halide/blob/30fb4fcb703f0ca4db6c1046e77c54d9b6d29a86/src/runtime/HalideBuffer.h#L2088-L2108
 template<size_t D, typename Dims, typename Fn, typename... Indices,
-  typename = decltype(std::declval<Fn>()(std::declval<std::tuple<Indices...>>()))>
-void for_each_index_in_order_impl(int, const Dims& dims, Fn &&fn, const std::tuple<Indices...>& indices) {
-  fn(indices);
+  std::enable_if_t<(D == 0), int> = 0>
+void for_each_index_in_order(const Dims& dims, Fn&& fn, const std::tuple<Indices...>& indices) {
+  for (index_t i : std::get<D>(dims)) {
+    fn(std::tuple_cat(std::make_tuple(i), indices));
+  }
 }
 
-template<size_t D, typename Dims, typename Fn, typename... Indices>
-void for_each_index_in_order_impl(double, const Dims& dims, Fn &&fn, const std::tuple<Indices...>& indices) {
+template<size_t D, typename Dims, typename Fn, typename... Indices,
+  std::enable_if_t<(D > 0), int> = 0>
+void for_each_index_in_order(const Dims& dims, Fn&& fn, const std::tuple<Indices...>& indices) {
   for (index_t i : std::get<D>(dims)) {
-    for_each_index_in_order_impl<D - 1>(0, dims, std::forward<Fn>(fn), std::tuple_cat(std::make_tuple(i), indices));
+    for_each_index_in_order<D - 1>(dims, std::forward<Fn>(fn), std::tuple_cat(std::make_tuple(i), indices));
+  }
+}
+
+inline void advance(std::ptrdiff_t n) {}
+
+template <typename Ptr, typename... Ptrs>
+void advance(std::ptrdiff_t n, Ptr& ptr, Ptrs&... ptrs) {
+  ptr += n;
+  advance(n, ptrs...);
+}
+
+template <size_t D, typename Dims, typename Fn, typename... Ptrs,
+  std::enable_if_t<(D == 0), int> = 0>
+void for_each_value_in_order(const Dims& dims, Fn&& fn, Ptrs... ptrs) {
+  index_t extent = std::get<0>(dims).extent();
+  index_t stride = std::get<0>(dims).stride();
+  if (stride == 1) {
+    for (index_t i = 0; i < extent; i++) {
+      fn(*ptrs++...);
+    }
+  } else {
+    for (index_t i = 0; i < extent; i++) {
+      fn(*ptrs...);
+      advance(stride, ptrs...);
+    }
+  }
+}
+
+template <size_t D, typename Dims, typename Fn, typename... Ptrs,
+  std::enable_if_t<(D > 0), int> = 0>
+void for_each_value_in_order(const Dims& dims, Fn&& fn, Ptrs... ptrs) {
+  index_t extent = std::get<D>(dims).extent();
+  index_t stride = std::get<D>(dims).stride();
+  for (index_t i = 0; i < extent; i++) {
+    for_each_value_in_order<D - 1>(dims, std::forward<Fn>(fn), ptrs...);
+    advance(stride, ptrs...);
   }
 }
 
@@ -780,7 +817,11 @@ auto intersect(const ShapeA& a, const ShapeB& b) {
  * and the last dim is the 'outer' loop. */
 template<typename Shape, typename Fn>
 void for_each_index_in_order(const Shape& shape, Fn &&fn) {
-  internal::for_each_index_in_order_impl<Shape::rank() - 1>(0, shape.dims(), std::forward<Fn>(fn), std::tuple<>());
+  internal::for_each_index_in_order<Shape::rank() - 1>(shape.dims(), std::forward<Fn>(fn), std::tuple<>());
+}
+template<typename Shape, typename Fn, typename... Ptrs>
+void for_each_value_in_order(const Shape& shape, Fn &&fn, Ptrs... ptrs) {
+  internal::for_each_value_in_order<Shape::rank() - 1>(shape.dims(), std::forward<Fn>(fn), ptrs...);
 }
 
 namespace internal {
@@ -907,23 +948,7 @@ class shape_traits {
   template <typename Fn, typename... T>
   static void for_each_value(const Shape& shape, Fn&& fn, T... base) {
     auto opt_shape = internal::dynamic_optimize_shape(shape);
-
-    // If the optimized shape's first dimension has stride 1, we can
-    // convert this to a dense shape. This may help the compiler optimize
-    // this further.
-    typedef typename Shape::index_type index_type;
-    if (opt_shape.template dim<0>().stride() == 1) {
-      dense_shape<Shape::rank()> dense_opt_shape = opt_shape;
-      for_each_index_in_order(dense_opt_shape, [&](const index_type& index) {
-	index_t flat_index = dense_opt_shape(index);
-	fn(base[flat_index]...);
-      });
-    } else {
-      for_each_index(shape, [&](const index_type& index) {
-	index_t flat_index = shape(index);
-	fn(base[flat_index]...);
-      });
-    }
+    for_each_value_in_order(opt_shape, fn, base...);
   }
 };
 
