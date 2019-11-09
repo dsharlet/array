@@ -661,6 +661,18 @@ class shape<> {
   bool operator!=(const shape<>& other) const { return false; }
 };
 
+/** Helper function to make a tuple from a variadic list of dims. */
+template <typename... Dims>
+auto make_shape(Dims... dims) {
+  return shape<Dims...>(std::forward<Dims>(dims)...);
+}
+
+/** Helper function to make a dense shape from a variadic list of extents. */
+template <typename... Extents>
+auto make_dense_shape(index_t dim0_extent, Extents... extents) {
+  return make_shape(dense_dim<>(dim0_extent), dim<>(extents)...);
+}
+
 namespace internal {
 
 // This genius trick is from
@@ -677,60 +689,6 @@ void for_each_index_in_order_impl(double, const Dims& dims, Fn &&fn, const std::
     for_each_index_in_order_impl<D - 1>(0, dims, std::forward<Fn>(fn), std::tuple_cat(std::make_tuple(i), indices));
   }
 }
-
-}  // namespace internal
-
-/** Iterate over all indices in the shape, calling a function 'fn' for
- * each set of indices. The indices are in the same order as the dims
- * in the shape. The first dim is the 'inner' loop of the iteration,
- * and the last dim is the 'outer' loop. */
-template<typename Shape, typename Fn>
-void for_each_index_in_order(const Shape& shape, Fn &&fn) {
-  internal::for_each_index_in_order_impl<Shape::rank() - 1>(0, shape.dims(), std::forward<Fn>(fn), std::tuple<>());
-}
-
-/** Shape traits enable some behaviors to be overriden per shape
- * type. */
-template <typename Shape>
-class shape_traits {
- public:
-  /** The for_each_index implementation for the shape may choose
-   * to iterate in a different order than the default (in-order). */
-  template <typename Fn>
-  static void for_each_index(const Shape& shape, Fn&& fn) {
-    for_each_index_in_order(shape, std::forward<Fn>(fn));
-  }
-
-  /** Indicates whether for_each_value should attempt to optimize the
-   * shape at runtime, or if it should simply use
-   * shape_traits<>::for_each_index. */
-  using optimize_for_each_value_at_runtime = std::true_type;
-};
-
-template <>
-class shape_traits<shape<>> {
- public:
-  template <typename Fn>
-  static void for_each_index(const shape<>&, Fn&& fn) {
-    fn(std::tuple<>());
-  }
-
-  using optimize_for_each_value_at_runtime = std::false_type;
-};
-
-/** Helper function to make a tuple from a variadic list of dims. */
-template <typename... Dims>
-auto make_shape(Dims... dims) {
-  return shape<Dims...>(std::forward<Dims>(dims)...);
-}
-
-/** Helper function to make a dense shape from a variadic list of extents. */
-template <typename... Extents>
-auto make_dense_shape(index_t dim0_extent, Extents... extents) {
-  return make_shape(dense_dim<>(dim0_extent), dim<>(extents)...);
-}
-
-namespace internal {
 
 template <typename... Dims>
 shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
@@ -797,13 +755,6 @@ auto tuple_arg_to_parameter_pack(Fn&& fn, const IndexType& args, std::index_sequ
 
 }  // namespace internal
 
-/** Create a new shape using a permutation DimIndices... of the
- * dimensions of the shape. */
-template <size_t... DimIndices, typename Shape>
-auto permute(const Shape& shape) {
-  return make_shape(shape.template dim<DimIndices>()...);
-}
-
 /** Make a shape with an equivalent domain of indices, but with dense
  * strides. */
 template <typename... Dims>
@@ -848,19 +799,12 @@ auto intersect(const ShapeA& a, const ShapeB& b) {
 }
 
 /** Iterate over all indices in the shape, calling a function 'fn' for
- * each set of indices. The order is defined by 'shape_traits<Shape>'.
- * 'for_all_indices' calls 'fn' with a list of arguments corresponding
- * to each dim. 'for_each_index' calls 'fn' with a Shape::index_type
- * object describing the indices. */
-template <typename Shape, typename Fn>
-void for_each_index(const Shape& s, Fn&& fn) {
-  shape_traits<Shape>::for_each_index(s, std::forward<Fn>(fn));
-}
-template <typename Shape, typename Fn>
-void for_all_indices(const Shape& s, Fn&& fn) {
-  shape_traits<Shape>::for_each_index(s, [&](const typename Shape::index_type&i) {
-    internal::tuple_arg_to_parameter_pack(std::forward<Fn>(fn), i, std::make_index_sequence<Shape::rank()>());
-  });
+ * each set of indices. The indices are in the same order as the dims
+ * in the shape. The first dim is the 'inner' loop of the iteration,
+ * and the last dim is the 'outer' loop. */
+template<typename Shape, typename Fn>
+void for_each_index_in_order(const Shape& shape, Fn &&fn) {
+  internal::for_each_index_in_order_impl<Shape::rank() - 1>(0, shape.dims(), std::forward<Fn>(fn), std::tuple<>());
 }
 
 namespace internal {
@@ -868,7 +812,7 @@ namespace internal {
 // Sort the dims such that strides are increasing from dim 0, and
 // contiguous dimensions are fused.
 template <typename Shape>
-shape_of_rank<Shape::rank()> optimize_shape(const Shape& shape) {
+shape_of_rank<Shape::rank()> dynamic_optimize_shape(const Shape& shape) {
   auto dims = internal::dims_as_array(shape.dims());
 
   // Sort the dims by stride.
@@ -902,43 +846,11 @@ shape_of_rank<Shape::rank()> optimize_shape(const Shape& shape) {
   return make_shape_from_array<shape_of_rank<Shape::rank()>>(dims);
 }
 
-template <typename Shape, typename Fn, typename... T,
-  std::enable_if_t<shape_traits<Shape>::optimize_for_each_value_at_runtime::value, int> = 0>
-void for_each_value(const Shape& shape, Fn&& fn, T... base) {
-  auto opt_shape = optimize_shape(shape);
-
-  // If the optimized shape's first dimension has stride 1, we can
-  // convert this to a dense shape. This may help the compiler optimize
-  // this further.
-  typedef typename Shape::index_type index_type;
-  if (opt_shape.template dim<0>().stride() == 1) {
-    dense_shape<Shape::rank()> dense_opt_shape = opt_shape;
-    for_each_index(dense_opt_shape, [&](const index_type& index) {
-      index_t flat_index = dense_opt_shape(index);
-      fn(base[flat_index]...);
-    });
-  } else {
-    for_each_index(opt_shape, [&](const index_type& index) {
-      index_t flat_index = opt_shape(index);
-      fn(base[flat_index]...);
-    });
-  }
-}
-
-template <typename Shape, typename Fn, typename... T,
-  std::enable_if_t<!shape_traits<Shape>::optimize_for_each_value_at_runtime::value, int> = 0>
-void for_each_value(const Shape& shape, Fn&& fn, T... base) {
-  for_each_index(shape, [&](const typename Shape::index_type& i) {
-    index_t flat_index = shape(i);
-    fn(base[flat_index]...);
-  });
-}
-
 // Optimize a src and dest shape. The dest shape is made dense, and contiguous
 // dimensions are fused.
 template <typename ShapeSrc, typename ShapeDest>
 std::pair<shape_of_rank<ShapeSrc::rank()>, shape_of_rank<ShapeDest::rank()>>
-optimize_src_dest_shapes(const ShapeSrc& src, const ShapeDest& dest) {
+dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
   constexpr size_t rank = ShapeSrc::rank();
   static_assert(rank == ShapeDest::rank(), "copy shapes must have same rank.");
   auto src_dims = internal::dims_as_array(src.dims());
@@ -999,55 +911,131 @@ optimize_src_dest_shapes(const ShapeSrc& src, const ShapeDest& dest) {
   };
 }
 
- // Call fn on the values of src and dest in any order.
-template <typename ShapeSrc, typename ShapeDest, typename Fn, typename TSrc, typename TDest,
-  std::enable_if_t<shape_traits<ShapeDest>::optimize_for_each_value_at_runtime::value, int> = 0>
-void for_each_src_dest(const ShapeSrc& shape_src, const ShapeDest& shape_dest,
-                       Fn&& fn, TSrc* src, TDest* dest) {
-  // For this function, we don't care about the order in which the
-  // callback is called. Optimize the shapes for memory access order.
-  auto opt_shape = optimize_src_dest_shapes(shape_src, shape_dest);
-  const auto& opt_shape_src = opt_shape.first;
-  const auto& opt_shape_dest = opt_shape.second;
+}  // namespace internal
 
-  // If the optimized shape's first dimension is 1, we can convert
-  // this to a dense shape. This may help the compiler optimize this
-  // further.
-  typedef typename ShapeDest::index_type index_type;
-  if (opt_shape_src.template dim<0>().stride() == 1 &&
-      opt_shape_dest.template dim<0>().stride() == 1) {
-    dense_shape<ShapeSrc::rank()> dense_opt_shape_src = opt_shape_src;
-    dense_shape<ShapeDest::rank()> dense_opt_shape_dest = opt_shape_dest;
-    for_each_index(dense_opt_shape_dest, [&](const index_type& index) {
-      fn(src[dense_opt_shape_src(index)], dest[dense_opt_shape_dest(index)]);
-    });
-  } else if (opt_shape_dest.template dim<0>().stride() == 1) {
-    dense_shape<ShapeDest::rank()> dense_opt_shape_dest = opt_shape_dest;
-    for_each_index(dense_opt_shape_dest, [&](const index_type& index) {
-      fn(src[opt_shape_src(index)], dest[dense_opt_shape_dest(index)]);
-    });
-  } else {
-    for_each_index(opt_shape_dest, [&](const index_type& index) {
-      fn(src[opt_shape_src(index)], dest[opt_shape_dest(index)]);
-    });
+/** Shape traits enable some behaviors to be overriden per shape
+ * type. */
+template <typename Shape>
+class shape_traits {
+ public:
+  typedef Shape shape_type;
+
+  /** The for_each_index implementation for the shape may choose
+   * to iterate in a different order than the default (in-order). */
+  template <typename Fn>
+  static void for_each_index(const Shape& shape, Fn&& fn) {
+    for_each_index_in_order(shape, std::forward<Fn>(fn));
   }
-  // The dense src, non-dense dest case is omitted. That seems unlikely
-  // given that we sorted the dimensions to make the dest dense,
-  // but it could happen if the dest does not have any dense dimensions,
-  // and the source has one in the same place as the innermost dimension
-  // of dest.
+
+  /** The for_each_value implementation for the shape may be able
+   * to statically optimize shape. The default implementation
+   * optimizes the shape at runtime, and the only attempts to convert
+   * the shape to a dense_shape. */
+  template <typename Fn, typename... T>
+  static void for_each_value(const Shape& shape, Fn&& fn, T... base) {
+    auto opt_shape = internal::dynamic_optimize_shape(shape);
+
+    // If the optimized shape's first dimension has stride 1, we can
+    // convert this to a dense shape. This may help the compiler optimize
+    // this further.
+    typedef typename Shape::index_type index_type;
+    if (opt_shape.template dim<0>().stride() == 1) {
+      dense_shape<Shape::rank()> dense_opt_shape = opt_shape;
+      for_each_index_in_order(dense_opt_shape, [&](const index_type& index) {
+	index_t flat_index = dense_opt_shape(index);
+	fn(base[flat_index]...);
+      });
+    } else {
+      for_each_index(shape, [&](const index_type& index) {
+	index_t flat_index = shape(index);
+	fn(base[flat_index]...);
+      });
+    }
+  }
+};
+
+template <>
+class shape_traits<shape<>> {
+ public:
+  typedef shape<> shape_type;
+
+  template <typename Fn>
+  static void for_each_index(const shape<>&, Fn&& fn) {
+    fn(std::tuple<>());
+  }
+
+  template <typename Fn, typename... T>
+  static void for_each_value(const shape<>&, Fn&& fn, T... base) {
+    fn(*base...);
+  }
+};
+
+/** Copy shape traits enable some behaviors to be overriden on a
+ * pairwise shape basis for copies. */
+template <typename ShapeSrc, typename ShapeDest>
+class copy_shape_traits {
+ public:
+  template <typename Fn, typename TSrc, typename TDest>
+  static void for_each_value(const ShapeSrc& shape_src, const ShapeDest& shape_dest,
+                             Fn&& fn, TSrc src, TDest dest) {
+    // For this function, we don't care about the order in which the
+    // callback is called. Optimize the shapes for memory access order.
+    auto opt_shape = internal::dynamic_optimize_copy_shapes(shape_src, shape_dest);
+    const auto& opt_shape_src = opt_shape.first;
+    const auto& opt_shape_dest = opt_shape.second;
+
+    // If the optimized shape's first dimension is 1, we can convert
+    // this to a dense shape. This may help the compiler optimize this
+    // further.
+    typedef typename ShapeDest::index_type index_type;
+    if (opt_shape_src.template dim<0>().stride() == 1 &&
+        opt_shape_dest.template dim<0>().stride() == 1) {
+      dense_shape<ShapeSrc::rank()> dense_opt_shape_src = opt_shape_src;
+      dense_shape<ShapeDest::rank()> dense_opt_shape_dest = opt_shape_dest;
+      for_each_index_in_order(dense_opt_shape_dest, [&](const index_type& index) {
+        fn(src[dense_opt_shape_src(index)], dest[dense_opt_shape_dest(index)]);
+      });
+    } else if (opt_shape_dest.template dim<0>().stride() == 1) {
+      dense_shape<ShapeDest::rank()> dense_opt_shape_dest = opt_shape_dest;
+      for_each_index_in_order(dense_opt_shape_dest, [&](const index_type& index) {
+        fn(src[opt_shape_src(index)], dest[dense_opt_shape_dest(index)]);
+      });
+    } else {
+      for_each_index_in_order(opt_shape_dest, [&](const index_type& index) {
+        fn(src[opt_shape_src(index)], dest[opt_shape_dest(index)]);
+      });
+    }
+    // The dense src, non-dense dest case is omitted. That seems unlikely
+    // given that we sorted the dimensions to make the dest dense,
+    // but it could happen if the dest does not have any dense dimensions,
+    // and the source has one in the same place as the innermost dimension
+    // of dest.
+  }
+};
+
+
+/** Create a new shape using a permutation DimIndices... of the
+ * dimensions of the shape. */
+template <size_t... DimIndices, typename Shape>
+auto permute(const Shape& shape) {
+  return make_shape(shape.template dim<DimIndices>()...);
 }
 
-template <typename ShapeSrc, typename ShapeDest, typename Fn, typename TSrc, typename TDest,
-  std::enable_if_t<!shape_traits<ShapeDest>::optimize_for_each_value_at_runtime::value, int> = 0>
-void for_each_src_dest(const ShapeSrc& shape_src, const ShapeDest& shape_dest,
-                       Fn&& fn, TSrc* src, TDest* dest) {
-  for_each_index(shape_dest, [&](const typename ShapeDest::index_type& index) {
-    fn(src[shape_src(index)], dest[shape_dest(index)]);
+/** Iterate over all indices in the shape, calling a function 'fn' for
+ * each set of indices. The order is defined by 'shape_traits<Shape>'.
+ * 'for_all_indices' calls 'fn' with a list of arguments corresponding
+ * to each dim. 'for_each_index' calls 'fn' with a Shape::index_type
+ * object describing the indices. */
+template <typename Shape, typename Fn>
+void for_each_index(const Shape& s, Fn&& fn) {
+  shape_traits<Shape>::for_each_index(s, std::forward<Fn>(fn));
+}
+template <typename Shape, typename Fn>
+void for_all_indices(const Shape& s, Fn&& fn) {
+  shape_traits<Shape>::for_each_index(s, [&](const typename Shape::index_type&i) {
+    internal::tuple_arg_to_parameter_pack(std::forward<Fn>(fn), i, std::make_index_sequence<Shape::rank()>());
   });
 }
-
-}  // namespace internal
 
 /** A reference to an array is an object with a shape mapping indices
  * to flat offsets, which are used to dereference a pointer. This object
@@ -1092,7 +1080,7 @@ class array_ref {
       assert(shape_ == other.shape());
       return;
     }
-    for_each_src_dest(other.shape(), shape_, [&](const value_type& src, value_type& dest) {
+    copy_shape_traits<Shape, Shape>::for_each_value(other.shape(), shape_, [&](const value_type& src, value_type& dest) {
       dest = src;
     }, other.data(), base_);
   }
@@ -1101,7 +1089,7 @@ class array_ref {
       assert(shape_ == other.shape());
       return;
     }
-    for_each_src_dest(other.shape(), shape_, [&](value_type& src, value_type& dest) {
+    copy_shape_traits<Shape, Shape>::for_each_value(other.shape(), shape_, [&](value_type& src, value_type& dest) {
       dest = std::move(src);
     }, other.data(), base_);
   }
@@ -1136,7 +1124,7 @@ class array_ref {
    * array_ref. The order in which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
-    internal::for_each_value(shape_, std::forward<Fn>(fn), base_);
+    shape_traits<Shape>::for_each_value(shape_, std::forward<Fn>(fn), base_);
   }
 
   /** Pointer to the start of the flattened array_ref. */
@@ -1276,14 +1264,14 @@ class array {
   void copy_construct(const array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
-    internal::for_each_value(shape_, [&](value_type& dest, const value_type& src) {
+    shape_traits<Shape>::for_each_value(shape_, [&](value_type& dest, const value_type& src) {
       std::allocator_traits<Alloc>::construct(alloc_, &dest, src);
     }, base_, other.data());
   }
   void move_construct(array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
-    internal::for_each_value(shape_, [&](value_type& dest, value_type& src) {
+    shape_traits<Shape>::for_each_value(shape_, [&](value_type& dest, value_type& src) {
       std::allocator_traits<Alloc>::construct(alloc_, &dest, std::move(src));
     }, base_, other.data());
   }
@@ -1499,11 +1487,11 @@ class array {
    * array. The order in which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) {
-    internal::for_each_value(shape_, std::forward<Fn>(fn), base_);
+    shape_traits<Shape>::for_each_value(shape_, std::forward<Fn>(fn), base_);
   }
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
-    internal::for_each_value(shape_, std::forward<Fn>(fn), base_);
+    shape_traits<Shape>::for_each_value(shape_, std::forward<Fn>(fn), base_);
   }
 
   /** Pointer to the start of the flat array, which is a pointer to
@@ -1541,7 +1529,7 @@ class array {
 
     // Move the common elements to the new array.
     Shape intersection = intersect(shape_, new_shape);
-    internal::for_each_src_dest(shape_, intersection, [](T& src, T& dest) {
+    copy_shape_traits<Shape, Shape>::for_each_value(shape_, intersection, [](T& src, T& dest) {
       dest = std::move(src);
     }, base_, new_array.data());
 
@@ -1655,7 +1643,7 @@ void copy(const array_ref<T, ShapeSrc>& src,
   }
 
   typedef typename std::remove_const<T>::type non_const_T;
-  internal::for_each_src_dest(src.shape(), dest.shape(), [](const T& src, non_const_T& dest) {
+  copy_shape_traits<ShapeSrc, ShapeDest>::for_each_value(src.shape(), dest.shape(), [](const T& src, non_const_T& dest) {
     dest = src;
   }, src.data(), dest.data());
 }
@@ -1686,7 +1674,7 @@ void move(const array_ref<T, ShapeSrc>& src, const array_ref<T, ShapeDest>& dest
     ARRAY_THROW_OUT_OF_RANGE("dest indices out of range of src");
   }
 
-  internal::for_each_src_dest(src.shape(), dest.shape(), [](T& src, T& dest) {
+  copy_shape_traits<ShapeSrc, ShapeDest>::for_each_value(src.shape(), dest.shape(), [](T& src, T& dest) {
     dest = std::move(src);
   }, src.data(), dest.data());
 }

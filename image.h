@@ -28,24 +28,61 @@ using chunky_image = array<T, chunky_image_shape<Channels, ChannelStride>>;
 template <typename T, index_t Channels, index_t ChannelStride = Channels>
 using chunky_image_ref = array_ref<T, chunky_image_shape<Channels, ChannelStride>>;
 
-template <index_t Channels, index_t ChannelStride>
-class shape_traits<chunky_image_shape<Channels, ChannelStride>> {
- public:
-  template <typename Fn>
-  static void for_each_index(const chunky_image_shape<Channels, ChannelStride>& s, Fn&& fn) {
-    // chunky images should be iterated on in this order due to
-    // c being dense.
-    for (index_t y : s.y()) {
-      for (index_t x : s.x()) {
-	for (index_t c : s.c()) {
-	  fn(std::make_tuple(x, y, c));
-	}
+template <typename Shape, typename Fn>
+void for_each_image_index(const Shape& s, Fn&& fn) {
+  // Images should always be iterated with c as the innermost loop.
+  // Even when the image is planar, the number of channels is
+  // generally small, and many operations use all of the channels
+  // at the same time (all-to-all communication in the c dimension).
+  for (index_t y : s.y()) {
+    for (index_t x : s.x()) {
+      for (index_t c : s.c()) {
+	fn(std::make_tuple(x, y, c));
       }
     }
   }
+}
 
-  // We want for_each_value to just use for_each_index on this shape.
-  using optimize_for_each_value_at_runtime = std::false_type;
+template <index_t Channels, index_t ChannelStride>
+class shape_traits<chunky_image_shape<Channels, ChannelStride>> {
+ public:
+  typedef chunky_image_shape<Channels, ChannelStride> shape_type;
+
+  template <typename Fn>
+  static void for_each_index(const shape_type& s, Fn&& fn) {
+    for_each_image_index(s, fn);
+  }
+
+  template <typename Fn, typename... T>
+  static void for_each_value(const shape_type& s, Fn&& fn, T... base) {
+    for_each_image_index(s, [=, &fn](const typename shape_type::index_type& i) {
+      index_t offset = s(i);
+      fn(base[offset]...);
+    });
+  }
+};
+
+template <index_t Channels>
+class shape_traits<chunky_image_shape<Channels>> {
+ public:
+  typedef chunky_image_shape<Channels> shape_type;
+
+  template <typename Fn>
+  static void for_each_index(const shape_type& s, Fn&& fn) {
+    for_each_image_index(s, fn);
+  }
+
+  // When Channels == ChannelStride, we can implement for_each_value
+  // by fusing the x and c dimensions.
+  template <typename Fn, typename... T>
+  static void for_each_value(const shape_type& s, Fn&& fn, T... base) {
+    for (index_t y = 0; y < s.height(); y++) {
+      for (index_t x = 0; x < s.width() * Channels; x++) {
+	index_t offset = y * s.y().stride() + x;
+	fn(base[offset]...);
+      }
+    }
+  }
 };
 
 /** A 'planar' iamge is an array with dimensions x, y, c, where x is

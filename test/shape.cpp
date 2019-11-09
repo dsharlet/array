@@ -304,33 +304,33 @@ TEST(shape_transpose) {
 TEST(shape_optimize) {
   shape_of_rank<3> a({0, 5, 21}, {0, 7, 3}, {5, 3, 1});
   shape_of_rank<3> a_optimized({5, 105, 1}, {0, 1, 105}, {0, 1, 105});
-  ASSERT_EQ(internal::optimize_shape(a), a_optimized);
+  ASSERT_EQ(internal::dynamic_optimize_shape(a), a_optimized);
 
   shape_of_rank<3> b({0, 5, 42}, {3, 7, 6}, {0, 3, 2});
   shape_of_rank<3> b_optimized({18, 105, 2}, {0, 1, 210}, {0, 1, 210});
-  ASSERT_EQ(internal::optimize_shape(b), b_optimized);
+  ASSERT_EQ(internal::dynamic_optimize_shape(b), b_optimized);
 
   shape_of_rank<3> c({0, 5, 40}, {0, 7, 3}, {0, 2, 1});
   shape_of_rank<3> c_optimized({0, 2, 1}, {0, 7, 3}, {0, 5, 40});
-  ASSERT_EQ(internal::optimize_shape(c), c_optimized);
+  ASSERT_EQ(internal::dynamic_optimize_shape(c), c_optimized);
 
   shape_of_rank<3> d({0, 5, 28}, {0, 7, 4}, {0, 3, 1});
   shape_of_rank<3> d_optimized({0, 3, 1}, {0, 35, 4}, {0, 1, 140});
-  ASSERT_EQ(internal::optimize_shape(d), d_optimized);
+  ASSERT_EQ(internal::dynamic_optimize_shape(d), d_optimized);
 
   shape_of_rank<10> e(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
   shape_of_rank<10> e2 = permute<9, 5, 3, 7, 2, 8, 4, 6, 0, 1>(e);
   shape_of_rank<10> e_optimized(3628800, 1, 1, 1, 1, 1, 1, 1, 1, 1);
-  ASSERT_EQ(internal::optimize_shape(e), e_optimized);
-  ASSERT_EQ(internal::optimize_shape(e2), e_optimized);
+  ASSERT_EQ(internal::dynamic_optimize_shape(e), e_optimized);
+  ASSERT_EQ(internal::dynamic_optimize_shape(e2), e_optimized);
 
   shape_of_rank<2> f({0, 2}, {1, 2});
   shape_of_rank<2> f_optimized({2, 4}, {0, 1});
-  ASSERT_EQ(internal::optimize_shape(f), f_optimized);
+  ASSERT_EQ(internal::dynamic_optimize_shape(f), f_optimized);
 
   shape_of_rank<2> g({1, 2}, {1, 2});
   shape_of_rank<2> g_optimized({3, 4}, {0, 1});
-  ASSERT_EQ(internal::optimize_shape(g), g_optimized);
+  ASSERT_EQ(internal::dynamic_optimize_shape(g), g_optimized);
 }
 
 TEST(shape_make_compact) {
