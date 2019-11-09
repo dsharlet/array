@@ -32,7 +32,7 @@ enum : index_t {
   UNK = -9,
 };
 
-#define ARRAY_CHECK_CONSTRAIT(constant, runtime) \
+#define ARRAY_CHECK_CONSTRAINT(constant, runtime) \
   assert(constant == runtime || constant == UNK);
 
 namespace internal {
@@ -98,9 +98,9 @@ class dim {
    * must match the compile-time values. */
   dim(index_t min, index_t extent, index_t stride = Stride)
     : min_(min), extent_(extent), stride_(stride) {
-    ARRAY_CHECK_CONSTRAIT(Min, min);
-    ARRAY_CHECK_CONSTRAIT(Extent, extent);
-    ARRAY_CHECK_CONSTRAIT(Stride, stride);
+    ARRAY_CHECK_CONSTRAINT(Min, min);
+    ARRAY_CHECK_CONSTRAINT(Extent, extent);
+    ARRAY_CHECK_CONSTRAINT(Stride, stride);
   }
   dim(index_t extent = Extent) : dim(0, extent) {}
   dim(const dim&) = default;
@@ -136,11 +136,11 @@ class dim {
                   "incompatible strides.");
 
     // Also check the runtime values.
-    ARRAY_CHECK_CONSTRAIT(Min, other.min());
+    ARRAY_CHECK_CONSTRAINT(Min, other.min());
     min_ = other.min();
-    ARRAY_CHECK_CONSTRAIT(Extent, other.extent());
+    ARRAY_CHECK_CONSTRAINT(Extent, other.extent());
     extent_ = other.extent();
-    ARRAY_CHECK_CONSTRAIT(Stride, other.stride());
+    ARRAY_CHECK_CONSTRAINT(Stride, other.stride());
     stride_ = other.stride();
     return *this;
   }
@@ -148,19 +148,19 @@ class dim {
   /** Index of the first element in this dim. */
   index_t min() const { return internal::reconcile<Min>(min_); }
   void set_min(index_t min) {
-    ARRAY_CHECK_CONSTRAIT(Min, min);
+    ARRAY_CHECK_CONSTRAINT(Min, min);
     min_ = min;
   }
   /** Number of elements in this dim. */
   index_t extent() const { return internal::reconcile<Extent>(extent_); }
   void set_extent(index_t extent) {
-    ARRAY_CHECK_CONSTRAIT(Extent, extent);
+    ARRAY_CHECK_CONSTRAINT(Extent, extent);
     extent_ = extent;
   }
   /** Distance in flat indices between neighboring elements in this dim. */
   index_t stride() const { return internal::reconcile<Stride>(stride_); }
   void set_stride(index_t stride) {
-    ARRAY_CHECK_CONSTRAIT(Stride, stride);
+    ARRAY_CHECK_CONSTRAINT(Stride, stride);
     stride_ = stride;
   }
   /** Index of the last element in this dim. */
