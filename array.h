@@ -248,15 +248,9 @@ index_t variadic_max(index_t first, Rest... rest) {
 }
 
 // Computes the product of the extents of the dims.
-template <typename Dims, size_t... Is>
-index_t product_of_extents_impl(const Dims& dims, std::index_sequence<Is...>) {
-  return product(std::get<Is>(dims).extent()...);
-}
-
-template <typename Dims>
-index_t product_of_extents(const Dims& dims) {
-  constexpr size_t dims_rank = std::tuple_size<Dims>::value;
-  return product_of_extents_impl(dims, std::make_index_sequence<dims_rank>());
+template <typename... Ts, size_t... Is>
+index_t product(const std::tuple<Ts...>& t, std::index_sequence<Is...>) {
+  return product(std::get<Is>(t)...);
 }
 
 // Computes the sum of the offsets of a list of dims and indices.
@@ -275,14 +269,8 @@ index_t flat_offset(const Dims& dims, const Indices& indices) {
 
 // Computes one more than the sum of the offsets of the last index in every dim.
 template <typename Dims, size_t... Is>
-index_t flat_extent_impl(const Dims& dims, std::index_sequence<Is...>) {
+index_t flat_extent(const Dims& dims, std::index_sequence<Is...>) {
   return 1 + sum((std::get<Is>(dims).extent() - 1) * std::get<Is>(dims).stride()...);
-}
-
-template <typename Dims>
-index_t flat_extent(const Dims& dims) {
-  constexpr size_t rank = std::tuple_size<Dims>::value;
-  return flat_extent_impl(dims, std::make_index_sequence<rank>());
 }
 
 // Checks if all indices are in range of each corresponding dim.
@@ -527,10 +515,14 @@ class shape {
 
   /** Compute the flat extent of this shape. This is the extent of the
    * valid range of values returned by at or operator(). */
-  index_t flat_extent() const { return internal::flat_extent(dims_); }
+  index_t flat_extent() const {
+    return internal::flat_extent(dims_, std::make_index_sequence<rank()>());
+  }
 
   /** Compute the total number of items in the shape. */
-  index_t size() const { return internal::product_of_extents(dims_); }
+  index_t size() const {
+    return internal::product(extent(), std::make_index_sequence<rank()>());
+  }
 
   /** A shape is empty if its size is 0. */
   bool empty() const { return size() == 0; }
