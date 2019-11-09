@@ -186,7 +186,7 @@ class dim {
   }
   template <index_t OtherMin, index_t OtherExtent, index_t OtherStride>
   bool operator!=(const dim<OtherMin, OtherExtent, OtherStride>& other) const {
-    return min() != other.min() || extent() != other.extent() || stride() != other.stride();
+    return !operator==(other);
   }
 };
 
@@ -354,17 +354,13 @@ std::array<T, sizeof...(Ts)> tuple_to_array(const std::tuple<Ts...>& t) {
 }
 
 template<class T, size_t N>
-class tuple_of_n {
- private:
-  using rest = typename tuple_of_n<T, N-1>::type;
-
- public:
+struct tuple_of_n {
+  using rest = typename tuple_of_n<T, N - 1>::type;
   using type = decltype(std::tuple_cat(std::declval<std::tuple<T>>(), std::declval<rest>()));
 };
 
 template<class T>
-class tuple_of_n<T, 0> {
- public:
+struct tuple_of_n<T, 0> {
   using type = std::tuple<>;
 };
 
@@ -393,15 +389,6 @@ struct all_integral<T, Args...> {
   static constexpr bool value =
       std::is_convertible<T, index_t>::value && all_integral<Args...>::value;
 };
-
-// Floats and doubles are technically implicitly int-convertible, but
-// doing so produces a warning we treat as an error, so just disallow
-// it here.
-template<typename... Args>
-struct all_integral<float, Args...> : std::false_type {};
-
-template<typename... Args>
-struct all_integral<double, Args...> : std::false_type {};
 
 }  // namespace internal
 
