@@ -343,40 +343,40 @@ void resolve_unknowns(Dims& dims) {
 }
 
 // A helper to transform an array to a tuple.
-template <typename T, size_t... Is>
-auto array_to_tuple_impl(const std::array<T, sizeof...(Is)>& a, std::index_sequence<Is...>) {
-  return std::make_tuple(a[Is]...);
+template <typename T, typename... Ts, size_t... Is>
+std::array<T, sizeof...(Is)> tuple_to_array(const std::tuple<Ts...>& t, std::index_sequence<Is...>) {
+  return {{std::get<Is>(t)...}};
 }
 
-template <typename T, size_t N>
-auto array_to_tuple(const std::array<T, N>& a) {
-  return array_to_tuple_impl(a, std::make_index_sequence<N>());
+template <typename T, typename... Ts>
+std::array<T, sizeof...(Ts)> tuple_to_array(const std::tuple<Ts...>& t) {
+  return tuple_to_array<T>(t, std::make_index_sequence<sizeof...(Ts)>());
 }
 
-template <typename T, size_t N>
-auto default_array_to_tuple() {
-  return array_to_tuple(std::array<T, N>());
-}
+template<class T, size_t N>
+class tuple_of_n {
+ private:
+  using rest = typename tuple_of_n<T, N-1>::type;
+
+ public:
+  using type = decltype(std::tuple_cat(std::declval<std::tuple<T>>(), std::declval<rest>()));
+};
+
+template<class T>
+class tuple_of_n<T, 0> {
+ public:
+  using type = std::tuple<>;
+};
 
 template <typename... New, typename... Old, size_t... Is>
-std::tuple<New...> convert_tuple_impl(const std::tuple<Old...>& in, std::index_sequence<Is...>) {
+std::tuple<New...> convert_tuple(const std::tuple<Old...>& in, std::index_sequence<Is...>) {
   return std::tuple<New...>(std::get<Is>(in)...);
 }
 
 template <typename... New, typename... Old>
 std::tuple<New...> convert_tuple(const std::tuple<Old...>& in) {
   static_assert(sizeof...(New) == sizeof...(Old), "tuple conversion of differently sized tuples");
-  return convert_tuple_impl<New...>(in, std::make_index_sequence<sizeof...(Old)>());
-}
-
-template <typename... Dims, size_t... Is>
-std::array<dim<>, sizeof...(Is)> dims_as_array_impl(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
-  return {{std::get<Is>(dims)...}};
-}
-
-template <typename... Dims>
-std::array<dim<>, sizeof...(Dims)> dims_as_array(const std::tuple<Dims...>& dims) {
-  return dims_as_array_impl(dims, std::make_index_sequence<sizeof...(Dims)>());
+  return convert_tuple<New...>(in, std::make_index_sequence<sizeof...(Old)>());
 }
 
 // https://github.com/halide/Halide/blob/fc8cfb078bed19389f72883a65d56d979d18aebe/src/runtime/HalideBuffer.h#L43-L63
@@ -448,7 +448,7 @@ class shape {
   static constexpr bool is_scalar() { return rank() == 0; }
 
   /** The type of an index for this shape. */
-  typedef decltype(internal::default_array_to_tuple<index_t, rank()>()) index_type;
+  typedef typename internal::tuple_of_n<index_t, rank()>::type index_type;
 
   /** Returns true if the index 'indices' are in range of this shape. */
   bool is_in_range(const index_type& indices) const {
@@ -492,7 +492,9 @@ class shape {
   /** Get a specific dim of this shape with a runtime dimension
    * d. This will lose knowledge of any compile-time constant
    * dimension attributes. */
-  array::dim<> dim(size_t d) const { return internal::dims_as_array(dims_)[d]; }
+  array::dim<> dim(size_t d) const {
+    return internal::tuple_to_array<array::dim<>>(dims_)[d];
+  }
 
   /** Get a tuple of all of the dims of this shape. */
   std::tuple<Dims...>& dims() { return dims_; }
@@ -695,7 +697,7 @@ Shape make_shape_from_array(const std::array<dim<>, N>& dims) {
 template <size_t Rank, size_t... Is>
 auto make_default_dense_shape() {
   return make_shape_from_tuple(std::tuple_cat(std::make_tuple(dense_dim<>()),
-                                              default_array_to_tuple<dim<>, Rank - 1>()));
+                                              typename tuple_of_n<dim<>, Rank - 1>::type()));
 }
 
 template <typename Shape, size_t... Is>
@@ -766,7 +768,7 @@ Shape make_compact(const Shape& s) {
  * specified Rank. */
 template <size_t Rank>
 using shape_of_rank =
-  decltype(internal::make_shape_from_tuple(internal::default_array_to_tuple<dim<>, Rank>()));
+  decltype(internal::make_shape_from_tuple(typename internal::tuple_of_n<dim<>, Rank>::type()));
 
 /** A shape where the innermost dimension is a 'dense_dim' object, and
  * all other dimensions are arbitrary. */
@@ -805,7 +807,7 @@ namespace internal {
 // contiguous dimensions are fused.
 template <typename Shape>
 shape_of_rank<Shape::rank()> dynamic_optimize_shape(const Shape& shape) {
-  auto dims = internal::dims_as_array(shape.dims());
+  auto dims = internal::tuple_to_array<dim<>>(shape.dims());
 
   // Sort the dims by stride.
   std::sort(dims.begin(), dims.end(), [](const dim<>& l, const dim<>& r) {
@@ -845,8 +847,8 @@ std::pair<shape_of_rank<ShapeSrc::rank()>, shape_of_rank<ShapeDest::rank()>>
 dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
   constexpr size_t rank = ShapeSrc::rank();
   static_assert(rank == ShapeDest::rank(), "copy shapes must have same rank.");
-  auto src_dims = internal::dims_as_array(src.dims());
-  auto dest_dims = internal::dims_as_array(dest.dims());
+  auto src_dims = internal::tuple_to_array<dim<>>(src.dims());
+  auto dest_dims = internal::tuple_to_array<dim<>>(dest.dims());
 
   struct copy_dims {
     dim<> src;
