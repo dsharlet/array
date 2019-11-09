@@ -58,7 +58,6 @@ for (int z = 0; z < depth; z++) {
 ```
 
 `array::for_each_value` and `array_ref::for_each_value` calls a function with a reference to each value in the array.
-The order in which `for_each_value` calls the function with references is undefined, allowing the implementation to reorder the traversal to optimize memory access patterns.
 ```c++
 my_array.for_each_value([](int& value) {
   value = 5;
@@ -76,7 +75,8 @@ for_each_index(my_3d_shape, [&](my_3d_shape_type::index_type i) {
 });
 ```
 
-The innermost dimension of the shape corresponds to the innermost loop, and subsequent loops are nested outside.
+The order in which each of `for_each_value`, `for_each_index`, and `for_all_indices` execute their traversal over the shape is defined by `shape_traits<Shape>`.
+The default implementation of `shape_traits<Shape>::for_each_index` iterates over the innermost dimension as the innermost loop, and proceeds in order to the outermost dimension.
 ```c++
 my_3d_shape_type shape(2, 2, 2);
 for_all_indices(shape, [](int x, int y, int z) {
@@ -93,30 +93,17 @@ for_all_indices(shape, [](int x, int y, int z) {
 // 1, 1, 1
 ```
 
-`permute<D0, D1, ..., DN>` is a helper function that enables reordering the dimensions of a shape, and can be used to control the order in which loops are executed.
-`D0, D1, ..., DN` is a permutation of the dimension indices.
-We can change the order of the loops with a `permute` operation (note the reordered indices as well):
-```c++
-for_all_indices(permute<2, 0, 1>(shape), [](int z, int x, int y) {
-  std::cout << x << ", " << y << ", " << z << std::endl;
-});
-// Output:
-// 0, 0, 0
-// 0, 0, 1
-// 1, 0, 0
-// 1, 0, 1
-// 0, 1, 0
-// 0, 1, 1
-// 1, 1, 0
-// 1, 1, 1
-```
+The default implementation of `shape_traits<Shape>::for_each_value` iterates over a dynamically optimized shape.
+The order will vary depending on the properties of the shape.
 
 In these examples, no array parameters are compile time constants, so all of these accesses and loops expand to a `flat_offset` expression where the strides are runtime variables.
 This can prevent the compiler from generating efficient code.
 For example, the compiler may be able to auto-vectorize these loops, but if the stride of the vectorized dimension is a runtime variable, the compiler will have to generate gather and scatter instructions instead of load and store instructions, even if the stride is one.
+
 To avoid this, we need to make array parameters compile time constants.
 However, while making array parameters compile time constants helps the compiler generate efficient code, it also makes the program less flexible.
-This library helps balance these two conflicting goals by enabling any of the array parameters to be compile time constants, but not require it.
+
+This library helps balance this tradeoff by enabling any of the array parameters to be compile time constants, but not require it.
 Which parameters should be made into compile time constants will vary depending on the use case.
 A common case is to make the innermost dimension have stride 1:
 ```c++
@@ -124,7 +111,7 @@ typedef shape<dim</*Min=*/UNK, /*Extent=*/UNK, /*Stride=*/1>, dim<>, dim<>> my_d
 ```
 
 A dimension with unknown min and extent, and stride 1, is common enough that it has a built-in alias `dense_dim<>`, and shapes with a dense first dimension are common enough that they have the following built-in aliases:
-* `dense_shape<N>`, an N-dimensional dense shape, with the first dimension being dense.
+* `dense_shape<N>`, an N-dimensional shape with the first dimension being dense.
 * `dense_array_ref<T, N>` and `dense_array<T, N, Allocator>`, N-dimensional arrays with a shape of `dense_shape<N>`.
 
 There are other common examples that are easy to support.
