@@ -689,11 +689,6 @@ shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
   return shape<Dims...>(dims);
 }
 
-template <typename Shape, size_t N>
-Shape make_shape_from_array(const std::array<dim<>, N>& dims) {
-  return Shape(dims);
-}
-
 template <size_t Rank, size_t... Is>
 auto make_default_dense_shape() {
   return make_shape_from_tuple(std::tuple_cat(std::make_tuple(dense_dim<>()),
@@ -837,7 +832,7 @@ shape_of_rank<Shape::rank()> dynamic_optimize_shape(const Shape& shape) {
     dims[i] = dim<>(0, 1, dims[i - 1].stride() * dims[i - 1].extent());
   }
 
-  return make_shape_from_array<shape_of_rank<Shape::rank()>>(dims);
+  return shape_of_rank<Shape::rank()>(dims);
 }
 
 // Optimize a src and dest shape. The dest shape is made dense, and contiguous
@@ -899,10 +894,7 @@ dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
     dest_dims[i] = dims[i].dest;
   }
 
-  return {
-      make_shape_from_array<shape_of_rank<rank>>(src_dims),
-      make_shape_from_array<shape_of_rank<rank>>(dest_dims),
-  };
+  return { shape_of_rank<rank>(src_dims), shape_of_rank<rank>(dest_dims) };
 }
 
 }  // namespace internal
