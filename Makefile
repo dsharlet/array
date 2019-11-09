@@ -28,5 +28,5 @@ test: bin/test bin/matrix
 	bin/test $(FILTER)
 	bin/matrix
 
-examples: bin/blur bin/matrix
+examples: bin/matrix
 	bin/matrix
