@@ -307,7 +307,7 @@ TEST(shape_optimize) {
   ASSERT_EQ(internal::dynamic_optimize_shape(a), a_optimized);
 
   shape_of_rank<3> b({0, 5, 42}, {3, 7, 6}, {0, 3, 2});
-  shape_of_rank<3> b_optimized({18, 105, 2}, {0, 1, 210}, {0, 1, 210});
+  shape_of_rank<3> b_optimized({9, 105, 2}, {0, 1, 210}, {0, 1, 210});
   ASSERT_EQ(internal::dynamic_optimize_shape(b), b_optimized);
 
   shape_of_rank<3> c({0, 5, 40}, {0, 7, 3}, {0, 2, 1});
