@@ -37,7 +37,7 @@ void for_each_image_index(const Shape& s, Fn&& fn) {
   for (index_t y : s.y()) {
     for (index_t x : s.x()) {
       for (index_t c : s.c()) {
-	fn(std::make_tuple(x, y, c));
+        fn(std::make_tuple(x, y, c));
       }
     }
   }
@@ -104,7 +104,7 @@ enum class crop_origin {
  * origin of the new shape is determined by 'origin'. */
 template <typename Shape>
 Shape crop_image_shape(Shape s, index_t x0, index_t y0, index_t x1, index_t y1,
-		       crop_origin origin = crop_origin::crop) {
+                       crop_origin origin = crop_origin::crop) {
   s.x().set_extent(x1 - x0);
   s.y().set_extent(y1 - y0);
   switch (origin) {
@@ -125,8 +125,8 @@ Shape crop_image_shape(Shape s, index_t x0, index_t y0, index_t x1, index_t y1,
  * the result is determined by 'origin'. */
 template <typename T, typename Shape>
 array_ref<T, Shape> crop(const array_ref<T, Shape>& im,
-			 index_t x0, index_t y0, index_t x1, index_t y1,
-			 crop_origin origin = crop_origin::crop) {
+                         index_t x0, index_t y0, index_t x1, index_t y1,
+                         crop_origin origin = crop_origin::crop) {
   Shape cropped_shape = crop_image_shape(im.shape(), x0, y0, x1, y1, origin);
   index_t c0 = im.shape().c().min();
   T* base = &im(x0, y0, c0);
@@ -137,14 +137,14 @@ array_ref<T, Shape> crop(const array_ref<T, Shape>& im,
 }
 template <typename T, typename Shape>
 array_ref<const T, Shape> crop(const array<T, Shape>& im,
-			       index_t x0, index_t y0, index_t x1, index_t y1,
-			       crop_origin origin = crop_origin::crop) {
+                               index_t x0, index_t y0, index_t x1, index_t y1,
+                               crop_origin origin = crop_origin::crop) {
   return crop(im.ref(), x0, y0, x1, y1, origin);
 }
 template <typename T, typename Shape>
 array_ref<T, Shape> crop(array<T, Shape>& im,
-			 index_t x0, index_t y0, index_t x1, index_t y1,
-			 crop_origin origin = crop_origin::crop) {
+                         index_t x0, index_t y0, index_t x1, index_t y1,
+                         crop_origin origin = crop_origin::crop) {
   return crop(im.ref(), x0, y0, x1, y1, origin);
 }
 

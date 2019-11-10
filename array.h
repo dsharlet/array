@@ -1719,6 +1719,8 @@ auto make_move(const array_ref<T, ShapeSrc>& src, const ShapeDest& shape,
   move(src, dest);
   return dest;
 }
+// TODO: Should this taken an rvalue reference for src, and should
+// it move the whole array if the shapes are equal?
 template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc,
   typename AllocDest = AllocSrc>
 auto make_move(array<T, ShapeSrc, AllocSrc>& src, const ShapeDest& shape,
@@ -1746,6 +1748,8 @@ template <typename T, typename ShapeSrc, typename Alloc = std::allocator<T>>
 auto make_dense_move(const array_ref<T, ShapeSrc>& src, const Alloc& alloc = Alloc()) {
   return make_move(src, make_dense(src.shape()), alloc);
 }
+// TODO: Should this taken an rvalue reference for src, and should
+// it move the whole array if the shapes are equal?
 template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = AllocSrc>
 auto make_dense_move(array<T, ShapeSrc, AllocSrc>& src, const AllocDest& alloc = AllocDest()) {
   return make_dense_move(src.ref(), alloc);
@@ -1771,6 +1775,8 @@ template <typename T, typename Shape, typename Alloc = std::allocator<T>>
 auto make_compact_move(const array_ref<T, Shape>& src, const Alloc& alloc = Alloc()) {
   return make_move(src, make_compact(src.shape()), alloc);
 }
+// TODO: Should this taken an rvalue reference for src, and should
+// it move the whole array if the shapes are equal?
 template <typename T, typename Shape, typename AllocSrc, typename AllocDest = AllocSrc>
 auto make_compact_move(array<T, Shape, AllocSrc>& src, const AllocDest& alloc = AllocDest()) {
   return make_compact_move(src.ref(), alloc);
