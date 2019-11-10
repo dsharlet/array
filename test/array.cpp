@@ -306,6 +306,19 @@ TEST(array_reshape) {
   ASSERT_EQ(a.shape().flat_extent(), 125);
 }
 
+TEST(array_negative_strides) {
+  array_of_rank<int, 2> a({{0, 10, 3}, {0, 3, -1}});
+  ASSERT_EQ(a.x().stride(), 3);
+  for_all_indices(a.shape(), [&](int x, int y) {
+    a(x, y) = y;
+  });
+
+  dense_array<int, 2> b = make_dense_copy(a);
+  for_all_indices(b.shape(), [&](int x, int y) {
+    ASSERT_EQ(b(x, y), y);
+  });
+}
+
 typedef shape<dim<>, dim<>> LifetimeShape;
 auto lifetime_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10, 20));
 auto lifetime_subshape = make_shape(dim<>(-1, 4, 2), dim<>(5, 8, 20));

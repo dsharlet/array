@@ -39,6 +39,29 @@ TEST(shape_2d) {
   }
 }
 
+TEST(shape_2d_negative_stride) {
+  dense_dim<> x(0, 10);
+  dim<> y(0, 5, -x.extent());
+  shape<dense_dim<>, dim<>> s = make_shape(x, y);
+  index_t flat_min = s(s.min());
+  index_t flat_max = flat_min;
+  for (int i : y) {
+    for (int j : x) {
+      ASSERT_EQ(s(j, i), i * -x.extent() + j);
+      flat_min = std::min(s(j, i), flat_min);
+      flat_max = std::max(s(j, i), flat_max);
+    }
+  }
+  ASSERT_EQ(s.size(), 50);
+  ASSERT_EQ(s.flat_extent(), 50);
+  ASSERT_EQ(s.flat_min(), flat_min);
+  ASSERT_EQ(s.flat_max(), flat_max);
+
+  shape_of_rank<3> s2(10, 5, {0, 3, -1});
+  ASSERT_EQ(s2.x().stride(), 3);
+  ASSERT_EQ(s2.y().stride(), 30);
+}
+
 TEST(make_dense_shape_1d) {
   dense_shape<1> s = make_dense_shape(10);
   dense_dim<> x = s.template dim<0>();

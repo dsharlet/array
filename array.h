@@ -281,8 +281,15 @@ index_t flat_offset(const Dims& dims, const Indices& indices) {
 
 // Computes one more than the sum of the offsets of the last index in every dim.
 template <typename Dims, size_t... Is>
-index_t flat_extent(const Dims& dims, std::index_sequence<Is...>) {
-  return 1 + sum((std::get<Is>(dims).extent() - 1) * std::get<Is>(dims).stride()...);
+index_t flat_min(const Dims& dims, std::index_sequence<Is...>) {
+  return sum((std::get<Is>(dims).extent() - 1) *
+              std::min(static_cast<index_t>(0), std::get<Is>(dims).stride())...);
+}
+
+template <typename Dims, size_t... Is>
+index_t flat_max(const Dims& dims, std::index_sequence<Is...>) {
+  return sum((std::get<Is>(dims).extent() - 1) *
+              std::max(static_cast<index_t>(0), std::get<Is>(dims).stride())...);
 }
 
 // Checks if all indices are in range of each corresponding dim.
@@ -297,11 +304,6 @@ bool is_in_range(const Dims& dims, const Indices& indices) {
   constexpr size_t indices_rank = std::tuple_size<Indices>::value;
   static_assert(dims_rank == indices_rank, "dims and indices must have the same rank.");
   return is_in_range_impl(dims, indices, std::make_index_sequence<dims_rank>());
-}
-
-template <typename Dims, size_t... Is>
-index_t max_stride(const Dims& dims, std::index_sequence<Is...>) {
-  return variadic_max(std::get<Is>(dims).stride() * std::get<Is>(dims).extent()...);
 }
 
 template <typename... Dims, size_t... Is>
@@ -322,6 +324,15 @@ auto strides(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
 template <typename... Dims, size_t... Is>
 auto maxs(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
   return std::make_tuple(std::get<Is>(dims).max()...);
+}
+
+inline index_t abs_stride(index_t s) {
+  return s == UNK ? UNK : std::abs(s);
+}
+
+template <typename Dims, size_t... Is>
+index_t max_stride(const Dims& dims, std::index_sequence<Is...>) {
+  return variadic_max(abs_stride(std::get<Is>(dims).stride()) * std::get<Is>(dims).extent()...);
 }
 
 // Resolve unknown dim quantities. Unknown extents become zero, and unknown
@@ -514,8 +525,14 @@ class shape {
 
   /** Compute the flat extent of this shape. This is the extent of the valid
    * range of values returned by at or operator(). */
+  index_t flat_min() const {
+    return internal::flat_min(dims_, std::make_index_sequence<rank()>());
+  }
+  index_t flat_max() const {
+    return internal::flat_max(dims_, std::make_index_sequence<rank()>());
+  }
   index_t flat_extent() const {
-    return internal::flat_extent(dims_, std::make_index_sequence<rank()>());
+    return flat_max() - flat_min() + 1;
   }
 
   /** Compute the total number of items in the shape. */
@@ -613,6 +630,8 @@ class shape<> {
   index_type max() const { return std::tuple<>(); }
   index_type extent() const { return std::tuple<>(); }
 
+  index_t flat_min() const { return 0; }
+  index_t flat_max() const { return 0; }
   index_t flat_extent() const { return 1; }
   index_t size() const { return 1; }
   bool empty() const { return false; }
@@ -1223,7 +1242,7 @@ class array {
       buffer_size_ = flat_extent;
       buffer_ = std::allocator_traits<Alloc>::allocate(alloc_, flat_extent);
     }
-    base_ = buffer_;
+    base_ = buffer_ - shape_.flat_min();
   }
 
   // Call the constructor on all of the elements of the array.
@@ -1472,8 +1491,7 @@ class array {
     shape_traits<Shape>::for_each_value(shape_, base_, fn);
   }
 
-  /** Pointer to the start of the flat array, which is a pointer to the min
-   * index of the shape. */
+  /** Pointer the min index of the shape. */
   pointer data() { return base_; }
   const_pointer data() const { return base_; }
 
