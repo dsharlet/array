@@ -1,3 +1,7 @@
+# Output directories
+bin/*
+docs/*
+
 # Compiled Object files
 *.slo
 *.lo
