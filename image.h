@@ -8,21 +8,20 @@
 
 namespace array {
 
-/** A generic image is any 3D array with dimensions x, y, c. c
- * represents the channels of the image, typically it will have
- * extent 3 or 4, with red, green, and blue mapped to indices in
- * this dimension. */
+/** A generic image is any 3D array with dimensions x, y, c. c represents the
+ * channels of the image, typically it will have extent 3 or 4, with red, green,
+ * and blue mapped to indices in this dimension. */
 using image_shape = shape_of_rank<3>;
 template <typename T>
 using image = array_of_rank<T, 3>;
 template <typename T>
 using image_ref = array_ref_of_rank<T, 3>;
 
-/** A 'chunky' image is an array with 3 dimensions x, y, c, where c is
- * dense, and the dimension with the next stride is x. The stride in x
- * may be larger than the number of channels, to allow for padding
- * pixels to a convenient alignment. This is a common image storage
- * format used by many programs working with images. */
+/** A 'chunky' image is an array with 3 dimensions x, y, c, where c is dense,
+ * and the dimension with the next stride is x. The stride in x may be larger
+ * than the number of channels, to allow for padding pixels to a convenient
+ * alignment. This is a common image storage format used by many programs
+ * working with images. */
 template <index_t Channels, index_t ChannelStride = Channels>
 using chunky_image_shape =
   shape<strided_dim<ChannelStride>, dim<>, dense_dim<0, Channels>>;
@@ -35,10 +34,10 @@ using chunky_image_ref = array_ref<T, chunky_image_shape<Channels, ChannelStride
  * dimension of the loop nest. */
 template <typename Shape, typename Fn>
 void for_each_image_index(const Shape& s, Fn&& fn) {
-  // Images should always be iterated with c as the innermost loop.
-  // Even when the image is planar, the number of channels is
-  // generally small, and many operations use all of the channels
-  // at the same time (all-to-all communication in the c dimension).
+  // Images should always be iterated with c as the innermost loop. Even when
+  // the image is planar, the number of channels is generally small, and many
+  // operations use all of the channels at the same time (all-to-all
+  // communication in the c dimension).
   for (index_t y : s.y()) {
     for (index_t x : s.x()) {
       for (index_t c : s.c()) {
@@ -77,8 +76,8 @@ class shape_traits<chunky_image_shape<Channels>> {
     for_each_image_index(s, fn);
   }
 
-  // When Channels == ChannelStride, we can implement for_each_value
-  // by fusing the x and c dimensions.
+  // When Channels == ChannelStride, we can implement for_each_value by fusing
+  // the x and c dimensions.
   template <typename Fn, typename... T>
   static void for_each_value(const shape_type& s, Fn&& fn, T... base) {
     dense_shape<2> opt_s({s.x().min() * Channels, s.x().extent() * Channels}, s.y());
@@ -86,10 +85,10 @@ class shape_traits<chunky_image_shape<Channels>> {
   }
 };
 
-/** A 'planar' image is an array with dimensions x, y, c, where x is
- * dense. This format is less common, but more convenient for
- * optimization, particularly SIMD vectorization. Note that this
- * shape also supports 'line-chunky' storage orders. */
+/** A 'planar' image is an array with dimensions x, y, c, where x is dense. This
+ * format is less common, but more convenient for optimization, particularly
+ * SIMD vectorization. Note that this shape also supports 'line-chunky' storage
+ * orders. */
 using planar_image_shape = dense_shape<3>;
 template <typename T>
 using planar_image = dense_array<T, 3>;
@@ -99,14 +98,13 @@ using planar_image_ref = dense_array_ref<T, 3>;
 enum class crop_origin {
   /** The result of the crop has min 0, 0. */
   zero,
-  /** The result indices inside the crop are the same as the original
-   * indices, and the result indices outside the crop are out of
-   * bounds. */
+  /** The result indices inside the crop are the same as the original indices,
+   * and the result indices outside the crop are out of bounds. */
   crop,
 };
 
-/** Crop an image shape 's' to the indices [x0, x1) x [y0, y1). The
- * origin of the new shape is determined by 'origin'. */
+/** Crop an image shape 's' to the indices [x0, x1) x [y0, y1). The origin of
+ * the new shape is determined by 'origin'. */
 template <typename Shape>
 Shape crop_image_shape(Shape s, index_t x0, index_t y0, index_t x1, index_t y1,
                        crop_origin origin = crop_origin::crop) {
@@ -125,9 +123,9 @@ Shape crop_image_shape(Shape s, index_t x0, index_t y0, index_t x1, index_t y1,
   return s;
 }
 
-/** Crop the 'im' image or image ref to the range of indices [x0, x1)
- * x [y0, y1). The result is a ref of the input image. The origin of
- * the result is determined by 'origin'. */
+/** Crop the 'im' image or image ref to the range [x0, x1) x [y0, y1). The
+ * result is a ref of the input image. The origin of the result is determined by
+ * 'origin'. */
 template <typename T, typename Shape>
 array_ref<T, Shape> crop(const array_ref<T, Shape>& im,
                          index_t x0, index_t y0, index_t x1, index_t y1,
@@ -153,8 +151,8 @@ array_ref<T, Shape> crop(array<T, Shape>& im,
   return crop(im.ref(), x0, y0, x1, y1, origin);
 }
 
-/** Get a 2-dimensional ref of the 'Channel' channel of the 'im' image
- * or image ref. */
+/** Get a 2-dimensional ref of the 'Channel' channel of the 'im' image or image
+ * ref. */
 template <index_t Channel, typename T, typename Shape>
 auto slice_channel(const array_ref<T, Shape>& im) {
   auto shape = reorder<0, 1>(im.shape());
