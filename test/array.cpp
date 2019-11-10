@@ -246,6 +246,15 @@ TEST(array_dense_move) {
   check_pattern(dense_move);
 }
 
+TEST(array_tricky_copy) {
+  array_of_rank<int, 2> source({{0, 4, 6}, {0, 6, 1}});
+  fill_pattern(source);
+
+  array_of_rank<int, 2> dest({{0, 4, 6}, {0, 3, 2}});
+  copy(source, dest);
+  check_pattern(dest);
+}
+
 TEST(array_for_each_value_scalar) {
   array_of_rank<int, 0> scalar;
   scalar.for_each_value([](int& v) {

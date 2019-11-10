@@ -539,7 +539,6 @@ class shape {
    * subset of the other shape's projection to flat indices. */
   bool is_subset_of(const shape& other) const {
     // TODO: https://github.com/dsharlet/array/issues/2
-
     return true;
   }
 
@@ -896,7 +895,7 @@ auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
   // Find dimensions that are contiguous and fuse them.
   size_t new_rank = dims.size();
   for (size_t i = 0; i + 1 < new_rank;) {
-    if (dims[i + 1].src.stride() == dims[i + 1].dest.stride() &&
+    if (dims[i].src.extent() == dims[i].dest.extent() &&
         dims[i].src.stride() * dims[i].src.extent() == dims[i + 1].src.stride() &&
         dims[i].dest.stride() * dims[i].dest.extent() == dims[i + 1].dest.stride()) {
       // These two dimensions are contiguous. Fuse them and move the rest of the
