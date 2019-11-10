@@ -677,10 +677,10 @@ void for_each_index_in_order(const Dims& dims, Fn&& fn, const std::tuple<Indices
   }
 }
 
-inline void advance(std::ptrdiff_t n) {}
+inline void advance(index_t n) {}
 
 template <typename Ptr, typename... Ptrs>
-void advance(std::ptrdiff_t n, Ptr& ptr, Ptrs&... ptrs) {
+void advance(index_t n, Ptr& ptr, Ptrs&... ptrs) {
   ptr += n;
   advance(n, ptrs...);
 }
@@ -1142,7 +1142,6 @@ class array_ref {
   auto& dim() { return shape_.template dim<D>(); }
   template <size_t D>
   const auto& dim() const { return shape_.template dim<D>(); }
-  array::dim<> dim(size_t d) const { return shape_.dim(d); }
   size_type size() const { return shape_.size(); }
   bool empty() const { return shape_.empty(); }
   bool is_compact() const { return shape_.is_compact(); }
@@ -1509,7 +1508,6 @@ class array {
   static constexpr bool is_scalar() { return Shape::is_scalar(); }
   template <size_t D>
   const auto& dim() const { return shape_.template dim<D>(); }
-  ::array::dim<> dim(size_t d) const { return shape_.dim(d); }
   size_type size() const { return shape_.size(); }
   bool empty() const { return shape_.empty(); }
   bool is_compact() const { return shape_.is_compact(); }
