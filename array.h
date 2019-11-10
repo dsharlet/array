@@ -656,39 +656,38 @@ void for_each_index_in_order(const Dims& dims, Fn&& fn, const std::tuple<Indices
   }
 }
 
-inline void advance(index_t n) {}
+template <size_t D>
+void advance() {}
 
-template <typename Ptr, typename... Ptrs>
-void advance(index_t n, Ptr& ptr, Ptrs&... ptrs) {
-  ptr += n;
-  advance(n, ptrs...);
+template <size_t D, typename Ptr, typename... Ptrs>
+void advance(Ptr& ptr, Ptrs&... ptrs) {
+  std::get<0>(ptr) += std::get<D>(std::get<1>(ptr));
+  advance<D>(ptrs...);
 }
 
-template <size_t D, typename Dims, typename Fn, typename... Ptrs,
+template <size_t D, typename ExtentType, typename Fn, typename... Ptrs,
   std::enable_if_t<(D == 0), int> = 0>
-void for_each_value_in_order(const Dims& dims, Fn&& fn, Ptrs... ptrs) {
-  index_t extent = std::get<0>(dims).extent();
-  index_t stride = std::get<0>(dims).stride();
-  if (stride == 1) {
-    for (index_t i = 0; i < extent; i++) {
-      fn(*ptrs++...);
+void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
+  index_t extent_d = std::get<D>(extent);
+  if (all(std::get<D>(std::get<1>(ptrs)) == 1 ...)) {
+    for (index_t i = 0; i < extent_d; i++) {
+      fn(*std::get<0>(ptrs)++...);
     }
   } else {
-    for (index_t i = 0; i < extent; i++) {
-      fn(*ptrs...);
-      advance(stride, ptrs...);
+    for (index_t i = 0; i < extent_d; i++) {
+      fn(*std::get<0>(ptrs)...);
+      advance<D>(ptrs...);
     }
   }
 }
 
-template <size_t D, typename Dims, typename Fn, typename... Ptrs,
+template <size_t D, typename ExtentType, typename Fn, typename... Ptrs,
   std::enable_if_t<(D > 0), int> = 0>
-void for_each_value_in_order(const Dims& dims, Fn&& fn, Ptrs... ptrs) {
-  index_t extent = std::get<D>(dims).extent();
-  index_t stride = std::get<D>(dims).stride();
-  for (index_t i = 0; i < extent; i++) {
-    for_each_value_in_order<D - 1>(dims, fn, ptrs...);
-    advance(stride, ptrs...);
+void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
+  index_t extent_d = std::get<D>(extent);
+  for (index_t i = 0; i < extent_d; i++) {
+    for_each_value_in_order<D - 1>(extent, fn, ptrs...);
+    advance<D>(ptrs...);
   }
 }
 
@@ -805,9 +804,31 @@ template<typename Shape, typename Fn>
 void for_each_index_in_order(const Shape& shape, Fn &&fn) {
   internal::for_each_index_in_order<Shape::rank() - 1>(shape.dims(), fn, std::tuple<>());
 }
-template<typename Shape, typename Fn, typename... Ptrs>
-void for_each_value_in_order(const Shape& shape, Fn &&fn, Ptrs... ptrs) {
-  internal::for_each_value_in_order<Shape::rank() - 1>(shape.dims(), fn, ptrs...);
+template<typename Shape, typename Ptr, typename Fn>
+void for_each_value_in_order(const Shape& shape, Ptr base, Fn &&fn) {
+  typedef typename Shape::index_type index_type;
+  // TODO: This is losing compile-time constant extents and strides info
+  // (https://github.com/dsharlet/array/issues/1).
+  std::tuple<Ptr, index_type> base_and_stride(base, shape.stride());
+  internal::for_each_value_in_order<Shape::rank() - 1>(shape.extent(), fn, base_and_stride);
+}
+
+/** Similar to for_each_value_in_order, but iterates over two arrays
+ * simultaneously. 'shape' defines the loop nest, while 'shape_a' and 'shape_b'
+ * define the memory layout of 'base_a' and 'base_b'. */
+template<typename Shape, typename ShapeA, typename PtrA, typename ShapeB, typename PtrB, typename Fn>
+void for_each_value_in_order(const Shape& shape,
+                             const ShapeA& shape_a, PtrA base_a,
+                             const ShapeB& shape_b, PtrB base_b,
+                             Fn &&fn) {
+  base_a += shape_a(shape.min());
+  base_b += shape_b(shape.min());
+  // TODO: This is losing compile-time constant extents and strides info
+  // (https://github.com/dsharlet/array/issues/1).
+  typedef typename Shape::index_type index_type;
+  std::tuple<PtrA, index_type> a(base_a, shape_a.stride());
+  std::tuple<PtrB, index_type> b(base_b, shape_b.stride());
+  internal::for_each_value_in_order<Shape::rank() - 1>(shape.extent(), fn, a, b);
 }
 
 namespace internal {
@@ -928,10 +949,10 @@ class shape_traits {
   /** The for_each_value implementation for the shape may be able to statically
    * optimize shape. The default implementation optimizes the shape at runtime,
    * and the only attempts to convert the shape to a dense_shape. */
-  template <typename Fn, typename... T>
-  static void for_each_value(const Shape& shape, Fn&& fn, T... base) {
+  template <typename Ptr, typename Fn>
+  static void for_each_value(const Shape& shape, Ptr base, Fn&& fn) {
     auto opt_shape = internal::dynamic_optimize_shape(shape);
-    for_each_value_in_order(opt_shape, fn, base...);
+    for_each_value_in_order(opt_shape, base, fn);
   }
 };
 
@@ -945,50 +966,28 @@ class shape_traits<shape<>> {
     fn(std::tuple<>());
   }
 
-  template <typename Fn, typename... T>
-  static void for_each_value(const shape<>&, Fn&& fn, T... base) {
-    fn(*base...);
+  template <typename Ptr, typename Fn>
+  static void for_each_value(const shape<>& shape, Ptr base, Fn&& fn) {
+    fn(*base);
   }
 };
 
 /** Copy shape traits enable some behaviors to be overriden on a pairwise shape
  * basis for copies. */
-template <typename ShapeSrc, typename ShapeDest>
+template <typename ShapeSrc, typename ShapeDest = ShapeSrc>
 class copy_shape_traits {
  public:
   template <typename Fn, typename TSrc, typename TDest>
-  static void for_each_value(const ShapeSrc& shape_src, const ShapeDest& shape_dest,
-                             Fn&& fn, TSrc src, TDest dest) {
+  static void for_each_value(const ShapeSrc& shape_src, TSrc src,
+                             const ShapeDest& shape_dest, TDest dest,
+                             Fn&& fn) {
     // For this function, we don't care about the order in which the callback is
     // called. Optimize the shapes for memory access order.
     auto opt_shape = internal::dynamic_optimize_copy_shapes(shape_src, shape_dest);
     const auto& opt_shape_src = opt_shape.first;
     const auto& opt_shape_dest = opt_shape.second;
 
-    // If the optimized shape's first dimension is 1, we can convert this to a
-    // dense shape. This may help the compiler optimize this further.
-    typedef typename ShapeDest::index_type index_type;
-    if (opt_shape_src.template dim<0>().stride() == 1 &&
-        opt_shape_dest.template dim<0>().stride() == 1) {
-      dense_shape<ShapeSrc::rank()> dense_opt_shape_src = opt_shape_src;
-      dense_shape<ShapeDest::rank()> dense_opt_shape_dest = opt_shape_dest;
-      for_each_index_in_order(dense_opt_shape_dest, [&](const index_type& index) {
-        fn(src[dense_opt_shape_src(index)], dest[dense_opt_shape_dest(index)]);
-      });
-    } else if (opt_shape_dest.template dim<0>().stride() == 1) {
-      dense_shape<ShapeDest::rank()> dense_opt_shape_dest = opt_shape_dest;
-      for_each_index_in_order(dense_opt_shape_dest, [&](const index_type& index) {
-        fn(src[opt_shape_src(index)], dest[dense_opt_shape_dest(index)]);
-      });
-    } else {
-      for_each_index_in_order(opt_shape_dest, [&](const index_type& index) {
-        fn(src[opt_shape_src(index)], dest[opt_shape_dest(index)]);
-      });
-    }
-    // The dense src, non-dense dest case is omitted. That seems unlikely given
-    // that we sorted the dimensions to make the dest dense, but it could happen
-    // if the dest does not have any dense dimensions, and the source has one in
-    // the same place as the innermost dimension of dest.
+    for_each_value_in_order(opt_shape_dest, opt_shape_src, src, opt_shape_dest, dest, fn);
   }
 };
 
@@ -1058,18 +1057,20 @@ class array_ref {
       assert(shape_ == other.shape());
       return;
     }
-    copy_shape_traits<Shape, Shape>::for_each_value(other.shape(), shape_, [&](const value_type& src, value_type& dest) {
+    copy_shape_traits<Shape>::for_each_value(other.shape(), other.data(), shape_, base_,
+                                             [&](const value_type& src, value_type& dest) {
       dest = src;
-    }, other.data(), base_);
+    });
   }
   void assign(array_ref&& other) const {
     if (base_ == other.data()) {
       assert(shape_ == other.shape());
       return;
     }
-    copy_shape_traits<Shape, Shape>::for_each_value(other.shape(), shape_, [&](value_type& src, value_type& dest) {
+    copy_shape_traits<Shape>::for_each_value(other.shape(), other.data(), shape_, base_,
+                                             [&](value_type& src, value_type& dest) {
       dest = std::move(src);
-    }, other.data(), base_);
+    });
   }
   /** Copy-assign each element of this array to the given value. */
   void assign(const T& value) const {
@@ -1101,7 +1102,7 @@ class array_ref {
    * order in which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
-    shape_traits<Shape>::for_each_value(shape_, fn, base_);
+    shape_traits<Shape>::for_each_value(shape_, base_, fn);
   }
 
   /** Pointer to the start of the flattened array_ref. */
@@ -1239,16 +1240,18 @@ class array {
   void copy_construct(const array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
-    shape_traits<Shape>::for_each_value(shape_, [&](value_type& dest, const value_type& src) {
+    copy_shape_traits<Shape>::for_each_value(other.shape(), other.data(), shape_, base_,
+                                             [&](const value_type& src, value_type& dest) {
       std::allocator_traits<Alloc>::construct(alloc_, &dest, src);
-    }, base_, other.data());
+    });
   }
   void move_construct(array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
-    shape_traits<Shape>::for_each_value(shape_, [&](value_type& dest, value_type& src) {
+    copy_shape_traits<Shape>::for_each_value(other.shape(), other.data(), shape_, base_,
+                                             [&](value_type& src, value_type& dest) {
       std::allocator_traits<Alloc>::construct(alloc_, &dest, std::move(src));
-    }, base_, other.data());
+    });
   }
 
   // Call the destructor on every element.
@@ -1460,11 +1463,11 @@ class array {
    * which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) {
-    shape_traits<Shape>::for_each_value(shape_, fn, base_);
+    shape_traits<Shape>::for_each_value(shape_, base_, fn);
   }
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
-    shape_traits<Shape>::for_each_value(shape_, fn, base_);
+    shape_traits<Shape>::for_each_value(shape_, base_, fn);
   }
 
   /** Pointer to the start of the flat array, which is a pointer to the min
@@ -1500,9 +1503,10 @@ class array {
 
     // Move the common elements to the new array.
     Shape intersection = intersect(shape_, new_shape);
-    copy_shape_traits<Shape, Shape>::for_each_value(shape_, intersection, [](T& src, T& dest) {
+    copy_shape_traits<Shape>::for_each_value(shape_, base_, intersection, new_array.data(),
+                                             [](T& src, T& dest) {
       dest = std::move(src);
-    }, base_, new_array.data());
+    });
 
     // Swap this with the new array.
     swap(new_array);
@@ -1614,9 +1618,10 @@ void copy(const array_ref<T, ShapeSrc>& src,
   }
 
   typedef typename std::remove_const<T>::type non_const_T;
-  copy_shape_traits<ShapeSrc, ShapeDest>::for_each_value(src.shape(), dest.shape(), [](const T& src, non_const_T& dest) {
+  copy_shape_traits<ShapeSrc, ShapeDest>::for_each_value(src.shape(), src.data(), dest.shape(), dest.data(),
+                                                         [](const T& src, non_const_T& dest) {
     dest = src;
-  }, src.data(), dest.data());
+  });
 }
 template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocDest>
 void copy(const array_ref<T, ShapeSrc>& src,
@@ -1645,9 +1650,10 @@ void move(const array_ref<T, ShapeSrc>& src, const array_ref<T, ShapeDest>& dest
     ARRAY_THROW_OUT_OF_RANGE("dest indices out of range of src");
   }
 
-  copy_shape_traits<ShapeSrc, ShapeDest>::for_each_value(src.shape(), dest.shape(), [](T& src, T& dest) {
+  copy_shape_traits<ShapeSrc, ShapeDest>::for_each_value(src.shape(), src.data(), dest.shape(), dest.data(),
+                                                         [](T& src, T& dest) {
     dest = std::move(src);
-  }, src.data(), dest.data());
+  });
 }
 template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocDest>
 void move(const array_ref<T, ShapeSrc>& src, array<T, ShapeDest, AllocDest>& dest) {
