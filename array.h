@@ -1,3 +1,7 @@
+/** \file array.h
+ * \brief Main header for arrays
+*/
+
 #ifndef ARRAY_ARRAY_H
 #define ARRAY_ARRAY_H
 
@@ -35,6 +39,8 @@ enum : index_t {
 #define ARRAY_CHECK_CONSTRAINT(constant, runtime) \
   assert(constant == runtime || constant == UNK);
 
+/** \namespace internal
+  * \internal */
 namespace internal {
 
 // Given a compile-time static value, reconcile a compile-time
@@ -816,10 +822,14 @@ auto intersect(const ShapeA& a, const ShapeB& b) {
   return internal::intersect(a.dims(), b.dims(), std::make_index_sequence<rank>());
 }
 
-/** Iterate over all indices in the shape, calling a function 'fn' for
- * each set of indices. The indices are in the same order as the dims
- * in the shape. The first dim is the 'inner' loop of the iteration,
- * and the last dim is the 'outer' loop. */
+/** Iterate over all indices in the shape, calling a function 'fn' for each set
+ * of indices. The indices are in the same order as the dims in the shape. The
+ * first dim is the 'inner' loop of the iteration, and the last dim is the
+ * 'outer' loop.
+ *
+ * These functions are typically used to implement shape_traits and
+ * copy_shape_traits objects. Use for_each_index, array_ref<>::for_each_value,
+ * or array<>::for_each_value instead. */
 template<typename Shape, typename Fn>
 void for_each_index_in_order(const Shape& shape, Fn &&fn) {
   internal::for_each_index_in_order<Shape::rank() - 1>(shape.dims(), fn, std::tuple<>());
@@ -871,8 +881,7 @@ shape_of_rank<Shape::rank()> dynamic_optimize_shape(const Shape& shape) {
 // Optimize a src and dest shape. The dest shape is made dense, and contiguous
 // dimensions are fused.
 template <typename ShapeSrc, typename ShapeDest>
-std::pair<shape_of_rank<ShapeSrc::rank()>, shape_of_rank<ShapeDest::rank()>>
-dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
+auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
   constexpr size_t rank = ShapeSrc::rank();
   static_assert(rank == ShapeDest::rank(), "copy shapes must have same rank.");
   auto src_dims = internal::tuple_to_array<dim<>>(src.dims());
@@ -927,7 +936,7 @@ dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
     dest_dims[i] = dims[i].dest;
   }
 
-  return { shape_of_rank<rank>(src_dims), shape_of_rank<rank>(dest_dims) };
+  return std::make_pair(shape_of_rank<rank>(src_dims), shape_of_rank<rank>(dest_dims));
 }
 
 }  // namespace internal
@@ -1016,14 +1025,6 @@ class copy_shape_traits {
   }
 };
 
-
-/** Create a new shape using a list of DimIndices to use as the
- * dimensions of the shape. */
-template <size_t... DimIndices, typename Shape>
-auto reorder(const Shape& shape) {
-  return make_shape(shape.template dim<DimIndices>()...);
-}
-
 /** Iterate over all indices in the shape, calling a function 'fn' for
  * each set of indices. The order is defined by 'shape_traits<Shape>'.
  * 'for_all_indices' calls 'fn' with a list of arguments corresponding
@@ -1038,6 +1039,13 @@ void for_all_indices(const Shape& s, Fn&& fn) {
   shape_traits<Shape>::for_each_index(s, [&](const typename Shape::index_type&i) {
     internal::tuple_arg_to_parameter_pack(fn, i, std::make_index_sequence<Shape::rank()>());
   });
+}
+
+/** Create a new shape using a list of DimIndices to use as the
+ * dimensions of the shape. */
+template <size_t... DimIndices, typename Shape>
+auto reorder(const Shape& shape) {
+  return make_shape(shape.template dim<DimIndices>()...);
 }
 
 /** A reference to an array is an object with a shape mapping indices
