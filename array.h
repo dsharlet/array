@@ -253,6 +253,11 @@ index_t product(const std::tuple<Ts...>& t, std::index_sequence<Is...>) {
   return product(std::get<Is>(t)...);
 }
 
+template <typename... Bools>
+bool all(Bools... bools) {
+  return sum((bools ? 0 : 1)...) == 0;
+}
+
 // Computes the sum of the offsets of a list of dims and indices.
 template <typename Dims, typename Indices, size_t... Is>
 index_t flat_offset_impl(const Dims& dims, const Indices& indices, std::index_sequence<Is...>) {
@@ -276,7 +281,7 @@ index_t flat_extent(const Dims& dims, std::index_sequence<Is...>) {
 // Checks if all indices are in range of each corresponding dim.
 template <typename Dims, typename Indices, size_t... Is>
 index_t is_in_range_impl(const Dims& dims, const Indices& indices, std::index_sequence<Is...>) {
-  return sum((std::get<Is>(dims).is_in_range(std::get<Is>(indices)) ? 0 : 1)...) == 0;
+  return all(std::get<Is>(dims).is_in_range(std::get<Is>(indices))...);
 }
 
 template <typename Dims, typename Indices>
@@ -740,7 +745,7 @@ bool is_dim_compatible(const dim<Min, Extent, Stride>& dest, const DimSrc& src) 
 
 template <typename... DimsDest, typename ShapeSrc, size_t... Is>
 bool is_shape_compatible(const shape<DimsDest...>& dest, const ShapeSrc& src, std::index_sequence<Is...>) {
-  return sum((is_dim_compatible(DimsDest(), src.template dim<Is>()) ? 0 : 1)...) == 0;
+  return all(is_dim_compatible(DimsDest(), src.template dim<Is>())...);
 }
 
 template <typename DimA, typename DimB>
