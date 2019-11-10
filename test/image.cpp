@@ -81,7 +81,7 @@ void test_copy(index_t channels) {
 
     array<T, ShapeDest> dest_memcpy(dest_cropped.shape());
     double memcpy_time = benchmark([&]() {
-      memcpy(dest_memcpy.data(), src.data(), dest_cropped.size() * sizeof(T));
+      memcpy(dest_memcpy.base(), src.base(), dest_cropped.size() * sizeof(T));
     });
     // This memcpy is *not* correct, but the performance of it
     // is optimistic.
@@ -133,8 +133,8 @@ TEST(image_chunky_padded) {
   fill_pattern(src);
   chunky_image<int, 4> dest(src.shape(), 5);
 
-  chunky_image_ref<const int, 3, 4> src_rgb(src.data(), {src.width(), src.height(), 3});
-  chunky_image_ref<int, 3, 4> dest_rgb(dest.data(), {src.width(), src.height(), 3});
+  chunky_image_ref<const int, 3, 4> src_rgb(src.base(), {src.width(), src.height(), 3});
+  chunky_image_ref<int, 3, 4> dest_rgb(dest.base(), {src.width(), src.height(), 3});
   copy(src_rgb, dest_rgb);
 
   for (int y = 0; y < dest.height(); y++) {

@@ -1074,21 +1074,21 @@ class array_ref {
   }
 
   void assign(const array_ref& other) const {
-    if (base_ == other.data()) {
+    if (base_ == other.base()) {
       assert(shape_ == other.shape());
       return;
     }
-    copy_shape_traits<Shape>::for_each_value(other.shape(), other.data(), shape_, base_,
+    copy_shape_traits<Shape>::for_each_value(other.shape(), other.base(), shape_, base_,
                                              [&](const value_type& src, value_type& dest) {
       dest = src;
     });
   }
   void assign(array_ref&& other) const {
-    if (base_ == other.data()) {
+    if (base_ == other.base()) {
       assert(shape_ == other.shape());
       return;
     }
-    copy_shape_traits<Shape>::for_each_value(other.shape(), other.data(), shape_, base_,
+    copy_shape_traits<Shape>::for_each_value(other.shape(), other.base(), shape_, base_,
                                              [&](value_type& src, value_type& dest) {
       dest = std::move(src);
     });
@@ -1127,7 +1127,7 @@ class array_ref {
   }
 
   /** Pointer to the start of the flattened array_ref. */
-  pointer data() const { return base_; }
+  pointer base() const { return base_; }
 
   /** Shape of this array_ref. */
   const Shape& shape() const { return shape_; }
@@ -1261,7 +1261,7 @@ class array {
   void copy_construct(const array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
-    copy_shape_traits<Shape>::for_each_value(other.shape(), other.data(), shape_, base_,
+    copy_shape_traits<Shape>::for_each_value(other.shape(), other.base(), shape_, base_,
                                              [&](const value_type& src, value_type& dest) {
       std::allocator_traits<Alloc>::construct(alloc_, &dest, src);
     });
@@ -1269,7 +1269,7 @@ class array {
   void move_construct(array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
-    copy_shape_traits<Shape>::for_each_value(other.shape(), other.data(), shape_, base_,
+    copy_shape_traits<Shape>::for_each_value(other.shape(), other.base(), shape_, base_,
                                              [&](value_type& src, value_type& dest) {
       std::allocator_traits<Alloc>::construct(alloc_, &dest, std::move(src));
     });
@@ -1362,7 +1362,7 @@ class array {
    * is then reallocated if necessary, and each element in the array is copy
    * constructed from other. */
   array& operator=(const array& other) {
-    if (base_ == other.data()) {
+    if (base_ == other.base()) {
       assert(shape_ == other.shape());
       return *this;
     }
@@ -1380,7 +1380,7 @@ class array {
    * an O(1) operation. If the allocator cannot be propagated, each element is
    * move-assigned from 'other'. */
   array& operator=(array&& other) {
-    if (base_ == other.data()) {
+    if (base_ == other.base()) {
       assert(shape_ == other.shape());
       return *this;
     }
@@ -1398,7 +1398,7 @@ class array {
    * array is destroyed, reallocated if necessary, and then each element is
    * copy- or move-constructed from 'other'. */
   void assign(const array& other) {
-    if (base_ == other.data()) {
+    if (base_ == other.base()) {
       assert(shape_ == other.shape());
       return;
     }
@@ -1412,7 +1412,7 @@ class array {
     copy_construct(other);
   }
   void assign(array&& other) {
-    if (base_ == other.data()) {
+    if (base_ == other.base()) {
       assert(shape_ == other.shape());
       return;
     }
@@ -1492,8 +1492,12 @@ class array {
   }
 
   /** Pointer the min index of the shape. */
-  pointer data() { return base_; }
-  const_pointer data() const { return base_; }
+  pointer base() { return base_; }
+  const_pointer base() const { return base_; }
+
+  /** Pointer to the first element of the flat array. */
+  pointer data() { return base_ + shape_.flat_min(); }
+  const_pointer data() const { return base_ + shape_.flat_min(); }
 
   /** Shape of this array. */
   const Shape& shape() const { return shape_; }
@@ -1523,7 +1527,7 @@ class array {
 
     // Move the common elements to the new array.
     Shape intersection = intersect(shape_, new_shape);
-    copy_shape_traits<Shape>::for_each_value(shape_, base_, intersection, new_array.data(),
+    copy_shape_traits<Shape>::for_each_value(shape_, base_, intersection, new_array.base(),
                                              [](T& src, T& dest) {
       dest = std::move(src);
     });
@@ -1638,7 +1642,7 @@ void copy(const array_ref<T, ShapeSrc>& src,
   }
 
   typedef typename std::remove_const<T>::type non_const_T;
-  copy_shape_traits<ShapeSrc, ShapeDest>::for_each_value(src.shape(), src.data(), dest.shape(), dest.data(),
+  copy_shape_traits<ShapeSrc, ShapeDest>::for_each_value(src.shape(), src.base(), dest.shape(), dest.base(),
                                                          [](const T& src, non_const_T& dest) {
     dest = src;
   });
@@ -1670,7 +1674,7 @@ void move(const array_ref<T, ShapeSrc>& src, const array_ref<T, ShapeDest>& dest
     ARRAY_THROW_OUT_OF_RANGE("dest indices out of range of src");
   }
 
-  copy_shape_traits<ShapeSrc, ShapeDest>::for_each_value(src.shape(), src.data(), dest.shape(), dest.data(),
+  copy_shape_traits<ShapeSrc, ShapeDest>::for_each_value(src.shape(), src.base(), dest.shape(), dest.base(),
                                                          [](T& src, T& dest) {
     dest = std::move(src);
   });
@@ -1784,7 +1788,7 @@ auto make_compact_move(array<T, Shape, AllocSrc>& src, const AllocDest& alloc = 
 template <typename U, typename T, typename Shape>
 array_ref<U, Shape> reinterpret(const array_ref<T, Shape>& a) {
   static_assert(sizeof(T) == sizeof(U), "sizeof(reinterpreted type U) != sizeof(array type T)");
-  return array_ref<U, Shape>(reinterpret_cast<U*>(a.data()), a.shape());
+  return array_ref<U, Shape>(reinterpret_cast<U*>(a.base()), a.shape());
 }
 template <typename U, typename T, typename Shape, typename Alloc>
 array_ref<U, Shape> reinterpret(array<T, Shape, Alloc>& a) {
@@ -1800,7 +1804,7 @@ array_ref<const U, Shape> reinterpret(const array<T, Shape, Alloc>& a) {
 template <typename NewShape, typename T, typename OldShape>
 array_ref<T, NewShape> reinterpret_shape(const array_ref<T, OldShape>& a,
                                          NewShape new_shape, index_t offset = 0) {
-  return array_ref<T, NewShape>(a.data() + offset, std::move(new_shape));
+  return array_ref<T, NewShape>(a.base() + offset, std::move(new_shape));
 }
 template <typename NewShape, typename T, typename OldShape, typename Allocator>
 array_ref<T, NewShape> reinterpret_shape(array<T, OldShape, Allocator>& a,
