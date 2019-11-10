@@ -1,3 +1,6 @@
+/** \file image.h
+ * \brief Optional image-specific helpers and specializations.
+*/
 #ifndef ARRAY_IMAGE_H
 #define ARRAY_IMAGE_H
 
@@ -28,6 +31,8 @@ using chunky_image = array<T, chunky_image_shape<Channels, ChannelStride>>;
 template <typename T, index_t Channels, index_t ChannelStride = Channels>
 using chunky_image_ref = array_ref<T, chunky_image_shape<Channels, ChannelStride>>;
 
+/** Calls 'fn' for each index in an image shape 's'. c is the innermost
+ * dimension of the loop nest. */
 template <typename Shape, typename Fn>
 void for_each_image_index(const Shape& s, Fn&& fn) {
   // Images should always be iterated with c as the innermost loop.
@@ -81,7 +86,7 @@ class shape_traits<chunky_image_shape<Channels>> {
   }
 };
 
-/** A 'planar' iamge is an array with dimensions x, y, c, where x is
+/** A 'planar' image is an array with dimensions x, y, c, where x is
  * dense. This format is less common, but more convenient for
  * optimization, particularly SIMD vectorization. Note that this
  * shape also supports 'line-chunky' storage orders. */
