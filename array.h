@@ -673,7 +673,7 @@ template<size_t D, typename Dims, typename Fn, typename... Indices,
   std::enable_if_t<(D > 0), int> = 0>
 void for_each_index_in_order(const Dims& dims, Fn&& fn, const std::tuple<Indices...>& indices) {
   for (index_t i : std::get<D>(dims)) {
-    for_each_index_in_order<D - 1>(dims, std::forward<Fn>(fn), std::tuple_cat(std::make_tuple(i), indices));
+    for_each_index_in_order<D - 1>(dims, fn, std::tuple_cat(std::make_tuple(i), indices));
   }
 }
 
@@ -708,7 +708,7 @@ void for_each_value_in_order(const Dims& dims, Fn&& fn, Ptrs... ptrs) {
   index_t extent = std::get<D>(dims).extent();
   index_t stride = std::get<D>(dims).stride();
   for (index_t i = 0; i < extent; i++) {
-    for_each_value_in_order<D - 1>(dims, std::forward<Fn>(fn), ptrs...);
+    for_each_value_in_order<D - 1>(dims, fn, ptrs...);
     advance(stride, ptrs...);
   }
 }
@@ -822,11 +822,11 @@ auto intersect(const ShapeA& a, const ShapeB& b) {
  * and the last dim is the 'outer' loop. */
 template<typename Shape, typename Fn>
 void for_each_index_in_order(const Shape& shape, Fn &&fn) {
-  internal::for_each_index_in_order<Shape::rank() - 1>(shape.dims(), std::forward<Fn>(fn), std::tuple<>());
+  internal::for_each_index_in_order<Shape::rank() - 1>(shape.dims(), fn, std::tuple<>());
 }
 template<typename Shape, typename Fn, typename... Ptrs>
 void for_each_value_in_order(const Shape& shape, Fn &&fn, Ptrs... ptrs) {
-  internal::for_each_value_in_order<Shape::rank() - 1>(shape.dims(), std::forward<Fn>(fn), ptrs...);
+  internal::for_each_value_in_order<Shape::rank() - 1>(shape.dims(), fn, ptrs...);
 }
 
 namespace internal {
@@ -943,7 +943,7 @@ class shape_traits {
    * to iterate in a different order than the default (in-order). */
   template <typename Fn>
   static void for_each_index(const Shape& shape, Fn&& fn) {
-    for_each_index_in_order(shape, std::forward<Fn>(fn));
+    for_each_index_in_order(shape, fn);
   }
 
   /** The for_each_value implementation for the shape may be able
@@ -1031,12 +1031,12 @@ auto reorder(const Shape& shape) {
  * object describing the indices. */
 template <typename Shape, typename Fn>
 void for_each_index(const Shape& s, Fn&& fn) {
-  shape_traits<Shape>::for_each_index(s, std::forward<Fn>(fn));
+  shape_traits<Shape>::for_each_index(s, fn);
 }
 template <typename Shape, typename Fn>
 void for_all_indices(const Shape& s, Fn&& fn) {
   shape_traits<Shape>::for_each_index(s, [&](const typename Shape::index_type&i) {
-    internal::tuple_arg_to_parameter_pack(std::forward<Fn>(fn), i, std::make_index_sequence<Shape::rank()>());
+    internal::tuple_arg_to_parameter_pack(fn, i, std::make_index_sequence<Shape::rank()>());
   });
 }
 
@@ -1127,7 +1127,7 @@ class array_ref {
    * array_ref. The order in which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
-    shape_traits<Shape>::for_each_value(shape_, std::forward<Fn>(fn), base_);
+    shape_traits<Shape>::for_each_value(shape_, fn, base_);
   }
 
   /** Pointer to the start of the flattened array_ref. */
@@ -1490,11 +1490,11 @@ class array {
    * array. The order in which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) {
-    shape_traits<Shape>::for_each_value(shape_, std::forward<Fn>(fn), base_);
+    shape_traits<Shape>::for_each_value(shape_, fn, base_);
   }
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
-    shape_traits<Shape>::for_each_value(shape_, std::forward<Fn>(fn), base_);
+    shape_traits<Shape>::for_each_value(shape_, fn, base_);
   }
 
   /** Pointer to the start of the flat array, which is a pointer to
