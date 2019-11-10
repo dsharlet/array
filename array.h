@@ -83,7 +83,7 @@ class dim_iterator {
  * directly. Values not in the range [min, min + extent) are considered to be
  * out of bounds. */
 // TODO: Consider adding helper class constant<Value> to use for the members of
-// dim.
+// dim. (https://github.com/dsharlet/array/issues/1)
 template <index_t Min_ = UNK, index_t Extent_ = UNK, index_t Stride_ = UNK>
 class dim {
  protected:
@@ -531,38 +531,15 @@ class shape {
    * indices will map to the same flat index; in this case, this function will
    * return false. */
   bool is_one_to_one() const {
-    // We need to solve:
-    //
-    //   x0*S0 + x1*S1 + x2*S2 + ... == y0*S0 + y1*S1 + y2*S2 + ...
-    //
-    // where xN, yN are (different) indices, and SN are the strides of
-    // this shape. This is equivalent to:
-    //
-    //   (x0 - y0)*S0 + (x1 - y1)*S1 + ... == 0
-    //
-    // We don't actually care what xi and yi are, so this is equivalent
-    // to:
-    //
-    //   x0*S0 + x1*S1 + x2*S2 + ... == 0
-    //
-    // where xi != 0. This is a linear diophantine equation, and we
-    // already have one solution at xi = 0, so we just need to find
-    // other solutions, and check that they are in range.
-
-    // TODO: This is pretty hard. I think we need to rewrite the
-    // equation as a system of linear diophantine equations, and
-    // then use the "Hermite normal form" to get the unbounded
-    // solutions, and then do some combinatoric search for the
-    // in-bounds solutions. This is an NP-hard problem, but the
-    // size of the problems are small, and I don't think these
-    // functions need to be fast.
+    // TODO: https://github.com/dsharlet/array/issues/2
     return true;
   }
 
   /** Returns true if this shape projects to a set of flat indices that is a
    * subset of the other shape's projection to flat indices. */
   bool is_subset_of(const shape& other) const {
-    // TODO: This is also hard, maybe even harder than is_one_to_one.
+    // TODO: https://github.com/dsharlet/array/issues/2
+
     return true;
   }
 
@@ -610,9 +587,8 @@ class shape {
   bool operator!=(const shape<OtherDims...>& other) const { return dims_ != other.dims(); }
 };
 
-// TODO: Try to avoid needing this specialization. The only reason it is
-// necessary is because the above defines two default constructors in the case
-// of a scalar shape.
+// TODO: Try to avoid needing this specialization
+// (https://github.com/dsharlet/array/issues/3).
 template <>
 class shape<> {
  public:
@@ -1185,7 +1161,8 @@ class array_ref {
     }
 
     // TODO: This currently calls operator!= on all elements of the array_ref,
-    // even after we find a non-equal element.
+    // even after we find a non-equal element
+    // (https://github.com/dsharlet/array/issues/4).
     bool result = false;
     for_each_index(shape_, [&](const index_type& i) {
       if ((*this)(i) != other(i)) {
@@ -1578,6 +1555,7 @@ class array {
 
     // TODO: This probably should respect
     // std::allocator_traits<Alloc>::propagate_on_container_swap::value
+    // (https://github.com/dsharlet/array/issues/5).
     swap(alloc_, other.alloc_);
     swap(buffer_, other.buffer_);
     swap(buffer_size_, other.buffer_size_);
@@ -1711,6 +1689,7 @@ auto make_move(const array_ref<T, ShapeSrc>& src, const ShapeDest& shape,
 }
 // TODO: Should this taken an rvalue reference for src, and should it move the
 // whole array if the shapes are equal?
+// (https://github.com/dsharlet/array/issues/8)
 template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc,
   typename AllocDest = AllocSrc>
 auto make_move(array<T, ShapeSrc, AllocSrc>& src, const ShapeDest& shape,
@@ -1740,6 +1719,7 @@ auto make_dense_move(const array_ref<T, ShapeSrc>& src, const Alloc& alloc = All
 }
 // TODO: Should this taken an rvalue reference for src, and should it move the
 // whole array if the shapes are equal?
+// (https://github.com/dsharlet/array/issues/8)
 template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = AllocSrc>
 auto make_dense_move(array<T, ShapeSrc, AllocSrc>& src, const AllocDest& alloc = AllocDest()) {
   return make_dense_move(src.ref(), alloc);
@@ -1767,6 +1747,7 @@ auto make_compact_move(const array_ref<T, Shape>& src, const Alloc& alloc = Allo
 }
 // TODO: Should this taken an rvalue reference for src, and should it move the
 // whole array if the shapes are equal?
+// (https://github.com/dsharlet/array/issues/8)
 template <typename T, typename Shape, typename AllocSrc, typename AllocDest = AllocSrc>
 auto make_compact_move(array<T, Shape, AllocSrc>& src, const AllocDest& alloc = AllocDest()) {
   return make_compact_move(src.ref(), alloc);
@@ -1811,7 +1792,8 @@ array_ref<const T, NewShape> reinterpret_shape(const array<T, OldShape, Allocato
  * stack. This can only be used with containers that have a maximum of one
  * concurrent live allocation, which is the case for array::array. */
 // TODO: "stack_allocator" isn't a good name for this. It's a fixed allocation,
-// but not necessarily a stack allocation.
+// but not necessarily a stack allocation
+// (https://github.com/dsharlet/array/issues/6).
 template <class T, size_t N>
 class stack_allocator {
   alignas(T) char buffer[N * sizeof(T)];
