@@ -106,12 +106,10 @@ class dim {
   index_t stride_;
 
  public:
-  enum {
-    Min = Min_,
-    Extent = Extent_,
-    Max = Min != UNK && Extent != UNK ? Min + Extent - 1 : UNK,
-    Stride = Stride_,
-  };
+  static constexpr index_t Min = Min_;
+  static constexpr index_t Extent = Extent_;
+  static constexpr index_t Max = Min != UNK && Extent != UNK ? Min + Extent - 1 : UNK;
+  static constexpr index_t Stride = Stride_;
 
   /** Construct a new dim object. If the class template parameters 'Min',
    * 'Extent', or 'Stride' are not 'UNK', these runtime values must match the
