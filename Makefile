@@ -1,5 +1,5 @@
-CFLAGS := $(CFLAGS) -O2 -ffast-math -mavx
-CXXFLAGS := $(CXXFLAGS) -std=c++14 -march=native -Wall -ferror-limit=3
+CFLAGS := $(CFLAGS) -O2 -ffast-math -march=native
+CXXFLAGS := $(CXXFLAGS) -std=c++14 -Wall -ferror-limit=3
 LDFLAGS := $(LDFLAGS)
 
 DEPS = array.h image.h
