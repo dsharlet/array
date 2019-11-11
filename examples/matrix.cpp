@@ -17,7 +17,7 @@ using matrix_shape = shape<dim<UNK, Rows>, dense_dim<UNK, Cols>>;
 // A matrix or matrix_ref is an array or array_ref with Shape =
 // matrix_shape.
 template <typename T, index_t Rows = UNK, index_t Cols = UNK,
-	  typename Alloc = std::allocator<T>>
+          typename Alloc = std::allocator<T>>
 using matrix = array<T, matrix_shape<Rows, Cols>, Alloc>;
 template <typename T, index_t Rows = UNK, index_t Cols = UNK>
 using matrix_ref = array_ref<T, matrix_shape<Rows, Cols>>;
@@ -26,7 +26,7 @@ using matrix_ref = array_ref<T, matrix_shape<Rows, Cols>>;
 // starting at 'row', 'col'.
 template <index_t Rows = UNK, index_t Cols = UNK, typename T>
 matrix_ref<T> submatrix(const matrix_ref<T>& m, index_t row, index_t col,
-			index_t rows = Rows, index_t cols = Cols) {
+                        index_t rows = Rows, index_t cols = Cols) {
   matrix_shape<Rows, Cols> s({row, rows, m.i().stride()}, {col, cols});
   return matrix_ref<T>(&m(row, col), s);
 }
@@ -35,7 +35,7 @@ matrix_ref<T> submatrix(const matrix_ref<T>& m, index_t row, index_t col,
 template <typename TAB, typename TC, index_t Rows, index_t Cols>
 __attribute__((noinline))
 void multiply_naive(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-		    const matrix_ref<TC, Rows, Cols>& c) {
+                    const matrix_ref<TC, Rows, Cols>& c) {
   for (int i : c.i()) {
     for (int j : c.j()) {
       TC c_ij = 0;
@@ -53,7 +53,7 @@ void multiply_naive(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
 template <typename TAB, typename TC, index_t Rows, index_t Cols>
 __attribute__((noinline))
 void multiply_cols_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-			     const matrix_ref<TC, Rows, Cols>& c) {
+                             const matrix_ref<TC, Rows, Cols>& c) {
   for (int i : c.i()) {
     for (int j : c.j()) {
       c(i, j) = 0;
@@ -73,7 +73,7 @@ void multiply_cols_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
 template <typename TAB, typename TC>
 __attribute__((noinline))
 void multiply_tiles_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-			      const matrix_ref<TC>& c) {
+                              const matrix_ref<TC>& c) {
   // We want the tiles to be as big as possible without spilling any
   // of the accumulator registers to the stack.
   constexpr int tile_rows = 4;
@@ -90,11 +90,11 @@ void multiply_tiles_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b
       matrix_tile c_tile({{io, tile_rows}, {jo, tile_cols}}, 0);
       // Compute this tile of the result.
       for (int k : a.j()) {
-	for (int i : c_tile.i()) {
-	  for (int j : c_tile.j()) {
-	    c_tile(i, j) += a(i, k) * b(k, j);
-	  }
-	}
+        for (int i : c_tile.i()) {
+          for (int j : c_tile.j()) {
+            c_tile(i, j) += a(i, k) * b(k, j);
+          }
+        }
       }
       // Copy this tile to the result.
       copy(c_tile, submatrix<tile_rows, tile_cols>(c.ref(), io, jo));
