@@ -1,3 +1,17 @@
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "array.h"
 #include "benchmark.h"
 
@@ -27,6 +41,10 @@ using matrix_ref = array_ref<T, matrix_shape<Rows, Cols>>;
 template <index_t Rows = UNK, index_t Cols = UNK, typename T>
 matrix_ref<T> submatrix(const matrix_ref<T>& m, index_t row, index_t col,
                         index_t rows = Rows, index_t cols = Cols) {
+  assert(row >= m.i().min());
+  assert(row + rows <= m.i().max() + 1);
+  assert(col >= m.j().min());
+  assert(col + cols <= m.j().max() + 1);
   matrix_shape<Rows, Cols> s({row, rows, m.i().stride()}, {col, cols});
   return matrix_ref<T>(&m(row, col), s);
 }
@@ -76,13 +94,11 @@ void multiply_tiles_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b
                               const matrix_ref<TC>& c) {
   // We want the tiles to be as big as possible without spilling any
   // of the accumulator registers to the stack.
-  constexpr int tile_rows = 4;
-  constexpr int tile_cols = 32;
+  constexpr index_t tile_rows = 3;
+  constexpr index_t tile_cols = 32;
   using matrix_tile =
       matrix<TC, tile_rows, tile_cols, stack_allocator<TC, tile_rows * tile_cols>>;
 
-  assert(c.rows() % tile_rows == 0);
-  assert(c.columns() % tile_cols == 0);
   for (index_t io = 0; io < c.rows(); io += tile_rows) {
     for (index_t jo = 0; jo < c.columns(); jo += tile_cols) {
       // Make a local accumulator matrix. Hopefully this is only ever
@@ -96,8 +112,11 @@ void multiply_tiles_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b
           }
         }
       }
-      // Copy this tile to the result.
-      copy(c_tile, submatrix<tile_rows, tile_cols>(c.ref(), io, jo));
+      // Copy this tile to the result. This may be cropped if the output matrix
+      // size does not divide the tile size.
+      index_t rows = std::min(c.rows() - io, tile_rows);
+      index_t cols = std::min(c.columns() - jo, tile_cols);
+      copy(c_tile, submatrix(c.ref(), io, jo, rows, cols));
     }
   }
 }
