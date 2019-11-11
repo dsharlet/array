@@ -1085,41 +1085,9 @@ class array_ref {
   array_ref(const array_ref& other) = default;
   array_ref(array_ref&& other) = default;
 
-  /** Assigning an array_ref performs a copy or move assignment of each element
-   * in this array from the corresponding element in 'other'. */
-  array_ref& operator=(const array_ref& other) {
-    assign(other);
-    return *this;
-  }
-  array_ref& operator=(array_ref&& other) {
-    assign(other);
-    return *this;
-  }
-
-  void assign(const array_ref& other) const {
-    if (base_ == other.base()) {
-      assert(shape_ == other.shape());
-      return;
-    }
-    copy_shape_traits<Shape>::for_each_value(other.shape(), other.base(), shape_, base_,
-                                             [&](const value_type& src, value_type& dest) {
-      dest = src;
-    });
-  }
-  void assign(array_ref&& other) const {
-    if (base_ == other.base()) {
-      assert(shape_ == other.shape());
-      return;
-    }
-    copy_shape_traits<Shape>::for_each_value(other.shape(), other.base(), shape_, base_,
-                                             [&](value_type& src, value_type& dest) {
-      dest = std::move(src);
-    });
-  }
-  /** Copy-assign each element of this array to the given value. */
-  void assign(const T& value) const {
-    for_each_value([&](T& x) { x = value; });
-  }
+  /** Assigning an array_ref is a shallow assignment. */
+  array_ref& operator=(const array_ref& other) = default;
+  array_ref& operator=(array_ref&& other) = default;
 
   /** Get a reference to the element at the given 'indices'. If the 'indices'
    * are out of range of 'shape()', throws std::out_of_range. */
@@ -1599,12 +1567,8 @@ class array {
   }
 
   /** Make an array_ref referring to the data in this array. */
-  array_ref<T, Shape> ref() {
-    return array_ref<T, Shape>(base_, shape_);
-  }
-  array_ref<const T, Shape> ref() const {
-    return array_ref<const T, Shape>(base_, shape_);
-  }
+  array_ref<T, Shape> ref() { return array_ref<T, Shape>(base_, shape_); }
+  array_ref<const T, Shape> ref() const { return array_ref<const T, Shape>(base_, shape_); }
   operator array_ref<T, Shape>() { return ref(); }
   operator array_ref<const T, Shape>() const { return ref(); }
 };
