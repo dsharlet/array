@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef ARRAY_TEST_PERFORMANCE_H
+#define ARRAY_TEST_PERFORMANCE_H
+
 #include <cmath>
 #include <chrono>
 
@@ -52,3 +55,5 @@ template <typename T>
 __attribute__((noinline)) T not_constant(T x) { return x; }
 
 }  // namespace array
+
+#endif
