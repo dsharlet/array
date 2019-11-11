@@ -29,7 +29,7 @@ The basic types provided by the library are:
 
 To define an array, define a shape type, and use it to define an array object:
 ```c++
-typedef shape<dim<>, dim<>, dim<>> my_3d_shape_type;
+using my_3d_shape_type = shape<dim<>, dim<>, dim<>>;
 constexpr int width = 16;
 constexpr int height = 10;
 constexpr int depth = 3;
@@ -107,7 +107,10 @@ This library helps balance this tradeoff by enabling any of the array parameters
 Which parameters should be made into compile time constants will vary depending on the use case.
 A common case is to make the innermost dimension have stride 1:
 ```c++
-typedef shape<dim</*Min=*/UNK, /*Extent=*/UNK, /*Stride=*/1>, dim<>, dim<>> my_dense_3d_shape_type;
+using my_dense_3d_shape_type = shape<
+    dim</*Min=*/UNK, /*Extent=*/UNK, /*Stride=*/1>,
+    dim<>,
+    dim<>>;
 ```
 
 A dimension with unknown min and extent, and stride 1, is common enough that it has a built-in alias `dense_dim<>`, and shapes with a dense first dimension are common enough that they have the following built-in aliases:
@@ -117,9 +120,14 @@ A dimension with unknown min and extent, and stride 1, is common enough that it 
 There are other common examples that are easy to support.
 A very common array is an image where 3-channel RGB or 4-channel RGBA pixels are stored together in a 'chunky' format.
 ```c++
-template <int Channels>
-using chunky_image_shape = shape<dim<UNK, UNK, Channels>, dim<>, dense_dim<0, Channels>>;
+template <int Channels, int ChannelStride = Channels>
+using chunky_image_shape = shape<
+    dim<UNK, UNK, ChannelStride>,
+    dim<>,
+    dense_dim<0, Channels>>;
 ```
+
+`image.h` is a small helper library of typical image shape and object types defined using arrays, including `chunky_image_shape`.
 
 Another common example is matrices indexed `(row, column)` with the column dimension stored densely:
 ```c++
@@ -131,7 +139,9 @@ This library provides `stack_allocator<T, N>`, an `std::allocator` compatible al
 This makes it possible to define a small matrix type that will not use any dynamic memory allocation:
 ```c++
 template <int M, int N>
-using small_matrix_shape = shape<dim<0, M>, dense_dim<0, N>>;
+using small_matrix_shape = shape<
+    dim<0, M>,
+    dense_dim<0, N>>;
 template <typename T, int M, int N>
 using small_matrix = array<T, small_matrix_shape, stack_allocator<T, M*N>>;
 ```
