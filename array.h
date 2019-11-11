@@ -539,26 +539,28 @@ class shape {
   /** A shape is empty if its size is 0. */
   bool empty() const { return size() == 0; }
 
+  /** Returns true if this shape is 'compact' in memory. A shape is compact if
+   * there are no unaddressable flat indices between the first and last
+   * addressable flat elements. */
+  bool is_compact() const { return flat_extent() <= size(); }
+
   /** Returns true if this shape is an injective function mapping indices to
    * flat indices. If the dims overlap, or a dim has stride zero, multiple
    * indices will map to the same flat index; in this case, this function will
    * return false. */
   bool is_one_to_one() const {
     // TODO: https://github.com/dsharlet/array/issues/2
-    return true;
+    return flat_extent() >= size();
   }
 
   /** Returns true if this shape projects to a set of flat indices that is a
-   * subset of the other shape's projection to flat indices. */
-  bool is_subset_of(const shape& other) const {
+   * subset of the other shape's projection to flat indices with an offset. */
+  bool is_subset_of(const shape& other, index_t offset) const {
     // TODO: https://github.com/dsharlet/array/issues/2
-    return true;
+    return
+        flat_min() >= other.flat_min() + offset &&
+        flat_max() <= other.flat_max() + offset;
   }
-
-  /** Returns true if this shape is 'compact' in memory. A shape is compact if
-   * there are no unaddressable flat indices between the first and last
-   * addressable flat elements. */
-  bool is_compact() const { return flat_extent() <= size(); }
 
   /** Provide some aliases for common interpretations of dimensions. */
   auto& i() { return dim<0>(); }
@@ -1522,6 +1524,7 @@ class array {
   /** Change the shape of the array to 'new_shape', and move the base pointer by
    * 'offset'. */
   void set_shape(Shape new_shape, index_t offset = 0) {
+    assert(new_shape.is_subset_of(shape(), -offset));
     shape_ = std::move(new_shape);
     base_ += offset;
   }
@@ -1783,6 +1786,7 @@ array_ref<const U, Shape> reinterpret(const array<T, Shape, Alloc>& a) {
 template <typename NewShape, typename T, typename OldShape>
 array_ref<T, NewShape> reinterpret_shape(const array_ref<T, OldShape>& a,
                                          NewShape new_shape, index_t offset = 0) {
+  assert(new_shape.is_subset_of(a.shape(), -offset));
   return array_ref<T, NewShape>(a.base() + offset, std::move(new_shape));
 }
 template <typename NewShape, typename T, typename OldShape, typename Allocator>

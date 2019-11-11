@@ -1,6 +1,8 @@
 #include "array.h"
 #include "test.h"
 
+#include <vector>
+
 namespace array {
 
 TEST(shape_scalar) {
@@ -385,6 +387,28 @@ TEST(shape_intersect) {
   ASSERT_EQ(intersect(s1, s2), s1_s2);
   ASSERT_EQ(intersect(s2, s3), s2_s3);
   ASSERT_EQ(intersect(s3, s4), s3_s4);
+}
+
+template <typename Shape>
+void test_number_theory(const Shape& s) {
+  std::vector<int> addresses(s.flat_extent(), 0);
+  for_each_index(s, [&](const typename Shape::index_type& i) {
+    addresses[s(i) - s.flat_min()] += 1;
+  });
+  bool is_compact = std::all_of(addresses.begin(), addresses.end(), [](int c) { return c >= 1; });
+  bool is_one_to_one = std::all_of(addresses.begin(), addresses.end(), [](int c) { return c <= 1; });
+
+  ASSERT_EQ(s.is_compact(), is_compact);
+  ASSERT_EQ(s.is_one_to_one(), is_one_to_one);
+}
+
+TEST(shape_number_theory) {
+  test_number_theory(shape_of_rank<2>({1, 10}, {3, 5}));
+  test_number_theory(shape_of_rank<2>({-1, 10}, {3, 5, -1}));
+  test_number_theory(shape_of_rank<2>({-2, 10, 6}, {3, 5}));
+  test_number_theory(shape_of_rank<3>({0, 4, 4}, {0, 4, 2}, {0, 4, 1}));
+  // TODO: https://github.com/dsharlet/array/issues/2
+  // test_number_theory(shape_of_rank<2>({0, 4, 4}, {0, 4, 4}));
 }
 
 }  // namespace array
