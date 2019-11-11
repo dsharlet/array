@@ -38,7 +38,7 @@ array<int, my_3d_shape_type> my_array(my_3d_shape);
 ```
 
 The array can be accessed in a number of ways.
-`array::operator()(...)` and `array::at(...)` have similar semantics to `std::vector::operator[]` and `std::vector::at`.
+`array::operator()` or `array::operator[]`, and `array::at` have similar semantics to `std::vector::operator[]` and `std::vector::at`.
 `array::at` will check that the index is in range, and throws `std::out_of_range` if it is not.
 There are both variadic and `index_type` overloads of both of these accessors.
 `index_type` is a specialization of `std::tuple` defined by `shape` (and `array` and `array_ref`), e.g. `my_3d_shape_type::index_type`.
@@ -51,7 +51,7 @@ for (int z = 0; z < depth; z++) {
       my_array(x, y, z) = 5;
       // Or the index_type versions:
       my_array.at(my_3d_shape_type::index_type(x, y, z)) = 5;
-      my_array({x, y, z}) = 5;
+      my_array[{x, y, z}] = 5;
     }
   }
 }
@@ -71,7 +71,7 @@ for_all_indices(my_3d_shape, [&](int x, int y, int z) {
   my_array(x, y, z) = 5;
 });
 for_each_index(my_3d_shape, [&](my_3d_shape_type::index_type i) {
-  my_array(i) = 5;
+  my_array[i] = 5;
 });
 ```
 

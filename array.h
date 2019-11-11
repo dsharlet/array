@@ -484,14 +484,10 @@ class shape {
     return at(std::make_tuple(indices...));
   }
   /** Compute the flat offset of the index 'indices'. */
-  index_t operator() (const index_type& indices) const {
-    return internal::flat_offset(dims_, indices);
-  }
+  index_t operator() (const index_type& indices) const { return internal::flat_offset(dims_, indices); }
   template <typename... Indices,
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
-  index_t operator() (Indices... indices) const {
-    return (*this)(std::make_tuple(indices...));
-  }
+  index_t operator() (Indices... indices) const { return (*this)(std::make_tuple(indices...)); }
 
   /** Get a specific dim of this shape. */
   template <size_t D>
@@ -1100,24 +1096,17 @@ class array_ref {
 
   /** Get a reference to the element at the given 'indices'. If the 'indices'
    * are out of range of 'shape()', throws std::out_of_range. */
-  reference at(const index_type& indices) const {
-    return base_[shape_.at(indices)];
-  }
+  reference at(const index_type& indices) const { return base_[shape_.at(indices)]; }
   template <typename... Indices,
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
-  reference at(Indices... indices) const {
-    return base_[shape_.at(indices...)];
-  }
+  reference at(Indices... indices) const { return base_[shape_.at(indices...)]; }
 
   /** Get a reference to the element at the given indices. */
-  reference operator() (const index_type& indices) const {
-    return base_[shape_(indices)];
-  }
+  reference operator() (const index_type& indices) const { return base_[shape_(indices)]; }
+  reference operator[] (const index_type& indices) const { return base_[shape_(indices)]; }
   template <typename... Indices,
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
-  reference operator() (Indices... indices) const {
-    return base_[shape_(indices...)];
-  }
+  reference operator() (Indices... indices) const { return base_[shape_(indices...)]; }
 
   /** Call a function with a reference to each value in this array_ref. The
    * order in which 'fn' is called is undefined. */
@@ -1463,22 +1452,16 @@ class array {
 
   /** Compute the flat offset of the indices. Does not check if the indices are
    * in bounds. */
-  reference operator() (const index_type& indices) {
-    return base_[shape_(indices)];
-  }
+  reference operator() (const index_type& indices) { return base_[shape_(indices)]; }
+  reference operator[] (const index_type& indices) { return base_[shape_(indices)]; }
+  const_reference operator() (const index_type& indices) const { return base_[shape_(indices)]; }
+  const_reference operator[] (const index_type& indices) const { return base_[shape_(indices)]; }
   template <typename... Indices,
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
-  reference operator() (Indices... indices) {
-    return base_[shape_(indices...)];
-  }
-  const_reference operator() (const index_type& indices) const {
-    return base_[shape_(indices)];
-  }
+  reference operator() (Indices... indices) { return base_[shape_(indices...)]; }
   template <typename... Indices,
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
-  const_reference operator() (Indices... indices) const {
-    return base_[shape_(indices...)];
-  }
+  const_reference operator() (Indices... indices) const { return base_[shape_(indices...)]; }
 
   /** Call a function with a reference to each value in this array. The order in
    * which 'fn' is called is undefined. */
