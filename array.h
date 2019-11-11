@@ -1552,12 +1552,8 @@ class array {
   /** Compare the contents of this array to 'other'. For two arrays to be
    * considered equal, they must have the same shape, and all elements
    * addressable by the shape must also be equal. */
-  bool operator!=(const array& other) const {
-    return ref() != other.ref();
-  }
-  bool operator==(const array& other) const {
-    return ref() == other.ref();
-  }
+  bool operator!=(const array& other) const { return ref() != other.ref(); }
+  bool operator==(const array& other) const { return ref() == other.ref(); }
 
   /** Swap the contents of two arrays. This performs zero copies or moves of
    * individual elements. */
