@@ -390,6 +390,16 @@ std::array<T, sizeof...(Ts)> tuple_to_array(const std::tuple<Ts...>& t) {
   return tuple_to_array<T>(t, std::make_index_sequence<sizeof...(Ts)>());
 }
 
+template <typename T, size_t N, size_t... Is>
+auto array_to_tuple(const std::array<T, N>& a, std::index_sequence<Is...>) {
+  return std::make_tuple(a[Is]...);
+}
+
+template <typename T, size_t N>
+auto array_to_tuple(const std::array<T, N>& a) {
+  return array_to_tuple(a, std::make_index_sequence<N>());
+}
+
 template<class T, size_t N>
 struct tuple_of_n {
   using rest = typename tuple_of_n<T, N - 1>::type;
@@ -904,7 +914,7 @@ shape_of_rank<Shape::rank()> dynamic_optimize_shape(const Shape& shape) {
     dims[i] = dim<>(0, 1, dims[i - 1].stride() * dims[i - 1].extent());
   }
 
-  return shape_of_rank<Shape::rank()>(dims);
+  return shape_of_rank<Shape::rank()>(array_to_tuple(dims));
 }
 
 // Optimize a src and dest shape. The dest shape is made dense, and contiguous
@@ -961,7 +971,9 @@ auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
     dest_dims[i] = dims[i].dest;
   }
 
-  return std::make_pair(shape_of_rank<rank>(src_dims), shape_of_rank<rank>(dest_dims));
+  return std::make_pair(
+    shape_of_rank<rank>(array_to_tuple(src_dims)),
+    shape_of_rank<rank>(array_to_tuple(dest_dims)));
 }
 
 }  // namespace internal

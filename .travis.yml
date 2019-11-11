@@ -2,3 +2,4 @@ language: cpp
 install: make
 os: linux
 compiler: clang
+script: make test

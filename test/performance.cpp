@@ -16,6 +16,8 @@
 #include "test.h"
 #include "performance.h"
 
+#include <cstring>
+
 namespace array {
 
 TEST(performance_dense_copy) {
@@ -29,7 +31,7 @@ TEST(performance_dense_copy) {
 
   dense_array<int, 3> c(b.shape());
   double memcpy_time = benchmark([&] {
-    memcpy(&c(0, 0, 0), &a(0, 0, 0), a.size() * sizeof(int));
+    std::memcpy(&c(0, 0, 0), &a(0, 0, 0), a.size() * sizeof(int));
   });
   check_pattern(c);
 
@@ -51,8 +53,8 @@ TEST(performance_dense_cropped_copy) {
   double memcpy_time = benchmark([&] {
     for (int z : c.z()) {
       for (int y : c.y()) {
-	       memcpy(&c(c.x().min(), y, z), &a(c.x().min(), y, z),
-	              c.x().extent() * sizeof(int));
+	       std::memcpy(&c(c.x().min(), y, z), &a(c.x().min(), y, z),
+	                   c.x().extent() * sizeof(int));
       }
     }
   });

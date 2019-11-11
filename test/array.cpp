@@ -20,7 +20,7 @@ namespace array {
 TEST(array_default_constructor) {
   dense_array<int, 1> a(make_dense_shape(10));
   for (int x = 0; x < 10; x++) {
-    ASSERT_EQ(a({x}), 0);
+    ASSERT_EQ(a(x), 0);
   }
 
   dense_array<int, 2> b({7, 3});
@@ -28,7 +28,7 @@ TEST(array_default_constructor) {
   ASSERT_EQ(b.height(), 3);
   for (int y = 0; y < 3; y++) {
     for (int x = 0; x < 7; x++) {
-      ASSERT_EQ(b({x, y}), 0);
+      ASSERT_EQ(b(x, y), 0);
     }
   }
 
@@ -39,7 +39,7 @@ TEST(array_default_constructor) {
   for (int z = 0; z < 3; z++) {
     for (int y = 0; y < 9; y++) {
       for (int x = 0; x < 5; x++) {
-        ASSERT_EQ(c({x, y, z}), 0);
+        ASSERT_EQ(c(x, y, z), 0);
       }
     }
   }
