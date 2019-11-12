@@ -26,7 +26,7 @@
 
 namespace nda {
 
-inline void ostream_comma_separated_list(std::ostream& s) {}
+inline void ostream_comma_separated_list(std::ostream&) {}
 
 template <typename T>
 void ostream_comma_separated_list(std::ostream& s, T item) {
@@ -75,32 +75,19 @@ public:
 
 void add_test(const std::string& name, std::function<void()> fn);
 
-// Exception thrown upon assertion failure.
-class assert_failure : public std::runtime_error {
-  std::string message_;
-
-public:
- assert_failure(const std::string& check, const std::string& message)
-   : std::runtime_error(message), message_(message) {}
-
-  const std::string& message() const { return message_; }
-};
-
 // A stream class that builds a message, the destructor throws an
 // assert_failure exception if the check fails.
 class assert_stream {
-  std::string check_;
   std::stringstream msg_;
   bool fail_;
 
 public:
- assert_stream(bool condition, const std::string& check)
-   : check_(check), fail_(!condition) {
-    msg_ << check_;
+ assert_stream(bool condition, const std::string& check) : fail_(!condition) {
+    msg_ << check;
   }
   ~assert_stream() noexcept(false) {
     if (fail_)
-      throw assert_failure(check_, msg_.str());
+      throw std::runtime_error(msg_.str());
   }
 
   template <typename T>
@@ -122,7 +109,7 @@ bool roughly_equal(T a, T b, double epsilon = 1e-6) {
 // macro, e.g. TEST(equality) { ASSERT(1 == 1); }
 #define TEST(name)                                                     \
   void test_##name##_body();                                           \
-  ::nda::test test_##name##_obj(#name, test_##name##_body);          \
+  static ::nda::test test_##name##_obj(#name, test_##name##_body);     \
   void test_##name##_body()
 
 #define ASSERT(condition) assert_stream(condition, #condition)
@@ -146,7 +133,7 @@ bool roughly_equal(T a, T b, double epsilon = 1e-6) {
 template <typename T, typename IndexType, size_t... Is>
 T pattern_impl(const IndexType& indices, const IndexType& offset, std::index_sequence<Is...>) {
   static const index_t pattern_basis[] = { 10000, 100, 10, 7, 5, 3 };
-  return internal::sum((std::get<Is>(indices) + std::get<Is>(offset)) * pattern_basis[Is]...);
+  return static_cast<T>(internal::sum((std::get<Is>(indices) + std::get<Is>(offset)) * pattern_basis[Is]...));
 }
 
 // Generate a pattern from multi-dimensional indices that is generally

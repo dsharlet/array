@@ -147,7 +147,7 @@ TEST(sparse_array) {
   }
 
   // Check that only the elements of the array were assigned.
-  size_t sevens = 0;
+  index_t sevens = 0;
   for (int i = 0; i < sparse_shape.flat_extent(); i++) {
     if (sparse.data()[i] == 7) {
       sevens++;

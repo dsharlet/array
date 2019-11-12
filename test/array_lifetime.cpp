@@ -19,8 +19,8 @@
 namespace nda {
 
 typedef shape<dim<>, dim<>> LifetimeShape;
-auto lifetime_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10, 20));
-auto lifetime_subshape = make_shape(dim<>(-1, 4, 2), dim<>(5, 8, 20));
+static LifetimeShape lifetime_shape(dim<>(-2, 5, 2), dim<>(4, 10, 20));
+static LifetimeShape lifetime_subshape(dim<>(-1, 4, 2), dim<>(5, 8, 20));
 
 typedef array<lifetime_counter, LifetimeShape> lifetime_array;
 

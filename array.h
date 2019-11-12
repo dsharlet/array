@@ -40,15 +40,13 @@ namespace nda {
 typedef std::size_t size_t;
 typedef std::ptrdiff_t index_t;
 
-enum : index_t {
-  /** This value indicates a compile-time constant stride is unknown, and to use
-   * the corresponding runtime value instead. */
-  // It would be better to use a more unreasonable value that would never be
-  // used in practice. Fortunately, this does not affect correctness, only
-  // performance, and it is hard to imagine a use case for this where
-  // performance matters.
-  UNK = -9,
-};
+/** This value indicates a compile-time constant stride is unknown, and to use
+ * the corresponding runtime value instead. */
+// It would be better to use a more unreasonable value that would never be
+// used in practice. Fortunately, this does not affect correctness, only
+// performance, and it is hard to imagine a use case for this where
+// performance matters.
+constexpr index_t UNK = -9;
 
 #define ARRAY_CHECK_CONSTRAINT(constant, runtime) \
   assert(constant == runtime || constant == UNK);
@@ -76,18 +74,18 @@ index_t reconcile(index_t value) {
 /** An iterator over a range of indices, enabling range-based for loops for
  * indices. */
 class dim_iterator {
-  index_t i;
+  index_t i_;
 
  public:
-  dim_iterator(index_t i) : i(i) {}
+  dim_iterator(index_t i) : i_(i) {}
 
-  bool operator==(const dim_iterator& r) const { return i == r.i; }
-  bool operator!=(const dim_iterator& r) const { return i != r.i; }
+  bool operator==(const dim_iterator& r) const { return i_ == r.i_; }
+  bool operator!=(const dim_iterator& r) const { return i_ != r.i_; }
 
-  index_t operator *() const { return i; }
+  index_t operator *() const { return i_; }
 
-  dim_iterator operator++(int) { return dim_iterator(i++); }
-  dim_iterator& operator++() { ++i; return *this; }
+  dim_iterator operator++(int) { return dim_iterator(i_++); }
+  dim_iterator& operator++() { ++i_; return *this; }
 };
 
 /** Describes one dimension of an array. The template parameters enable
@@ -242,7 +240,6 @@ inline index_t clamp(index_t x, const Dim& d) {
   return clamp(x, d.min(), d.max());
 }
 
-/** \ignore */
 namespace internal {
 
 // Some variadic reduction helpers.
@@ -349,7 +346,7 @@ index_t max_stride(const Dims& dims, std::index_sequence<Is...>) {
 
 // Resolve unknown dim quantities. Unknown extents become zero, and unknown
 // strides are replaced with increasing strides.
-inline void resolve_unknowns_impl(index_t current_stride) {}
+inline void resolve_unknowns_impl(index_t) {}
 
 template <typename Dim0, typename... Dims>
 void resolve_unknowns_impl(index_t current_stride, Dim0& dim0, Dims&... dims) {
@@ -623,14 +620,14 @@ class shape<> {
 
   typedef std::tuple<> index_type;
 
-  bool is_in_range(const std::tuple<>& indices) const { return true; }
+  bool is_in_range(const std::tuple<>&) const { return true; }
   bool is_in_range() const { return true; }
 
-  index_t operator() (const std::tuple<>& indices) const { return 0; }
-  index_t operator[] (const std::tuple<>& indices) const { return 0; }
+  index_t operator() (const std::tuple<>&) const { return 0; }
+  index_t operator[] (const std::tuple<>&) const { return 0; }
   index_t operator() () const { return 0; }
 
-  nda::dim<> dim(size_t d) const { return nda::dim<>(); }
+  nda::dim<> dim(size_t) const { return nda::dim<>(); }
   std::tuple<> dims() const { return std::tuple<>(); }
 
   index_type min() const { return std::tuple<>(); }
@@ -643,12 +640,12 @@ class shape<> {
   index_t size() const { return 1; }
   bool empty() const { return false; }
 
-  bool is_subset_of(const shape<>& other) const { return true; }
+  bool is_subset_of(const shape<>&) const { return true; }
   bool is_one_to_one() const { return true; }
   bool is_compact() const { return true; }
 
-  bool operator==(const shape<>& other) const { return true; }
-  bool operator!=(const shape<>& other) const { return false; }
+  bool operator==(const shape<>&) const { return true; }
+  bool operator!=(const shape<>&) const { return false; }
 };
 
 /** Helper function to make a tuple from a variadic list of dims. */
@@ -739,7 +736,7 @@ shape<Dims...> make_compact_shape(const shape<Dims...>& s, std::index_sequence<I
 }
 
 template <index_t Min, index_t Extent, index_t Stride, typename DimSrc>
-bool is_dim_compatible(const dim<Min, Extent, Stride>& dest, const DimSrc& src) {
+bool is_dim_compatible(const dim<Min, Extent, Stride>&, const DimSrc& src) {
   return
     (Min == UNK || src.min() == Min) &&
     (Extent == UNK || src.extent() == Extent) &&
@@ -747,7 +744,7 @@ bool is_dim_compatible(const dim<Min, Extent, Stride>& dest, const DimSrc& src) 
 }
 
 template <typename... DimsDest, typename ShapeSrc, size_t... Is>
-bool is_shape_compatible(const shape<DimsDest...>& dest, const ShapeSrc& src, std::index_sequence<Is...>) {
+bool is_shape_compatible(const shape<DimsDest...>&, const ShapeSrc& src, std::index_sequence<Is...>) {
   return all(is_dim_compatible(DimsDest(), src.template dim<Is>())...);
 }
 
@@ -997,7 +994,7 @@ class shape_traits<shape<>> {
   }
 
   template <typename Ptr, typename Fn>
-  static void for_each_value(const shape<>& shape, Ptr base, Fn&& fn) {
+  static void for_each_value(const shape<>&, Ptr base, Fn&& fn) {
     fn(*base);
   }
 };
@@ -1194,7 +1191,7 @@ template <typename T, typename Shape, typename Alloc = std::allocator<T>>
 class array {
   Alloc alloc_;
   T* buffer_;
-  index_t buffer_size_;
+  size_t buffer_size_;
   T* base_;
   Shape shape_;
 
@@ -1203,8 +1200,8 @@ class array {
     assert(!buffer_);
     index_t flat_extent = shape_.flat_extent();
     if (flat_extent > 0) {
-      buffer_size_ = flat_extent;
-      buffer_ = std::allocator_traits<Alloc>::allocate(alloc_, flat_extent);
+      buffer_size_ = static_cast<size_t>(flat_extent);
+      buffer_ = std::allocator_traits<Alloc>::allocate(alloc_, buffer_size_);
     }
     base_ = buffer_ - shape_.flat_min();
   }
@@ -1584,8 +1581,8 @@ void copy(const array_ref<T, ShapeSrc>& src,
 
   typedef typename std::remove_const<T>::type non_const_T;
   copy_shape_traits<ShapeSrc, ShapeDest>::for_each_value(src.shape(), src.base(), dest.shape(), dest.base(),
-                                                         [](const T& src, non_const_T& dest) {
-    dest = src;
+                                                         [](const T& src_i, non_const_T& dest_i) {
+    dest_i = src_i;
   });
 }
 template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocDest>
@@ -1616,8 +1613,8 @@ void move(const array_ref<T, ShapeSrc>& src, const array_ref<T, ShapeDest>& dest
   }
 
   copy_shape_traits<ShapeSrc, ShapeDest>::for_each_value(src.shape(), src.base(), dest.shape(), dest.base(),
-                                                         [](T& src, T& dest) {
-    dest = std::move(src);
+                                                         [](T& src_i, T& dest_i) {
+    dest_i = std::move(src_i);
   });
 }
 template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocDest>
@@ -1778,7 +1775,7 @@ class stack_allocator {
   typedef std::false_type propagate_on_container_move_assignment;
   typedef std::false_type propagate_on_container_swap;
 
-  static stack_allocator select_on_container_copy_construction(const stack_allocator& a) {
+  static stack_allocator select_on_container_copy_construction(const stack_allocator&) {
     return stack_allocator();
   }
 
@@ -1799,7 +1796,7 @@ class stack_allocator {
     allocated = true;
     return reinterpret_cast<T*>(&buffer[0]);
   }
-  void deallocate(T* p, size_t) noexcept {
+  void deallocate(T*, size_t) noexcept {
     allocated = false;
   }
 

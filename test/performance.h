@@ -40,7 +40,7 @@ double benchmark(F op) {
       break;
     }
 
-    long next_iterations = std::ceil((min_time_s * 2) / time_per_iteration_s);
+    long next_iterations = static_cast<long>(std::ceil((min_time_s * 2) / time_per_iteration_s));
     iterations = std::min(std::max(next_iterations, iterations), iterations * 10);
   }
   return time_per_iteration_s;
@@ -48,7 +48,7 @@ double benchmark(F op) {
 
 // Tricks the compiler into not stripping away dead objects.
 template <typename T>
-__attribute__((noinline)) void assert_used(const T& x) {}
+__attribute__((noinline)) void assert_used(const T&) {}
 
 // Tricks the compiler into not constant folding the result of x.
 template <typename T>

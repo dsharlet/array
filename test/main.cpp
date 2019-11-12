@@ -32,6 +32,12 @@ void add_test(const std::string& name, std::function<void()> fn) {
   tests().push_back(std::make_pair(name, fn));
 }
 
+}  // namespace nda
+
+using namespace nda;
+
+namespace {
+
 bool wildcard_match(const char* p, const char* str) {
   while (*p && *str && (*p == *str || *p == '?') && *p != '*') {
     str++;
@@ -51,9 +57,7 @@ bool wildcard_match(const char* p, const char* str) {
   return !*p;
 }
 
-}  // namespace nda
-
-using namespace nda;
+}  // namespace
 
 int main(int argc, const char** argv) {
   // By default, the filter matches all tests.
@@ -73,8 +77,6 @@ int main(int argc, const char** argv) {
       i.second();
       std::cout << " passed" << std::endl;
       passed++;
-    } catch(const assert_failure& e) {
-      std::cout << " failed: " << e.what() << std::endl;
     } catch(const std::exception& e) {
       std::cout << " failed: " << e.what() << std::endl;
     }

@@ -121,7 +121,7 @@ void multiply_tiles_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b
   }
 }
 
-int main(int argc, const char** argv) {
+int main(int, const char**) {
   // Define two input matrices.
   constexpr int M = 128;
   constexpr int K = 256;
