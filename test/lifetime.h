@@ -15,15 +15,17 @@
 #ifndef ARRAY_TEST_LIFETIME_H
 #define ARRAY_TEST_LIFETIME_H
 
+#include <cstddef>
+
 namespace nda {
 
 struct lifetime_counter {
-  static int default_constructs;
-  static int copy_constructs;
-  static int move_constructs;
-  static int copy_assigns;
-  static int move_assigns;
-  static int destructs;
+  static size_t default_constructs;
+  static size_t copy_constructs;
+  static size_t move_constructs;
+  static size_t copy_assigns;
+  static size_t move_assigns;
+  static size_t destructs;
 
   static void reset() {
     default_constructs = 0;
@@ -34,19 +36,19 @@ struct lifetime_counter {
     destructs = 0;
   }
 
-  static int constructs() {
+  static size_t constructs() {
     return default_constructs + copy_constructs + move_constructs;
   }
 
-  static int assigns() {
+  static size_t assigns() {
     return copy_assigns + move_assigns;
   }
 
-  static int copies() {
+  static size_t copies() {
     return copy_constructs + copy_assigns;
   }
 
-  static int moves() {
+  static size_t moves() {
     return move_constructs + move_assigns;
   }
 

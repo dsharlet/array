@@ -133,7 +133,7 @@ TEST(sparse_array) {
 
   array<int, shape<dim<>, dim<>>> sparse(sparse_shape);
   // Fill the storage with a constant.
-  for (int i = 0; i < sparse_shape.flat_extent(); i++) {
+  for (size_t i = 0; i < sparse_shape.flat_extent(); i++) {
     sparse.data()[i] = 7;
   }
   // Assign a different constant.
@@ -147,13 +147,13 @@ TEST(sparse_array) {
   }
 
   // Check that only the elements of the array were assigned.
-  index_t sevens = 0;
-  for (int i = 0; i < sparse_shape.flat_extent(); i++) {
+  size_t sevens = 0;
+  for (size_t i = 0; i < sparse_shape.flat_extent(); i++) {
     if (sparse.data()[i] == 7) {
       sevens++;
     }
   }
-  ASSERT_EQ(sevens, sparse_shape.flat_extent() - sparse.size());
+  ASSERT_EQ(sevens + sparse.size(), sparse_shape.flat_extent());
 }
 
 TEST(array_equality) {

@@ -405,9 +405,9 @@ TEST(shape_intersect) {
 
 template <typename Shape>
 void test_number_theory(const Shape& s) {
-  std::vector<int> addresses(s.flat_extent(), 0);
+  std::vector<int> addresses(static_cast<size_t>(s.flat_extent()), 0);
   for_each_index(s, [&](const typename Shape::index_type& i) {
-    addresses[s(i) - s.flat_min()] += 1;
+    addresses[static_cast<size_t>(s(i) - s.flat_min())] += 1;
   });
   bool is_compact = std::all_of(addresses.begin(), addresses.end(), [](int c) { return c >= 1; });
   bool is_one_to_one = std::all_of(addresses.begin(), addresses.end(), [](int c) { return c <= 1; });

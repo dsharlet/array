@@ -76,7 +76,7 @@ TEST(stack_array_move_constructor) {
 
   ASSERT_EQ(lifetime_counter::default_constructs, 0);
   ASSERT_EQ(lifetime_counter::copy_constructs, 0);
-  ASSERT_EQ(lifetime_counter::move_constructs, static_cast<int>(move_array.size()));
+  ASSERT_EQ(lifetime_counter::move_constructs, move_array.size());
 }
 
 TEST(stack_array_move_assignment) {
@@ -91,7 +91,7 @@ TEST(stack_array_move_assignment) {
   ASSERT_EQ(lifetime_counter::default_constructs, 0);
   ASSERT_EQ(lifetime_counter::copy_constructs, 0);
   // TODO: Is it OK that this assignment uses move constructions instead of move assignments?
-  ASSERT_EQ(lifetime_counter::moves(), static_cast<int>(move_assign.size()));
+  ASSERT_EQ(lifetime_counter::moves(), move_assign.size());
 }
 
 TEST(stack_array_swap) {
@@ -107,7 +107,7 @@ TEST(stack_array_swap) {
   ASSERT_EQ(lifetime_counter::copy_constructs, 0);
   // We can't swap stack arrays, so it needs to be done with a temporary,
   // which means 3 moves for each element.
-  ASSERT_EQ(lifetime_counter::moves(), static_cast<int>(a.size() * 3));
+  ASSERT_EQ(lifetime_counter::moves(), a.size() * 3);
 }
 
 }  // namespace nda

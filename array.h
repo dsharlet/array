@@ -534,13 +534,15 @@ class shape {
   index_t flat_max() const {
     return internal::flat_max(dims_, std::make_index_sequence<rank()>());
   }
-  index_t flat_extent() const {
-    return flat_max() - flat_min() + 1;
+  size_t flat_extent() const {
+    index_t e = flat_max() - flat_min() + 1;
+    return e < 0 ? 0 : static_cast<size_t>(e);
   }
 
   /** Compute the total number of items in the shape. */
-  index_t size() const {
-    return internal::product(extent(), std::make_index_sequence<rank()>());
+  size_t size() const {
+    index_t s = internal::product(extent(), std::make_index_sequence<rank()>());
+    return s < 0 ? 0 : static_cast<size_t>(s);
   }
 
   /** A shape is empty if its size is 0. */
@@ -636,8 +638,8 @@ class shape<> {
 
   index_t flat_min() const { return 0; }
   index_t flat_max() const { return 0; }
-  index_t flat_extent() const { return 1; }
-  index_t size() const { return 1; }
+  size_t flat_extent() const { return 1; }
+  size_t size() const { return 1; }
   bool empty() const { return false; }
 
   bool is_subset_of(const shape<>&) const { return true; }
@@ -1198,9 +1200,9 @@ class array {
   // After allocate the array is allocated but uninitialized.
   void allocate() {
     assert(!buffer_);
-    index_t flat_extent = shape_.flat_extent();
+    size_t flat_extent = shape_.flat_extent();
     if (flat_extent > 0) {
-      buffer_size_ = static_cast<size_t>(flat_extent);
+      buffer_size_ = flat_extent;
       buffer_ = std::allocator_traits<Alloc>::allocate(alloc_, buffer_size_);
     }
     base_ = buffer_ - shape_.flat_min();
