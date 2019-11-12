@@ -492,21 +492,9 @@ class shape {
     return is_in_range(std::make_tuple(indices...));
   }
 
-  /** Compute the flat offset of the index 'indices'. If the 'indices' are out
-   * of range of this shape, throws std::out_of_range. */
-  index_t at(const index_type& indices) const {
-    if (!is_in_range(indices)) {
-      ARRAY_THROW_OUT_OF_RANGE("indices are out of range");
-    }
-    return internal::flat_offset(dims_, indices);
-  }
-  template <typename... Indices,
-      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
-  index_t at(Indices... indices) const {
-    return at(std::make_tuple(indices...));
-  }
   /** Compute the flat offset of the index 'indices'. */
   index_t operator() (const index_type& indices) const { return internal::flat_offset(dims_, indices); }
+  index_t operator[] (const index_type& indices) const { return internal::flat_offset(dims_, indices); }
   template <typename... Indices,
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   index_t operator() (Indices... indices) const { return (*this)(std::make_tuple(indices...)); }
@@ -638,9 +626,8 @@ class shape<> {
   bool is_in_range(const std::tuple<>& indices) const { return true; }
   bool is_in_range() const { return true; }
 
-  index_t at(const std::tuple<>& indices) const { return 0; }
-  index_t at() const { return 0; }
   index_t operator() (const std::tuple<>& indices) const { return 0; }
+  index_t operator[] (const std::tuple<>& indices) const { return 0; }
   index_t operator() () const { return 0; }
 
   array::dim<> dim(size_t d) const { return array::dim<>(); }
@@ -1089,13 +1076,6 @@ class array_ref {
   array_ref& operator=(const array_ref& other) = default;
   array_ref& operator=(array_ref&& other) = default;
 
-  /** Get a reference to the element at the given 'indices'. If the 'indices'
-   * are out of range of 'shape()', throws std::out_of_range. */
-  reference at(const index_type& indices) const { return base_[shape_.at(indices)]; }
-  template <typename... Indices,
-      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
-  reference at(Indices... indices) const { return base_[shape_.at(indices...)]; }
-
   /** Get a reference to the element at the given indices. */
   reference operator() (const index_type& indices) const { return base_[shape_(indices)]; }
   reference operator[] (const index_type& indices) const { return base_[shape_(indices)]; }
@@ -1425,25 +1405,6 @@ class array {
 
   /** Get the allocator used to allocate memory for this buffer. */
   const Alloc& get_allocator() const { return alloc_; }
-
-  /** Compute the flat offset of the indices. If an index is out of bounds,
-   * throws std::out_of_range. */
-  reference at(const index_type& indices) {
-    return base_[shape_.at(indices)];
-  }
-  template <typename... Indices,
-      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
-  reference at(Indices... indices) {
-    return base_[shape_.at(indices...)];
-  }
-  const_reference at(const index_type& indices) const {
-    return base_[shape_.at(indices)];
-  }
-  template <typename... Indices,
-      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
-  const_reference at(Indices... indices) const {
-    return base_[shape_.at(indices...)];
-  }
 
   /** Compute the flat offset of the indices. Does not check if the indices are
    * in bounds. */

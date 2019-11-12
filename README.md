@@ -37,20 +37,17 @@ my_3d_shape_type my_3d_shape(width, height, depth);
 array<int, my_3d_shape_type> my_array(my_3d_shape);
 ```
 
-The array can be accessed in a number of ways.
-`array::operator()` or `array::operator[]`, and `array::at` have similar semantics to `std::vector::operator[]` and `std::vector::at`.
-`array::at` will check that the index is in range, and throws `std::out_of_range` if it is not.
-There are both variadic and `index_type` overloads of both of these accessors.
+Accessing `array` or `array_ref` is done via `operator(...)` and `operator[index_type]`.
+There are both variadic and `index_type` overloads of `operator()`.
 `index_type` is a specialization of `std::tuple` defined by `shape` (and `array` and `array_ref`), e.g. `my_3d_shape_type::index_type`.
 ```c++
 for (int z = 0; z < depth; z++) {
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
-      // Variadic verions:
-      my_array.at(x, y, z) = 5;
+      // Variadic verion:
       my_array(x, y, z) = 5;
       // Or the index_type versions:
-      my_array.at(my_3d_shape_type::index_type(x, y, z)) = 5;
+      my_array({x, y, z}) = 5;
       my_array[{x, y, z}] = 5;
     }
   }
@@ -122,11 +119,12 @@ A very common array is an image where 3-channel RGB or 4-channel RGBA pixels are
 ```c++
 template <int Channels, int ChannelStride = Channels>
 using chunky_image_shape = shape<
-    dim<UNK, UNK, ChannelStride>,
+    strided_dim</*Stride=*/ChannelStride>,
     dim<>,
-    dense_dim<0, Channels>>;
+    dense_dim</*Min=*/0, /*Extent=*/Channels>>;
 ```
 
+`strided_dim<>` is another alias for `dim<>` where the min and extent are unknown, and the stride may be a compile-time constant.
 `image.h` is a small helper library of typical image shape and object types defined using arrays, including `chunky_image_shape`.
 
 Another common example is matrices indexed `(row, column)` with the column dimension stored densely:
