@@ -916,7 +916,7 @@ auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
     dim<> dest;
   };
   std::array<copy_dims, rank> dims;
-  for (int i = 0; i < rank; i++) {
+  for (size_t i = 0; i < rank; i++) {
     dims[i] = {src_dims[i], dest_dims[i]};
   }
 
@@ -951,7 +951,7 @@ auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
     };
   }
 
-  for (int i = 0; i < dims.size(); i++) {
+  for (size_t i = 0; i < dims.size(); i++) {
     src_dims[i] = dims[i].src;
     dest_dims[i] = dims[i].dest;
   }

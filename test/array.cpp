@@ -147,7 +147,7 @@ TEST(sparse_array) {
   }
 
   // Check that only the elements of the array were assigned.
-  int sevens = 0;
+  size_t sevens = 0;
   for (int i = 0; i < sparse_shape.flat_extent(); i++) {
     if (sparse.data()[i] == 7) {
       sevens++;
@@ -198,7 +198,7 @@ TEST(array_copy) {
     array_of_rank<int, 3> f({5, 5, 6});
     copy(a, f);
     ASSERT(false);
-  } catch(std::out_of_range) {
+  } catch(const std::out_of_range&) {
   }
 
   dense_array<int, 3> g({{1, 2}, {1, 3}, {1, 4}});
@@ -231,7 +231,7 @@ TEST(array_move) {
     array_of_rank<int, 3> f({5, 5, 6});
     move(a, f);
     ASSERT(false);
-  } catch(std::out_of_range) {
+  } catch(const std::out_of_range&) {
   }
 
   dense_array<int, 3> g({4, {1, 2}, 5});

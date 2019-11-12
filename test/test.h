@@ -98,7 +98,7 @@ public:
    : check_(check), fail_(!condition) {
     msg_ << check_;
   }
-  ~assert_stream() throw(assert_failure) {
+  ~assert_stream() noexcept(false) {
     if (fail_)
       throw assert_failure(check_, msg_.str());
   }
