@@ -17,7 +17,7 @@
 #include <iostream>
 #include <vector>
 
-namespace array {
+namespace nda {
 
 std::vector<std::pair<std::string, std::function<void()>>>& tests() {
   static std::vector<std::pair<std::string, std::function<void()>>> v;
@@ -51,9 +51,9 @@ bool wildcard_match(const char* p, const char* str) {
   return !*p;
 }
 
-}  // namespace array
+}  // namespace nda
 
-using namespace array;
+using namespace nda;
 
 int main(int argc, const char** argv) {
   // By default, the filter matches all tests.

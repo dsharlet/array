@@ -16,7 +16,7 @@
 #include "test.h"
 #include "performance.h"
 
-namespace array {
+namespace nda {
 
 template <typename Shape>
 void test_crop() {
@@ -95,7 +95,7 @@ void test_copy(index_t channels) {
 
     array<T, ShapeDest> dest_memcpy(dest_cropped.shape());
     double memcpy_time = benchmark([&]() {
-      memcpy(dest_memcpy.base(), src.base(), dest_cropped.size() * sizeof(T));
+      std::memcpy(dest_memcpy.base(), src.base(), dest_cropped.size() * sizeof(T));
     });
     // This memcpy is *not* correct, but the performance of it
     // is optimistic.
@@ -163,4 +163,4 @@ TEST(image_chunky_padded) {
   }
 }
 
-}  // namespace array
+}  // namespace nda

@@ -15,7 +15,7 @@
 #include "array.h"
 #include "test.h"
 
-namespace array {
+namespace nda {
 
 TEST(array_default_constructor) {
   dense_array<int, 1> a(make_dense_shape(10));
@@ -332,4 +332,4 @@ TEST(array_negative_strides) {
   });
 }
 
-}  // namespace array
+}  // namespace nda

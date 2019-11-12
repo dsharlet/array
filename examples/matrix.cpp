@@ -18,7 +18,7 @@
 #include <random>
 #include <iostream>
 
-using namespace array;
+using namespace nda;
 
 // The standard matrix notation is to refer to elements by 'row,
 // column'. To make this efficient for typical programs, we're going

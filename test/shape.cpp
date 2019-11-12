@@ -17,7 +17,7 @@
 
 #include <vector>
 
-namespace array {
+namespace nda {
 
 TEST(shape_scalar) {
   shape<> s;
@@ -425,4 +425,4 @@ TEST(shape_number_theory) {
   // test_number_theory(shape_of_rank<2>({0, 4, 4}, {0, 4, 4}));
 }
 
-}  // namespace array
+}  // namespace nda

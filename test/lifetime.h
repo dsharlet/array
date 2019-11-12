@@ -15,7 +15,7 @@
 #ifndef ARRAY_TEST_LIFETIME_H
 #define ARRAY_TEST_LIFETIME_H
 
-namespace array {
+namespace nda {
 
 struct lifetime_counter {
   static int default_constructs;
@@ -59,6 +59,6 @@ struct lifetime_counter {
   lifetime_counter& operator=(lifetime_counter&&) { move_assigns++; return *this; }
 };
 
-}  // namespace array
+}  // namespace nda
 
 #endif

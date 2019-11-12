@@ -18,7 +18,7 @@
 
 #include <cstring>
 
-namespace array {
+namespace nda {
 
 TEST(performance_dense_copy) {
   dense_array<int, 3> a({100, 100, 100}, 3);
@@ -109,4 +109,4 @@ TEST(performance_for_each_value) {
   ASSERT_LT(for_each_value_time, loop_time * 0.1);
 }
 
-}  // namespace array
+}  // namespace nda

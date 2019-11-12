@@ -35,7 +35,7 @@
 #define ARRAY_THROW_BAD_ALLOC() throw std::bad_alloc();
 #endif
 
-namespace array {
+namespace nda {
 
 typedef std::size_t size_t;
 typedef std::ptrdiff_t index_t;
@@ -506,8 +506,8 @@ class shape {
   const auto& dim() const { return std::get<D>(dims_); }
   /** Get a specific dim of this shape with a runtime dimension d. This will
    * lose knowledge of any compile-time constant dimension attributes. */
-  array::dim<> dim(size_t d) const {
-    return internal::tuple_to_array<array::dim<>>(dims_)[d];
+  nda::dim<> dim(size_t d) const {
+    return internal::tuple_to_array<nda::dim<>>(dims_)[d];
   }
 
   /** Get a tuple of all of the dims of this shape. */
@@ -630,7 +630,7 @@ class shape<> {
   index_t operator[] (const std::tuple<>& indices) const { return 0; }
   index_t operator() () const { return 0; }
 
-  array::dim<> dim(size_t d) const { return array::dim<>(); }
+  nda::dim<> dim(size_t d) const { return nda::dim<>(); }
   std::tuple<> dims() const { return std::tuple<>(); }
 
   index_type min() const { return std::tuple<>(); }
@@ -858,11 +858,11 @@ void for_each_value_in_order(const Shape& shape,
 
 namespace internal {
 
-inline bool can_fuse(const array::dim<>& inner, const array::dim<>& outer) {
+inline bool can_fuse(const nda::dim<>& inner, const nda::dim<>& outer) {
   return inner.stride() * inner.extent() == outer.stride();
 }
 
-inline array::dim<> fuse(array::dim<> inner, const array::dim<>& outer) {
+inline nda::dim<> fuse(nda::dim<> inner, const nda::dim<>& outer) {
   inner.set_min(inner.min() + outer.min() * inner.extent());
   inner.set_extent(inner.extent() * outer.extent());
   return inner;
@@ -1805,6 +1805,6 @@ class stack_allocator {
   }
 };
 
-}  // namespace array
+}  // namespace nda
 
 #endif  // ARRAY_ARRAY_H

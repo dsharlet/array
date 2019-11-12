@@ -20,7 +20,7 @@
 
 #include "array.h"
 
-namespace array {
+namespace nda {
 
 /** A generic image is any 3D array with dimensions x, y, c. c represents the
  * channels of the image, typically it will have extent 3 or 4, with red, green,
@@ -182,6 +182,6 @@ auto slice_channel(array<T, Shape>& im) {
   return slice_channel<Channel>(im.ref());
 }
 
-}  // namespace array
+}  // namespace nda
 
 #endif

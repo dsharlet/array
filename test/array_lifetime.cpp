@@ -16,7 +16,7 @@
 #include "test.h"
 #include "lifetime.h"
 
-namespace array {
+namespace nda {
 
 typedef shape<dim<>, dim<>> LifetimeShape;
 auto lifetime_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10, 20));
@@ -187,4 +187,4 @@ TEST(array_lifetime_leaks) {
   ASSERT_EQ(lifetime_counter::destructs, lifetime_counter::constructs());
 }
 
-}  // namespace array
+}  // namespace nda

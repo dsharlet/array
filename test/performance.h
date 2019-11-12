@@ -18,7 +18,7 @@
 #include <cmath>
 #include <chrono>
 
-namespace array {
+namespace nda {
 
 // Benchmark a call.
 template <typename F>
@@ -54,6 +54,6 @@ __attribute__((noinline)) void assert_used(const T& x) {}
 template <typename T>
 __attribute__((noinline)) T not_constant(T x) { return x; }
 
-}  // namespace array
+}  // namespace nda
 
 #endif

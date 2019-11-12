@@ -17,7 +17,7 @@
 
 #include <cstring>
 
-namespace array {
+namespace nda {
 
 TEST(array_ref_indices) {
   int data[100];
@@ -73,4 +73,4 @@ TEST(array_ref_copy) {
   }
 }
 
-}  // namespace array
+}  // namespace nda

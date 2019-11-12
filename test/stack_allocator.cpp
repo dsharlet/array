@@ -16,7 +16,7 @@
 #include "test.h"
 #include "lifetime.h"
 
-namespace array {
+namespace nda {
 
 typedef dense_array<int, 3, stack_allocator<int, 32>> dense3d_int_stack_array;
 
@@ -94,4 +94,4 @@ TEST(stack_array_move_assignment) {
   ASSERT_EQ(lifetime_counter::moves(), move_assign.size());
 }
 
-}  // namespace array
+}  // namespace nda

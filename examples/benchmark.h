@@ -18,7 +18,7 @@
 #include <cmath>
 #include <chrono>
 
-namespace array {
+namespace nda {
 
 // Benchmark a call.
 template <typename F>
@@ -44,6 +44,6 @@ double benchmark(F op) {
   return time_per_iteration_s;
 }
 
-}  // namespace array
+}  // namespace nda
 
 #endif

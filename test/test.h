@@ -24,7 +24,7 @@
 
 #include "array.h"
 
-namespace array {
+namespace nda {
 
 inline void ostream_comma_separated_list(std::ostream& s) {}
 
@@ -122,7 +122,7 @@ bool roughly_equal(T a, T b, double epsilon = 1e-6) {
 // macro, e.g. TEST(equality) { ASSERT(1 == 1); }
 #define TEST(name)                                                     \
   void test_##name##_body();                                           \
-  ::array::test test_##name##_obj(#name, test_##name##_body);          \
+  ::nda::test test_##name##_obj(#name, test_##name##_body);          \
   void test_##name##_body()
 
 #define ASSERT(condition) assert_stream(condition, #condition)
@@ -178,6 +178,6 @@ void check_pattern(const array<T, Shape, Alloc>& a,
   check_pattern(a.ref(), offset);
 }
 
-}  // namespace array
+}  // namespace nda
 
 #endif
