@@ -1356,7 +1356,6 @@ class array {
       swap(buffer_size_, other.buffer_size_);
       swap(base_, other.base_);
       swap(shape_, other.shape_);
-      other.clear();
     } else {
       assign(std::move(other));
     }
