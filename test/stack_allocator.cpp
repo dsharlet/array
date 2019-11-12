@@ -94,4 +94,20 @@ TEST(stack_array_move_assignment) {
   ASSERT_EQ(lifetime_counter::moves(), static_cast<int>(move_assign.size()));
 }
 
+TEST(stack_array_swap) {
+  typedef dense_array<lifetime_counter, 3, stack_allocator<lifetime_counter, 32>> lifetime_stack_array;
+
+  lifetime_stack_array a({4, 3, 2});
+  lifetime_stack_array b({2, 3, 4});
+
+  lifetime_counter::reset();
+  swap(a, b);
+
+  ASSERT_EQ(lifetime_counter::default_constructs, 0);
+  ASSERT_EQ(lifetime_counter::copy_constructs, 0);
+  // We can't swap stack arrays, so it needs to be done with a temporary,
+  // which means 3 moves for each element.
+  ASSERT_EQ(lifetime_counter::moves(), static_cast<int>(a.size() * 3));
+}
+
 }  // namespace nda

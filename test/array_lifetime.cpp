@@ -141,6 +141,17 @@ TEST(array_clear_lifetime) {
   ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size());
 }
 
+TEST(array_swap_lifetime) {
+  lifetime_array a(lifetime_shape);
+  lifetime_array b({8, 5});
+  lifetime_counter::reset();
+  swap(a, b);
+  ASSERT_EQ(lifetime_counter::constructs(), 0);
+  ASSERT_EQ(lifetime_counter::assigns(), 0);
+  ASSERT_EQ(lifetime_counter::copies(), 0);
+  ASSERT_EQ(lifetime_counter::moves(), 0);
+}
+
 TEST(array_lifetime_leaks) {
   lifetime_counter::reset();
   {

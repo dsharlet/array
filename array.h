@@ -1305,12 +1305,12 @@ class array {
    * move-constructed into a new allocation. */
   array(array&& other) : array(std::move(other), Alloc()) {}
   array(array&& other, const Alloc& alloc) : array(alloc) {
-    using std::swap;
     if (alloc_ != other.get_allocator()) {
       shape_ = other.shape_;
       allocate();
       move_construct(other);
     } else {
+      using std::swap;
       swap(buffer_, other.buffer_);
       swap(buffer_size_, other.buffer_size_);
       swap(base_, other.base_);
@@ -1350,7 +1350,12 @@ class array {
     }
 
     if (std::allocator_traits<allocator_type>::propagate_on_container_move_assignment::value) {
-      swap(other);
+      using std::swap;
+      swap(alloc_, other.alloc_);
+      swap(buffer_, other.buffer_);
+      swap(buffer_size_, other.buffer_size_);
+      swap(base_, other.base_);
+      swap(shape_, other.shape_);
       other.clear();
     } else {
       assign(std::move(other));
@@ -1517,14 +1522,19 @@ class array {
   void swap(array& other) {
     using std::swap;
 
-    // TODO: This probably should respect
-    // std::allocator_traits<Alloc>::propagate_on_container_swap::value
-    // (https://github.com/dsharlet/array/issues/5).
-    swap(alloc_, other.alloc_);
-    swap(buffer_, other.buffer_);
-    swap(buffer_size_, other.buffer_size_);
-    swap(base_, other.base_);
-    swap(shape_, other.shape_);
+    if (std::allocator_traits<Alloc>::propagate_on_container_swap::value) {
+      swap(alloc_, other.alloc_);
+      swap(buffer_, other.buffer_);
+      swap(buffer_size_, other.buffer_size_);
+      swap(base_, other.base_);
+      swap(shape_, other.shape_);
+    } else {
+      // TODO: If the shapes are equal, we could swap each element without the
+      // temporary allocation.
+      array temp(std::move(other));
+      other = std::move(*this);
+      *this = std::move(temp);
+    }
   }
 
   /** Make an array_ref referring to the data in this array. */
