@@ -14,7 +14,6 @@
 
 #include "array.h"
 #include "test.h"
-#include "lifetime.h"
 
 namespace nda {
 
@@ -57,57 +56,6 @@ TEST(stack_array_bad_alloc) {
   } catch (const std::bad_alloc&) {
     // This is success.
   }
-}
-
-TEST(stack_array_make_copy) {
-  dense3d_int_stack_array src({4, 3, 2});
-
-  dense3d_int_stack_array copy = make_dense_copy(src);
-  ASSERT(src == copy);
-}
-
-TEST(stack_array_move_constructor) {
-  typedef dense_array<lifetime_counter, 3, stack_allocator<lifetime_counter, 32>> lifetime_stack_array;
-
-  lifetime_stack_array stack_array({4, 3, 2});
-
-  lifetime_counter::reset();
-  lifetime_stack_array move_array(std::move(stack_array));
-
-  ASSERT_EQ(lifetime_counter::default_constructs, 0);
-  ASSERT_EQ(lifetime_counter::copy_constructs, 0);
-  ASSERT_EQ(lifetime_counter::move_constructs, move_array.size());
-}
-
-TEST(stack_array_move_assignment) {
-  typedef dense_array<lifetime_counter, 3, stack_allocator<lifetime_counter, 32>> lifetime_stack_array;
-
-  lifetime_stack_array stack_array({4, 3, 2});
-
-  lifetime_counter::reset();
-  lifetime_stack_array move_assign;
-  move_assign = std::move(stack_array);
-
-  ASSERT_EQ(lifetime_counter::default_constructs, 0);
-  ASSERT_EQ(lifetime_counter::copy_constructs, 0);
-  // TODO: Is it OK that this assignment uses move constructions instead of move assignments?
-  ASSERT_EQ(lifetime_counter::moves(), move_assign.size());
-}
-
-TEST(stack_array_swap) {
-  typedef dense_array<lifetime_counter, 3, stack_allocator<lifetime_counter, 32>> lifetime_stack_array;
-
-  lifetime_stack_array a({4, 3, 2});
-  lifetime_stack_array b({2, 3, 4});
-
-  lifetime_counter::reset();
-  swap(a, b);
-
-  ASSERT_EQ(lifetime_counter::default_constructs, 0);
-  ASSERT_EQ(lifetime_counter::copy_constructs, 0);
-  // We can't swap stack arrays, so it needs to be done with a temporary,
-  // which means 3 moves for each element.
-  ASSERT_EQ(lifetime_counter::moves(), a.size() * 3);
 }
 
 }  // namespace nda
