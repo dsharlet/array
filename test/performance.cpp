@@ -14,7 +14,6 @@
 
 #include "array.h"
 #include "test.h"
-#include "performance.h"
 
 #include <cstring>
 

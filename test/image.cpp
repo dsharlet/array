@@ -14,7 +14,6 @@
 
 #include "image.h"
 #include "test.h"
-#include "performance.h"
 
 namespace nda {
 
