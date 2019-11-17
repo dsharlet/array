@@ -1570,9 +1570,8 @@ void swap(array<T, Shape, Alloc>& a, array<T, Shape, Alloc>& b) {
 /** Copy the contents of the 'src' array or array_ref to the 'dest' array or
  * array_ref. The range of the shape of 'dest' will be copied, and must be in
  * bounds of 'src'. */
-template <typename T, typename ShapeSrc, typename ShapeDest>
-void copy(const array_ref<T, ShapeSrc>& src,
-          const array_ref<typename std::remove_const<T>::type, ShapeDest>& dest) {
+template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest>
+void copy(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDest, ShapeDest>& dest) {
   if (dest.shape().empty()) {
     return;
   }
@@ -1581,23 +1580,21 @@ void copy(const array_ref<T, ShapeSrc>& src,
     ARRAY_THROW_OUT_OF_RANGE("dest indices out of range of src");
   }
 
-  typedef typename std::remove_const<T>::type non_const_T;
   copy_shape_traits<ShapeSrc, ShapeDest>::for_each_value(src.shape(), src.base(), dest.shape(), dest.base(),
-                                                         [](const T& src_i, non_const_T& dest_i) {
+                                                         [](const TSrc& src_i, TDest& dest_i) {
     dest_i = src_i;
   });
 }
-template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocDest>
-void copy(const array_ref<T, ShapeSrc>& src,
-          array<typename std::remove_const<T>::type, ShapeDest, AllocDest>& dest) {
+template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest, typename AllocDest>
+void copy(const array_ref<TSrc, ShapeSrc>& src, array<TDest, ShapeDest, AllocDest>& dest) {
   copy(src, dest.ref());
 }
-template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc>
-void copy(const array<T, ShapeSrc, AllocSrc>& src, const array_ref<T, ShapeDest>& dest) {
+template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest, typename AllocSrc>
+void copy(const array<TSrc, ShapeSrc, AllocSrc>& src, const array_ref<TDest, ShapeDest>& dest) {
   copy(src.ref(), dest);
 }
-template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc, typename AllocDest>
-void copy(const array<T, ShapeSrc, AllocSrc>& src, array<T, ShapeDest, AllocDest>& dest) {
+template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest, typename AllocSrc, typename AllocDest>
+void copy(const array<TSrc, ShapeSrc, AllocSrc>& src, array<TDest, ShapeDest, AllocDest>& dest) {
   copy(src.ref(), dest.ref());
 }
 
@@ -1648,8 +1645,8 @@ auto make_compact_copy(const array<T, Shape, AllocSrc>& src,
 /** Move the contents from the 'src' array or array_ref to the 'dest' array or
  * array_ref. The range of the shape of 'dest' will be moved, and must be in
  * bounds of 'src'. */
-template <typename T, typename ShapeSrc, typename ShapeDest>
-void move(const array_ref<T, ShapeSrc>& src, const array_ref<T, ShapeDest>& dest) {
+template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest>
+void move(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDest, ShapeDest>& dest) {
   if (dest.shape().empty()) {
     return;
   }
@@ -1659,20 +1656,20 @@ void move(const array_ref<T, ShapeSrc>& src, const array_ref<T, ShapeDest>& dest
   }
 
   copy_shape_traits<ShapeSrc, ShapeDest>::for_each_value(src.shape(), src.base(), dest.shape(), dest.base(),
-                                                         [](T& src_i, T& dest_i) {
+                                                         [](TSrc& src_i, TDest& dest_i) {
     dest_i = std::move(src_i);
   });
 }
-template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocDest>
-void move(const array_ref<T, ShapeSrc>& src, array<T, ShapeDest, AllocDest>& dest) {
+template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest, typename AllocDest>
+void move(const array_ref<TSrc, ShapeSrc>& src, array<TDest, ShapeDest, AllocDest>& dest) {
   move(src, dest.ref());
 }
-template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc>
-void move(array<T, ShapeSrc, AllocSrc>& src, const array_ref<T, ShapeDest>& dest) {
+template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest, typename AllocSrc>
+void move(array<TSrc, ShapeSrc, AllocSrc>& src, const array_ref<TDest, ShapeDest>& dest) {
   move(src.ref(), dest);
 }
-template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc, typename AllocDest>
-void move(array<T, ShapeSrc, AllocSrc>& src, array<T, ShapeDest, AllocDest>& dest) {
+template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest, typename AllocSrc, typename AllocDest>
+void move(array<TSrc, ShapeSrc, AllocSrc>& src, array<TDest, ShapeDest, AllocDest>& dest) {
   move(src.ref(), dest.ref());
 }
 
