@@ -1082,7 +1082,8 @@ class array_ref {
 
   /** Make an array_ref to the given 'base' pointer, interpreting it as having
    * the shape 'shape'. */
-  array_ref(T* base, Shape shape) : base_(base), shape_(std::move(shape)) {}
+  array_ref(T* base = nullptr, Shape shape = Shape())
+      : base_(base), shape_(std::move(shape)) {}
   /** The copy constructor of a ref is a shallow copy. */
   array_ref(const array_ref& other) = default;
   array_ref(array_ref&& other) = default;
