@@ -1111,8 +1111,11 @@ class array_ref {
     shape_traits<Shape>::for_each_value(shape_, base_, fn);
   }
 
-  /** Pointer to the start of the flattened array_ref. */
+  /** Pointer to the element at the min index of the shape. */
   pointer base() const { return base_; }
+
+  /** Pointer to the element at the beginning of the flat array. */
+  pointer data() const { return base_ + shape_.flat_min(); }
 
   /** Shape of this array_ref. */
   const Shape& shape() const { return shape_; }
@@ -1464,11 +1467,11 @@ class array {
     shape_traits<Shape>::for_each_value(shape_, base_, fn);
   }
 
-  /** Pointer the min index of the shape. */
+  /** Pointer to the element at the min index of the shape. */
   pointer base() { return base_; }
   const_pointer base() const { return base_; }
 
-  /** Pointer to the first element of the flat array. */
+  /** Pointer to the element at the beginning of the flat array. */
   pointer data() { return base_ + shape_.flat_min(); }
   const_pointer data() const { return base_ + shape_.flat_min(); }
 
