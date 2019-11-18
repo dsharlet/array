@@ -254,7 +254,7 @@ TEST(array_clear_lifetime) {
 template <typename Alloc>
 void test_swap_lifetime(bool alloc_movable = true) {
   lifetime_array<Alloc> a(lifetime_shape);
-  lifetime_array<Alloc> b({lifetime_shape.size(), 1});
+  lifetime_array<Alloc> b({static_cast<index_t>(lifetime_shape.size()), 1});
   lifetime_counter::reset();
   swap(a, b);
   if (alloc_movable) {
