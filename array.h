@@ -38,7 +38,13 @@
 namespace nda {
 
 typedef std::size_t size_t;
+/** When ARRAY_INT_INDICES is defined, array indices are 'int' values, otherwise
+ * they are 'std::ptrdiff_t' */
+#ifdef ARRAY_INT_INDICES
+typedef int index_t;
+#else
 typedef std::ptrdiff_t index_t;
+#endif
 
 /** This value indicates a compile-time constant stride is unknown, and to use
  * the corresponding runtime value instead. */
