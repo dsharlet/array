@@ -28,7 +28,7 @@ TEST(array_default_constructor) {
   ASSERT_EQ(b.height(), 3);
   for (int y = 0; y < 3; y++) {
     for (int x = 0; x < 7; x++) {
-      ASSERT_EQ(b(x, y), 0);
+      ASSERT_EQ(b.at(x, y), 0);
     }
   }
 
@@ -327,8 +327,8 @@ TEST(array_negative_strides) {
   });
 
   dense_array<int, 2> b = make_dense_copy(a);
-  for_all_indices(b.shape(), [&](int x, int y) {
-    ASSERT_EQ(b(x, y), y);
+  for_each_index(b.shape(), [&](const dense_array<int, 2>::index_type& i) {
+    ASSERT_EQ(b(i), std::get<1>(i));
   });
 }
 

@@ -490,6 +490,16 @@ class shape {
   }
 
   /** Compute the flat offset of the index 'indices'. */
+  index_t at(const index_type& indices) const {
+    // TODO: throw if out of bounds
+    // (https://github.com/dsharlet/array/issues/13)
+    return internal::flat_offset(dims_, indices);
+  }
+  template <typename... Indices,
+      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
+  index_t at(Indices... indices) const { return at(std::make_tuple(indices...)); }
+
+  /** Compute the flat offset of the index 'indices'. */
   index_t operator() (const index_type& indices) const { return internal::flat_offset(dims_, indices); }
   index_t operator[] (const index_type& indices) const { return internal::flat_offset(dims_, indices); }
   template <typename... Indices,
@@ -1076,6 +1086,12 @@ class array_ref {
   array_ref& operator=(array_ref&& other) = default;
 
   /** Get a reference to the element at the given indices. */
+  reference at(const index_type& indices) const { return base_[shape_.at(indices)]; }
+  template <typename... Indices,
+      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
+  reference at(Indices... indices) const { return base_[shape_.at(indices...)]; }
+
+  /** Get a reference to the element at the given indices. */
   reference operator() (const index_type& indices) const { return base_[shape_(indices)]; }
   reference operator[] (const index_type& indices) const { return base_[shape_(indices)]; }
   template <typename... Indices,
@@ -1409,8 +1425,17 @@ class array {
   /** Get the allocator used to allocate memory for this buffer. */
   const Alloc& get_allocator() const { return alloc_; }
 
-  /** Compute the flat offset of the indices. Does not check if the indices are
-   * in bounds. */
+  /** Get a reference to the element at the given indices. */
+  reference at(const index_type& indices) { return base_[shape_.at(indices)]; }
+  const_reference at(const index_type& indices) const { return base_[shape_.at(indices)]; }
+  template <typename... Indices,
+      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
+  reference at(Indices... indices) { return base_[shape_.at(indices...)]; }
+  template <typename... Indices,
+      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
+  const_reference at(Indices... indices) const { return base_[shape_.at(indices...)]; }
+
+  /** Get a reference to the element at the given indices. */
   reference operator() (const index_type& indices) { return base_[shape_(indices)]; }
   reference operator[] (const index_type& indices) { return base_[shape_(indices)]; }
   const_reference operator() (const index_type& indices) const { return base_[shape_(indices)]; }
