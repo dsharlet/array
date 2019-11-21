@@ -125,36 +125,77 @@ TEST(make_dense_shape_3d) {
   ASSERT_EQ(s.columns(), y.extent());
 }
 
-TEST(auto_strides) {
-  shape_of_rank<3> s(10, 20, 3);
-  dim<> x = s.template dim<0>();
-  dim<> y = s.template dim<1>();
-  dim<> z = s.template dim<2>();
-  ASSERT_EQ(x.min(), 0);
-  ASSERT_EQ(x.extent(), 10);
-  ASSERT_EQ(x.stride(), 1);
-  ASSERT_EQ(y.min(), 0);
-  ASSERT_EQ(y.extent(), 20);
-  ASSERT_EQ(y.stride(), 10);
-  ASSERT_EQ(z.min(), 0);
-  ASSERT_EQ(z.extent(), 3);
-  ASSERT_EQ(z.stride(), 200);
+template <size_t rank>
+void test_all_unknown_strides() {
+  std::array<dim<>, rank> a;
+  std::array<dim<>, rank> b;
+  index_t stride = 1;
+  for (int d = 0; d < rank; d++) {
+    a[d] = dim<>(d);
+    b[d] = a[d];
+    b[d].set_stride(stride);
+    stride *= std::max(static_cast<index_t>(1), a[d].extent());
+  }
+  shape_of_rank<rank> s_all_unknown(internal::array_to_tuple(a));
+  shape_of_rank<rank> s_all_unknown_resolved(internal::array_to_tuple(b));
+  ASSERT_EQ(s_all_unknown, s_all_unknown_resolved);
 }
 
-TEST(auto_strides_interleaved) {
-  shape<dim<>, dim<>, dense_dim<>> s(10, 20, 3);
-  dim<> x = s.template dim<0>();
-  dim<> y = s.template dim<1>();
-  dense_dim<> z = s.template dim<2>();
-  ASSERT_EQ(x.min(), 0);
-  ASSERT_EQ(x.extent(), 10);
-  ASSERT_EQ(x.stride(), 3);
-  ASSERT_EQ(y.min(), 0);
-  ASSERT_EQ(y.extent(), 20);
-  ASSERT_EQ(y.stride(), 30);
-  ASSERT_EQ(z.min(), 0);
-  ASSERT_EQ(z.extent(), 3);
-  ASSERT_EQ(z.stride(), 1);
+index_t factorial(index_t x) {
+  if (x <= 1) {
+    return 1;
+  }
+  return x * factorial(x - 1);
+}
+
+template <size_t rank>
+void test_one_dense_stride() {
+  for (int known = 0; known < rank; known++) {
+    std::array<dim<>, rank> a;
+    for (int d = 0; d < rank; d++) {
+      a[d] = dim<>(d + 1);
+      if (d == known) {
+        // This is the dimension we know.
+        a[d].set_stride(1);
+      }
+    }
+    shape_of_rank<rank> s_one_dense(internal::array_to_tuple(a));
+    ASSERT_EQ(s_one_dense.size(), factorial(rank));
+    ASSERT_EQ(s_one_dense.dim(known).stride(), 1);
+    ASSERT(s_one_dense.is_compact());
+    ASSERT(s_one_dense.is_one_to_one());
+  }
+}
+
+template <size_t rank>
+void test_auto_strides() {
+  test_all_unknown_strides<rank>();
+  test_one_dense_stride<rank>();
+}
+
+TEST(auto_strides) {
+  shape<dim<>> s1(dim<>(3, 5, UNK));
+  shape<dim<>> s1_resolved(dim<>(3, 5, 1));
+  ASSERT_EQ(s1, s1_resolved);
+
+  shape<dim<>, dim<>> s2(5, 10);
+  shape<dim<>, dim<>> s2_resolved({0, 5, 1}, {0, 10, 5});
+  ASSERT_EQ(s2, s2_resolved);
+
+  shape<dim<>, dim<>, dim<>> s_interleaved_with_row_stride(5, {0, 4, 20}, {0, 3, 1});
+  shape<dim<>, dim<>, dim<>> s_interleaved_with_row_stride_resolved({0, 5, 3}, {0, 4, 20}, {0, 3, 1});
+  ASSERT_EQ(s_interleaved_with_row_stride, s_interleaved_with_row_stride_resolved);
+
+  test_auto_strides<1>();
+  test_auto_strides<2>();
+  test_auto_strides<3>();
+  test_auto_strides<4>();
+  test_auto_strides<5>();
+  test_auto_strides<6>();
+  test_auto_strides<7>();
+  test_auto_strides<8>();
+  test_auto_strides<9>();
+  test_auto_strides<10>();
 }
 
 TEST(broadcast_dim) {
@@ -359,16 +400,21 @@ TEST(shape_optimize) {
 
   shape_of_rank<10> e(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
   shape_of_rank<10> e2 = reorder<9, 5, 3, 7, 2, 8, 4, 6, 0, 1>(e);
-  shape_of_rank<10> e_optimized(3628800, 1, 1, 1, 1, 1, 1, 1, 1, 1);
+  dim<> e_optimized_dim(0, 1, 3628800);
+  shape_of_rank<10> e_optimized(
+    3628800,
+    e_optimized_dim, e_optimized_dim, e_optimized_dim,
+    e_optimized_dim, e_optimized_dim, e_optimized_dim,
+    e_optimized_dim, e_optimized_dim, e_optimized_dim);
   ASSERT_EQ(internal::dynamic_optimize_shape(e), e_optimized);
   ASSERT_EQ(internal::dynamic_optimize_shape(e2), e_optimized);
 
   shape_of_rank<2> f({0, 2}, {1, 2});
-  shape_of_rank<2> f_optimized({2, 4}, {0, 1});
+  shape_of_rank<2> f_optimized({2, 4, 1}, {0, 1, 4});
   ASSERT_EQ(internal::dynamic_optimize_shape(f), f_optimized);
 
   shape_of_rank<2> g({1, 2}, {1, 2});
-  shape_of_rank<2> g_optimized({3, 4}, {0, 1});
+  shape_of_rank<2> g_optimized({3, 4, 1}, {0, 1, 4});
   ASSERT_EQ(internal::dynamic_optimize_shape(g), g_optimized);
 }
 

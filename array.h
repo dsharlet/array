@@ -188,8 +188,8 @@ class dim {
   /** Index of the last element in this dim. */
   index_t max() const { return min() + extent() - 1; }
 
-  /** Offset of the index 'at' in this dim. */
-  index_t offset(index_t at) const { return (at - min()) * stride(); }
+  /** Offset of the index 'at' in this dim in the flat array. */
+  index_t flat_offset(index_t at) const { return (at - min()) * stride(); }
 
   /** Returns true if 'at' is within the range [min(), max()]. */
   bool is_in_range(index_t at) const { return min() <= at && at <= max(); }
@@ -251,6 +251,7 @@ namespace internal {
 // Some variadic reduction helpers.
 inline index_t sum() { return 0; }
 inline index_t product() { return 1; }
+inline index_t variadic_min() { return std::numeric_limits<index_t>::max(); }
 inline index_t variadic_max() { return std::numeric_limits<index_t>::min(); }
 
 template <typename... Rest>
@@ -261,6 +262,11 @@ index_t sum(index_t first, Rest... rest) {
 template <typename... Rest>
 index_t product(index_t first, Rest... rest) {
   return first * product(rest...);
+}
+
+template <typename... Rest>
+index_t variadic_min(index_t first, Rest... rest) {
+  return std::min(first, variadic_min(rest...));
 }
 
 template <typename... Rest>
@@ -283,7 +289,7 @@ bool all(Bools... bools) {
 // Computes the sum of the offsets of a list of dims and indices.
 template <typename Dims, typename Indices, size_t... Is>
 index_t flat_offset_impl(const Dims& dims, const Indices& indices, std::index_sequence<Is...>) {
-  return sum(std::get<Is>(dims).offset(std::get<Is>(indices))...);
+  return sum(std::get<Is>(dims).flat_offset(std::get<Is>(indices))...);
 }
 
 template <typename Dims, typename Indices>
@@ -341,43 +347,94 @@ auto maxs(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
   return std::make_tuple(std::get<Is>(dims).max()...);
 }
 
-inline index_t abs_stride(index_t s) {
-  return s == UNK ? UNK : std::abs(s);
+template <typename Dim>
+bool is_dim_ok(index_t stride, index_t extent, const Dim& dim) {
+  if (dim.stride() == UNK) {
+    // If the dimension has an unknown stride, it's OK, we're resolving the
+    // current dim first.
+    return true;
+  }
+  if (dim.extent() * std::abs(dim.stride()) <= stride) {
+    // The dim is completely inside the proposed stride.
+    return true;
+  }
+  index_t flat_extent = 1 + (extent - 1) * stride;
+  if (std::abs(dim.stride()) >= flat_extent) {
+    // The dim is completely outside the proposed stride.
+    return true;
+  }
+  return false;
 }
 
-template <typename Dims, size_t... Is>
-index_t max_stride(const Dims& dims, std::index_sequence<Is...>) {
-  return variadic_max(abs_stride(std::get<Is>(dims).stride()) * std::get<Is>(dims).extent()...);
+template <typename AllDims, size_t... Is>
+bool is_dim_ok(index_t stride, index_t extent, const AllDims& all_dims, std::index_sequence<Is...>) {
+  return all(is_dim_ok(stride, extent, std::get<Is>(all_dims))...);
 }
 
-// Resolve unknown dim quantities. Unknown extents become zero, and unknown
-// strides are replaced with increasing strides.
-inline void resolve_unknowns_impl(index_t) {}
+template <typename AllDims>
+index_t filter_stride(index_t stride, index_t extent, const AllDims& all_dims) {
+  constexpr size_t rank = std::tuple_size<AllDims>::value;
+  if (is_dim_ok(stride, extent, all_dims, std::make_index_sequence<rank>())) {
+    return stride;
+  } else {
+    return std::numeric_limits<index_t>::max();
+  }
+}
+
+template <size_t D, typename AllDims>
+index_t candidate_stride(index_t extent, const AllDims& all_dims) {
+  index_t stride_d = std::get<D>(all_dims).stride();
+  if (stride_d == UNK) {
+    return std::numeric_limits<index_t>::max();
+  }
+  index_t stride = std::max(static_cast<index_t>(1), std::abs(stride_d) * std::get<D>(all_dims).extent());
+  return filter_stride(stride, extent, all_dims);
+}
+
+template <typename AllDims, size_t... Is>
+index_t find_stride(index_t extent, const AllDims& all_dims, std::index_sequence<Is...>) {
+  return variadic_min(filter_stride(1, extent, all_dims),
+                      candidate_stride<Is>(extent, all_dims)...);
+}
+
+inline void resolve_unknown_extents() {}
 
 template <typename Dim0, typename... Dims>
-void resolve_unknowns_impl(index_t current_stride, Dim0& dim0, Dims&... dims) {
+void resolve_unknown_extents(Dim0& dim0, Dims&... dims) {
   if (dim0.extent() == UNK) {
     dim0.set_extent(0);
   }
-  if (dim0.stride() == UNK) {
-    dim0.set_stride(current_stride);
-    current_stride *= dim0.extent();
-  }
-  resolve_unknowns_impl(current_stride, dims...);
+  resolve_unknown_extents(dims...);
 }
 
 template <typename Dims, size_t... Is>
-void resolve_unknowns_impl(index_t current_stride, Dims& dims, std::index_sequence<Is...>) {
-  resolve_unknowns_impl(current_stride, std::get<Is>(dims)...);
+void resolve_unknown_extents(Dims& dims, std::index_sequence<Is...>) {
+  resolve_unknown_extents(std::get<Is>(dims)...);
+}
+
+
+template <typename AllDims>
+void resolve_unknown_strides(AllDims& all_dims) {}
+
+template <typename AllDims, typename Dim0, typename... Dims>
+void resolve_unknown_strides(AllDims& all_dims, Dim0& dim0, Dims&... dims) {
+  if (dim0.stride() == UNK) {
+    constexpr size_t rank = std::tuple_size<AllDims>::value;
+    dim0.set_stride(find_stride(dim0.extent(), all_dims, std::make_index_sequence<rank>()));
+  }
+  resolve_unknown_strides(all_dims, dims...);
+}
+
+template <typename Dims, size_t... Is>
+void resolve_unknown_strides(Dims& dims, std::index_sequence<Is...>) {
+  resolve_unknown_strides(dims, std::get<Is>(dims)...);
 }
 
 template <typename Dims>
 void resolve_unknowns(Dims& dims) {
   constexpr size_t rank = std::tuple_size<Dims>::value;
-  index_t known_stride = max_stride(dims, std::make_index_sequence<rank>());
-  index_t current_stride = std::max(static_cast<index_t>(1), known_stride);
-
-  resolve_unknowns_impl(current_stride, dims, std::make_index_sequence<rank>());
+  resolve_unknown_extents(dims, std::make_index_sequence<rank>());
+  resolve_unknown_strides(dims, std::make_index_sequence<rank>());
 }
 
 // A helper to transform an array to a tuple.
