@@ -186,6 +186,14 @@ TEST(auto_strides) {
   shape<dim<>, dim<>, dim<>> s_interleaved_with_row_stride_resolved({0, 5, 3}, {0, 4, 20}, {0, 3, 1});
   ASSERT_EQ(s_interleaved_with_row_stride, s_interleaved_with_row_stride_resolved);
 
+  shape<dim<>, dim<>, dim<>> s_interleaved_with_row_stride_dense(5, {0, 4, 15}, {0, 3, 1});
+  shape<dim<>, dim<>, dim<>> s_interleaved_with_row_stride_dense_resolved({0, 5, 3}, {0, 4, 15}, {0, 3, 1});
+  ASSERT_EQ(s_interleaved_with_row_stride_dense, s_interleaved_with_row_stride_dense_resolved);
+
+  shape<dim<>, dim<>, dim<>> s_interleaved_with_row_stride_oops(5, {0, 4, 14}, {0, 3, 1});
+  shape<dim<>, dim<>, dim<>> s_interleaved_with_row_stride_oops_resolved({0, 5, 56}, {0, 4, 14}, {0, 3, 1});
+  ASSERT_EQ(s_interleaved_with_row_stride_oops, s_interleaved_with_row_stride_oops_resolved);
+
   test_auto_strides<1>();
   test_auto_strides<2>();
   test_auto_strides<3>();

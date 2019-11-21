@@ -358,7 +358,7 @@ bool is_dim_ok(index_t stride, index_t extent, const Dim& dim) {
     // The dim is completely inside the proposed stride.
     return true;
   }
-  index_t flat_extent = 1 + (extent - 1) * stride;
+  index_t flat_extent = extent * stride;
   if (std::abs(dim.stride()) >= flat_extent) {
     // The dim is completely outside the proposed stride.
     return true;
