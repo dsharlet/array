@@ -90,6 +90,35 @@ TEST(array_fill_constructor) {
   }
 }
 
+TEST(array_assign) {
+  array_of_rank<int, 3> a({4, 5, 6});
+  fill_pattern(a);
+
+  array_of_rank<int, 3> b = array_of_rank<int, 3>({4, 5, 6});
+  fill_pattern(b);
+  ASSERT(a == b);
+
+  array_of_rank<int, 3> c;
+  c = array_of_rank<int, 3>({4, 5, 6});
+  fill_pattern(c);
+  ASSERT(a == c);
+
+  c = array_of_rank<int, 3>({4, 5, 6});
+  ASSERT(a != c);
+  fill_pattern(c);
+  ASSERT(a == c);
+
+  c = array_of_rank<int, 3>({7, 5, 6});
+  ASSERT(a != c);
+
+  {
+    array_of_rank<int, 3> d({4, 5, 6});
+    fill_pattern(d);
+    c = d;
+  }
+  ASSERT(a == c);
+}
+
 TEST(array_fill_assign) {
   dense_array<int, 1> a;
   a.assign(make_dense_shape(10), 3);
