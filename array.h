@@ -1023,6 +1023,11 @@ auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
     shape_of_rank<rank>(array_to_tuple(dest_dims)));
 }
 
+template <typename T>
+T* pointer_add(T* x, index_t offset) {
+  return x != nullptr ? x + offset : x;
+}
+
 }  // namespace internal
 
 /** Shape traits enable some behaviors to be overriden per shape type. */
@@ -1157,7 +1162,7 @@ class array_ref {
   pointer base() const { return base_; }
 
   /** Pointer to the element at the beginning of the flat array. */
-  pointer data() const { return base_ + shape_.flat_min(); }
+  pointer data() const { return internal::pointer_add(base_, shape_.flat_min()); }
 
   /** Shape of this array_ref. */
   const Shape& shape() const { return shape_; }
@@ -1169,7 +1174,7 @@ class array_ref {
   template <size_t D>
   const auto& dim() const { return shape_.template dim<D>(); }
   size_type size() const { return shape_.size(); }
-  bool empty() const { return shape_.empty(); }
+  bool empty() const { return base() != nullptr ? shape_.empty() : true; }
   bool is_compact() const { return shape_.is_compact(); }
 
   /** Provide some aliases for common interpretations of dimensions. */
@@ -1240,7 +1245,7 @@ class array_ref {
    * 'offset'. */
   void set_shape(Shape new_shape, index_t offset = 0) {
     shape_ = std::move(new_shape);
-    base_ += offset;
+    base_ = internal::pointer_add(base_, offset);
   }
 };
 
@@ -1504,8 +1509,8 @@ class array {
   const_pointer base() const { return base_; }
 
   /** Pointer to the element at the beginning of the flat array. */
-  pointer data() { return base_ + shape_.flat_min(); }
-  const_pointer data() const { return base_ + shape_.flat_min(); }
+  pointer data() { return internal::pointer_add(base_, shape_.flat_min()); }
+  const_pointer data() const { return internal::pointer_add(base_, shape_.flat_min()); }
 
   /** Shape of this array. */
   const Shape& shape() const { return shape_; }
@@ -1549,7 +1554,7 @@ class array {
   void set_shape(Shape new_shape, index_t offset = 0) {
     assert(new_shape.is_subset_of(shape(), -offset));
     shape_ = std::move(new_shape);
-    base_ += offset;
+    base_ = internal::pointer_add(base_, offset);
   }
 
   /** Provide some aliases for common interpretations of dimensions. */

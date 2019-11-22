@@ -146,9 +146,9 @@ array_ref<T, Shape> crop(const array_ref<T, Shape>& im,
                          crop_origin origin = crop_origin::crop) {
   Shape cropped_shape = crop_image_shape(im.shape(), x0, y0, x1, y1, origin);
   index_t c0 = im.shape().c().min();
-  T* base = &im(x0, y0, c0);
+  T* base = im.base() != nullptr ? &im(x0, y0, c0) : nullptr;
   if (origin == crop_origin::crop) {
-    base -= cropped_shape(x0, y0, c0);
+    base = internal::pointer_add(base, -cropped_shape(x0, y0, c0));
   }
   return array_ref<T, Shape>(base, cropped_shape);
 }
@@ -170,7 +170,7 @@ array_ref<T, Shape> crop(array<T, Shape>& im,
 template <index_t Channel, typename T, typename Shape>
 auto slice_channel(const array_ref<T, Shape>& im) {
   auto shape = reorder<0, 1>(im.shape());
-  T* base = &im(im.x().min(), im.y().min(), Channel);
+  T* base = im.base() != nullptr ? &im(im.x().min(), im.y().min(), Channel) : nullptr;
   return array_ref<T, decltype(shape)>(base, shape);
 }
 template <index_t Channel, typename T, typename Shape>

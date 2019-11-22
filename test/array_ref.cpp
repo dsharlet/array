@@ -73,4 +73,11 @@ TEST(array_ref_copy) {
   }
 }
 
+TEST(array_ref_empty) {
+  dense_array_ref<int, 1> null_ref(nullptr, make_dense_shape(10));
+  ASSERT(null_ref.empty());
+  null_ref.set_shape({{3, 3}}, 3);
+  ASSERT(null_ref.empty());
+}
+
 }  // namespace nda
