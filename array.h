@@ -1235,11 +1235,12 @@ class array_ref {
   const array_ref<T, Shape>& ref() const {
     return *this;
   }
-
-  /** Allow conversion from array_ref<T> to array_ref<const T>. */
-  operator array_ref<const T, Shape>() const {
+  const array_ref<const T, Shape> cref() const {
     return array_ref<const T, Shape>(base_, shape_);
   }
+
+  /** Allow conversion from array_ref<T> to array_ref<const T>. */
+  operator array_ref<const T, Shape>() const { return cref(); }
 
   /** Change the shape of the array to 'new_shape', and move the base pointer by
    * 'offset'. */
@@ -1583,8 +1584,8 @@ class array {
   /** Compare the contents of this array to 'other'. For two arrays to be
    * considered equal, they must have the same shape, and all elements
    * addressable by the shape must also be equal. */
-  bool operator!=(const array& other) const { return ref() != other.ref(); }
-  bool operator==(const array& other) const { return ref() == other.ref(); }
+  bool operator!=(const array& other) const { return cref() != other.cref(); }
+  bool operator==(const array& other) const { return cref() == other.cref(); }
 
   /** Swap the contents of two arrays. This performs zero copies or moves of
    * individual elements. */
@@ -1608,9 +1609,10 @@ class array {
 
   /** Make an array_ref referring to the data in this array. */
   array_ref<T, Shape> ref() { return array_ref<T, Shape>(base_, shape_); }
-  array_ref<const T, Shape> ref() const { return array_ref<const T, Shape>(base_, shape_); }
+  array_ref<const T, Shape> cref() const { return array_ref<const T, Shape>(base_, shape_); }
+  array_ref<const T, Shape> ref() const { return cref(); }
   operator array_ref<T, Shape>() { return ref(); }
-  operator array_ref<const T, Shape>() const { return ref(); }
+  operator array_ref<const T, Shape>() const { return cref(); }
 };
 
 /** An array type with an arbitrary shape of rank 'Rank'. */
@@ -1662,11 +1664,11 @@ void copy(const array_ref<TSrc, ShapeSrc>& src, array<TDest, ShapeDest, AllocDes
 }
 template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest, typename AllocSrc>
 void copy(const array<TSrc, ShapeSrc, AllocSrc>& src, const array_ref<TDest, ShapeDest>& dest) {
-  copy(src.ref(), dest);
+  copy(src.cref(), dest);
 }
 template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest, typename AllocSrc, typename AllocDest>
 void copy(const array<TSrc, ShapeSrc, AllocSrc>& src, array<TDest, ShapeDest, AllocDest>& dest) {
-  copy(src.ref(), dest.ref());
+  copy(src.cref(), dest.ref());
 }
 
 /** Make a copy of the 'src' array or array_ref with a new shape 'shape'. */
@@ -1682,7 +1684,7 @@ template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc,
   typename AllocDest = AllocSrc>
 auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const ShapeDest& shape,
                const AllocDest& alloc = AllocDest()) {
-  return make_copy(src.ref(), shape, alloc);
+  return make_copy(src.cref(), shape, alloc);
 }
 
 /** Make a copy of the 'src' array or array_ref with a dense shape of the same
@@ -1696,7 +1698,7 @@ auto make_dense_copy(const array_ref<T, ShapeSrc>& src,
 template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = AllocSrc>
 auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src,
                      const AllocDest& alloc = AllocDest()) {
-  return make_dense_copy(src.ref(), alloc);
+  return make_dense_copy(src.cref(), alloc);
 }
 
 /** Make a copy of the 'src' array or array_ref with a compact version of 'src's
@@ -1710,7 +1712,7 @@ auto make_compact_copy(const array_ref<T, Shape>& src,
 template <typename T, typename Shape, typename AllocSrc, typename AllocDest = AllocSrc>
 auto make_compact_copy(const array<T, Shape, AllocSrc>& src,
                        const AllocDest& alloc = AllocDest()) {
-  return make_compact_copy(src.ref(), alloc);
+  return make_compact_copy(src.cref(), alloc);
 }
 
 /** Move the contents from the 'src' array or array_ref to the 'dest' array or
@@ -1804,7 +1806,7 @@ array_ref<U, Shape> reinterpret(array<T, Shape, Alloc>& a) {
 }
 template <typename U, typename T, typename Shape, typename Alloc>
 array_ref<const U, Shape> reinterpret(const array<T, Shape, Alloc>& a) {
-  return reinterpret<const U>(a.ref());
+  return reinterpret<const U>(a.cref());
 }
 
 /** Reinterpret the shape of the array or array_ref 'a' to be a new shape
@@ -1823,7 +1825,7 @@ array_ref<T, NewShape> reinterpret_shape(array<T, OldShape, Allocator>& a,
 template <typename NewShape, typename T, typename OldShape, typename Allocator>
 array_ref<const T, NewShape> reinterpret_shape(const array<T, OldShape, Allocator>& a,
                                                NewShape new_shape, index_t offset = 0) {
-  return reinterpret_shape(a.ref(), new_shape, offset);
+  return reinterpret_shape(a.cref(), new_shape, offset);
 }
 
 /** std::allocator-compatible Allocator that owns a buffer of fixed size, which
