@@ -28,7 +28,7 @@ TEST(array_default_constructor) {
   ASSERT_EQ(b.height(), 3);
   for (int y = 0; y < 3; y++) {
     for (int x = 0; x < 7; x++) {
-      ASSERT_EQ(b.at(x, y), 0);
+      ASSERT_EQ(b(x, y), 0);
     }
   }
 
