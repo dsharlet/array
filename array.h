@@ -1107,8 +1107,12 @@ void for_all_indices(const Shape& s, Fn&& fn) {
 /** Create a new shape using a list of DimIndices to use as the dimensions of
  * the shape. */
 template <size_t... DimIndices, typename Shape>
-auto reorder(const Shape& shape) {
+auto select_dims(const Shape& shape) {
   return make_shape(shape.template dim<DimIndices>()...);
+}
+template <size_t... DimIndices, typename Shape>
+auto reorder(const Shape& shape) {
+  return select_dims<DimIndices...>(shape);
 }
 
 /** A reference to an array is an object with a shape mapping indices to flat
@@ -1323,6 +1327,7 @@ class array {
     if (base_) {
       destroy();
       base_ = nullptr;
+      shape_ = Shape();
       std::allocator_traits<Alloc>::deallocate(alloc_, buffer_, buffer_size_);
       buffer_ = nullptr;
     }
@@ -1404,7 +1409,9 @@ class array {
     }
 
     if (std::allocator_traits<Alloc>::propagate_on_container_copy_assignment::value) {
-      deallocate();
+      if (alloc_ != other.get_allocator()) {
+        deallocate();
+      }
       alloc_ = other.get_allocator();
     }
 
@@ -1421,9 +1428,14 @@ class array {
       return *this;
     }
 
+    using std::swap;
     if (std::allocator_traits<allocator_type>::propagate_on_container_move_assignment::value) {
-      using std::swap;
       swap(alloc_, other.alloc_);
+      swap(buffer_, other.buffer_);
+      swap(buffer_size_, other.buffer_size_);
+      swap(base_, other.base_);
+      swap(shape_, other.shape_);
+    } else if (alloc_ == other.get_allocator()) {
       swap(buffer_, other.buffer_);
       swap(buffer_size_, other.buffer_size_);
       swap(base_, other.base_);
