@@ -866,7 +866,7 @@ using dense_shape = decltype(internal::make_default_dense_shape<Rank>());
 /** Test if a shape 'src' can be assigned to a shape of type 'ShapeDest' without
  * error. */
 template <typename ShapeDest, typename ShapeSrc>
-bool is_compatible(const ShapeSrc& src) {
+bool is_convertible(const ShapeSrc& src) {
   static_assert(ShapeSrc::rank() == ShapeDest::rank(), "shapes must have the same rank.");
   return internal::is_shape_compatible(ShapeDest(), src, std::make_index_sequence<ShapeSrc::rank()>());
 }

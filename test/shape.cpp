@@ -365,10 +365,10 @@ TEST(shape_conversion) {
   dense_shape<2> static_dense2(dense);
   ASSERT_EQ(dense, static_dense2);
 
-  ASSERT(is_compatible<dense_shape<2>>(dense));
+  ASSERT(is_convertible<dense_shape<2>>(dense));
 
   shape_of_rank<2> sparse(dim<>(0, 10, 2), dim<>(1, 5, 20));
-  ASSERT(!is_compatible<dense_shape<2>>(sparse));
+  ASSERT(!is_convertible<dense_shape<2>>(sparse));
 }
 
 TEST(shape_transpose) {
