@@ -167,19 +167,19 @@ array_ref<T, Shape> crop(array<T, Shape>& im,
 
 /** Get a 2-dimensional ref of the 'Channel' channel of the 'im' image or image
  * ref. */
-template <index_t Channel, typename T, typename Shape>
-auto slice_channel(const array_ref<T, Shape>& im) {
+template <typename T, typename Shape>
+auto slice_channel(const array_ref<T, Shape>& im, index_t channel) {
   auto shape = reorder<0, 1>(im.shape());
-  T* base = im.base() != nullptr ? &im(im.x().min(), im.y().min(), Channel) : nullptr;
+  T* base = im.base() != nullptr ? &im(im.x().min(), im.y().min(), channel) : nullptr;
   return array_ref<T, decltype(shape)>(base, shape);
 }
-template <index_t Channel, typename T, typename Shape>
-auto slice_channel(const array<T, Shape>& im) {
-  return slice_channel<Channel>(im.ref());
+template <typename T, typename Shape>
+auto slice_channel(const array<T, Shape>& im, index_t channel) {
+  return slice_channel(im.ref(), channel);
 }
-template <index_t Channel, typename T, typename Shape>
-auto slice_channel(array<T, Shape>& im) {
-  return slice_channel<Channel>(im.ref());
+template <typename T, typename Shape>
+auto slice_channel(array<T, Shape>& im, index_t channel) {
+  return slice_channel(im.ref(), channel);
 }
 
 }  // namespace nda

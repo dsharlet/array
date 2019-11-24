@@ -37,32 +37,27 @@ TEST(image_crop) {
   test_crop<chunky_image_shape<3>>();
 }
 
-template <typename Shape, index_t Channel>
-void test_slice() {
-  array<int, Shape> base({100, 80, 3});
+template <typename Shape>
+void test_slice(index_t channels) {
+  array<int, Shape> base({100, 80, channels});
   fill_pattern(base);
 
-  auto slice = slice_channel<Channel>(base);
-  for_all_indices(slice.shape(), [&](int x, int y) {
-    ASSERT_EQ(slice(x, y), pattern<int>(std::make_tuple(x, y, Channel)));
-  });
+  for (index_t c = 0; c < channels; c++) {
+    auto slice = slice_channel(base, c);
+    for_all_indices(slice.shape(), [&](int x, int y) {
+      ASSERT_EQ(slice(x, y), pattern<int>(std::make_tuple(x, y, c)));
+    });
 
-  auto crop_slice = slice_channel<Channel>(crop(base, 5, 3, 80, 70, crop_origin::crop));
-  for_all_indices(crop_slice.shape(), [&](int x, int y) {
-    ASSERT_EQ(crop_slice(x, y), pattern<int>(std::make_tuple(x, y, Channel)));
-  });
-}
-
-template <typename Shape>
-void test_all_slices() {
-  test_slice<Shape, 0>();
-  test_slice<Shape, 1>();
-  test_slice<Shape, 2>();
+    auto crop_slice = slice_channel(crop(base, 5, 3, 80, 70, crop_origin::crop), c);
+    for_all_indices(crop_slice.shape(), [&](int x, int y) {
+      ASSERT_EQ(crop_slice(x, y), pattern<int>(std::make_tuple(x, y, c)));
+    });
+  }
 }
 
 TEST(image_slice) {
-  test_all_slices<planar_image_shape>();
-  test_all_slices<chunky_image_shape<3>>();
+  test_slice<planar_image_shape>(5);
+  test_slice<chunky_image_shape<5>>(5);
 }
 
 template <typename T, typename ShapeSrc, typename ShapeDest>
