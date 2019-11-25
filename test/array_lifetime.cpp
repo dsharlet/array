@@ -284,6 +284,8 @@ void test_lifetime_leaks() {
     lifetime_array<Alloc> empty;
     lifetime_array<Alloc> default_init(lifetime_shape);
     lifetime_array<Alloc> default_init2({4, 9});
+    lifetime_array<Alloc> default_init3({5, 12});
+    lifetime_array<Alloc> default_init4({3, 8});
     lifetime_array<Alloc> copy(default_init);
     lifetime_array<Alloc> copy2(default_init2);
     lifetime_array<Alloc> copy3(copy2);
@@ -301,8 +303,6 @@ void test_lifetime_leaks() {
     assign = default_init2;
     assign = std::move(default_init);
     assign = std::move(default_init2);
-    assign = std::move(default_init);
-    assign = std::move(default_init2);
     assign = std::move(copy2);
     assign = copy3;
     assign = copy;
@@ -310,16 +310,15 @@ void test_lifetime_leaks() {
     copy.clear();
     assign = copy;
     lifetime_array<Alloc> assign2;
-    assign2.assign(default_init);
-    assign2.assign(default_init);
-    assign2.assign(default_init2);
-    assign2.assign(default_init);
-    assign2.assign(default_init2);
+    assign2.assign(default_init3);
+    assign2.assign(default_init4);
+    assign2.assign(default_init4);
+    assign2.assign(default_init3);
+    assign2.assign(default_init4);
     assign2.assign(lifetime_shape, lifetime_counter());
-    assign2.assign(std::move(default_init));
-    assign2.assign(std::move(default_init2));
-    assign2.assign(std::move(default_init));
-    assign2.assign(std::move(default_init));
+    assign2.assign(std::move(default_init3));
+    assign2.assign(default_init4);
+    assign2.assign(std::move(default_init4));
   }
   ASSERT_EQ(lifetime_counter::destructs, lifetime_counter::constructs());
 }
