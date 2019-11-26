@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ARRAY_BENCHMARK_H
-#define ARRAY_BENCHMARK_H
+#ifndef NDARRAY_EXAMPLES_BENCHMARK_H
+#define NDARRAY_EXAMPLES_BENCHMARK_H
 
 #include <cmath>
 #include <chrono>
@@ -46,4 +46,4 @@ double benchmark(F op) {
 
 }  // namespace nda
 
-#endif
+#endif  // NDARRAY_EXAMPLES_BENCHMARK_H
