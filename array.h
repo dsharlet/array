@@ -288,16 +288,28 @@ bool all(Bools... bools) {
 
 // Computes the sum of the offsets of a list of dims and indices.
 template <typename Dims, typename Indices, size_t... Is>
-index_t flat_offset_impl(const Dims& dims, const Indices& indices, std::index_sequence<Is...>) {
+index_t flat_offset_tuple_impl(const Dims& dims, const Indices& indices, std::index_sequence<Is...>) {
   return sum(std::get<Is>(dims).flat_offset(std::get<Is>(indices))...);
 }
 
 template <typename Dims, typename Indices>
-index_t flat_offset(const Dims& dims, const Indices& indices) {
+index_t flat_offset_tuple(const Dims& dims, const Indices& indices) {
   constexpr size_t dims_rank = std::tuple_size<Dims>::value;
   constexpr size_t indices_rank = std::tuple_size<Indices>::value;
   static_assert(dims_rank == indices_rank, "dims and indices must have the same rank.");
-  return flat_offset_impl(dims, indices, std::make_index_sequence<dims_rank>());
+  return flat_offset_tuple_impl(dims, indices, std::make_index_sequence<dims_rank>());
+}
+
+template <size_t D, typename Dims>
+index_t flat_offset_pack(const Dims& dims) {
+  constexpr size_t dims_rank = std::tuple_size<Dims>::value;
+  static_assert(dims_rank == D, "dims and indices must have the same rank.");
+  return 0;
+}
+
+template <size_t D, typename Dims, typename... Indices>
+index_t flat_offset_pack(const Dims& dims, index_t i0, Indices... indices) {
+  return std::get<D>(dims).flat_offset(i0) + flat_offset_pack<D + 1>(dims, indices...);
 }
 
 // Computes one more than the sum of the offsets of the last index in every dim.
@@ -553,11 +565,13 @@ class shape {
   }
 
   /** Compute the flat offset of the index 'indices'. */
-  index_t operator() (const index_type& indices) const { return internal::flat_offset(dims_, indices); }
-  index_t operator[] (const index_type& indices) const { return internal::flat_offset(dims_, indices); }
+  index_t operator() (const index_type& indices) const { return internal::flat_offset_tuple(dims_, indices); }
+  index_t operator[] (const index_type& indices) const { return internal::flat_offset_tuple(dims_, indices); }
   template <typename... Indices,
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
-  index_t operator() (Indices... indices) const { return (*this)(std::make_tuple(indices...)); }
+  index_t operator() (Indices... indices) const {
+    return internal::flat_offset_pack<0>(dims_, indices...);
+  }
 
   /** Get a specific dim of this shape. */
   template <size_t D>
