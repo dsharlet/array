@@ -16,8 +16,8 @@
  * \brief Main header for array library
 */
 
-#ifndef ARRAY_ARRAY_H
-#define ARRAY_ARRAY_H
+#ifndef NDA_ARRAY_H
+#define NDA_ARRAY_H
 
 #include <algorithm>
 #include <array>
@@ -27,20 +27,28 @@
 #include <memory>
 #include <tuple>
 
-#ifdef ARRAY_NO_EXCEPTIONS
-#define ARRAY_THROW_OUT_OF_RANGE(m) do { assert(!m); abort(); } while(0)
-#define ARRAY_THROW_BAD_ALLOC() do { assert(!"bad alloc"); abort(); } while(0)
+#ifdef NDA_NO_EXCEPTIONS
+#define NDA_THROW_OUT_OF_RANGE(m) do { assert(!m); abort(); } while(0)
+#define NDA_THROW_BAD_ALLOC() do { assert(!"bad alloc"); abort(); } while(0)
 #else
-#define ARRAY_THROW_OUT_OF_RANGE(m) throw std::out_of_range(m)
-#define ARRAY_THROW_BAD_ALLOC() throw std::bad_alloc();
+#define NDA_THROW_OUT_OF_RANGE(m) throw std::out_of_range(m)
+#define NDA_THROW_BAD_ALLOC() throw std::bad_alloc();
+#endif
+
+// Some things in this header are unbearably slow without optimization if they
+// don't get inlined.
+#if defined(__GNUC__) || defined(__clang__)
+#define NDA_INLINE inline __attribute__((always_inline))
+#else
+#define NDA_INLINE inline
 #endif
 
 namespace nda {
 
 typedef std::size_t size_t;
-/** When ARRAY_INT_INDICES is defined, array indices are 'int' values, otherwise
+/** When NDA_INT_INDICES is defined, array indices are 'int' values, otherwise
  * they are 'std::ptrdiff_t' */
-#ifdef ARRAY_INT_INDICES
+#ifdef NDA_INT_INDICES
 typedef int index_t;
 #else
 typedef std::ptrdiff_t index_t;
@@ -54,7 +62,7 @@ typedef std::ptrdiff_t index_t;
 // performance matters.
 constexpr index_t UNK = -9;
 
-#define ARRAY_CHECK_CONSTRAINT(constant, runtime) \
+#define NDA_CHECK_CONSTRAINT(constant, runtime) \
   assert(constant == runtime || constant == UNK);
 
 namespace internal {
@@ -62,7 +70,7 @@ namespace internal {
 // Given a compile-time static value, reconcile a compile-time static value and
 // runtime value.
 template <index_t Value>
-index_t reconcile(index_t value) {
+NDA_INLINE index_t reconcile(index_t value) {
   if (Value != UNK) {
     // It would be nice to assert here that Value == value. But, this is used in
     // the innermost loops, so when asserts are on, this ruins performance. It
@@ -85,13 +93,13 @@ class dim_iterator {
  public:
   dim_iterator(index_t i) : i_(i) {}
 
-  bool operator==(const dim_iterator& r) const { return i_ == r.i_; }
-  bool operator!=(const dim_iterator& r) const { return i_ != r.i_; }
+  NDA_INLINE bool operator==(const dim_iterator& r) const { return i_ == r.i_; }
+  NDA_INLINE bool operator!=(const dim_iterator& r) const { return i_ != r.i_; }
 
-  index_t operator *() const { return i_; }
+  NDA_INLINE index_t operator *() const { return i_; }
 
-  dim_iterator operator++(int) { return dim_iterator(i_++); }
-  dim_iterator& operator++() { ++i_; return *this; }
+  NDA_INLINE dim_iterator operator++(int) { return dim_iterator(i_++); }
+  NDA_INLINE dim_iterator& operator++() { ++i_; return *this; }
 };
 
 /** Describes one dimension of an array. The template parameters enable
@@ -120,9 +128,9 @@ class dim {
    * compile-time values. */
   dim(index_t min, index_t extent, index_t stride = Stride)
     : min_(min), extent_(extent), stride_(stride) {
-    ARRAY_CHECK_CONSTRAINT(Min, min);
-    ARRAY_CHECK_CONSTRAINT(Extent, extent);
-    ARRAY_CHECK_CONSTRAINT(Stride, stride);
+    NDA_CHECK_CONSTRAINT(Min, min);
+    NDA_CHECK_CONSTRAINT(Extent, extent);
+    NDA_CHECK_CONSTRAINT(Stride, stride);
   }
   dim(index_t extent = Extent) : dim(0, extent) {}
   dim(const dim&) = default;
@@ -158,41 +166,41 @@ class dim {
                   "incompatible strides.");
 
     // Also check the runtime values.
-    ARRAY_CHECK_CONSTRAINT(Min, other.min());
+    NDA_CHECK_CONSTRAINT(Min, other.min());
     min_ = other.min();
-    ARRAY_CHECK_CONSTRAINT(Extent, other.extent());
+    NDA_CHECK_CONSTRAINT(Extent, other.extent());
     extent_ = other.extent();
-    ARRAY_CHECK_CONSTRAINT(Stride, other.stride());
+    NDA_CHECK_CONSTRAINT(Stride, other.stride());
     stride_ = other.stride();
     return *this;
   }
 
   /** Index of the first element in this dim. */
-  index_t min() const { return internal::reconcile<Min>(min_); }
+  NDA_INLINE index_t min() const { return internal::reconcile<Min>(min_); }
   void set_min(index_t min) {
-    ARRAY_CHECK_CONSTRAINT(Min, min);
+    NDA_CHECK_CONSTRAINT(Min, min);
     min_ = min;
   }
   /** Number of elements in this dim. */
-  index_t extent() const { return internal::reconcile<Extent>(extent_); }
+  NDA_INLINE index_t extent() const { return internal::reconcile<Extent>(extent_); }
   void set_extent(index_t extent) {
-    ARRAY_CHECK_CONSTRAINT(Extent, extent);
+    NDA_CHECK_CONSTRAINT(Extent, extent);
     extent_ = extent;
   }
   /** Distance in flat indices between neighboring elements in this dim. */
-  index_t stride() const { return internal::reconcile<Stride>(stride_); }
+  NDA_INLINE index_t stride() const { return internal::reconcile<Stride>(stride_); }
   void set_stride(index_t stride) {
-    ARRAY_CHECK_CONSTRAINT(Stride, stride);
+    NDA_CHECK_CONSTRAINT(Stride, stride);
     stride_ = stride;
   }
   /** Index of the last element in this dim. */
-  index_t max() const { return min() + extent() - 1; }
+  NDA_INLINE index_t max() const { return min() + extent() - 1; }
 
   /** Offset of the index 'at' in this dim in the flat array. */
-  index_t flat_offset(index_t at) const { return (at - min()) * stride(); }
+  NDA_INLINE index_t flat_offset(index_t at) const { return (at - min()) * stride(); }
 
   /** Returns true if 'at' is within the range [min(), max()]. */
-  bool is_in_range(index_t at) const { return min() <= at && at <= max(); }
+  NDA_INLINE bool is_in_range(index_t at) const { return min() <= at && at <= max(); }
 
   /** Make an iterator referring to the first element in this dim. */
   dim_iterator begin() const { return dim_iterator(min()); }
@@ -242,35 +250,35 @@ inline index_t clamp(index_t x, index_t min, index_t max) {
 
 /** Clamp an index to the range described by a dim. */
 template <typename Dim>
-inline index_t clamp(index_t x, const Dim& d) {
+index_t clamp(index_t x, const Dim& d) {
   return clamp(x, d.min(), d.max());
 }
 
 namespace internal {
 
 // Some variadic reduction helpers.
-inline index_t sum() { return 0; }
-inline index_t product() { return 1; }
-inline index_t variadic_min() { return std::numeric_limits<index_t>::max(); }
-inline index_t variadic_max() { return std::numeric_limits<index_t>::min(); }
+NDA_INLINE index_t sum() { return 0; }
+NDA_INLINE index_t product() { return 1; }
+NDA_INLINE index_t variadic_min() { return std::numeric_limits<index_t>::max(); }
+NDA_INLINE index_t variadic_max() { return std::numeric_limits<index_t>::min(); }
 
 template <typename... Rest>
-index_t sum(index_t first, Rest... rest) {
+NDA_INLINE index_t sum(index_t first, Rest... rest) {
   return first + sum(rest...);
 }
 
 template <typename... Rest>
-index_t product(index_t first, Rest... rest) {
+NDA_INLINE index_t product(index_t first, Rest... rest) {
   return first * product(rest...);
 }
 
 template <typename... Rest>
-index_t variadic_min(index_t first, Rest... rest) {
+NDA_INLINE index_t variadic_min(index_t first, Rest... rest) {
   return std::min(first, variadic_min(rest...));
 }
 
 template <typename... Rest>
-index_t variadic_max(index_t first, Rest... rest) {
+NDA_INLINE index_t variadic_max(index_t first, Rest... rest) {
   return std::max(first, variadic_max(rest...));
 }
 
@@ -846,7 +854,7 @@ auto intersect(const std::tuple<DimsA...>& a, const std::tuple<DimsB...>& b, std
 
 // Call 'fn' with the elements of tuple 'args' unwrapped from the tuple.
 template <typename Fn, typename IndexType, size_t... Is>
-auto tuple_arg_to_parameter_pack(Fn&& fn, const IndexType& args, std::index_sequence<Is...>) {
+NDA_INLINE auto tuple_arg_to_parameter_pack(Fn&& fn, const IndexType& args, std::index_sequence<Is...>) {
   fn(std::get<Is>(args)...);
 }
 
@@ -1676,7 +1684,7 @@ void copy(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDest, ShapeDest
   }
   if (!src.shape().is_in_range(dest.shape().min()) ||
       !src.shape().is_in_range(dest.shape().max())) {
-    ARRAY_THROW_OUT_OF_RANGE("dest indices out of range of src");
+    NDA_THROW_OUT_OF_RANGE("dest indices out of range of src");
   }
 
   copy_shape_traits<ShapeSrc, ShapeDest>::for_each_value(src.shape(), src.base(), dest.shape(), dest.base(),
@@ -1751,7 +1759,7 @@ void move(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDest, ShapeDest
   }
   if (!src.shape().is_in_range(dest.shape().min()) ||
       !src.shape().is_in_range(dest.shape().max())) {
-    ARRAY_THROW_OUT_OF_RANGE("dest indices out of range of src");
+    NDA_THROW_OUT_OF_RANGE("dest indices out of range of src");
   }
 
   copy_shape_traits<ShapeSrc, ShapeDest>::for_each_value(src.shape(), src.base(), dest.shape(), dest.base(),
@@ -1889,8 +1897,8 @@ class stack_allocator {
   stack_allocator& operator=(stack_allocator&&) { return *this; }
 
   T* allocate(size_t n) {
-    if (allocated) ARRAY_THROW_BAD_ALLOC();
-    if (n > N) ARRAY_THROW_BAD_ALLOC();
+    if (allocated) NDA_THROW_BAD_ALLOC();
+    if (n > N) NDA_THROW_BAD_ALLOC();
     allocated = true;
     return reinterpret_cast<T*>(&buffer[0]);
   }
@@ -1911,4 +1919,4 @@ class stack_allocator {
 
 }  // namespace nda
 
-#endif  // ARRAY_ARRAY_H
+#endif  // NDA_ARRAY_H

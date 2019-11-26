@@ -15,8 +15,8 @@
 /** \file image.h
  * \brief Optional image-specific helpers and specializations.
 */
-#ifndef ARRAY_IMAGE_H
-#define ARRAY_IMAGE_H
+#ifndef NDA_IMAGE_H
+#define NDA_IMAGE_H
 
 #include "array.h"
 
@@ -184,4 +184,4 @@ auto slice_channel(array<T, Shape>& im, index_t channel) {
 
 }  // namespace nda
 
-#endif
+#endif  // NDA_IMAGE_H

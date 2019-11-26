@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ARRAY_TEST_TEST_H
-#define ARRAY_TEST_TEST_H
+#ifndef NDA_TEST_TEST_H
+#define NDA_TEST_TEST_H
 
 #include <cstdlib>
 #include <cmath>
@@ -200,4 +200,4 @@ __attribute__((noinline)) T not_constant(T x) { return x; }
 
 }  // namespace nda
 
-#endif
+#endif  // NDA_TEST_TEST_H
