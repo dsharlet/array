@@ -323,8 +323,8 @@ TEST(array_for_each_value) {
   for (int z : in_order.z()) {
     for (int y : in_order.y()) {
       for (int x : in_order.x()) {
-      	int expected = in_order_counter++;
-      	ASSERT_EQ(in_order(x, y, z), expected);
+        int expected = in_order_counter++;
+        ASSERT_EQ(in_order(x, y, z), expected);
       }
     }
   }
@@ -333,8 +333,8 @@ TEST(array_for_each_value) {
   for (int x : out_of_order.x()) {
     for (int z : out_of_order.z()) {
       for (int y : out_of_order.y()) {
-      	int expected = out_of_order_counter++;
-      	ASSERT_EQ(out_of_order(x, y, z), expected);
+        int expected = out_of_order_counter++;
+        ASSERT_EQ(out_of_order(x, y, z), expected);
       }
     }
   }

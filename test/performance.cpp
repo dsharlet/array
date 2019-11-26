@@ -53,8 +53,8 @@ TEST(performance_dense_cropped_copy) {
   double memcpy_time = benchmark([&] {
     for (int z : c.z()) {
       for (int y : c.y()) {
-	       std::memcpy(&c(c.x().min(), y, z), &a(c.x().min(), y, z),
-	                   static_cast<size_t>(c.x().extent()) * sizeof(int));
+         std::memcpy(&c(c.x().min(), y, z), &a(c.x().min(), y, z),
+                     static_cast<size_t>(c.x().extent()) * sizeof(int));
       }
     }
   });
@@ -78,9 +78,9 @@ TEST(performance_copy) {
   double loop_time = benchmark([&] {
     for (int z : c.z()) {
       for (int y : c.y()) {
-      	for (int x : c.x()) {
-      	  c(x, y, z) = a(x, y, z);
-      	}
+        for (int x : c.x()) {
+          c(x, y, z) = a(x, y, z);
+        }
       }
     }
   });
