@@ -182,6 +182,12 @@ TEST(auto_strides) {
   shape<dim<>, dim<>> s2_resolved({0, 5, 1}, {0, 10, 5});
   ASSERT_EQ(s2, s2_resolved);
 
+  // TODO: This test would be nice to enable, but the automatic strides are too clever.
+  // x is given a stride of 1, which is safe and correct, but annoying.
+  //shape<dim<>, dim<>, dim<>> s_small_interleaved(1, 1, {0, 2, 1});
+  //shape<dim<>, dim<>, dim<>> s_small_interleaved_resolved({0, 1, 2}, {0, 1, 2}, {0, 2, 1});
+  //ASSERT_EQ(s_small_interleaved, s_small_interleaved_resolved);
+
   shape<dim<>, dim<>, dim<>> s_interleaved_with_row_stride(5, {0, 4, 20}, {0, 3, 1});
   shape<dim<>, dim<>, dim<>> s_interleaved_with_row_stride_resolved({0, 5, 3}, {0, 4, 20}, {0, 3, 1});
   ASSERT_EQ(s_interleaved_with_row_stride, s_interleaved_with_row_stride_resolved);
