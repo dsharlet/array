@@ -1426,7 +1426,12 @@ class array {
    * constructed from other. */
   array& operator=(const array& other) {
     if (base_ == other.base()) {
-      assert(shape_ == other.shape());
+      if (base_) {
+        assert(shape_ == other.shape());
+      } else {
+        shape_ = other.shape();
+        assert(shape_.empty());
+      }
       return *this;
     }
 
@@ -1445,12 +1450,17 @@ class array {
    * an O(1) operation. If the allocator cannot be propagated, each element is
    * move-assigned from 'other'. */
   array& operator=(array&& other) {
+    using std::swap;
     if (base_ == other.base()) {
-      assert(shape_ == other.shape());
+      if (base_) {
+        assert(shape_ == other.shape());
+      } else {
+        swap(shape_, other.shape_);
+        assert(shape_.empty());
+      }
       return *this;
     }
 
-    using std::swap;
     if (std::allocator_traits<allocator_type>::propagate_on_container_move_assignment::value) {
       swap(alloc_, other.alloc_);
       swap(buffer_, other.buffer_);
@@ -1473,7 +1483,12 @@ class array {
    * copy- or move-constructed from 'other'. */
   void assign(const array& other) {
     if (base_ == other.base()) {
-      assert(shape_ == other.shape());
+      if (base_) {
+        assert(shape_ == other.shape());
+      } else {
+        shape_ = other.shape();
+        assert(shape_.empty());
+      }
       return;
     }
     if (shape_ == other.shape()) {
@@ -1487,7 +1502,12 @@ class array {
   }
   void assign(array&& other) {
     if (base_ == other.base()) {
-      assert(shape_ == other.shape());
+      if (base_) {
+        assert(shape_ == other.shape());
+      } else {
+        shape_ = other.shape();
+        assert(shape_.empty());
+      }
       return;
     }
     if (shape_ == other.shape()) {
