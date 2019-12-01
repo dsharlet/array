@@ -1144,9 +1144,6 @@ auto reorder(const Shape& shape) {
  * - Cannot be reassigned. */
 template <typename T, typename Shape>
 class array_ref {
-  T* base_;
-  Shape shape_;
-
  public:
   /** Type of elements referenced in this array_ref. */
   typedef T value_type;
@@ -1158,9 +1155,14 @@ class array_ref {
   typedef typename Shape::index_type index_type;
   typedef size_t size_type;
 
+ private:
+  pointer base_;
+  Shape shape_;
+
+ public:
   /** Make an array_ref to the given 'base' pointer, interpreting it as having
    * the shape 'shape'. */
-  array_ref(T* base = nullptr, Shape shape = Shape())
+  array_ref(pointer base = nullptr, Shape shape = Shape())
       : base_(base), shape_(std::move(shape)) {}
   /** The copy constructor of a ref is a shallow copy. */
   array_ref(const array_ref& other) = default;
@@ -1290,10 +1292,25 @@ using dense_array_ref = array_ref<T, dense_shape<Rank>>;
  */
 template <typename T, typename Shape, typename Alloc = std::allocator<T>>
 class array {
+ public:
+  /** Type of the values stored in this array. */
+  typedef T value_type;
+  typedef value_type& reference;
+  typedef const value_type& const_reference;
+  typedef typename std::allocator_traits<Alloc>::pointer pointer;
+  typedef typename std::allocator_traits<Alloc>::const_pointer const_pointer;
+  /** Type of the shape of this array. */
+  typedef Shape shape_type;
+  typedef typename Shape::index_type index_type;
+  typedef size_t size_type;
+  /** Type of the allocator used to allocate memory in this array. */
+  typedef Alloc allocator_type;
+
+ private:
   Alloc alloc_;
-  T* buffer_;
+  pointer buffer_;
   size_t buffer_size_;
-  T* base_;
+  pointer base_;
   Shape shape_;
 
   // After allocate the array is allocated but uninitialized.
@@ -1356,19 +1373,6 @@ class array {
   }
 
  public:
-  /** Type of the values stored in this array. */
-  typedef T value_type;
-  typedef value_type& reference;
-  typedef const value_type& const_reference;
-  typedef typename std::allocator_traits<Alloc>::pointer pointer;
-  typedef typename std::allocator_traits<Alloc>::const_pointer const_pointer;
-  /** Type of the shape of this array. */
-  typedef Shape shape_type;
-  typedef typename Shape::index_type index_type;
-  typedef size_t size_type;
-  /** Type of the allocator used to allocate memory in this array. */
-  typedef Alloc allocator_type;
-
   /** Construct an array with a default constructed Shape. Most shapes by
    * default are empty, but a Shape with non-zero compile-time constants for all
    * extents will be non-empty. */
