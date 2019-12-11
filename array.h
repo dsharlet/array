@@ -766,10 +766,10 @@ void for_each_index_in_order(const Dims& dims, Fn&& fn, const std::tuple<Indices
 }
 
 template <size_t D>
-void advance() {}
+NDARRAY_INLINE void advance() {}
 
 template <size_t D, typename Ptr, typename... Ptrs>
-void advance(Ptr& ptr, Ptrs&... ptrs) {
+NDARRAY_INLINE void advance(Ptr& ptr, Ptrs&... ptrs) {
   std::get<0>(ptr) += std::get<D>(std::get<1>(ptr));
   advance<D>(ptrs...);
 }
