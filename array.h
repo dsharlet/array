@@ -27,6 +27,15 @@
 #include <memory>
 #include <tuple>
 
+// If we have __has_feature, automatically disable exceptions.
+#ifdef __has_feature
+#if !__has_feature(cxx_exceptions)
+#ifndef NDARRAY_NO_EXCEPTIONS
+#define NDARRAY_NO_EXCEPTIONS
+#endif
+#endif
+#endif
+
 #ifdef NDARRAY_NO_EXCEPTIONS
 #define NDARRAY_THROW_OUT_OF_RANGE(m) do { assert(!m); abort(); } while(0)
 #define NDARRAY_THROW_BAD_ALLOC() do { assert(!"bad alloc"); abort(); } while(0)

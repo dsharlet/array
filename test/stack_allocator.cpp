@@ -48,6 +48,7 @@ TEST(stack_array) {
   });
 }
 
+#ifndef NDARRAY_NO_EXCEPTIONS
 TEST(stack_array_bad_alloc) {
   try {
     // This array is too big for our stack allocator.
@@ -57,5 +58,6 @@ TEST(stack_array_bad_alloc) {
     // This is success.
   }
 }
+#endif
 
 }  // namespace nda
