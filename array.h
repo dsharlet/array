@@ -1176,10 +1176,19 @@ class array_ref {
   /** The copy constructor of a ref is a shallow copy. */
   array_ref(const array_ref& other) = default;
   array_ref(array_ref&& other) = default;
+  template <typename OtherShape>
+  array_ref(const array_ref<T, OtherShape>& other)
+      : array_ref(other.base(), other.shape()) {}
 
   /** Assigning an array_ref is a shallow assignment. */
   array_ref& operator=(const array_ref& other) = default;
   array_ref& operator=(array_ref&& other) = default;
+  template <typename OtherShape>
+  array_ref& operator=(const array_ref<T, OtherShape>& other) {
+    base_ = other.base();
+    shape_ = other.shape();
+    return *this;
+  }
 
   /** Get a reference to the element at the given indices. */
   reference operator() (const index_type& indices) const { return base_[shape_(indices)]; }

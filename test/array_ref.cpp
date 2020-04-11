@@ -80,4 +80,12 @@ TEST(array_ref_empty) {
   ASSERT(null_ref.empty());
 }
 
+TEST(array_ref_conversion) {
+  // The correctness of shape conversion is already tested elsewhere, we just
+  // want to make sure this compiles here.
+  array_ref_of_rank<int, 3> null_ref(nullptr, make_dense_shape(10, 20, 30));
+  dense_array_ref<int, 3> dense_null_ref(null_ref);
+  null_ref = dense_null_ref;
+}
+
 }  // namespace nda
