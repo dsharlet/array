@@ -17,6 +17,7 @@
 
 #include <cmath>
 #include <chrono>
+#include <algorithm>
 
 namespace nda {
 
