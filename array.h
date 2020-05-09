@@ -1911,9 +1911,9 @@ array_ref<const T, NewShape> reinterpret_shape(const array<T, OldShape, Allocato
 // TODO: "stack_allocator" isn't a good name for this. It's a fixed allocation,
 // but not necessarily a stack allocation
 // (https://github.com/dsharlet/array/issues/6).
-template <class T, size_t N>
+template <class T, size_t N, size_t Alignment = sizeof(T)>
 class stack_allocator {
-  alignas(T) char buffer[N * sizeof(T)];
+  alignas(Alignment) char buffer[N * sizeof(T)];
   bool allocated;
 
  public:
