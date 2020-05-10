@@ -148,7 +148,7 @@ int main(int, const char**) {
   double cols_innermost_time = benchmark([&]() {
     multiply_cols_innermost(a.ref(), b.ref(), c_cols_innermost.ref());
   });
-  std::cout << "rows innermost time: " << cols_innermost_time * 1e3 << " ms" << std::endl;
+  std::cout << "cols innermost time: " << cols_innermost_time * 1e3 << " ms" << std::endl;
 
   matrix<float> c_tiles_innermost({M, N});
   double tiles_innermost_time = benchmark([&]() {
