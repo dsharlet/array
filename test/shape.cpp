@@ -130,7 +130,7 @@ void test_all_unknown_strides() {
   std::array<dim<>, rank> a;
   std::array<dim<>, rank> b;
   index_t stride = 1;
-  for (int d = 0; d < rank; d++) {
+  for (size_t d = 0; d < rank; d++) {
     a[d] = dim<>(d);
     b[d] = a[d];
     b[d].set_stride(stride);
@@ -150,9 +150,9 @@ index_t factorial(index_t x) {
 
 template <size_t rank>
 void test_one_dense_stride() {
-  for (int known = 0; known < rank; known++) {
+  for (size_t known = 0; known < rank; known++) {
     std::array<dim<>, rank> a;
-    for (int d = 0; d < rank; d++) {
+    for (size_t d = 0; d < rank; d++) {
       a[d] = dim<>(d + 1);
       if (d == known) {
         // This is the dimension we know.
