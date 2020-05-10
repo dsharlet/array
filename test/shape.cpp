@@ -130,7 +130,7 @@ void test_all_unknown_strides() {
   std::array<dim<>, rank> a;
   std::array<dim<>, rank> b;
   index_t stride = 1;
-  for (int d = 0; d < rank; d++) {
+  for (size_t d = 0; d < rank; d++) {
     a[d] = dim<>(d);
     b[d] = a[d];
     b[d].set_stride(stride);
