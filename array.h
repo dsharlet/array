@@ -951,14 +951,40 @@ void for_each_value_in_order(const Shape& shape,
 
 namespace internal {
 
-inline bool can_fuse(const nda::dim<>& inner, const nda::dim<>& outer) {
+inline constexpr index_t add_index(index_t a, index_t b) {
+  if (a == UNK || b == UNK) {
+    return UNK;
+  }
+  return a + b;
+}
+
+inline constexpr index_t mul_index(index_t a, index_t b) {
+  if (a == UNK || b == UNK) {
+    return UNK;
+  }
+  return a * b;
+}
+
+template <index_t InnerMin, index_t InnerExtent, index_t InnerStride,
+          index_t OuterMin, index_t OuterExtent, index_t OuterStride>
+bool can_fuse(const nda::dim<InnerMin, InnerExtent, InnerStride>& inner,
+              const nda::dim<OuterMin, OuterExtent, OuterStride>& outer) {
   return inner.stride() * inner.extent() == outer.stride();
 }
 
-inline nda::dim<> fuse(nda::dim<> inner, const nda::dim<>& outer) {
-  inner.set_min(inner.min() + outer.min() * inner.extent());
-  inner.set_extent(inner.extent() * outer.extent());
-  return inner;
+template <index_t InnerMin, index_t InnerExtent, index_t InnerStride,
+          index_t OuterMin, index_t OuterExtent, index_t OuterStride>
+auto fuse(const nda::dim<InnerMin, InnerExtent, InnerStride> inner,
+          const nda::dim<OuterMin, OuterExtent, OuterStride>& outer) {
+  assert(can_fuse(inner, outer));
+  using FusedDim =
+      nda::dim<add_index(InnerMin, mul_index(OuterMin, InnerExtent)),
+               mul_index(InnerExtent, OuterExtent),
+               InnerStride>;
+  return FusedDim(
+      inner.min() + outer.min() * inner.extent(),
+      inner.extent() * outer.extent(),
+      inner.stride());
 }
 
 // Sort the dims such that strides are increasing from dim 0, and contiguous
