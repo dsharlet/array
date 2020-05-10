@@ -141,7 +141,7 @@ void test_all_unknown_strides() {
   ASSERT_EQ(s_all_unknown, s_all_unknown_resolved);
 }
 
-index_t factorial(index_t x) {
+size_t factorial(size_t x) {
   if (x <= 1) {
     return 1;
   }
