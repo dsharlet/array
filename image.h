@@ -25,11 +25,11 @@ namespace nda {
 /** A generic image is any 3D array with dimensions x, y, c. c represents the
  * channels of the image, typically it will have extent 3 or 4, with red, green,
  * and blue mapped to indices in this dimension. */
-using image_shape = shape_of_rank<3>;
+using image_shape = shape<dim<>, dim<>, dim<>>;
 template <typename T>
-using image = array_of_rank<T, 3>;
+using image = array<T, image_shape>;
 template <typename T>
-using image_ref = array_ref_of_rank<T, 3>;
+using image_ref = array_ref<T, image_shape>;
 
 /** A 'chunky' image is an array with 3 dimensions x, y, c, where c is dense,
  * and the dimension with the next stride is x. The stride in x may be larger
@@ -103,11 +103,11 @@ class shape_traits<chunky_image_shape<Channels>> {
  * format is less common, but more convenient for optimization, particularly
  * SIMD vectorization. Note that this shape also supports 'line-chunky' storage
  * orders. */
-using planar_image_shape = dense_shape<3>;
+using planar_image_shape = shape<dense_dim<>, dim<>, dim<>>;
 template <typename T>
-using planar_image = dense_array<T, 3>;
+using planar_image = array<T, planar_image_shape>;
 template <typename T>
-using planar_image_ref = dense_array_ref<T, 3>;
+using planar_image_ref = array_ref<T, planar_image_shape>;
 
 enum class crop_origin {
   /** The result of the crop has min 0, 0. */
