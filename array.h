@@ -974,7 +974,7 @@ bool can_fuse(const nda::dim<InnerMin, InnerExtent, InnerStride>& inner,
 
 template <index_t InnerMin, index_t InnerExtent, index_t InnerStride,
           index_t OuterMin, index_t OuterExtent, index_t OuterStride>
-auto fuse(const nda::dim<InnerMin, InnerExtent, InnerStride> inner,
+auto fuse(const nda::dim<InnerMin, InnerExtent, InnerStride>& inner,
           const nda::dim<OuterMin, OuterExtent, OuterStride>& outer) {
   assert(can_fuse(inner, outer));
   using FusedDim =
@@ -1080,6 +1080,29 @@ auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
     shape_of_rank<rank>(array_to_tuple(dest_dims)));
 }
 
+template <typename Shape>
+auto optimize_shape(const Shape& shape) {
+  // In the general case,
+  return dynamic_optimize_shape(shape);
+}
+
+template <typename Dim0>
+auto optimize_shape(const shape<Dim0>& shape) {
+  // Nothing to do for rank 1 shapes.
+  return shape;
+}
+
+template <typename ShapeSrc, typename ShapeDest>
+auto optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
+  return dynamic_optimize_copy_shapes(src, dest);
+}
+
+template <typename Dim0Src, typename Dim0Dest>
+auto optimize_copy_shapes(const shape<Dim0Src>& src, const shape<Dim0Dest>& dest) {
+  // Nothing to do for rank 1 shapes.
+  return std::make_pair(src, dest);
+}
+
 template <typename T>
 T* pointer_add(T* x, index_t offset) {
   return x != nullptr ? x + offset : x;
@@ -1105,7 +1128,7 @@ class shape_traits {
    * and the only attempts to convert the shape to a dense_shape. */
   template <typename Ptr, typename Fn>
   static void for_each_value(const Shape& shape, Ptr base, Fn&& fn) {
-    auto opt_shape = internal::dynamic_optimize_shape(shape);
+    auto opt_shape = internal::optimize_shape(shape);
     for_each_value_in_order(opt_shape, base, fn);
   }
 };
@@ -1137,7 +1160,7 @@ class copy_shape_traits {
                              Fn&& fn) {
     // For this function, we don't care about the order in which the callback is
     // called. Optimize the shapes for memory access order.
-    auto opt_shape = internal::dynamic_optimize_copy_shapes(shape_src, shape_dest);
+    auto opt_shape = internal::optimize_copy_shapes(shape_src, shape_dest);
     const auto& opt_shape_src = opt_shape.first;
     const auto& opt_shape_dest = opt_shape.second;
 
@@ -1293,8 +1316,9 @@ class array_ref {
     // even after we find a non-equal element
     // (https://github.com/dsharlet/array/issues/4).
     bool result = false;
-    for_each_index(shape_, [&](const index_type& i) {
-      if ((*this)(i) != other(i)) {
+    copy_shape_traits<Shape, Shape>::for_each_value(shape_, base_, other.shape_, other.base_,
+                                                    [&](const value_type& a, const value_type& b) {
+      if (a != b) {
         result = true;
       }
     });
