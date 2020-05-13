@@ -54,10 +54,10 @@ template <typename TAB, typename TC, index_t Rows, index_t Cols>
 __attribute__((noinline))
 void multiply_naive(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
                     const matrix_ref<TC, Rows, Cols>& c) {
-  for (int i : c.i()) {
-    for (int j : c.j()) {
+  for (index_t i : c.i()) {
+    for (index_t j : c.j()) {
       TC c_ij = 0;
-      for (int k : a.j()) {
+      for (index_t k : a.j()) {
         c_ij += a(i, k) * b(k, j);
       }
       c(i, j) = c_ij;
@@ -72,12 +72,12 @@ template <typename TAB, typename TC, index_t Rows, index_t Cols>
 __attribute__((noinline))
 void multiply_cols_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
                              const matrix_ref<TC, Rows, Cols>& c) {
-  for (int i : c.i()) {
-    for (int j : c.j()) {
+  for (index_t i : c.i()) {
+    for (index_t j : c.j()) {
       c(i, j) = 0;
     }
-    for (int k : a.j()) {
-      for (int j : c.j()) {
+    for (index_t k : a.j()) {
+      for (index_t j : c.j()) {
         c(i, j) += a(i, k) * b(k, j);
       }
     }
@@ -105,9 +105,9 @@ void multiply_tiles_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b
       // stored in registers.
       matrix_tile c_tile({{io, tile_rows}, {jo, tile_cols}}, 0);
       // Compute this tile of the result.
-      for (int k : a.j()) {
-        for (int i : c_tile.i()) {
-          for (int j : c_tile.j()) {
+      for (index_t k : a.j()) {
+        for (index_t i : c_tile.i()) {
+          for (index_t j : c_tile.j()) {
             c_tile(i, j) += a(i, k) * b(k, j);
           }
         }
@@ -123,9 +123,9 @@ void multiply_tiles_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b
 
 int main(int, const char**) {
   // Define two input matrices.
-  constexpr int M = 128;
-  constexpr int K = 256;
-  constexpr int N = 512;
+  constexpr index_t M = 128;
+  constexpr index_t K = 256;
+  constexpr index_t N = 512;
   matrix<float> a({M, K});
   matrix<float> b({K, N});
 
@@ -158,8 +158,8 @@ int main(int, const char**) {
 
   // Verify the results from all methods are equal.
   const float epsilon = 1e-4f;
-  for (int i = 0; i < M; i++) {
-    for (int j = 0; j < N; j++) {
+  for (index_t i = 0; i < M; i++) {
+    for (index_t j = 0; j < N; j++) {
       if (std::abs(c_cols_innermost(i, j) - c_naive(i, j)) > epsilon) {
         std::cout
           << "c_cols_innermost(" << i << ", " << j << ") = " << c_cols_innermost(i, j)
