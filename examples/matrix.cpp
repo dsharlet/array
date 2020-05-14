@@ -112,20 +112,20 @@ void multiply_tiles_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b
       // LLVM doesn't keep the accumulator in registers. I think this
       // is only due to initialization via for_each_value.
       TC buffer[tile_rows * tile_cols] = { 0 };
-      matrix_ref<TC> local_tile(buffer, make_compact(c_tile.shape()));
+      matrix_ref<TC> accumulator(buffer, make_compact(c_tile.shape()));
       for (index_t k : a.j()) {
-        for (index_t i : local_tile.i()) {
-          for (index_t j : local_tile.j()) {
-            local_tile(i, j) += a(i, k) * b(k, j);
+        for (index_t i : c_tile.i()) {
+          for (index_t j : c_tile.j()) {
+            accumulator(i, j) += a(i, k) * b(k, j);
           }
         }
       }
 
       // Copy the tile to the result.
       // TODO: Using copy here breaks optimization of the loop above.
-      for (index_t i : local_tile.i()) {
-        for (index_t j : local_tile.j()) {
-          c_tile(i, j) = local_tile(i, j);
+      for (index_t i : c_tile.i()) {
+        for (index_t j : c_tile.j()) {
+          c_tile(i, j) = accumulator(i, j);
         }
       }
     }
