@@ -71,9 +71,6 @@ typedef std::ptrdiff_t index_t;
 // performance matters.
 constexpr index_t UNK = -9;
 
-#define NDARRAY_CHECK_CONSTRAINT(constant, runtime) \
-  assert(constant == runtime || constant == UNK);
-
 namespace internal {
 
 // Given a compile-time static value, reconcile a compile-time static value and
@@ -135,11 +132,10 @@ class dim {
   /** Construct a new dim object. If the class template parameters 'Min',
    * 'Extent', or 'Stride' are not 'UNK', these runtime values must match the
    * compile-time values. */
-  dim(index_t min, index_t extent, index_t stride = Stride)
-    : min_(min), extent_(extent), stride_(stride) {
-    NDARRAY_CHECK_CONSTRAINT(Min, min);
-    NDARRAY_CHECK_CONSTRAINT(Extent, extent);
-    NDARRAY_CHECK_CONSTRAINT(Stride, stride);
+  dim(index_t min, index_t extent, index_t stride = Stride) {
+    set_min(min);
+    set_extent(extent);
+    set_stride(stride);
   }
   dim(index_t extent = Extent) : dim(0, extent) {}
   dim(const dim&) = default;
@@ -174,33 +170,38 @@ class dim {
     static_assert(Stride == UNK || CopyStride == UNK || Stride == CopyStride,
                   "incompatible strides.");
 
-    // Also check the runtime values.
-    NDARRAY_CHECK_CONSTRAINT(Min, other.min());
-    min_ = other.min();
-    NDARRAY_CHECK_CONSTRAINT(Extent, other.extent());
-    extent_ = other.extent();
-    NDARRAY_CHECK_CONSTRAINT(Stride, other.stride());
-    stride_ = other.stride();
+    set_min(other.min());
+    set_extent(other.extent());
+    set_stride(other.stride());
     return *this;
   }
 
   /** Index of the first element in this dim. */
   NDARRAY_INLINE index_t min() const { return internal::reconcile<Min>(min_); }
-  void set_min(index_t min) {
-    NDARRAY_CHECK_CONSTRAINT(Min, min);
-    min_ = min;
+  NDARRAY_INLINE void set_min(index_t min) {
+    if (Min == UNK) {
+      min_ = min;
+    } else {
+      assert(min == Min);
+    }
   }
   /** Number of elements in this dim. */
   NDARRAY_INLINE index_t extent() const { return internal::reconcile<Extent>(extent_); }
-  void set_extent(index_t extent) {
-    NDARRAY_CHECK_CONSTRAINT(Extent, extent);
-    extent_ = extent;
+  NDARRAY_INLINE void set_extent(index_t extent) {
+    if (Extent == UNK) {
+      extent_ = extent;
+    } else {
+      assert(extent == Extent);
+    }
   }
   /** Distance in flat indices between neighboring elements in this dim. */
   NDARRAY_INLINE index_t stride() const { return internal::reconcile<Stride>(stride_); }
-  void set_stride(index_t stride) {
-    NDARRAY_CHECK_CONSTRAINT(Stride, stride);
-    stride_ = stride;
+  NDARRAY_INLINE void set_stride(index_t stride) {
+    if (Stride == UNK) {
+      stride_ = stride;
+    } else {
+      assert(stride == Stride);
+    }
   }
   /** Index of the last element in this dim. */
   NDARRAY_INLINE index_t max() const { return min() + extent() - 1; }
@@ -872,7 +873,7 @@ NDARRAY_INLINE auto tuple_arg_to_parameter_pack(Fn&& fn, const IndexType& args, 
 /** Make a shape with an equivalent domain of indices, with dense strides. */
 template <typename... Dims>
 auto make_dense(const shape<Dims...>& shape) {
-  constexpr int rank = sizeof...(Dims);
+  constexpr size_t rank = sizeof...(Dims);
   return internal::make_dense_shape(shape.dims(), std::make_index_sequence<rank - 1>());
 }
 
