@@ -865,7 +865,7 @@ auto intersect(const std::tuple<DimsA...>& a, const std::tuple<DimsB...>& b, std
 // Call 'fn' with the elements of tuple 'args' unwrapped from the tuple.
 template <typename Fn, typename IndexType, size_t... Is>
 NDARRAY_INLINE auto tuple_arg_to_parameter_pack(Fn&& fn, const IndexType& args, std::index_sequence<Is...>) {
-  fn(std::get<Is>(args)...);
+  return fn(std::get<Is>(args)...);
 }
 
 }  // namespace internal
@@ -1210,8 +1210,8 @@ class array_ref {
   typedef value_type* pointer;
   /** Type of the shape of this array_ref. */
   typedef Shape shape_type;
-  /** Type of the indices used to access this array_ref. */
   typedef typename Shape::index_type index_type;
+  typedef shape_traits<Shape> shape_traits;
   typedef size_t size_type;
 
  private:
@@ -1251,7 +1251,7 @@ class array_ref {
    * order in which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
-    shape_traits<Shape>::for_each_value(shape_, base_, fn);
+    shape_traits::for_each_value(shape_, base_, fn);
   }
 
   /** Pointer to the element at the min index of the shape. */
@@ -1362,18 +1362,21 @@ using dense_array_ref = array_ref<T, dense_shape<Rank>>;
 template <typename T, typename Shape, typename Alloc = std::allocator<T>>
 class array {
  public:
+  /** Type of the allocator used to allocate memory in this array. */
+  typedef Alloc allocator_type;
+  typedef std::allocator_traits<Alloc> alloc_traits;
   /** Type of the values stored in this array. */
   typedef T value_type;
   typedef value_type& reference;
   typedef const value_type& const_reference;
-  typedef typename std::allocator_traits<Alloc>::pointer pointer;
-  typedef typename std::allocator_traits<Alloc>::const_pointer const_pointer;
+  typedef typename alloc_traits::pointer pointer;
+  typedef typename alloc_traits::const_pointer const_pointer;
   /** Type of the shape of this array. */
   typedef Shape shape_type;
   typedef typename Shape::index_type index_type;
+  typedef shape_traits<Shape> shape_traits;
+  typedef copy_shape_traits<Shape> copy_shape_traits;
   typedef size_t size_type;
-  /** Type of the allocator used to allocate memory in this array. */
-  typedef Alloc allocator_type;
 
  private:
   Alloc alloc_;
@@ -1388,7 +1391,7 @@ class array {
     size_t flat_extent = shape_.flat_extent();
     if (flat_extent > 0) {
       buffer_size_ = flat_extent;
-      buffer_ = std::allocator_traits<Alloc>::allocate(alloc_, buffer_size_);
+      buffer_ = alloc_traits::allocate(alloc_, buffer_size_);
     }
     base_ = buffer_ - shape_.flat_min();
   }
@@ -1397,29 +1400,29 @@ class array {
   void construct() {
     assert(base_ || shape_.empty());
     for_each_value([&](T& x) {
-      std::allocator_traits<Alloc>::construct(alloc_, &x);
+      alloc_traits::construct(alloc_, &x);
     });
   }
   void construct(const T& init) {
     assert(base_ || shape_.empty());
     for_each_value([&](T& x) {
-      std::allocator_traits<Alloc>::construct(alloc_, &x, init);
+      alloc_traits::construct(alloc_, &x, init);
     });
   }
   void copy_construct(const array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
-    copy_shape_traits<Shape>::for_each_value(other.shape(), other.base(), shape_, base_,
-                                             [&](const value_type& src, value_type& dest) {
-      std::allocator_traits<Alloc>::construct(alloc_, &dest, src);
+    copy_shape_traits::for_each_value(other.shape(), other.base(), shape_, base_,
+                                      [&](const value_type& src, value_type& dest) {
+      alloc_traits::construct(alloc_, &dest, src);
     });
   }
   void move_construct(array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
-    copy_shape_traits<Shape>::for_each_value(other.shape(), other.base(), shape_, base_,
-                                             [&](value_type& src, value_type& dest) {
-      std::allocator_traits<Alloc>::construct(alloc_, &dest, std::move(src));
+    copy_shape_traits::for_each_value(other.shape(), other.base(), shape_, base_,
+                                      [&](value_type& src, value_type& dest) {
+      alloc_traits::construct(alloc_, &dest, std::move(src));
     });
   }
 
@@ -1427,7 +1430,7 @@ class array {
   void destroy() {
     assert(base_ || shape_.empty());
     for_each_value([&](T& x) {
-      std::allocator_traits<Alloc>::destroy(alloc_, &x);
+      alloc_traits::destroy(alloc_, &x);
     });
   }
 
@@ -1436,7 +1439,7 @@ class array {
       destroy();
       base_ = nullptr;
       shape_ = Shape();
-      std::allocator_traits<Alloc>::deallocate(alloc_, buffer_, buffer_size_);
+      alloc_traits::deallocate(alloc_, buffer_, buffer_size_);
       buffer_ = nullptr;
     }
   }
@@ -1462,7 +1465,7 @@ class array {
   /** Copy construct from another array 'other', using copy's allocator. This is
    * a deep copy of the contents of 'other'. */
   array(const array& other)
-      : array(std::allocator_traits<Alloc>::select_on_container_copy_construction(other.get_allocator())) {
+      : array(alloc_traits::select_on_container_copy_construction(other.get_allocator())) {
     assign(other);
   }
   /** Copy construct from another array 'other'. The array is allocated using
@@ -1508,7 +1511,7 @@ class array {
       return *this;
     }
 
-    if (std::allocator_traits<Alloc>::propagate_on_container_copy_assignment::value) {
+    if (alloc_traits::propagate_on_container_copy_assignment::value) {
       if (alloc_ != other.get_allocator()) {
         deallocate();
       }
@@ -1625,11 +1628,11 @@ class array {
    * which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) {
-    shape_traits<Shape>::for_each_value(shape_, base_, fn);
+    shape_traits::for_each_value(shape_, base_, fn);
   }
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
-    shape_traits<Shape>::for_each_value(shape_, base_, fn);
+    shape_traits::for_each_value(shape_, base_, fn);
   }
 
   /** Pointer to the element at the min index of the shape. */
@@ -1668,8 +1671,8 @@ class array {
 
     // Move the common elements to the new array.
     Shape intersection = intersect(shape_, new_shape);
-    copy_shape_traits<Shape>::for_each_value(shape_, base_, intersection, new_array.base(),
-                                             [](T& src, T& dest) {
+    copy_shape_traits::for_each_value(shape_, base_, intersection, new_array.base(),
+                                      [](T& src, T& dest) {
       dest = std::move(src);
     });
 
@@ -1719,7 +1722,7 @@ class array {
   void swap(array& other) {
     using std::swap;
 
-    if (std::allocator_traits<Alloc>::propagate_on_container_swap::value) {
+    if (alloc_traits::propagate_on_container_swap::value) {
       swap(alloc_, other.alloc_);
       swap(buffer_, other.buffer_);
       swap(buffer_size_, other.buffer_size_);
