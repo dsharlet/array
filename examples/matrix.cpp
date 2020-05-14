@@ -39,17 +39,19 @@ using matrix_ref = array_ref<T, matrix_shape<Rows, Cols>>;
 // Make a reference to a submatrix of 'm', of size 'rows' x 'cols',
 // starting at 'row', 'col'.
 template <index_t Rows = UNK, index_t Cols = UNK, typename T>
-matrix_ref<T> submatrix(const matrix_ref<T>& m, index_t row, index_t col,
-                        index_t rows = Rows, index_t cols = Cols) {
+matrix_ref<T, Rows, Cols> submatrix(const matrix_ref<T>& m, index_t row, index_t col,
+                                    index_t rows = Rows, index_t cols = Cols) {
   assert(row >= m.i().min());
   assert(row + rows <= m.i().max() + 1);
   assert(col >= m.j().min());
   assert(col + cols <= m.j().max() + 1);
   matrix_shape<Rows, Cols> s({row, rows, m.i().stride()}, {col, cols});
-  return matrix_ref<T>(&m(row, col), s);
+  return matrix_ref<T, Rows, Cols>(&m(row, col), s);
 }
 
-// A textbook implementation of matrix multiplication.
+// A textbook implementation of matrix multiplication. This is very simple,
+// but it is slow, primarily because of poor locality of the loads of b.
+// For the matrix size benchmarked in main, this runs in ~16ms.
 template <typename TAB, typename TC, index_t Rows, index_t Cols>
 __attribute__((noinline))
 void multiply_naive(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
@@ -66,8 +68,10 @@ void multiply_naive(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
 }
 
 // This implementation of matrix multiplication reorders the loops
-// so the inner loop is over the columns of the result. This makes
-// it possible to vectorize the inner loop.
+// so the inner loop is over the columns of the result. This avoids
+// the locality problem for the loads from b. This also is an easier
+// loop to vectorize (it does not vectorize a reduction variable).
+// For the matrix size benchmarked in main, this runs in ~1ms.
 template <typename TAB, typename TC, index_t Rows, index_t Cols>
 __attribute__((noinline))
 void multiply_cols_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
@@ -85,45 +89,52 @@ void multiply_cols_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
 }
 
 // This implementation of matrix multiplication splits the loops over
-// the output matrix into chunks, and reorders the inner loops
+// the output matrix into chunks, and reorders the small loops
 // innermost to form tiles. This implementation should allow the compiler
 // to keep all of the accumulators for the output in registers.
+// For the matrix size benchmarked in main, this runs in ~0.44ms.
 template <typename TAB, typename TC>
 __attribute__((noinline))
 void multiply_tiles_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
                               const matrix_ref<TC>& c) {
   // We want the tiles to be as big as possible without spilling any
   // of the accumulator registers to the stack.
-  constexpr index_t tile_rows = 3;
-  constexpr index_t tile_cols = 32;
-  using matrix_tile =
-      matrix<TC, tile_rows, tile_cols, stack_allocator<TC, tile_rows * tile_cols>>;
+  constexpr index_t tile_rows = 6;
+  constexpr index_t tile_cols = 16;
 
   for (index_t io = 0; io < c.rows(); io += tile_rows) {
     for (index_t jo = 0; jo < c.columns(); jo += tile_cols) {
-      // Make a local accumulator matrix. Hopefully this is only ever
-      // stored in registers.
-      matrix_tile c_tile({{io, tile_rows}, {jo, tile_cols}}, 0);
-      // Compute this tile of the result.
+      // Make a reference to this tile of the output.
+      auto c_tile = submatrix<tile_rows, tile_cols>(c, io, jo);
+
+      // Make a local accumulator.
+      // TODO: It would be nice if we could use an array here, but
+      // LLVM doesn't keep the accumulator in registers. I think this
+      // is only due to initialization via for_each_value.
+      TC buffer[tile_rows * tile_cols] = { 0 };
+      matrix_ref<TC> local_tile(buffer, make_compact(c_tile.shape()));
       for (index_t k : a.j()) {
-        for (index_t i : c_tile.i()) {
-          for (index_t j : c_tile.j()) {
-            c_tile(i, j) += a(i, k) * b(k, j);
+        for (index_t i : local_tile.i()) {
+          for (index_t j : local_tile.j()) {
+            local_tile(i, j) += a(i, k) * b(k, j);
           }
         }
       }
-      // Copy this tile to the result. This may be cropped if the output matrix
-      // size does not divide the tile size.
-      index_t rows = std::min(c.rows() - io, tile_rows);
-      index_t cols = std::min(c.columns() - jo, tile_cols);
-      copy(c_tile, submatrix(c.ref(), io, jo, rows, cols));
+
+      // Copy the tile to the result.
+      // TODO: Using copy here breaks optimization of the loop above.
+      for (index_t i : local_tile.i()) {
+        for (index_t j : local_tile.j()) {
+          c_tile(i, j) = local_tile(i, j);
+        }
+      }
     }
   }
 }
 
 int main(int, const char**) {
   // Define two input matrices.
-  constexpr index_t M = 128;
+  constexpr index_t M = 96;
   constexpr index_t K = 256;
   constexpr index_t N = 512;
   matrix<float> a({M, K});
