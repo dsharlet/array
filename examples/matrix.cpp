@@ -93,14 +93,20 @@ void multiply_cols_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
 // innermost to form tiles. This implementation should allow the compiler
 // to keep all of the accumulators for the output in registers.
 // For the matrix size benchmarked in main, this runs in ~0.44ms.
+// This appears to achieve ~70% of the peak theoretical throughput
+// of my machine.
 template <typename TAB, typename TC>
 __attribute__((noinline))
 void multiply_tiles_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
                               const matrix_ref<TC>& c) {
+  // Adjust this depending on the target architecture. For AVX2,
+  // vectors are 256-bit.
+  constexpr index_t vector_size = 32 / sizeof(TC);
+
   // We want the tiles to be as big as possible without spilling any
   // of the accumulator registers to the stack.
   constexpr index_t tile_rows = 6;
-  constexpr index_t tile_cols = 16;
+  constexpr index_t tile_cols = vector_size * 2;
 
   for (index_t io = 0; io < c.rows(); io += tile_rows) {
     for (index_t jo = 0; jo < c.columns(); jo += tile_cols) {
