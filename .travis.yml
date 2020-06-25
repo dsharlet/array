@@ -2,4 +2,7 @@ language: cpp
 install: make
 os: linux
 compiler: clang
-script: make test
+script:
+  - make test
+  - cd examples/linear_algebra
+  - make test

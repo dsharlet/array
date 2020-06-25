@@ -19,14 +19,11 @@ bin/%: obj/examples/%.o
 	mkdir -p $(@D)
 	$(CXX) -o $@ $^ $(LDFLAGS) -lstdc++ -lm
 
-.PHONY: all clean test matrix
+.PHONY: all clean test
 
 clean:
 	rm -rf obj/* bin/*
 
-test: bin/test bin/matrix
+test: bin/test
 	bin/test $(FILTER)
-	bin/matrix
 
-examples: bin/matrix
-	bin/matrix

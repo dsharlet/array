@@ -50,37 +50,55 @@ matrix_ref<T, Rows, Cols> submatrix(const matrix_ref<T>& m, index_t row, index_t
 }
 
 // A textbook implementation of matrix multiplication. This is very simple,
-// but it is slow, primarily because of poor locality of the loads of b.
-// For the matrix size benchmarked in main, this runs in ~16ms.
+// but it is slow, primarily because of poor locality of the loads of b. The
+// reduction loop is innermost.
 template <typename TAB, typename TC, index_t Rows, index_t Cols>
 __attribute__((noinline))
-void multiply_naive(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-                    const matrix_ref<TC, Rows, Cols>& c) {
+void multiply_reduce_cols(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
+                          const matrix_ref<TC, Rows, Cols>& c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
-      TC c_ij = 0;
+      c(i, j) = 0;
       for (index_t k : a.j()) {
-        c_ij += a(i, k) * b(k, j);
+        c(i, j) += a(i, k) * b(k, j);
       }
-      c(i, j) = c_ij;
     }
   }
 }
 
-// This implementation of matrix multiplication reorders the loops
-// so the inner loop is over the columns of the result. This avoids
-// the locality problem for the loads from b. This also is an easier
-// loop to vectorize (it does not vectorize a reduction variable).
-// For the matrix size benchmarked in main, this runs in ~1ms.
+// This implementation moves the reduction loop between the rows and columns
+// loops. This avoids the locality problem for the loads from b. This also is
+// an easier loop to vectorize (it does not vectorize a reduction variable).
 template <typename TAB, typename TC, index_t Rows, index_t Cols>
 __attribute__((noinline))
-void multiply_cols_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-                             const matrix_ref<TC, Rows, Cols>& c) {
+void multiply_reduce_rows(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
+                          const matrix_ref<TC, Rows, Cols>& c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
       c(i, j) = 0;
     }
     for (index_t k : a.j()) {
+      for (index_t j : c.j()) {
+        c(i, j) += a(i, k) * b(k, j);
+      }
+    }
+  }
+}
+
+// This implementation reorders the reduction loop innermost. This vectorizes
+// well, but has poor locality. However, this will be a useful helper function
+// for the tiled implementation below.
+template <typename TAB, typename TC, index_t Rows, index_t Cols>
+__attribute__((always_inline))
+void multiply_reduce_matrices(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
+                              const matrix_ref<TC, Rows, Cols>& c) {
+  for (index_t i : c.i()) {
+    for (index_t j : c.j()) {
+      c(i, j) = 0;
+    }
+  }
+  for (index_t k : a.j()) {
+    for (index_t i : c.i()) {
       for (index_t j : c.j()) {
         c(i, j) += a(i, k) * b(k, j);
       }
@@ -97,28 +115,39 @@ void multiply_cols_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
 // of my machine.
 template <typename TAB, typename TC>
 __attribute__((noinline))
-void multiply_tiles_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-                              const matrix_ref<TC>& c) {
+void multiply_reduce_tiles(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
+                           const matrix_ref<TC>& c) {
   // Adjust this depending on the target architecture. For AVX2,
   // vectors are 256-bit.
   constexpr index_t vector_size = 32 / sizeof(TC);
 
   // We want the tiles to be as big as possible without spilling any
   // of the accumulator registers to the stack.
-  constexpr index_t tile_rows = 6;
-  constexpr index_t tile_cols = vector_size * 2;
+  constexpr index_t tile_rows = 3;
+  constexpr index_t tile_cols = vector_size * 4;
 
   for (index_t io = 0; io < c.rows(); io += tile_rows) {
     for (index_t jo = 0; jo < c.columns(); jo += tile_cols) {
       // Make a reference to this tile of the output.
       auto c_tile = submatrix<tile_rows, tile_cols>(c, io, jo);
-
-      // Make a local accumulator.
-      // TODO: It would be nice if we could use an array here, but
-      // LLVM doesn't keep the accumulator in registers. I think this
-      // is only due to initialization via for_each_value.
-      TC buffer[tile_rows * tile_cols] = { 0 };
-      matrix_ref<TC> accumulator(buffer, make_compact(c_tile.shape()));
+#if 0
+      multiply_reduce_matrices(a, b, c_tile);
+#elif 0
+      for (index_t i : c_tile.i()) {
+        for (index_t j : c_tile.j()) {
+          c_tile(i, j) = 0;
+        }
+      }
+      for (index_t k : a.j()) {
+        for (index_t i : c_tile.i()) {
+          for (index_t j : c_tile.j()) {
+            c_tile(i, j) += a(i, k) * b(k, j);
+          }
+        }
+      }
+#else
+      TC buffer[tile_rows * tile_cols] = { 0.0f };
+      matrix_ref<TC, tile_rows, tile_cols> accumulator(buffer, make_compact(c_tile.shape()));
       for (index_t k : a.j()) {
         for (index_t i : c_tile.i()) {
           for (index_t j : c_tile.j()) {
@@ -126,23 +155,25 @@ void multiply_tiles_innermost(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b
           }
         }
       }
-
-      // Copy the tile to the result.
-      // TODO: Using copy here breaks optimization of the loop above.
+#if 0
+      copy(accumulator, c_tile);
+#else
       for (index_t i : c_tile.i()) {
         for (index_t j : c_tile.j()) {
           c_tile(i, j) = accumulator(i, j);
         }
       }
+#endif
+#endif
     }
   }
 }
 
 int main(int, const char**) {
   // Define two input matrices.
-  constexpr index_t M = 96;
-  constexpr index_t K = 256;
-  constexpr index_t N = 512;
+  constexpr index_t M = 24;
+  constexpr index_t K = 10000;
+  constexpr index_t N = 64;
   matrix<float> a({M, K});
   matrix<float> b({K, N});
 
@@ -155,38 +186,38 @@ int main(int, const char**) {
   b.for_each_value([&](float& x) { x = uniform(rng); });
 
   // Compute the result using all matrix multiply methods.
-  matrix<float> c_naive({M, N});
-  double naive_time = benchmark([&]() {
-    multiply_naive(a.ref(), b.ref(), c_naive.ref());
+  matrix<float> c_reduce_cols({M, N});
+  double reduce_cols_time = benchmark([&]() {
+    multiply_reduce_cols(a.ref(), b.ref(), c_reduce_cols.ref());
   });
-  std::cout << "naive time: " << naive_time * 1e3 << " ms" << std::endl;
+  std::cout << "reduce_cols time: " << reduce_cols_time * 1e3 << " ms" << std::endl;
 
-  matrix<float> c_cols_innermost({M, N});
-  double cols_innermost_time = benchmark([&]() {
-    multiply_cols_innermost(a.ref(), b.ref(), c_cols_innermost.ref());
+  matrix<float> c_reduce_rows({M, N});
+  double reduce_rows_time = benchmark([&]() {
+    multiply_reduce_rows(a.ref(), b.ref(), c_reduce_rows.ref());
   });
-  std::cout << "cols innermost time: " << cols_innermost_time * 1e3 << " ms" << std::endl;
+  std::cout << "reduce_rows time: " << reduce_rows_time * 1e3 << " ms" << std::endl;
 
-  matrix<float> c_tiles_innermost({M, N});
-  double tiles_innermost_time = benchmark([&]() {
-    multiply_tiles_innermost(a.ref(), b.ref(), c_tiles_innermost.ref());
+  matrix<float> c_reduce_tiles({M, N});
+  double reduce_tiles_time = benchmark([&]() {
+    multiply_reduce_tiles(a.ref(), b.ref(), c_reduce_tiles.ref());
   });
-  std::cout << "tiles innermost time: " << tiles_innermost_time * 1e3 << " ms" << std::endl;
+  std::cout << "reduce_tiles time: " << reduce_tiles_time * 1e3 << " ms" << std::endl;
 
   // Verify the results from all methods are equal.
   const float epsilon = 1e-4f;
   for (index_t i = 0; i < M; i++) {
     for (index_t j = 0; j < N; j++) {
-      if (std::abs(c_cols_innermost(i, j) - c_naive(i, j)) > epsilon) {
+      if (std::abs(c_reduce_rows(i, j) - c_reduce_cols(i, j)) > epsilon) {
         std::cout
-          << "c_cols_innermost(" << i << ", " << j << ") = " << c_cols_innermost(i, j)
-          << " != c_naive(" << i << ", " << j << ") = " << c_naive(i, j) << std::endl;
+          << "c_reduce_rows(" << i << ", " << j << ") = " << c_reduce_rows(i, j)
+          << " != c_reduce_cols(" << i << ", " << j << ") = " << c_reduce_cols(i, j) << std::endl;
         return -1;
       }
-      if (std::abs(c_tiles_innermost(i, j) - c_naive(i, j)) > epsilon) {
+      if (std::abs(c_reduce_tiles(i, j) - c_reduce_cols(i, j)) > epsilon) {
         std::cout
-          << "c_tiles_innermost(" << i << ", " << j << ") = " << c_tiles_innermost(i, j)
-          << " != c_naive(" << i << ", " << j << ") = " << c_naive(i, j) << std::endl;
+          << "c_reduce_tiles(" << i << ", " << j << ") = " << c_reduce_tiles(i, j)
+          << " != c_reduce_cols(" << i << ", " << j << ") = " << c_reduce_cols(i, j) << std::endl;
         return -1;
       }
     }
