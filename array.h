@@ -757,6 +757,17 @@ auto make_dense_shape(index_t dim0_extent, Extents... extents) {
   return make_shape(dense_dim<>(dim0_extent), dim<>(extents)...);
 }
 
+/** Create a new shape using a list of DimIndices to use as the dimensions of
+ * the shape. */
+template <size_t... DimIndices, typename Shape>
+auto select_dims(const Shape& shape) {
+  return make_shape(shape.template dim<DimIndices>()...);
+}
+template <size_t... DimIndices, typename Shape>
+auto reorder(const Shape& shape) {
+  return select_dims<DimIndices...>(shape);
+}
+
 namespace internal {
 
 template<size_t D, typename Dims, typename Fn, typename... Indices,
@@ -863,9 +874,15 @@ auto intersect(const std::tuple<DimsA...>& a, const std::tuple<DimsB...>& b, std
 }
 
 // Call 'fn' with the elements of tuple 'args' unwrapped from the tuple.
+// TODO: When we assume C++17, this can be replaced by std::apply.
 template <typename Fn, typename IndexType, size_t... Is>
-NDARRAY_INLINE auto tuple_arg_to_parameter_pack(Fn&& fn, const IndexType& args, std::index_sequence<Is...>) {
+NDARRAY_INLINE auto apply(Fn&& fn, const IndexType& args, std::index_sequence<Is...>) {
   return fn(std::get<Is>(args)...);
+}
+
+template <typename Fn, typename IndexType>
+NDARRAY_INLINE auto apply(Fn&& fn, const IndexType& args) {
+  return apply(fn, args, std::make_index_sequence<std::tuple_size<IndexType>::value>());
 }
 
 }  // namespace internal
@@ -952,6 +969,27 @@ void for_each_value_in_order(const Shape& shape,
 
 namespace internal {
 
+inline constexpr index_t abs(index_t a) {
+  return a >= 0 ? a : -a;
+}
+
+// Signed integer division in C/C++ is terrible. These implementations
+// of Euclidean division and mod are taken from:
+// https://github.com/halide/Halide/blob/1a0552bb6101273a0e007782c07e8dafe9bc5366/src/CodeGen_Internal.cpp#L358-L408
+inline constexpr index_t euclidean_div(index_t a, index_t b) {
+  index_t q = a / b;
+  index_t r = a - q * b;
+  index_t bs = b >> (sizeof(index_t) * 8 - 1);
+  index_t rs = r >> (sizeof(index_t) * 8 - 1);
+  return q - (rs & bs) + (rs & ~bs);
+}
+
+inline constexpr index_t euclidean_mod(index_t a, index_t b) {
+  index_t r = a % b;
+  index_t sign_mask = r >> (sizeof(index_t) * 8 - 1);
+  return r + (sign_mask & abs(b));
+}
+
 inline constexpr index_t add_index(index_t a, index_t b) {
   if (a == UNK || b == UNK) {
     return UNK;
@@ -964,6 +1002,13 @@ inline constexpr index_t mul_index(index_t a, index_t b) {
     return UNK;
   }
   return a * b;
+}
+
+inline constexpr index_t div_index(index_t a, index_t b) {
+  if (a == UNK || b == UNK) {
+    return UNK;
+  }
+  return euclidean_div(a, b);
 }
 
 template <index_t InnerMin, index_t InnerExtent, index_t InnerStride,
@@ -986,6 +1031,27 @@ auto fuse(const nda::dim<InnerMin, InnerExtent, InnerStride>& inner,
       inner.min() + outer.min() * inner.extent(),
       inner.extent() * outer.extent(),
       inner.stride());
+}
+
+template <index_t Factor, index_t Min, index_t Extent, index_t Stride>
+bool can_split(const nda::dim<Min, Extent, Stride>& d) {
+  return euclidean_mod(d.min(), Factor) == 0 && euclidean_mod(d.extent(), Factor) == 0;
+}
+
+template <index_t Factor, index_t Min, index_t Extent, index_t Stride>
+auto split(const nda::dim<Min, Extent, Stride>& d) {
+  assert(can_split<Factor>(d));
+  using InnerDim = nda::dim<0, Factor, Stride>;
+  using OuterDim = nda::dim<
+      div_index(Min, Factor),
+      div_index(Extent, Factor),
+      mul_index(Stride, Factor)>;
+  return make_shape(
+      InnerDim(0, Factor, d.stride()),
+      OuterDim(
+          euclidean_div(d.min(), Factor),
+          euclidean_div(d.extent(), Factor),
+          d.stride() * Factor));
 }
 
 // Sort the dims such that strides are increasing from dim 0, and contiguous
@@ -1083,7 +1149,7 @@ auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
 
 template <typename Shape>
 auto optimize_shape(const Shape& shape) {
-  // In the general case,
+  // In the general case, dynamically optimize the shape.
   return dynamic_optimize_shape(shape);
 }
 
@@ -1181,19 +1247,8 @@ void for_each_index(const Shape& s, Fn&& fn) {
 template <typename Shape, typename Fn>
 void for_all_indices(const Shape& s, Fn&& fn) {
   shape_traits<Shape>::for_each_index(s, [&](const typename Shape::index_type&i) {
-    internal::tuple_arg_to_parameter_pack(fn, i, std::make_index_sequence<Shape::rank()>());
+    internal::apply(fn, i);
   });
-}
-
-/** Create a new shape using a list of DimIndices to use as the dimensions of
- * the shape. */
-template <size_t... DimIndices, typename Shape>
-auto select_dims(const Shape& shape) {
-  return make_shape(shape.template dim<DimIndices>()...);
-}
-template <size_t... DimIndices, typename Shape>
-auto reorder(const Shape& shape) {
-  return select_dims<DimIndices...>(shape);
 }
 
 /** A reference to an array is an object with a shape mapping indices to flat
@@ -1355,6 +1410,12 @@ using array_ref_of_rank = array_ref<T, shape_of_rank<Rank>>;
  * otherwise, of the compile-time constant 'Rank'. */
 template <typename T, size_t Rank>
 using dense_array_ref = array_ref<T, dense_shape<Rank>>;
+
+/** Make a new array with shape 'shape', allocated using 'alloc'. */
+template <typename T, typename Shape>
+auto make_array_ref(T* base, const Shape& shape) {
+  return array_ref<T, Shape>(base, shape);
+}
 
 /** A multi-dimensional array container that owns an allocation of memory. This
  * container is designed to mirror the semantics of std::vector where possible.
