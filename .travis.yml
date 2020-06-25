@@ -1,6 +1,6 @@
 language: cpp
 before_install:
-- sudo apt-get install graphicsmagick
+- sudo apt-get install libgraphicsmagick1-dev
 install: make
 os: linux
 compiler: clang
