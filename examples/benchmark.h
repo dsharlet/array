@@ -23,8 +23,8 @@ namespace nda {
 
 // Benchmark a call.
 template <typename F>
-double benchmark(F op) {
-  const int max_trials = 10;
+double benchmark(F op, bool run_once = false) {
+  const int max_trials = run_once ? 1 : 10;
   const double min_time_s = 1;
   double time_per_iteration_s = 0;
   long iterations = 1;
@@ -35,7 +35,7 @@ double benchmark(F op) {
     }
     auto t2 = std::chrono::high_resolution_clock::now();
     time_per_iteration_s = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count() / (iterations * 1e9);
-    if (time_per_iteration_s * iterations > min_time_s) {
+    if (time_per_iteration_s * iterations > min_time_s || run_once) {
       break;
     }
 

@@ -1,8 +1,10 @@
 language: cpp
+before_install:
+- sudo apt-get install graphicsmagick
 install: make
 os: linux
 compiler: clang
 script:
   - make test
-  - cd examples/linear_algebra
-  - make test
+  - make -C examples/linear_algebra test
+  - make -C examples/resize test
