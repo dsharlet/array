@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "image.h"
-#include "resize.h"
+#include "resample.h"
 #include "benchmark.h"
 #include "rational.h"
 
@@ -42,10 +42,10 @@ void run_benchmarks(
   const rational<index_t> rate_y(output.height(), input.height());
 
   for (auto i : benchmarks) {
-    double resize_time = benchmark([&]() {
-      resize(input.cref(), output.ref(), rate_x, rate_y, i.second);
+    double resample_time = benchmark([&]() {
+      resample(input.cref(), output.ref(), rate_x, rate_y, i.second);
     });
-    std::cout << i.first << " time: " << resize_time * 1e3 << " ms " << std::endl;
+    std::cout << i.first << " time: " << resample_time * 1e3 << " ms " << std::endl;
   }
 }
 

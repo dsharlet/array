@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RESIZE_H
-#define RESIZE_H
+#ifndef RESAMPLE_H
+#define RESAMPLE_H
 
 #include "array.h"
 #include "rational.h"
@@ -169,7 +169,7 @@ kernel_array build_kernels(
 // Resize the y dimension of an input array 'in' to a destination array 'out',
 // using kernels(y) to produce out(., y, .).
 template <typename TIn, typename TOut>
-void resize_y(const TIn& in, const TOut& out, const kernel_array& kernels) {
+void resample_y(const TIn& in, const TOut& out, const kernel_array& kernels) {
   for (nda::index_t y : out.y()) {
     nda::dense_array<float, 1> kernel_y = kernels(y);
     for (nda::index_t c : out.c()) {
@@ -199,7 +199,7 @@ void transpose(const TIn& in, const TOut& out) {
 }  // namespace internal
 
 template <typename TIn, typename TOut, typename ShapeIn, typename ShapeOut>
-void resize(const nda::array_ref<TIn, ShapeIn>& in, const nda::array_ref<TOut, ShapeOut>& out,
+void resample(const nda::array_ref<TIn, ShapeIn>& in, const nda::array_ref<TOut, ShapeOut>& out,
             const rational<nda::index_t>& rate_x, const rational<nda::index_t>& rate_y,
             continuous_kernel kernel) {
   internal::kernel_array kernels_x =
@@ -214,9 +214,9 @@ void resize(const nda::array_ref<TIn, ShapeIn>& in, const nda::array_ref<TOut, S
     nda::planar_image<TOut> strip_tr(make_dense(make_shape(out_y.y(), in.x(), out.c())));
     nda::planar_image<TOut> out_tr(make_dense(make_shape(out_y.y(), out.x(), out.c())));
 
-    internal::resize_y(in, strip.ref(), kernels_y);
+    internal::resample_y(in, strip.ref(), kernels_y);
     internal::transpose(strip.cref(), strip_tr.ref());
-    internal::resize_y(strip_tr.cref(), out_tr.ref(), kernels_x);
+    internal::resample_y(strip_tr.cref(), out_tr.ref(), kernels_x);
     internal::transpose(out_tr.cref(), out_y);
   }
 }

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "image.h"
-#include "resize.h"
+#include "resample.h"
 
 #include <iostream>
 
@@ -94,7 +94,7 @@ int main(int argc, char* argv[]) {
   planar_image<float> output({new_width, new_height, 4});
   const rational<index_t> rate_x(output.width(), input.width());
   const rational<index_t> rate_y(output.height(), input.height());
-  resize(input.cref(), output.ref(), rate_x, rate_y, kernel);
+  resample(input.cref(), output.ref(), rate_x, rate_y, kernel);
 
   Magick::Image magick_output = array_to_magick(output.cref());
   magick_output.write(output_path);

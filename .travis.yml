@@ -5,4 +5,4 @@ compiler: clang
 script:
   - make test
   - make -C examples/linear_algebra test
-  - make -C examples/resize benchmark
+  - make -C examples/resample benchmark
