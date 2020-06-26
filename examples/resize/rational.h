@@ -12,11 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/** \file image.h
- * \brief Optional image-specific helpers and specializations.
-*/
-#ifndef NDARRAY_RATIONAL_H
-#define NDARRAY_RATIONAL_H
+#ifndef RATIONAL_H
+#define RATIONAL_H
 
 // Signed integer division in C/C++ is terrible. These implementations
 // of Euclidean division and mod are taken from:
@@ -46,6 +43,7 @@ T gcd(T a, T b) {
   }
 }
 
+// Represents a rational number. Good for exact arithmetic on fractions.
 template <typename T>
 class rational {
   T n, d;
