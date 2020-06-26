@@ -16,9 +16,15 @@ clean:
 	rm -rf obj/* bin/* test_outputs
 
 test: bin/resize
-	mkdir -p test_outputs
-	bin/resize test_inputs/small.png 800 600 nearest test_outputs/nearest.png test_outputs/magick_nearest.png
-	bin/resize test_inputs/small.png 800 600 linear test_outputs/linear.png test_outputs/magick_linear.png
-	bin/resize test_inputs/small.png 800 600 quadratic test_outputs/quadratic.png test_outputs/magick_quadratic.png
-	bin/resize test_inputs/small.png 800 600 catmullrom test_outputs/catmullrom.png test_outputs/magick_catmullrom.png
-	bin/resize test_inputs/small.png 800 600 lanczos2 test_outputs/lanczos3.png test_outputs/magick_lanczos.png
+	mkdir -p test_outputs/upsample
+	mkdir -p test_outputs/downsample
+	bin/resize test_inputs/small.png 800 600 nearest test_outputs/upsample/nearest.png test_outputs/upsample/nearest_magick.png
+	bin/resize test_inputs/small.png 800 600 linear test_outputs/upsample/linear.png test_outputs/upsample/linear_magick.png
+	bin/resize test_inputs/small.png 800 600 quadratic test_outputs/upsample/quadratic.png test_outputs/upsample/quadratic_magick.png
+	bin/resize test_inputs/small.png 800 600 catmullrom test_outputs/upsample/catmullrom.png test_outputs/upsample/catmullrom_magick.png
+	bin/resize test_inputs/small.png 800 600 lanczos test_outputs/upsample/lanczos.png test_outputs/upsample/lanczos_magick.png
+	bin/resize test_inputs/big.png 400 300 nearest test_outputs/downsample/nearest.png test_outputs/downsample/nearest_magick.png
+	bin/resize test_inputs/big.png 400 300 linear test_outputs/downsample/linear.png test_outputs/downsample/linear_magick.png
+	bin/resize test_inputs/big.png 400 300 quadratic test_outputs/downsample/quadratic.png test_outputs/downsample/quadratic_magick.png
+	bin/resize test_inputs/big.png 400 300 catmullrom test_outputs/downsample/catmullrom.png test_outputs/downsample/catmullrom_magick.png
+	bin/resize test_inputs/big.png 400 300 lanczos test_outputs/downsample/lanczos.png test_outputs/downsample/lanczos_magick.png

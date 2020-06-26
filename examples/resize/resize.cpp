@@ -43,6 +43,9 @@ kernel_array build_kernels(
   // Define a buffer to produce each kernel in.
   dense_array<float, 1> buffer(make_dense(make_shape(in)));
 
+  // When downsampling, stretch the kernel to perform low pass filtering.
+  float kernel_scale = std::min(to_float(rate), 1.0f);
+
   for (index_t out_x : out) {
     // Compute the fractional position of the input corresponding to
     // this output.
@@ -54,7 +57,7 @@ kernel_array build_kernels(
     index_t max = in.min();
     float sum = 0.0f;
     for (index_t rx : in) {
-      float k_rx = kernel(rx - in_x);
+      float k_rx = kernel((rx - in_x) * kernel_scale);
       buffer(rx) = k_rx;
       if (k_rx != 0.0f) {
         sum += k_rx;
@@ -87,11 +90,12 @@ void resize_y(const TIn& in, const TOut& out, const kernel_array& kernels) {
     dense_array<float, 1> kernel_y = kernels(y);
     for (index_t c : out.c()) {
       for (index_t x : out.x()) {
-        float out_xyc = 0.0f;
-        for (index_t ry : kernel_y.x()) {
-          out_xyc += in(x, ry, c) * kernel_y(ry);
+        out(x, y, c) = 0.0f;
+      }
+      for (index_t ry : kernel_y.x()) {
+        for (index_t x : out.x()) {
+          out(x, y, c) += in(x, ry, c) * kernel_y(ry);
         }
-        out(x, y, c) = out_xyc;
       }
     }
   }
@@ -115,14 +119,18 @@ void resize(const array_ref<TIn, ShapeIn>& in, const array_ref<TOut, ShapeOut>& 
   kernel_array kernels_x = build_kernels(in.x(), out.x(), rate_x, kernel);
   kernel_array kernels_y = build_kernels(in.y(), out.y(), rate_y, kernel);
 
-  // It's faster to resample in y, then x.
-  planar_image<TOut> temp(make_dense(make_shape(in.x(), out.y(), out.c())));
-  resize_y(in, temp.ref(), kernels_y);
-  planar_image<TOut> temp_tr(make_dense(make_shape(out.y(), in.x(), out.c())));
-  transpose(temp.cref(), temp_tr.ref());
-  planar_image<TOut> temp2(make_dense(make_shape(out.y(), out.x(), out.c())));
-  resize_y(temp_tr.cref(), temp2.ref(), kernels_x);
-  transpose(temp2.cref(), out.ref());
+  constexpr index_t StripSize = 64;
+  for (index_t y = out.y().min(); y <= out.y().max(); y += StripSize) {
+    auto out_y = crop(out, out.x().min(), y, out.x().max() + 1, y + StripSize);
+    planar_image<TOut> strip(make_dense(make_shape(in.x(), out_y.y(), out.c())));
+    planar_image<TOut> strip_tr(make_dense(make_shape(out_y.y(), in.x(), out.c())));
+    planar_image<TOut> out_tr(make_dense(make_shape(out_y.y(), out.x(), out.c())));
+
+    resize_y(in, strip.ref(), kernels_y);
+    transpose(strip.cref(), strip_tr.ref());
+    resize_y(strip_tr.cref(), out_tr.ref(), kernels_x);
+    transpose(out_tr.cref(), out_y);
+  }
 }
 
 // Define some common kernels useful for resizing images.
@@ -204,12 +212,8 @@ std::function<float(float)> parse_kernel(const char* name) {
     return quadratic;
   } else if (strcmp(name, "catmullrom") == 0) {
     return catmullrom;
-  } else if (strcmp(name, "lanczos2") == 0) {
-    return lanczos<2>;
-  } else if (strcmp(name, "lanczos3") == 0) {
+  } else if (strcmp(name, "lanczos") == 0) {
     return lanczos<3>;
-  } else if (strcmp(name, "lanczos4") == 0) {
-    return lanczos<4>;
   } else {
     return nullptr;
   }
@@ -224,11 +228,7 @@ Magick::FilterTypes parse_kernel_magick(const char* name) {
     return Magick::FilterTypes::QuadraticFilter;
   } else if (strcmp(name, "catmullrom") == 0) {
     return Magick::FilterTypes::CatromFilter;
-  } else if (strcmp(name, "lanczos2") == 0) {
-    return Magick::FilterTypes::LanczosFilter;
-  } else if (strcmp(name, "lanczos3") == 0) {
-    return Magick::FilterTypes::LanczosFilter;
-  } else if (strcmp(name, "lanczos4") == 0) {
+  } else if (strcmp(name, "lanczos") == 0) {
     return Magick::FilterTypes::LanczosFilter;
   } else {
     return Magick::FilterTypes::PointFilter;
@@ -236,8 +236,8 @@ Magick::FilterTypes parse_kernel_magick(const char* name) {
 }
 
 template <typename T>
-dense_array<T, 3> magick_to_array(const Magick::Image& img) {
-  dense_array<T, 3> result({img.columns(), img.rows(), 4});
+planar_image<T> magick_to_array(const Magick::Image& img) {
+  planar_image<T> result({img.columns(), img.rows(), 4});
 
   const Magick::PixelPacket *pixel_cache = img.getConstPixels(0, 0, result.width(), result.height());
   for (index_t y : result.y()) {
@@ -284,14 +284,13 @@ int main(int argc, char* argv[]) {
   std::function<float(float)> kernel = parse_kernel(argv[4]);
   Magick::FilterTypes magick_kernel = parse_kernel_magick(argv[4]);
   const char* output_path = argv[5];
-  const char* magick_output_path = argc > 6 ? argv[6] : nullptr;
 
   Magick::Image image;
   image.read(input_path);
 
   auto input = magick_to_array<float>(image);
 
-  dense_array<float, 3> output({new_width, new_height, 4});
+  planar_image<float> output({new_width, new_height, 4});
   const rational<index_t> rate_x(output.width(), input.width());
   const rational<index_t> rate_y(output.height(), input.height());
   double resize_time = benchmark([&]() {
@@ -302,18 +301,30 @@ int main(int argc, char* argv[]) {
   Magick::Image magick_output = array_to_magick(output.cref());
   magick_output.write(output_path);
 
-  if (magick_output_path) {
-    Magick::Image magick_resized(image);
+  Magick::Image magick_resized(image);
 
-    Magick::Geometry new_size(std::to_string(new_width) + "x" + std::to_string(new_height) + "!");
-    magick_resized.filterType(magick_kernel);
-    double magick_time = benchmark([&]() {
-      magick_resized.resize(new_size);
-      image.getPixels(0, 0, new_width, new_height);
-    }, true);
-    std::cout << "GraphicsMagick time: " << magick_time * 1e3 << " ms " << std::endl;
+  Magick::Geometry new_size(std::to_string(new_width) + "x" + std::to_string(new_height) + "!");
+  magick_resized.filterType(magick_kernel);
+  double magick_time = benchmark([&]() {
+    magick_resized.resize(new_size);
+    image.getPixels(0, 0, new_width, new_height);
+  }, true);
+  std::cout << "GraphicsMagick time: " << magick_time * 1e3 << " ms " << std::endl;
 
-    magick_resized.write(magick_output_path);
+  planar_image<float> magick_output_array = magick_to_array<float>(magick_output);
+
+  float max_error = 0.0f;
+  magick_output_array.for_each_value([&](float i) { max_error = std::max(max_error, i * 1e-2f); });
+
+  for (index_t c : output.c()) {
+    for (index_t y : output.y()) {
+      for (index_t x : output.x()) {
+        if (std::abs(output(x, y, c) - magick_output_array(x, y, c)) > max_error) {
+          std::cout << "Image mismatch! " << x << " " << y << " " << c << " " << output(x, y, c) << " " << magick_output_array(x, y, c) << std::endl;
+          return -1;
+        }
+      }
+    }
   }
   return 0;
 }
