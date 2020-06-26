@@ -57,25 +57,16 @@ kernel_array build_kernels(
     // TODO: This might produce incorrect results if a kernel has zeros mixed
     // in with non-zeros before the "end" (though such kernels probably aren't
     // very good).
-    nda::index_t min = std::lround(in_x);
-    nda::index_t max = std::lround(in_x);
+    nda::index_t min = in.max();
+    nda::index_t max = in.min();
     float sum = 0.0f;
-    for (nda::index_t rx = min; rx >= in.min(); rx--) {
+    for (nda::index_t rx : in) {
       float k_rx = kernel((rx - in_x) * kernel_scale);
       buffer(rx) = k_rx;
-      sum += k_rx;
-      min = std::min(min, rx);
-      if (k_rx == 0.0f) {
-        break;
-      }
-    }
-    for (nda::index_t rx = max; rx <= in.max(); rx++) {
-      float k_rx = kernel((rx - in_x) * kernel_scale);
-      buffer(rx) = k_rx;
-      sum += k_rx;
-      max = std::max(max, rx);
-      if (k_rx == 0.0f) {
-        break;
+      if (k_rx != 0.0f) {
+        sum += k_rx;
+        min = std::min(min, rx);
+        max = std::max(max, rx);
       }
     }
 
@@ -152,7 +143,7 @@ void resize(const nda::array_ref<TIn, ShapeIn>& in, const nda::array_ref<TOut, S
 
 // Define some common kernels useful for resizing images.
 inline float nearest(float s) {
-  return -0.5f <= s && s < 0.5f ? 1.0f : 0.0f;
+  return std::abs(s) <= 0.5f ? 1.0f : 0.0f;
 }
 
 inline float linear(float s) {
@@ -188,18 +179,27 @@ inline float cubic_family(float s, float B, float C) {
   float s2 = s * s;
   float s3 = s2 * s;
   if (s <= 1.0f) {
-    return (2.0f - B * 1.5f - C) * s3 + (-3.0f + 2.0f * B + C) * s2 + (1 - B / 3.0f);
+    return
+        (2.0f - B * 1.5f - C) * s3 +
+        (-3.0f + 2.0f * B + C) * s2 +
+        (1.0f - B / 3.0f);
   } else if (s <= 2.0f) {
-    return (-B / 6.0f - C) * s3 + (B + 5.0f * C) * s2 + (-2.0f * B - 8.0f * C) * s + (B * 4.0f / 3.0f + 4.0f * C);
+    return
+        (-B / 6.0f - C) * s3 +
+        (B + 5.0f * C) * s2 +
+        (-2.0f * B - 8.0f * C) * s +
+        (B * 4.0f / 3.0f + 4.0f * C);
   } else {
     return 0.0f;
   }
 }
 
+// An approximation of B-splines. Smooth but soft.
 inline float approximate_bspline(float s) {
   return cubic_family(s, 1.0f, 0.0f);
 }
 
+// An interpolating cubic. Pretty sharp.
 inline float catmullrom(float s) {
   return cubic_family(s, 0.0f, 0.5f);
 }
@@ -210,7 +210,7 @@ inline float sinc(float s) {
 }
 
 inline float lanczos(float s, int lobes) {
-  if (-lobes <= s && s < lobes) {
+  if (std::abs(s) <= lobes) {
     return sinc(s) * sinc(s / lobes);
   } else {
     return 0.0f;
