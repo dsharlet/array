@@ -53,16 +53,29 @@ kernel_array build_kernels(
 
     // Fill the buffer, while keeping track of the sum of, first, and
     // last non-zero kernel values,
-    nda::index_t min = in.max();
-    nda::index_t max = in.min();
+    // TODO: This is messy, optimize it better.
+    // TODO: This might produce incorrect results if a kernel has zeros mixed
+    // in with non-zeros before the "end" (though such kernels probably aren't
+    // very good).
+    nda::index_t min = std::lround(in_x);
+    nda::index_t max = std::lround(in_x);
     float sum = 0.0f;
-    for (nda::index_t rx : in) {
+    for (nda::index_t rx = min; rx >= in.min(); rx--) {
       float k_rx = kernel((rx - in_x) * kernel_scale);
       buffer(rx) = k_rx;
-      if (k_rx != 0.0f) {
-        sum += k_rx;
-        min = std::min(min, rx);
-        max = std::max(max, rx);
+      sum += k_rx;
+      min = std::min(min, rx);
+      if (k_rx == 0.0f) {
+        break;
+      }
+    }
+    for (nda::index_t rx = max; rx <= in.max(); rx++) {
+      float k_rx = kernel((rx - in_x) * kernel_scale);
+      buffer(rx) = k_rx;
+      sum += k_rx;
+      max = std::max(max, rx);
+      if (k_rx == 0.0f) {
+        break;
       }
     }
 
