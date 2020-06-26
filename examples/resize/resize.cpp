@@ -85,8 +85,8 @@ template <typename TIn, typename TOut>
 void resize_y(const TIn& in, const TOut& out, const kernel_array& kernels) {
   for (index_t y : out.y()) {
     dense_array<float, 1> kernel_y = kernels(y);
-    for (index_t x : out.x()) {
-      for (index_t c : out.c()) {
+    for (index_t c : out.c()) {
+      for (index_t x : out.x()) {
         float out_xyc = 0.0f;
         for (index_t ry : kernel_y.x()) {
           out_xyc += in(x, ry, c) * kernel_y(ry);
@@ -99,9 +99,9 @@ void resize_y(const TIn& in, const TOut& out, const kernel_array& kernels) {
 
 template <typename TIn, typename TOut>
 void transpose(const TIn& in, const TOut& out) {
-  for (index_t y : out.y()) {
-    for (index_t x : out.x()) {
-      for (index_t c : out.c()) {
+  for (index_t c : out.c()) {
+    for (index_t y : out.y()) {
+      for (index_t x : out.x()) {
         out(x, y, c) = in(y, x, c);
       }
     }
@@ -119,35 +119,80 @@ void resize(const array_ref<TIn, ShapeIn>& in, const array_ref<TOut, ShapeOut>& 
   planar_image<TOut> temp(make_dense(make_shape(in.x(), out.y(), out.c())));
   resize_y(in, temp.ref(), kernels_y);
   planar_image<TOut> temp_tr(make_dense(make_shape(out.y(), in.x(), out.c())));
-  //transpose(temp.cref(), temp_tr.ref());
+  transpose(temp.cref(), temp_tr.ref());
   planar_image<TOut> temp2(make_dense(make_shape(out.y(), out.x(), out.c())));
   resize_y(temp_tr.cref(), temp2.ref(), kernels_x);
-  //transpose(temp2.cref(), out.ref());
+  transpose(temp2.cref(), out.ref());
 }
 
 // Define some common kernels useful for resizing images.
-float nearest(float x) {
-  return -0.5f <= x && x < 0.5f ? 1.0f : 0.0f;
+float nearest(float s) {
+  return -0.5f <= s && s < 0.5f ? 1.0f : 0.0f;
 }
 
-float linear(float x) {
-  return std::max(0.0f, 1.0f - std::abs(x));
+float linear(float s) {
+  return std::max(0.0f, 1.0f - std::abs(s));
 }
 
-float sinc(float x) {
-  x *= M_PI;
-  return std::abs(x) > 1e-6f ? std::sin(x) / x : 1.0f;
+// The quadratic and cubic formulas come from
+// https://pdfs.semanticscholar.org/45e0/92c057ffe242665ef44590f2b8d725696d76.pdf
+float quadratic_family(float s, float r) {
+  s = std::abs(s);
+  float s2 = s * s;
+  if (s < 0.5f) {
+    return -2.0f * r * s2 + 0.5f * (r + 1.0f);
+  } else if (s < 1.5f) {
+    return r * s2 + (-2.0f * r - 0.5f) * s + 0.75f * (r + 1);
+  } else {
+    return 0;
+  }
 }
 
-float lanczos(float x, int lobes) {
-  if (-lobes <= x && x < lobes) {
-    return sinc(x) * sinc(x / lobes);
+// An interpolating quadratic.
+float quadratic(float s) {
+  return quadratic_family(s, 1.0f);
+}
+
+// A C1-continuous quadratic.
+float quadratic_C1(float s) {
+  return quadratic_family(s, 0.5f);
+}
+
+float cubic_family(float s, float B, float C) {
+  s = std::abs(s);
+  float s2 = s * s;
+  float s3 = s2 * s;
+  if (s <= 1.0f) {
+    return (2.0f - B * 1.5f - C) * s3 + (-3.0f + 2.0f * B + C) * s2 + (1 - B / 3.0f);
+  } else if (s <= 2.0f) {
+    return (-B / 6.0f - C) * s3 + (B + 5.0f * C) * s2 + (-2.0f * B - 8.0f * C) * s + (B * 4.0f / 3.0f + 4.0f * C);
+  } else {
+    return 0.0f;
+  }
+}
+
+float approximate_bspline(float s) {
+  return cubic_family(s, 1.0f, 0.0f);
+}
+
+float catmullrom(float s) {
+  return cubic_family(s, 0.0f, 0.5f);
+}
+
+float sinc(float s) {
+  s *= M_PI;
+  return std::abs(s) > 1e-6f ? std::sin(s) / s : 1.0f;
+}
+
+float lanczos(float s, int lobes) {
+  if (-lobes <= s && s < lobes) {
+    return sinc(s) * sinc(s / lobes);
   } else {
     return 0.0f;
   }
 }
 template<int lobes>
-float lanczos(float x) { return lanczos(x, lobes); }
+float lanczos(float s) { return lanczos(s, lobes); }
 
 
 std::function<float(float)> parse_kernel(const char* name) {
@@ -155,6 +200,10 @@ std::function<float(float)> parse_kernel(const char* name) {
     return nearest;
   } else if (strcmp(name, "linear") == 0) {
     return linear;
+  } else if (strcmp(name, "quadratic") == 0) {
+    return quadratic;
+  } else if (strcmp(name, "catmullrom") == 0) {
+    return catmullrom;
   } else if (strcmp(name, "lanczos2") == 0) {
     return lanczos<2>;
   } else if (strcmp(name, "lanczos3") == 0) {
@@ -171,6 +220,10 @@ Magick::FilterTypes parse_kernel_magick(const char* name) {
     return Magick::FilterTypes::BoxFilter;
   } else if (strcmp(name, "linear") == 0) {
     return Magick::FilterTypes::TriangleFilter;
+  } else if (strcmp(name, "quadratic") == 0) {
+    return Magick::FilterTypes::QuadraticFilter;
+  } else if (strcmp(name, "catmullrom") == 0) {
+    return Magick::FilterTypes::CatromFilter;
   } else if (strcmp(name, "lanczos2") == 0) {
     return Magick::FilterTypes::LanczosFilter;
   } else if (strcmp(name, "lanczos3") == 0) {

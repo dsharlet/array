@@ -1,4 +1,4 @@
-CFLAGS := $(CFLAGS) -O0 -ffast-math -fstrict-aliasing -march=native
+CFLAGS := $(CFLAGS) -O2 -ffast-math -fstrict-aliasing -march=native
 CXXFLAGS := $(CXXFLAGS) -std=c++14 -Wall
 LDFLAGS := $(LDFLAGS)
 
@@ -13,10 +13,12 @@ bin/resize: resize.cpp rational.h $(DEPS)
 .PHONY: all clean test
 
 clean:
-	rm -rf obj/* bin/*
+	rm -rf obj/* bin/* test_outputs
 
 test: bin/resize
 	mkdir -p test_outputs
 	bin/resize test_inputs/small.png 800 600 nearest test_outputs/nearest.png test_outputs/magick_nearest.png
 	bin/resize test_inputs/small.png 800 600 linear test_outputs/linear.png test_outputs/magick_linear.png
-	bin/resize test_inputs/small.png 800 600 lanczos3 test_outputs/lanczos3.png test_outputs/magick_lanczos.png
+	bin/resize test_inputs/small.png 800 600 quadratic test_outputs/quadratic.png test_outputs/magick_quadratic.png
+	bin/resize test_inputs/small.png 800 600 catmullrom test_outputs/catmullrom.png test_outputs/magick_catmullrom.png
+	bin/resize test_inputs/small.png 800 600 lanczos2 test_outputs/lanczos3.png test_outputs/magick_lanczos.png
