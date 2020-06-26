@@ -124,6 +124,8 @@ kernel_array build_kernels(
   nda::dense_array<float, 1> buffer(make_dense(make_shape(in)));
 
   // When downsampling, stretch the kernel to perform low pass filtering.
+  // TODO: Move this, so it's possible to specify kernels that include
+  // low pass filtering, e.g. trapezoid kernels.
   float kernel_scale = std::min(to_float(rate), 1.0f);
 
   for (nda::index_t out_x : out) {
