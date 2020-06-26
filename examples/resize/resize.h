@@ -21,7 +21,87 @@
 #include <cmath>
 #include <functional>
 
+// A reconstruction kernel is a continuous function.
 using continuous_kernel = std::function<float(float)>;
+
+// Define some common kernels useful for resizing images.
+inline float box(float s) {
+  return std::abs(s) <= 0.5f ? 1.0f : 0.0f;
+}
+
+inline float linear(float s) {
+  return std::max(0.0f, 1.0f - std::abs(s));
+}
+
+// The quadratic and cubic formulas come from
+// https://pdfs.semanticscholar.org/45e0/92c057ffe242665ef44590f2b8d725696d76.pdf
+inline float quadratic_family(float s, float r) {
+  s = std::abs(s);
+  float s2 = s * s;
+  if (s < 0.5f) {
+    return -2.0f * r * s2 + 0.5f * (r + 1.0f);
+  } else if (s < 1.5f) {
+    return r * s2 + (-2.0f * r - 0.5f) * s + 0.75f * (r + 1);
+  } else {
+    return 0;
+  }
+}
+
+inline float cubic_family(float s, float B, float C) {
+  s = std::abs(s);
+  float s2 = s * s;
+  float s3 = s2 * s;
+  if (s <= 1.0f) {
+    return
+        (2.0f - B * 1.5f - C) * s3 +
+        (-3.0f + 2.0f * B + C) * s2 +
+        (1.0f - B / 3.0f);
+  } else if (s <= 2.0f) {
+    return
+        (-B / 6.0f - C) * s3 +
+        (B + 5.0f * C) * s2 +
+        (-2.0f * B - 8.0f * C) * s +
+        (B * 4.0f / 3.0f + 4.0f * C);
+  } else {
+    return 0.0f;
+  }
+}
+
+// An interpolating quadratic.
+inline float interpolating_quadratic(float s) {
+  return quadratic_family(s, 1.0f);
+}
+
+// An interpolating cubic, i.e. Catmull-Rom spline.
+inline float interpolating_cubic(float s) {
+  return cubic_family(s, 0.0f, 0.5f);
+}
+
+// Smooth but soft quadratic B-spline approximation.
+inline float quadratic_bspline(float s) {
+  return quadratic_family(s, 0.5f);
+}
+
+// Smooth but soft cubic B-spline approximation.
+inline float cubic_bspline(float s) {
+  return cubic_family(s, 1.0f, 0.0f);
+}
+
+inline float sinc(float s) {
+  s *= M_PI;
+  return std::abs(s) > 1e-6f ? std::sin(s) / s : 1.0f;
+}
+
+inline float lanczos(float s, int lobes) {
+  if (std::abs(s) <= lobes) {
+    return sinc(s) * sinc(s / lobes);
+  } else {
+    return 0.0f;
+  }
+}
+
+template<int lobes>
+float lanczos(float s) { return lanczos(s, lobes); }
 
 namespace internal {
 
@@ -140,84 +220,5 @@ void resize(const nda::array_ref<TIn, ShapeIn>& in, const nda::array_ref<TOut, S
     internal::transpose(out_tr.cref(), out_y);
   }
 }
-
-// Define some common kernels useful for resizing images.
-inline float nearest(float s) {
-  return std::abs(s) <= 0.5f ? 1.0f : 0.0f;
-}
-
-inline float linear(float s) {
-  return std::max(0.0f, 1.0f - std::abs(s));
-}
-
-// The quadratic and cubic formulas come from
-// https://pdfs.semanticscholar.org/45e0/92c057ffe242665ef44590f2b8d725696d76.pdf
-inline float quadratic_family(float s, float r) {
-  s = std::abs(s);
-  float s2 = s * s;
-  if (s < 0.5f) {
-    return -2.0f * r * s2 + 0.5f * (r + 1.0f);
-  } else if (s < 1.5f) {
-    return r * s2 + (-2.0f * r - 0.5f) * s + 0.75f * (r + 1);
-  } else {
-    return 0;
-  }
-}
-
-// An interpolating quadratic.
-inline float quadratic(float s) {
-  return quadratic_family(s, 1.0f);
-}
-
-// A C1-continuous quadratic.
-inline float quadratic_C1(float s) {
-  return quadratic_family(s, 0.5f);
-}
-
-inline float cubic_family(float s, float B, float C) {
-  s = std::abs(s);
-  float s2 = s * s;
-  float s3 = s2 * s;
-  if (s <= 1.0f) {
-    return
-        (2.0f - B * 1.5f - C) * s3 +
-        (-3.0f + 2.0f * B + C) * s2 +
-        (1.0f - B / 3.0f);
-  } else if (s <= 2.0f) {
-    return
-        (-B / 6.0f - C) * s3 +
-        (B + 5.0f * C) * s2 +
-        (-2.0f * B - 8.0f * C) * s +
-        (B * 4.0f / 3.0f + 4.0f * C);
-  } else {
-    return 0.0f;
-  }
-}
-
-// An approximation of B-splines. Smooth but soft.
-inline float approximate_bspline(float s) {
-  return cubic_family(s, 1.0f, 0.0f);
-}
-
-// An interpolating cubic. Pretty sharp.
-inline float catmullrom(float s) {
-  return cubic_family(s, 0.0f, 0.5f);
-}
-
-inline float sinc(float s) {
-  s *= M_PI;
-  return std::abs(s) > 1e-6f ? std::sin(s) / s : 1.0f;
-}
-
-inline float lanczos(float s, int lobes) {
-  if (std::abs(s) <= lobes) {
-    return sinc(s) * sinc(s / lobes);
-  } else {
-    return 0.0f;
-  }
-}
-
-template<int lobes>
-float lanczos(float s) { return lanczos(s, lobes); }
 
 #endif

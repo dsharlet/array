@@ -22,14 +22,14 @@
 using namespace nda;
 
 continuous_kernel parse_kernel(const char* name) {
-  if (strcmp(name, "nearest") == 0) {
-    return nearest;
+  if (strcmp(name, "box") == 0) {
+    return box;
   } else if (strcmp(name, "linear") == 0) {
     return linear;
   } else if (strcmp(name, "quadratic") == 0) {
-    return quadratic;
-  } else if (strcmp(name, "catmullrom") == 0) {
-    return catmullrom;
+    return interpolating_quadratic;
+  } else if (strcmp(name, "cubic") == 0) {
+    return interpolating_cubic;
   } else if (strcmp(name, "lanczos") == 0) {
     return lanczos<4>;
   } else {

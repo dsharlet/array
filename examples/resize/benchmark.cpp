@@ -23,10 +23,10 @@
 using namespace nda;
 
 const std::pair<const char*, continuous_kernel> benchmarks[] = {
-  { "nearest", nearest },
+  { "box", box },
   { "linear", linear },
-  { "quadratic", quadratic },
-  { "cubic", catmullrom },
+  { "quadratic", interpolating_quadratic },
+  { "cubic", interpolating_cubic },
   { "lanczos4", lanczos<4> },
 };
 

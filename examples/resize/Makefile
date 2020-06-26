@@ -26,13 +26,13 @@ benchmark: bin/benchmark
 test: bin/resize
 	mkdir -p test_outputs/upsample
 	mkdir -p test_outputs/downsample
-	bin/resize test_inputs/small.png 800 600 nearest test_outputs/upsample/nearest.png test_outputs/upsample/nearest_cv.png
-	bin/resize test_inputs/small.png 800 600 linear test_outputs/upsample/linear.png test_outputs/upsample/linear_cv.png
-	bin/resize test_inputs/small.png 800 600 quadratic test_outputs/upsample/quadratic.png test_outputs/upsample/quadratic_cv.png
-	bin/resize test_inputs/small.png 800 600 catmullrom test_outputs/upsample/catmullrom.png test_outputs/upsample/catmullrom_cv.png
-	bin/resize test_inputs/small.png 800 600 lanczos test_outputs/upsample/lanczos.png test_outputs/upsample/lanczos_cv.png
-	bin/resize test_inputs/big.png 400 300 nearest test_outputs/downsample/nearest.png test_outputs/downsample/nearest_cv.png
-	bin/resize test_inputs/big.png 400 300 linear test_outputs/downsample/linear.png test_outputs/downsample/linear_cv.png
-	bin/resize test_inputs/big.png 400 300 quadratic test_outputs/downsample/quadratic.png test_outputs/downsample/quadratic_cv.png
-	bin/resize test_inputs/big.png 400 300 catmullrom test_outputs/downsample/catmullrom.png test_outputs/downsample/catmullrom_cv.png
-	bin/resize test_inputs/big.png 400 300 lanczos test_outputs/downsample/lanczos.png test_outputs/downsample/lanczos_cv.png
+	bin/resize test_inputs/small.png 800 600 box test_outputs/upsample/box.png
+	bin/resize test_inputs/small.png 800 600 linear test_outputs/upsample/linear.png
+	bin/resize test_inputs/small.png 800 600 quadratic test_outputs/upsample/quadratic.png
+	bin/resize test_inputs/small.png 800 600 cubic test_outputs/upsample/cubic.png
+	bin/resize test_inputs/small.png 800 600 lanczos test_outputs/upsample/lanczos.png
+	bin/resize test_inputs/big.png 400 300 box test_outputs/downsample/box.png
+	bin/resize test_inputs/big.png 400 300 linear test_outputs/downsample/linear.png
+	bin/resize test_inputs/big.png 400 300 quadratic test_outputs/downsample/quadratic.png
+	bin/resize test_inputs/big.png 400 300 cubic test_outputs/downsample/cubic.png
+	bin/resize test_inputs/big.png 400 300 lanczos test_outputs/downsample/lanczos.png
