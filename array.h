@@ -73,11 +73,19 @@ constexpr index_t UNK = -9;
 
 namespace internal {
 
+NDARRAY_INLINE constexpr index_t is_known(index_t x) {
+  return x != UNK;
+}
+
+NDARRAY_INLINE constexpr index_t is_unknown(index_t x) {
+  return x == UNK;
+}
+
 // Given a compile-time static value, reconcile a compile-time static value and
 // runtime value.
 template <index_t Value>
-NDARRAY_INLINE index_t reconcile(index_t value) {
-  if (Value != UNK) {
+NDARRAY_INLINE constexpr index_t reconcile(index_t value) {
+  if (is_known(Value)) {
     // It would be nice to assert here that Value == value. But, this is used in
     // the innermost loops, so when asserts are on, this ruins performance. It
     // is also a less helpful place to catch errors like this, because the bug
@@ -86,6 +94,83 @@ NDARRAY_INLINE index_t reconcile(index_t value) {
     return Value;
   } else {
     return value;
+  }
+}
+
+inline constexpr index_t abs(index_t a) {
+  return a >= 0 ? a : -a;
+}
+
+// Signed integer division in C/C++ is terrible. These implementations
+// of Euclidean division and mod are taken from:
+// https://github.com/halide/Halide/blob/1a0552bb6101273a0e007782c07e8dafe9bc5366/src/CodeGen_Internal.cpp#L358-L408
+inline constexpr index_t euclidean_div(index_t a, index_t b) {
+  index_t q = a / b;
+  index_t r = a - q * b;
+  index_t bs = b >> (sizeof(index_t) * 8 - 1);
+  index_t rs = r >> (sizeof(index_t) * 8 - 1);
+  return q - (rs & bs) + (rs & ~bs);
+}
+
+inline constexpr index_t euclidean_mod(index_t a, index_t b) {
+  index_t r = a % b;
+  index_t sign_mask = r >> (sizeof(index_t) * 8 - 1);
+  return r + (sign_mask & abs(b));
+}
+
+inline constexpr index_t add_index(index_t a, index_t b) {
+  if (is_unknown(a) || is_unknown(b)) {
+    return UNK;
+  } else {
+    return a + b;
+  }
+}
+
+inline constexpr index_t sub_index(index_t a, index_t b) {
+  if (is_unknown(a) || is_unknown(b)) {
+    return UNK;
+  } else {
+    return a - b;
+  }
+}
+
+inline constexpr index_t mul_index(index_t a, index_t b) {
+  if (is_unknown(a) || is_unknown(b)) {
+    return UNK;
+  } else {
+    return a * b;
+  }
+}
+
+inline constexpr index_t div_index(index_t a, index_t b) {
+  if (is_unknown(a) || is_unknown(b)) {
+    return UNK;
+  } else {
+    return euclidean_div(a, b);
+  }
+}
+
+inline constexpr index_t mod_index(index_t a, index_t b) {
+  if (is_unknown(a) || is_unknown(b)) {
+    return UNK;
+  } else {
+    return euclidean_mod(a, b);
+  }
+}
+
+inline constexpr index_t min_index(index_t a, index_t b) {
+  if (is_unknown(a) || is_unknown(b)) {
+    return UNK;
+  } else {
+    return a < b ? a : b;
+  }
+}
+
+inline constexpr index_t max_index(index_t a, index_t b) {
+  if (is_unknown(a) || is_unknown(b)) {
+    return UNK;
+  } else {
+    return a > b ? a : b;
   }
 }
 
@@ -126,7 +211,7 @@ class dim {
  public:
   static constexpr index_t Min = Min_;
   static constexpr index_t Extent = Extent_;
-  static constexpr index_t Max = Min != UNK && Extent != UNK ? Min + Extent - 1 : UNK;
+  static constexpr index_t Max = internal::sub_index(internal::add_index(Min, Extent), 1);
   static constexpr index_t Stride = Stride_;
 
   /** Construct a new dim object. If the class template parameters 'Min',
@@ -147,11 +232,11 @@ class dim {
       : dim(other.min(), other.extent(), other.stride()) {
     // We can statically check the compile-time constants, which produces a
     // more convenient compiler error instead of a runtime error.
-    static_assert(Min == UNK || CopyMin == UNK || Min == CopyMin,
+    static_assert(internal::is_unknown(Min) || internal::is_unknown(CopyMin) || Min == CopyMin,
                   "incompatible mins.");
-    static_assert(Extent == UNK || CopyExtent == UNK || Extent == CopyExtent,
+    static_assert(internal::is_unknown(Extent) || internal::is_unknown(CopyExtent) || Extent == CopyExtent,
                   "incompatible extents.");
-    static_assert(Stride == UNK || CopyStride == UNK || Stride == CopyStride,
+    static_assert(internal::is_unknown(Stride) || internal::is_unknown(CopyStride) || Stride == CopyStride,
                   "incompatible strides.");
   }
 
@@ -163,11 +248,11 @@ class dim {
   dim& operator=(const dim<CopyMin, CopyExtent, CopyStride>& other) {
     // We can statically check the compile-time constants, which produces a
     // more convenient compiler error instead of a runtime error.
-    static_assert(Min == UNK || CopyMin == UNK || Min == CopyMin,
+    static_assert(internal::is_unknown(Min) || internal::is_unknown(CopyMin) || Min == CopyMin,
                   "incompatible mins.");
-    static_assert(Extent == UNK || CopyExtent == UNK || Extent == CopyExtent,
+    static_assert(internal::is_unknown(Extent) || internal::is_unknown(CopyExtent) || Extent == CopyExtent,
                   "incompatible extents.");
-    static_assert(Stride == UNK || CopyStride == UNK || Stride == CopyStride,
+    static_assert(internal::is_unknown(Stride) || internal::is_unknown(CopyStride) || Stride == CopyStride,
                   "incompatible strides.");
 
     set_min(other.min());
@@ -179,7 +264,7 @@ class dim {
   /** Index of the first element in this dim. */
   NDARRAY_INLINE index_t min() const { return internal::reconcile<Min>(min_); }
   NDARRAY_INLINE void set_min(index_t min) {
-    if (Min == UNK) {
+    if (internal::is_unknown(Min)) {
       min_ = min;
     } else {
       assert(min == Min);
@@ -188,7 +273,7 @@ class dim {
   /** Number of elements in this dim. */
   NDARRAY_INLINE index_t extent() const { return internal::reconcile<Extent>(extent_); }
   NDARRAY_INLINE void set_extent(index_t extent) {
-    if (Extent == UNK) {
+    if (internal::is_unknown(Extent)) {
       extent_ = extent;
     } else {
       assert(extent == Extent);
@@ -197,7 +282,7 @@ class dim {
   /** Distance in flat indices between neighboring elements in this dim. */
   NDARRAY_INLINE index_t stride() const { return internal::reconcile<Stride>(stride_); }
   NDARRAY_INLINE void set_stride(index_t stride) {
-    if (Stride == UNK) {
+    if (internal::is_unknown(Stride)) {
       stride_ = stride;
     } else {
       assert(stride == Stride);
@@ -379,17 +464,17 @@ auto maxs(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
 
 template <typename Dim>
 bool is_dim_ok(index_t stride, index_t extent, const Dim& dim) {
-  if (dim.stride() == UNK) {
+  if (is_unknown(dim.stride())) {
     // If the dimension has an unknown stride, it's OK, we're resolving the
     // current dim first.
     return true;
   }
-  if (dim.extent() * std::abs(dim.stride()) <= stride) {
+  if (dim.extent() * abs(dim.stride()) <= stride) {
     // The dim is completely inside the proposed stride.
     return true;
   }
   index_t flat_extent = extent * stride;
-  if (std::abs(dim.stride()) >= flat_extent) {
+  if (abs(dim.stride()) >= flat_extent) {
     // The dim is completely outside the proposed stride.
     return true;
   }
@@ -414,10 +499,10 @@ index_t filter_stride(index_t stride, index_t extent, const AllDims& all_dims) {
 template <size_t D, typename AllDims>
 index_t candidate_stride(index_t extent, const AllDims& all_dims) {
   index_t stride_d = std::get<D>(all_dims).stride();
-  if (stride_d == UNK) {
+  if (is_unknown(stride_d)) {
     return std::numeric_limits<index_t>::max();
   }
-  index_t stride = std::max(static_cast<index_t>(1), std::abs(stride_d) * std::get<D>(all_dims).extent());
+  index_t stride = std::max(static_cast<index_t>(1), abs(stride_d) * std::get<D>(all_dims).extent());
   return filter_stride(stride, extent, all_dims);
 }
 
@@ -431,7 +516,7 @@ inline void resolve_unknown_extents() {}
 
 template <typename Dim0, typename... Dims>
 void resolve_unknown_extents(Dim0& dim0, Dims&... dims) {
-  if (dim0.extent() == UNK) {
+  if (is_unknown(dim0.extent())) {
     dim0.set_extent(0);
   }
   resolve_unknown_extents(dims...);
@@ -448,7 +533,7 @@ void resolve_unknown_strides(AllDims& all_dims) {}
 
 template <typename AllDims, typename Dim0, typename... Dims>
 void resolve_unknown_strides(AllDims& all_dims, Dim0& dim0, Dims&... dims) {
-  if (dim0.stride() == UNK) {
+  if (is_unknown(dim0.stride())) {
     constexpr size_t rank = std::tuple_size<AllDims>::value;
     dim0.set_stride(find_stride(dim0.extent(), all_dims, std::make_index_sequence<rank>()));
   }
@@ -846,9 +931,9 @@ shape<Dims...> make_compact_shape(const shape<Dims...>& s, std::index_sequence<I
 template <index_t Min, index_t Extent, index_t Stride, typename DimSrc>
 bool is_dim_compatible(const dim<Min, Extent, Stride>&, const DimSrc& src) {
   return
-    (Min == UNK || src.min() == Min) &&
-    (Extent == UNK || src.extent() == Extent) &&
-    (Stride == UNK || src.stride() == Stride);
+    (is_unknown(Min) || src.min() == Min) &&
+    (is_unknown(Extent) || src.extent() == Extent) &&
+    (is_unknown(Stride) || src.stride() == Stride);
 }
 
 template <typename... DimsDest, typename ShapeSrc, size_t... Is>
@@ -858,9 +943,9 @@ bool is_shape_compatible(const shape<DimsDest...>&, const ShapeSrc& src, std::in
 
 template <typename DimA, typename DimB>
 auto intersect_dims(const DimA& a, const DimB& b) {
-  constexpr index_t Min = DimA::Min == UNK || DimB::Min == UNK ? UNK : (DimA::Min > DimB::Min ? DimA::Min : DimB::Min);
-  constexpr index_t Max = DimA::Max == UNK || DimB::Max == UNK ? UNK : (DimA::Max < DimB::Max ? DimA::Max : DimB::Max);
-  constexpr index_t Extent = Min == UNK || Max == UNK ? UNK : Max - Min + 1;
+  constexpr index_t Min = max_index(DimA::Min, DimB::Min);
+  constexpr index_t Max = min_index(DimA::Max, DimB::Max);
+  constexpr index_t Extent = add_index(sub_index(Max, Min), 1);
   constexpr index_t Stride = DimA::Stride == DimB::Stride ? DimA::Stride : UNK;
   index_t min = std::max(a.min(), b.min());
   index_t max = std::min(a.max(), b.max());
@@ -969,48 +1054,6 @@ void for_each_value_in_order(const Shape& shape,
 
 namespace internal {
 
-inline constexpr index_t abs(index_t a) {
-  return a >= 0 ? a : -a;
-}
-
-// Signed integer division in C/C++ is terrible. These implementations
-// of Euclidean division and mod are taken from:
-// https://github.com/halide/Halide/blob/1a0552bb6101273a0e007782c07e8dafe9bc5366/src/CodeGen_Internal.cpp#L358-L408
-inline constexpr index_t euclidean_div(index_t a, index_t b) {
-  index_t q = a / b;
-  index_t r = a - q * b;
-  index_t bs = b >> (sizeof(index_t) * 8 - 1);
-  index_t rs = r >> (sizeof(index_t) * 8 - 1);
-  return q - (rs & bs) + (rs & ~bs);
-}
-
-inline constexpr index_t euclidean_mod(index_t a, index_t b) {
-  index_t r = a % b;
-  index_t sign_mask = r >> (sizeof(index_t) * 8 - 1);
-  return r + (sign_mask & abs(b));
-}
-
-inline constexpr index_t add_index(index_t a, index_t b) {
-  if (a == UNK || b == UNK) {
-    return UNK;
-  }
-  return a + b;
-}
-
-inline constexpr index_t mul_index(index_t a, index_t b) {
-  if (a == UNK || b == UNK) {
-    return UNK;
-  }
-  return a * b;
-}
-
-inline constexpr index_t div_index(index_t a, index_t b) {
-  if (a == UNK || b == UNK) {
-    return UNK;
-  }
-  return euclidean_div(a, b);
-}
-
 template <index_t InnerMin, index_t InnerExtent, index_t InnerStride,
           index_t OuterMin, index_t OuterExtent, index_t OuterStride>
 bool can_fuse(const nda::dim<InnerMin, InnerExtent, InnerStride>& inner,
@@ -1035,7 +1078,7 @@ auto fuse(const nda::dim<InnerMin, InnerExtent, InnerStride>& inner,
 
 template <index_t Factor, index_t Min, index_t Extent, index_t Stride>
 bool can_split(const nda::dim<Min, Extent, Stride>& d) {
-  return euclidean_mod(d.min(), Factor) == 0 && euclidean_mod(d.extent(), Factor) == 0;
+  return mod_index(d.min(), Factor) == 0 && mod_index(d.extent(), Factor) == 0;
 }
 
 template <index_t Factor, index_t Min, index_t Extent, index_t Stride>
