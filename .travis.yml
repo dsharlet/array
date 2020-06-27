@@ -2,4 +2,7 @@ language: cpp
 install: make
 os: linux
 compiler: clang
-script: make test
+script:
+  - make test
+  - make -C examples/linear_algebra test
+  - make -C examples/resample benchmark

@@ -71,9 +71,6 @@ typedef std::ptrdiff_t index_t;
 // performance matters.
 constexpr index_t UNK = -9;
 
-#define NDARRAY_CHECK_CONSTRAINT(constant, runtime) \
-  assert(constant == runtime || constant == UNK);
-
 namespace internal {
 
 // Given a compile-time static value, reconcile a compile-time static value and
@@ -135,11 +132,10 @@ class dim {
   /** Construct a new dim object. If the class template parameters 'Min',
    * 'Extent', or 'Stride' are not 'UNK', these runtime values must match the
    * compile-time values. */
-  dim(index_t min, index_t extent, index_t stride = Stride)
-    : min_(min), extent_(extent), stride_(stride) {
-    NDARRAY_CHECK_CONSTRAINT(Min, min);
-    NDARRAY_CHECK_CONSTRAINT(Extent, extent);
-    NDARRAY_CHECK_CONSTRAINT(Stride, stride);
+  dim(index_t min, index_t extent, index_t stride = Stride) {
+    set_min(min);
+    set_extent(extent);
+    set_stride(stride);
   }
   dim(index_t extent = Extent) : dim(0, extent) {}
   dim(const dim&) = default;
@@ -174,33 +170,38 @@ class dim {
     static_assert(Stride == UNK || CopyStride == UNK || Stride == CopyStride,
                   "incompatible strides.");
 
-    // Also check the runtime values.
-    NDARRAY_CHECK_CONSTRAINT(Min, other.min());
-    min_ = other.min();
-    NDARRAY_CHECK_CONSTRAINT(Extent, other.extent());
-    extent_ = other.extent();
-    NDARRAY_CHECK_CONSTRAINT(Stride, other.stride());
-    stride_ = other.stride();
+    set_min(other.min());
+    set_extent(other.extent());
+    set_stride(other.stride());
     return *this;
   }
 
   /** Index of the first element in this dim. */
   NDARRAY_INLINE index_t min() const { return internal::reconcile<Min>(min_); }
-  void set_min(index_t min) {
-    NDARRAY_CHECK_CONSTRAINT(Min, min);
-    min_ = min;
+  NDARRAY_INLINE void set_min(index_t min) {
+    if (Min == UNK) {
+      min_ = min;
+    } else {
+      assert(min == Min);
+    }
   }
   /** Number of elements in this dim. */
   NDARRAY_INLINE index_t extent() const { return internal::reconcile<Extent>(extent_); }
-  void set_extent(index_t extent) {
-    NDARRAY_CHECK_CONSTRAINT(Extent, extent);
-    extent_ = extent;
+  NDARRAY_INLINE void set_extent(index_t extent) {
+    if (Extent == UNK) {
+      extent_ = extent;
+    } else {
+      assert(extent == Extent);
+    }
   }
   /** Distance in flat indices between neighboring elements in this dim. */
   NDARRAY_INLINE index_t stride() const { return internal::reconcile<Stride>(stride_); }
-  void set_stride(index_t stride) {
-    NDARRAY_CHECK_CONSTRAINT(Stride, stride);
-    stride_ = stride;
+  NDARRAY_INLINE void set_stride(index_t stride) {
+    if (Stride == UNK) {
+      stride_ = stride;
+    } else {
+      assert(stride == Stride);
+    }
   }
   /** Index of the last element in this dim. */
   NDARRAY_INLINE index_t max() const { return min() + extent() - 1; }
@@ -756,6 +757,17 @@ auto make_dense_shape(index_t dim0_extent, Extents... extents) {
   return make_shape(dense_dim<>(dim0_extent), dim<>(extents)...);
 }
 
+/** Create a new shape using a list of DimIndices to use as the dimensions of
+ * the shape. */
+template <size_t... DimIndices, typename Shape>
+auto select_dims(const Shape& shape) {
+  return make_shape(shape.template dim<DimIndices>()...);
+}
+template <size_t... DimIndices, typename Shape>
+auto reorder(const Shape& shape) {
+  return select_dims<DimIndices...>(shape);
+}
+
 namespace internal {
 
 template<size_t D, typename Dims, typename Fn, typename... Indices,
@@ -862,9 +874,15 @@ auto intersect(const std::tuple<DimsA...>& a, const std::tuple<DimsB...>& b, std
 }
 
 // Call 'fn' with the elements of tuple 'args' unwrapped from the tuple.
+// TODO: When we assume C++17, this can be replaced by std::apply.
 template <typename Fn, typename IndexType, size_t... Is>
-NDARRAY_INLINE auto tuple_arg_to_parameter_pack(Fn&& fn, const IndexType& args, std::index_sequence<Is...>) {
-  fn(std::get<Is>(args)...);
+NDARRAY_INLINE auto apply(Fn&& fn, const IndexType& args, std::index_sequence<Is...>) {
+  return fn(std::get<Is>(args)...);
+}
+
+template <typename Fn, typename IndexType>
+NDARRAY_INLINE auto apply(Fn&& fn, const IndexType& args) {
+  return apply(fn, args, std::make_index_sequence<std::tuple_size<IndexType>::value>());
 }
 
 }  // namespace internal
@@ -872,7 +890,7 @@ NDARRAY_INLINE auto tuple_arg_to_parameter_pack(Fn&& fn, const IndexType& args, 
 /** Make a shape with an equivalent domain of indices, with dense strides. */
 template <typename... Dims>
 auto make_dense(const shape<Dims...>& shape) {
-  constexpr int rank = sizeof...(Dims);
+  constexpr size_t rank = sizeof...(Dims);
   return internal::make_dense_shape(shape.dims(), std::make_index_sequence<rank - 1>());
 }
 
@@ -951,6 +969,27 @@ void for_each_value_in_order(const Shape& shape,
 
 namespace internal {
 
+inline constexpr index_t abs(index_t a) {
+  return a >= 0 ? a : -a;
+}
+
+// Signed integer division in C/C++ is terrible. These implementations
+// of Euclidean division and mod are taken from:
+// https://github.com/halide/Halide/blob/1a0552bb6101273a0e007782c07e8dafe9bc5366/src/CodeGen_Internal.cpp#L358-L408
+inline constexpr index_t euclidean_div(index_t a, index_t b) {
+  index_t q = a / b;
+  index_t r = a - q * b;
+  index_t bs = b >> (sizeof(index_t) * 8 - 1);
+  index_t rs = r >> (sizeof(index_t) * 8 - 1);
+  return q - (rs & bs) + (rs & ~bs);
+}
+
+inline constexpr index_t euclidean_mod(index_t a, index_t b) {
+  index_t r = a % b;
+  index_t sign_mask = r >> (sizeof(index_t) * 8 - 1);
+  return r + (sign_mask & abs(b));
+}
+
 inline constexpr index_t add_index(index_t a, index_t b) {
   if (a == UNK || b == UNK) {
     return UNK;
@@ -965,6 +1004,13 @@ inline constexpr index_t mul_index(index_t a, index_t b) {
   return a * b;
 }
 
+inline constexpr index_t div_index(index_t a, index_t b) {
+  if (a == UNK || b == UNK) {
+    return UNK;
+  }
+  return euclidean_div(a, b);
+}
+
 template <index_t InnerMin, index_t InnerExtent, index_t InnerStride,
           index_t OuterMin, index_t OuterExtent, index_t OuterStride>
 bool can_fuse(const nda::dim<InnerMin, InnerExtent, InnerStride>& inner,
@@ -974,7 +1020,7 @@ bool can_fuse(const nda::dim<InnerMin, InnerExtent, InnerStride>& inner,
 
 template <index_t InnerMin, index_t InnerExtent, index_t InnerStride,
           index_t OuterMin, index_t OuterExtent, index_t OuterStride>
-auto fuse(const nda::dim<InnerMin, InnerExtent, InnerStride> inner,
+auto fuse(const nda::dim<InnerMin, InnerExtent, InnerStride>& inner,
           const nda::dim<OuterMin, OuterExtent, OuterStride>& outer) {
   assert(can_fuse(inner, outer));
   using FusedDim =
@@ -985,6 +1031,27 @@ auto fuse(const nda::dim<InnerMin, InnerExtent, InnerStride> inner,
       inner.min() + outer.min() * inner.extent(),
       inner.extent() * outer.extent(),
       inner.stride());
+}
+
+template <index_t Factor, index_t Min, index_t Extent, index_t Stride>
+bool can_split(const nda::dim<Min, Extent, Stride>& d) {
+  return euclidean_mod(d.min(), Factor) == 0 && euclidean_mod(d.extent(), Factor) == 0;
+}
+
+template <index_t Factor, index_t Min, index_t Extent, index_t Stride>
+auto split(const nda::dim<Min, Extent, Stride>& d) {
+  assert(can_split<Factor>(d));
+  using InnerDim = nda::dim<0, Factor, Stride>;
+  using OuterDim = nda::dim<
+      div_index(Min, Factor),
+      div_index(Extent, Factor),
+      mul_index(Stride, Factor)>;
+  return make_shape(
+      InnerDim(0, Factor, d.stride()),
+      OuterDim(
+          euclidean_div(d.min(), Factor),
+          euclidean_div(d.extent(), Factor),
+          d.stride() * Factor));
 }
 
 // Sort the dims such that strides are increasing from dim 0, and contiguous
@@ -1080,6 +1147,29 @@ auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
     shape_of_rank<rank>(array_to_tuple(dest_dims)));
 }
 
+template <typename Shape>
+auto optimize_shape(const Shape& shape) {
+  // In the general case, dynamically optimize the shape.
+  return dynamic_optimize_shape(shape);
+}
+
+template <typename Dim0>
+auto optimize_shape(const shape<Dim0>& shape) {
+  // Nothing to do for rank 1 shapes.
+  return shape;
+}
+
+template <typename ShapeSrc, typename ShapeDest>
+auto optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
+  return dynamic_optimize_copy_shapes(src, dest);
+}
+
+template <typename Dim0Src, typename Dim0Dest>
+auto optimize_copy_shapes(const shape<Dim0Src>& src, const shape<Dim0Dest>& dest) {
+  // Nothing to do for rank 1 shapes.
+  return std::make_pair(src, dest);
+}
+
 template <typename T>
 T* pointer_add(T* x, index_t offset) {
   return x != nullptr ? x + offset : x;
@@ -1105,7 +1195,7 @@ class shape_traits {
    * and the only attempts to convert the shape to a dense_shape. */
   template <typename Ptr, typename Fn>
   static void for_each_value(const Shape& shape, Ptr base, Fn&& fn) {
-    auto opt_shape = internal::dynamic_optimize_shape(shape);
+    auto opt_shape = internal::optimize_shape(shape);
     for_each_value_in_order(opt_shape, base, fn);
   }
 };
@@ -1137,7 +1227,7 @@ class copy_shape_traits {
                              Fn&& fn) {
     // For this function, we don't care about the order in which the callback is
     // called. Optimize the shapes for memory access order.
-    auto opt_shape = internal::dynamic_optimize_copy_shapes(shape_src, shape_dest);
+    auto opt_shape = internal::optimize_copy_shapes(shape_src, shape_dest);
     const auto& opt_shape_src = opt_shape.first;
     const auto& opt_shape_dest = opt_shape.second;
 
@@ -1157,19 +1247,8 @@ void for_each_index(const Shape& s, Fn&& fn) {
 template <typename Shape, typename Fn>
 void for_all_indices(const Shape& s, Fn&& fn) {
   shape_traits<Shape>::for_each_index(s, [&](const typename Shape::index_type&i) {
-    internal::tuple_arg_to_parameter_pack(fn, i, std::make_index_sequence<Shape::rank()>());
+    internal::apply(fn, i);
   });
-}
-
-/** Create a new shape using a list of DimIndices to use as the dimensions of
- * the shape. */
-template <size_t... DimIndices, typename Shape>
-auto select_dims(const Shape& shape) {
-  return make_shape(shape.template dim<DimIndices>()...);
-}
-template <size_t... DimIndices, typename Shape>
-auto reorder(const Shape& shape) {
-  return select_dims<DimIndices...>(shape);
 }
 
 /** A reference to an array is an object with a shape mapping indices to flat
@@ -1186,8 +1265,8 @@ class array_ref {
   typedef value_type* pointer;
   /** Type of the shape of this array_ref. */
   typedef Shape shape_type;
-  /** Type of the indices used to access this array_ref. */
   typedef typename Shape::index_type index_type;
+  typedef shape_traits<Shape> shape_traits;
   typedef size_t size_type;
 
  private:
@@ -1227,7 +1306,7 @@ class array_ref {
    * order in which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
-    shape_traits<Shape>::for_each_value(shape_, base_, fn);
+    shape_traits::for_each_value(shape_, base_, fn);
   }
 
   /** Pointer to the element at the min index of the shape. */
@@ -1293,8 +1372,9 @@ class array_ref {
     // even after we find a non-equal element
     // (https://github.com/dsharlet/array/issues/4).
     bool result = false;
-    for_each_index(shape_, [&](const index_type& i) {
-      if ((*this)(i) != other(i)) {
+    copy_shape_traits<Shape, Shape>::for_each_value(shape_, base_, other.shape_, other.base_,
+                                                    [&](const value_type& a, const value_type& b) {
+      if (a != b) {
         result = true;
       }
     });
@@ -1331,24 +1411,33 @@ using array_ref_of_rank = array_ref<T, shape_of_rank<Rank>>;
 template <typename T, size_t Rank>
 using dense_array_ref = array_ref<T, dense_shape<Rank>>;
 
+/** Make a new array with shape 'shape', allocated using 'alloc'. */
+template <typename T, typename Shape>
+auto make_array_ref(T* base, const Shape& shape) {
+  return array_ref<T, Shape>(base, shape);
+}
+
 /** A multi-dimensional array container that owns an allocation of memory. This
  * container is designed to mirror the semantics of std::vector where possible.
  */
 template <typename T, typename Shape, typename Alloc = std::allocator<T>>
 class array {
  public:
+  /** Type of the allocator used to allocate memory in this array. */
+  typedef Alloc allocator_type;
+  typedef std::allocator_traits<Alloc> alloc_traits;
   /** Type of the values stored in this array. */
   typedef T value_type;
   typedef value_type& reference;
   typedef const value_type& const_reference;
-  typedef typename std::allocator_traits<Alloc>::pointer pointer;
-  typedef typename std::allocator_traits<Alloc>::const_pointer const_pointer;
+  typedef typename alloc_traits::pointer pointer;
+  typedef typename alloc_traits::const_pointer const_pointer;
   /** Type of the shape of this array. */
   typedef Shape shape_type;
   typedef typename Shape::index_type index_type;
+  typedef shape_traits<Shape> shape_traits;
+  typedef copy_shape_traits<Shape> copy_shape_traits;
   typedef size_t size_type;
-  /** Type of the allocator used to allocate memory in this array. */
-  typedef Alloc allocator_type;
 
  private:
   Alloc alloc_;
@@ -1363,7 +1452,7 @@ class array {
     size_t flat_extent = shape_.flat_extent();
     if (flat_extent > 0) {
       buffer_size_ = flat_extent;
-      buffer_ = std::allocator_traits<Alloc>::allocate(alloc_, buffer_size_);
+      buffer_ = alloc_traits::allocate(alloc_, buffer_size_);
     }
     base_ = buffer_ - shape_.flat_min();
   }
@@ -1372,29 +1461,29 @@ class array {
   void construct() {
     assert(base_ || shape_.empty());
     for_each_value([&](T& x) {
-      std::allocator_traits<Alloc>::construct(alloc_, &x);
+      alloc_traits::construct(alloc_, &x);
     });
   }
   void construct(const T& init) {
     assert(base_ || shape_.empty());
     for_each_value([&](T& x) {
-      std::allocator_traits<Alloc>::construct(alloc_, &x, init);
+      alloc_traits::construct(alloc_, &x, init);
     });
   }
   void copy_construct(const array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
-    copy_shape_traits<Shape>::for_each_value(other.shape(), other.base(), shape_, base_,
-                                             [&](const value_type& src, value_type& dest) {
-      std::allocator_traits<Alloc>::construct(alloc_, &dest, src);
+    copy_shape_traits::for_each_value(other.shape(), other.base(), shape_, base_,
+                                      [&](const value_type& src, value_type& dest) {
+      alloc_traits::construct(alloc_, &dest, src);
     });
   }
   void move_construct(array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
-    copy_shape_traits<Shape>::for_each_value(other.shape(), other.base(), shape_, base_,
-                                             [&](value_type& src, value_type& dest) {
-      std::allocator_traits<Alloc>::construct(alloc_, &dest, std::move(src));
+    copy_shape_traits::for_each_value(other.shape(), other.base(), shape_, base_,
+                                      [&](value_type& src, value_type& dest) {
+      alloc_traits::construct(alloc_, &dest, std::move(src));
     });
   }
 
@@ -1402,7 +1491,7 @@ class array {
   void destroy() {
     assert(base_ || shape_.empty());
     for_each_value([&](T& x) {
-      std::allocator_traits<Alloc>::destroy(alloc_, &x);
+      alloc_traits::destroy(alloc_, &x);
     });
   }
 
@@ -1411,7 +1500,7 @@ class array {
       destroy();
       base_ = nullptr;
       shape_ = Shape();
-      std::allocator_traits<Alloc>::deallocate(alloc_, buffer_, buffer_size_);
+      alloc_traits::deallocate(alloc_, buffer_, buffer_size_);
       buffer_ = nullptr;
     }
   }
@@ -1437,7 +1526,7 @@ class array {
   /** Copy construct from another array 'other', using copy's allocator. This is
    * a deep copy of the contents of 'other'. */
   array(const array& other)
-      : array(std::allocator_traits<Alloc>::select_on_container_copy_construction(other.get_allocator())) {
+      : array(alloc_traits::select_on_container_copy_construction(other.get_allocator())) {
     assign(other);
   }
   /** Copy construct from another array 'other'. The array is allocated using
@@ -1483,7 +1572,7 @@ class array {
       return *this;
     }
 
-    if (std::allocator_traits<Alloc>::propagate_on_container_copy_assignment::value) {
+    if (alloc_traits::propagate_on_container_copy_assignment::value) {
       if (alloc_ != other.get_allocator()) {
         deallocate();
       }
@@ -1600,11 +1689,11 @@ class array {
    * which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) {
-    shape_traits<Shape>::for_each_value(shape_, base_, fn);
+    shape_traits::for_each_value(shape_, base_, fn);
   }
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
-    shape_traits<Shape>::for_each_value(shape_, base_, fn);
+    shape_traits::for_each_value(shape_, base_, fn);
   }
 
   /** Pointer to the element at the min index of the shape. */
@@ -1643,8 +1732,8 @@ class array {
 
     // Move the common elements to the new array.
     Shape intersection = intersect(shape_, new_shape);
-    copy_shape_traits<Shape>::for_each_value(shape_, base_, intersection, new_array.base(),
-                                             [](T& src, T& dest) {
+    copy_shape_traits::for_each_value(shape_, base_, intersection, new_array.base(),
+                                      [](T& src, T& dest) {
       dest = std::move(src);
     });
 
@@ -1694,7 +1783,7 @@ class array {
   void swap(array& other) {
     using std::swap;
 
-    if (std::allocator_traits<Alloc>::propagate_on_container_swap::value) {
+    if (alloc_traits::propagate_on_container_swap::value) {
       swap(alloc_, other.alloc_);
       swap(buffer_, other.buffer_);
       swap(buffer_size_, other.buffer_size_);

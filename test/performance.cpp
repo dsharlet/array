@@ -36,7 +36,7 @@ TEST(performance_dense_copy) {
   check_pattern(c);
 
   // copy should be about as fast as memcpy.
-  ASSERT_LT(copy_time, memcpy_time * 1.2);
+  ASSERT_LT(copy_time, memcpy_time * 1.5);
 }
 
 TEST(performance_dense_cropped_copy) {
@@ -61,7 +61,7 @@ TEST(performance_dense_cropped_copy) {
   check_pattern(c);
 
   // copy should be about as fast as memcpy.
-  ASSERT_LT(copy_time, memcpy_time * 1.2);
+  ASSERT_LT(copy_time, memcpy_time * 1.5);
 }
 
 TEST(performance_copy) {

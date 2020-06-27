@@ -23,12 +23,31 @@ void test_crop() {
   fill_pattern(base);
 
   auto crop_xy = crop(base, 2, 1, 96, 77, crop_origin::crop);
+  ASSERT_EQ(crop_xy.x().min(), 2);
+  ASSERT_EQ(crop_xy.y().min(), 1);
+  ASSERT_EQ(crop_xy.x().max(), 95);
+  ASSERT_EQ(crop_xy.y().max(), 76);
   check_pattern(crop_xy);
 
   auto crop_zero_xy = crop(base, 3, 2, 95, 76, crop_origin::zero);
+  ASSERT_EQ(crop_zero_xy.x().min(), 0);
+  ASSERT_EQ(crop_zero_xy.y().min(), 0);
+  ASSERT_EQ(crop_zero_xy.x().max(), 91);
+  ASSERT_EQ(crop_zero_xy.y().max(), 73);
   check_pattern(crop_zero_xy, std::make_tuple(3, 2, 0));
 
   auto crop2_xy = crop(crop_xy, 4, 3, 92, 73, crop_origin::crop);
+  ASSERT_EQ(crop2_xy.x().min(), 4);
+  ASSERT_EQ(crop2_xy.y().min(), 3);
+  ASSERT_EQ(crop2_xy.x().max(), 91);
+  ASSERT_EQ(crop2_xy.y().max(), 72);
+  check_pattern(crop2_xy);
+
+  auto out_of_bounds_crop_xy = crop(base, 50, 40, 105, 70, crop_origin::crop);
+  ASSERT_EQ(out_of_bounds_crop_xy.x().min(), 50);
+  ASSERT_EQ(out_of_bounds_crop_xy.y().min(), 40);
+  ASSERT_EQ(out_of_bounds_crop_xy.x().max(), 99);
+  ASSERT_EQ(out_of_bounds_crop_xy.y().max(), 69);
   check_pattern(crop2_xy);
 }
 
