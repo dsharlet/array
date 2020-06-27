@@ -27,7 +27,7 @@ const std::pair<const char*, continuous_kernel> benchmarks[] = {
   { "linear", linear },
   { "quadratic", interpolating_quadratic },
   { "cubic", interpolating_cubic },
-  { "lanczos4", lanczos<4> },
+  { "lanczos3", lanczos<3> },
 };
 
 template <typename Image, index_t Channels>
