@@ -156,7 +156,7 @@ inline kernel_array build_kernels(
     nda::index_t extent = max - min + 1;
     assert(extent > 0);
     assert(sum > 0.0f);
-    nda::dense_array<float, 1> kernel_x({nda::dense_dim<>(min, extent)});
+    nda::dense_array<float, 1> kernel_x(nda::dense_shape<1>(nda::dense_dim<>(min, extent)));
     for (nda::index_t rx : kernel_x.x()) {
       kernel_x(rx) = buffer(rx) / sum;
     }
