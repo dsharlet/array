@@ -128,10 +128,10 @@ inline kernel_array build_kernels(
   // low pass filtering, e.g. trapezoid kernels.
   float kernel_scale = std::min(to_float(rate), 1.0f);
 
-  for (nda::index_t out_x : out) {
+  for (nda::index_t x : out) {
     // Compute the fractional position of the input corresponding to
     // this output.
-    const float in_x = to_float((out_x + half) / rate - half);
+    const float in_x = to_float((x + half) / rate - half);
 
     // Fill the buffer, while keeping track of the sum of, first, and
     // last non-zero kernel values,
@@ -156,13 +156,13 @@ inline kernel_array build_kernels(
     nda::index_t extent = max - min + 1;
     assert(extent > 0);
     assert(sum > 0.0f);
-    nda::dense_array_ref<float, 1> cropped_kernel(&buffer(min), nda::dense_dim<>(min, extent));
-    for (nda::index_t ry : cropped_kernel.x()) {
-      cropped_kernel(ry) /= sum;
+    nda::dense_array<float, 1> kernel_x({nda::dense_dim<>(min, extent)});
+    for (nda::index_t rx : kernel_x.x()) {
+      kernel_x(rx) = buffer(rx) / sum;
     }
 
     // Make a copy without the padding, and store it in the kernel array.
-    kernels(out_x) = make_dense_copy(cropped_kernel);
+    kernels(x) = std::move(kernel_x);
   }
 
   return kernels;
