@@ -1266,7 +1266,7 @@ class array_ref {
   /** Type of the shape of this array_ref. */
   typedef Shape shape_type;
   typedef typename Shape::index_type index_type;
-  typedef shape_traits<Shape> shape_traits;
+  typedef shape_traits<Shape> shape_traits_type;
   typedef size_t size_type;
 
  private:
@@ -1306,7 +1306,7 @@ class array_ref {
    * order in which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
-    shape_traits::for_each_value(shape_, base_, fn);
+    shape_traits_type::for_each_value(shape_, base_, fn);
   }
 
   /** Pointer to the element at the min index of the shape. */
@@ -1435,8 +1435,8 @@ class array {
   /** Type of the shape of this array. */
   typedef Shape shape_type;
   typedef typename Shape::index_type index_type;
-  typedef shape_traits<Shape> shape_traits;
-  typedef copy_shape_traits<Shape> copy_shape_traits;
+  typedef shape_traits<Shape> shape_traits_type;
+  typedef copy_shape_traits<Shape> copy_shape_traits_type;
   typedef size_t size_type;
 
  private:
@@ -1473,7 +1473,7 @@ class array {
   void copy_construct(const array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
-    copy_shape_traits::for_each_value(other.shape(), other.base(), shape_, base_,
+    copy_shape_traits_type::for_each_value(other.shape(), other.base(), shape_, base_,
                                       [&](const value_type& src, value_type& dest) {
       alloc_traits::construct(alloc_, &dest, src);
     });
@@ -1481,7 +1481,7 @@ class array {
   void move_construct(array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
-    copy_shape_traits::for_each_value(other.shape(), other.base(), shape_, base_,
+    copy_shape_traits_type::for_each_value(other.shape(), other.base(), shape_, base_,
                                       [&](value_type& src, value_type& dest) {
       alloc_traits::construct(alloc_, &dest, std::move(src));
     });
@@ -1689,11 +1689,11 @@ class array {
    * which 'fn' is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) {
-    shape_traits::for_each_value(shape_, base_, fn);
+    shape_traits_type::for_each_value(shape_, base_, fn);
   }
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
-    shape_traits::for_each_value(shape_, base_, fn);
+    shape_traits_type::for_each_value(shape_, base_, fn);
   }
 
   /** Pointer to the element at the min index of the shape. */
@@ -1732,7 +1732,7 @@ class array {
 
     // Move the common elements to the new array.
     Shape intersection = intersect(shape_, new_shape);
-    copy_shape_traits::for_each_value(shape_, base_, intersection, new_array.base(),
+    copy_shape_traits_type::for_each_value(shape_, base_, intersection, new_array.base(),
                                       [](T& src, T& dest) {
       dest = std::move(src);
     });
