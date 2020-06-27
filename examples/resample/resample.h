@@ -111,7 +111,7 @@ using kernel_array = nda::dense_array<nda::dense_array<float, 1>, 1>;
 
 // Build kernels for each index in a dim 'out' to sample from a dim 'in'.
 // The kernels are guaranteed not to read out of bounds of 'in'.
-kernel_array build_kernels(
+inline kernel_array build_kernels(
     nda::dim<> in, nda::dim<> out, const rational<nda::index_t>& rate,
     continuous_kernel kernel) {
   // The constant 1/2 as a rational.
