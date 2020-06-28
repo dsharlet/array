@@ -178,20 +178,148 @@ inline constexpr index_t max_index(index_t a, index_t b) {
 
 /** An iterator over a range of indices, enabling range-based for loops for
  * indices. */
-class dim_iterator {
+class index_iterator {
   index_t i_;
 
  public:
-  dim_iterator(index_t i) : i_(i) {}
+  index_iterator(index_t i) : i_(i) {}
 
-  NDARRAY_INLINE bool operator==(const dim_iterator& r) const { return i_ == r.i_; }
-  NDARRAY_INLINE bool operator!=(const dim_iterator& r) const { return i_ != r.i_; }
+  NDARRAY_INLINE bool operator==(const index_iterator& r) const { return i_ == r.i_; }
+  NDARRAY_INLINE bool operator!=(const index_iterator& r) const { return i_ != r.i_; }
 
   NDARRAY_INLINE index_t operator *() const { return i_; }
 
-  NDARRAY_INLINE dim_iterator operator++(int) { return dim_iterator(i_++); }
-  NDARRAY_INLINE dim_iterator& operator++() { ++i_; return *this; }
+  NDARRAY_INLINE index_iterator operator++(int) { return index_iterator(i_++); }
+  NDARRAY_INLINE index_iterator& operator++() { ++i_; return *this; }
 };
+
+/** Describes a range of indices. The template parameters enable providing
+ * compile time constants for the 'min' and 'extent' of the range. These
+ * parameters Values not in the range [min, min + extent) are considered to be
+ * out of bounds. */
+template <index_t Min_ = UNK, index_t Extent_ = UNK>
+class index_range {
+ protected:
+  index_t min_;
+  index_t extent_;
+
+ public:
+  static constexpr index_t Min = Min_;
+  static constexpr index_t Extent = Extent_;
+  static constexpr index_t Max = internal::sub_index(internal::add_index(Min, Extent), 1);
+
+  /** Construct a new index_range object. If the class template parameters 'Min'
+   * or 'Extent' are not 'UNK', these runtime values must match the
+   * compile-time values. */
+  index_range(index_t min, index_t extent) {
+    set_min(min);
+    set_extent(extent);
+  }
+  index_range(index_t extent = Extent) : index_range(0, extent) {}
+  index_range(const index_range&) = default;
+  index_range(index_range&&) = default;
+  /** Copy another index_range object, possibly with different compile-time template
+   * parameters. */
+  template <index_t CopyMin, index_t CopyExtent>
+  index_range(const index_range<CopyMin, CopyExtent>& other)
+      : index_range(other.min(), other.extent()) {
+    // We can statically check the compile-time constants, which produces a
+    // more convenient compiler error instead of a runtime error.
+    static_assert(internal::is_unknown(Min) || internal::is_unknown(CopyMin) || Min == CopyMin,
+                  "incompatible mins.");
+    static_assert(internal::is_unknown(Extent) || internal::is_unknown(CopyExtent) || Extent == CopyExtent,
+                  "incompatible extents.");
+  }
+
+  index_range& operator=(const index_range&) = default;
+  index_range& operator=(index_range&&) = default;
+  /** Copy assignment of a index_range object, possibly with different compile-time
+   * template parameters. */
+  template <index_t CopyMin, index_t CopyExtent>
+  index_range& operator=(const index_range<CopyMin, CopyExtent>& other) {
+    // We can statically check the compile-time constants, which produces a
+    // more convenient compiler error instead of a runtime error.
+    static_assert(internal::is_unknown(Min) || internal::is_unknown(CopyMin) || Min == CopyMin,
+                  "incompatible mins.");
+    static_assert(internal::is_unknown(Extent) || internal::is_unknown(CopyExtent) || Extent == CopyExtent,
+                  "incompatible extents.");
+
+    set_min(other.min());
+    set_extent(other.extent());
+    return *this;
+  }
+
+  /** Index of the first element in this index_range. */
+  NDARRAY_INLINE index_t min() const { return internal::reconcile<Min>(min_); }
+  NDARRAY_INLINE void set_min(index_t min) {
+    if (internal::is_unknown(Min)) {
+      min_ = min;
+    } else {
+      assert(min == Min);
+    }
+  }
+  /** Number of elements in this index_range. */
+  NDARRAY_INLINE index_t extent() const { return internal::reconcile<Extent>(extent_); }
+  NDARRAY_INLINE void set_extent(index_t extent) {
+    if (internal::is_unknown(Extent)) {
+      extent_ = extent;
+    } else {
+      assert(extent == Extent);
+    }
+  }
+  /** Index of the last element in this index_range. */
+  NDARRAY_INLINE index_t max() const { return min() + extent() - 1; }
+
+  /** Returns true if 'at' is within the range [min(), max()]. */
+  NDARRAY_INLINE bool is_in_range(index_t at) const { return min() <= at && at <= max(); }
+
+  /** Make an iterator referring to the first element in this index_range. */
+  index_iterator begin() const { return index_iterator(min()); }
+  /** Make an iterator referring to one past the last element in this index_range. */
+  index_iterator end() const { return index_iterator(max() + 1); }
+
+  /** Two index_range objects are considered equal if their mins and extents
+   * are equal. */
+  template <index_t OtherMin, index_t OtherExtent>
+  bool operator==(const index_range<OtherMin, OtherExtent>& other) const {
+    return min() == other.min() && extent() == other.extent();
+  }
+  template <index_t OtherMin, index_t OtherExtent>
+  bool operator!=(const index_range<OtherMin, OtherExtent>& other) const {
+    return !operator==(other);
+  }
+};
+
+template <index_t Min, index_t Extent>
+index_iterator begin(const index_range<Min, Extent>& d) {
+  return d.begin();
+}
+template <index_t Min, index_t Extent>
+index_iterator end(const index_range<Min, Extent>& d) {
+  return d.end();
+}
+
+/** Clamp an index to the range [min, max]. */
+inline index_t clamp(index_t x, index_t min, index_t max) {
+  return std::min(std::max(x, min), max);
+}
+
+/** Clamp an index to the range described by an index_range. */
+template <typename Dim>
+index_t clamp(index_t x, const Dim& d) {
+  return clamp(x, d.min(), d.max());
+}
+
+template <index_t MinX, index_t ExtentX, index_t MinR, index_t ExtentR>
+inline auto clamp(const index_range<MinX, ExtentX>& x, const index_range<MinR, ExtentR>& y) {
+  constexpr index_t Min = internal::max_index(MinX, MinR);
+  constexpr index_t Max = internal::min_index(x.Max, y.Max);
+  constexpr index_t Extent = internal::add_index(internal::sub_index(Max, Min), 1);
+  index_t min = std::max(x.min(), y.min());
+  index_t max = std::min(x.max(), y.max());
+  index_t extent = max - min + 1;
+  return index_range<Min, Extent>(min, extent);
+}
 
 /** Describes one dimension of an array. The template parameters enable
  * providing compile time constants for the 'min', 'extent', and 'stride' of the
@@ -202,24 +330,21 @@ class dim_iterator {
 // TODO: Consider adding helper class constant<Value> to use for the members of
 // dim. (https://github.com/dsharlet/array/issues/1)
 template <index_t Min_ = UNK, index_t Extent_ = UNK, index_t Stride_ = UNK>
-class dim {
+class dim : public index_range<Min_, Extent_> {
  protected:
-  index_t min_;
-  index_t extent_;
   index_t stride_;
 
  public:
-  static constexpr index_t Min = Min_;
-  static constexpr index_t Extent = Extent_;
-  static constexpr index_t Max = internal::sub_index(internal::add_index(Min, Extent), 1);
+  using index_range = index_range<Min_, Extent_>;
+  using index_range::Min;
+  using index_range::Extent;
+  using index_range::Max;
   static constexpr index_t Stride = Stride_;
 
   /** Construct a new dim object. If the class template parameters 'Min',
    * 'Extent', or 'Stride' are not 'UNK', these runtime values must match the
    * compile-time values. */
-  dim(index_t min, index_t extent, index_t stride = Stride) {
-    set_min(min);
-    set_extent(extent);
+  dim(index_t min, index_t extent, index_t stride = Stride) : index_range(min, extent) {
     set_stride(stride);
   }
   dim(index_t extent = Extent) : dim(0, extent) {}
@@ -232,10 +357,6 @@ class dim {
       : dim(other.min(), other.extent(), other.stride()) {
     // We can statically check the compile-time constants, which produces a
     // more convenient compiler error instead of a runtime error.
-    static_assert(internal::is_unknown(Min) || internal::is_unknown(CopyMin) || Min == CopyMin,
-                  "incompatible mins.");
-    static_assert(internal::is_unknown(Extent) || internal::is_unknown(CopyExtent) || Extent == CopyExtent,
-                  "incompatible extents.");
     static_assert(internal::is_unknown(Stride) || internal::is_unknown(CopyStride) || Stride == CopyStride,
                   "incompatible strides.");
   }
@@ -248,10 +369,6 @@ class dim {
   dim& operator=(const dim<CopyMin, CopyExtent, CopyStride>& other) {
     // We can statically check the compile-time constants, which produces a
     // more convenient compiler error instead of a runtime error.
-    static_assert(internal::is_unknown(Min) || internal::is_unknown(CopyMin) || Min == CopyMin,
-                  "incompatible mins.");
-    static_assert(internal::is_unknown(Extent) || internal::is_unknown(CopyExtent) || Extent == CopyExtent,
-                  "incompatible extents.");
     static_assert(internal::is_unknown(Stride) || internal::is_unknown(CopyStride) || Stride == CopyStride,
                   "incompatible strides.");
 
@@ -261,24 +378,10 @@ class dim {
     return *this;
   }
 
-  /** Index of the first element in this dim. */
-  NDARRAY_INLINE index_t min() const { return internal::reconcile<Min>(min_); }
-  NDARRAY_INLINE void set_min(index_t min) {
-    if (internal::is_unknown(Min)) {
-      min_ = min;
-    } else {
-      assert(min == Min);
-    }
-  }
-  /** Number of elements in this dim. */
-  NDARRAY_INLINE index_t extent() const { return internal::reconcile<Extent>(extent_); }
-  NDARRAY_INLINE void set_extent(index_t extent) {
-    if (internal::is_unknown(Extent)) {
-      extent_ = extent;
-    } else {
-      assert(extent == Extent);
-    }
-  }
+  using index_range::min;
+  using index_range::max;
+  using index_range::extent;
+
   /** Distance in flat indices between neighboring elements in this dim. */
   NDARRAY_INLINE index_t stride() const { return internal::reconcile<Stride>(stride_); }
   NDARRAY_INLINE void set_stride(index_t stride) {
@@ -288,19 +391,9 @@ class dim {
       assert(stride == Stride);
     }
   }
-  /** Index of the last element in this dim. */
-  NDARRAY_INLINE index_t max() const { return min() + extent() - 1; }
 
   /** Offset of the index 'at' in this dim in the flat array. */
   NDARRAY_INLINE index_t flat_offset(index_t at) const { return (at - min()) * stride(); }
-
-  /** Returns true if 'at' is within the range [min(), max()]. */
-  NDARRAY_INLINE bool is_in_range(index_t at) const { return min() <= at && at <= max(); }
-
-  /** Make an iterator referring to the first element in this dim. */
-  dim_iterator begin() const { return dim_iterator(min()); }
-  /** Make an iterator referring to one past the last element in this dim. */
-  dim_iterator end() const { return dim_iterator(max() + 1); }
 
   /** Two dim objects are considered equal if their mins, extents, and strides
    * are equal. */
@@ -313,15 +406,6 @@ class dim {
     return !operator==(other);
   }
 };
-
-template <index_t Min, index_t Extent, index_t Stride>
-dim_iterator begin(const dim<Min, Extent, Stride>& d) {
-  return d.begin();
-}
-template <index_t Min, index_t Extent, index_t Stride>
-dim_iterator end(const dim<Min, Extent, Stride>& d) {
-  return d.end();
-}
 
 /** A specialization of 'dim' where the compile-time stride parameter is known
  * to be one. */
@@ -337,17 +421,6 @@ using strided_dim = dim<UNK, UNK, Stride>;
  * to be zero. */
 template <index_t Min = UNK, index_t Extent = UNK>
 using broadcast_dim = dim<Min, Extent, 0>;
-
-/** Clamp an index to the range [min, max]. */
-inline index_t clamp(index_t x, index_t min, index_t max) {
-  return std::min(std::max(x, min), max);
-}
-
-/** Clamp an index to the range described by a dim. */
-template <typename Dim>
-index_t clamp(index_t x, const Dim& d) {
-  return clamp(x, d.min(), d.max());
-}
 
 namespace internal {
 
