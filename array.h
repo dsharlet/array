@@ -552,6 +552,21 @@ void resolve_unknowns(Dims& dims) {
   resolve_unknown_strides(dims, std::make_index_sequence<rank>());
 }
 
+template <typename Dim>
+bool is_known(const Dim& dim) {
+  return is_known(dim.min()) && is_known(dim.extent()) && is_known(dim.stride());
+}
+
+template<typename Dims, size_t... Is>
+bool all_known(const Dims& dims, std::index_sequence<Is...>) {
+  return all(is_known(std::get<Is>(dims))...);
+}
+
+template<typename Dims>
+bool all_known(const Dims& s) {
+  return all_known(s, std::make_index_sequence<std::tuple_size<Dims>::value>());
+}
+
 // A helper to transform an array to a tuple.
 template <typename T, typename... Ts, size_t... Is>
 std::array<T, sizeof...(Is)> tuple_to_array(const std::tuple<Ts...>& t, std::index_sequence<Is...>) {
@@ -626,9 +641,11 @@ class shape {
   /** When constructing shapes, unknown extents are set to 0, and unknown
    * strides are set to the currently largest known stride. This is done in
    * innermost-to-outermost order. */
-  shape() { internal::resolve_unknowns(dims_); }
-  shape(std::tuple<Dims...> dims) : dims_(std::move(dims)) { internal::resolve_unknowns(dims_); }
-  shape(Dims... dims) : dims_(std::move(dims)...) { internal::resolve_unknowns(dims_); }
+  // TODO: Don't resolve unknowns upon shape construction, do it only when
+  // constructing arrays (and not array_refs).
+  shape() { resolve_unknowns(); }
+  shape(std::tuple<Dims...> dims) : dims_(std::move(dims)) { resolve_unknowns(); }
+  shape(Dims... dims) : dims_(std::move(dims)...) { resolve_unknowns(); }
   shape(const shape&) = default;
   shape(shape&&) = default;
   /** Construct this shape from a different type of shape. 'conversion' must
@@ -656,6 +673,18 @@ class shape {
 
   /** The type of an index for this shape. */
   typedef typename internal::tuple_of_n<index_t, rank()>::type index_type;
+
+  /* When constructing arrays, unknown extents are set to 0, and unknown
+   * strides are set to the currently largest known stride. This is done in
+   * innermost-to-outermost order. */
+  void resolve_unknowns() {
+    internal::resolve_unknowns(dims_);
+  }
+
+  /** Check if all values of the shape are known. */
+  bool is_known() {
+    return internal::all_known(dims_);
+  }
 
   /** Returns true if the index 'indices' are in range of this shape. */
   bool is_in_range(const index_type& indices) const {
@@ -802,6 +831,8 @@ class shape<> {
 
   typedef std::tuple<> index_type;
 
+  void resolve_unknowns() {}
+
   bool is_in_range(const std::tuple<>&) const { return true; }
   bool is_in_range() const { return true; }
 
@@ -924,7 +955,7 @@ auto make_dense_shape(const Shape& dims, std::index_sequence<Is...>) {
 }
 
 template <typename... Dims, size_t... Is>
-shape<Dims...> make_compact_shape(const shape<Dims...>& s, std::index_sequence<Is...>) {
+shape<Dims...> without_strides(const shape<Dims...>& s, std::index_sequence<Is...>) {
   return {{s.template dim<Is>().min(), s.template dim<Is>().extent()}...};
 }
 
@@ -983,7 +1014,9 @@ auto make_dense(const shape<Dims...>& shape) {
  * Only required strides are respected. */
 template <typename Shape>
 Shape make_compact(const Shape& s) {
-  return internal::make_compact_shape(s, std::make_index_sequence<Shape::rank()>());
+  Shape without_strides = internal::without_strides(s, std::make_index_sequence<Shape::rank()>());
+  without_strides.resolve_unknowns();
+  return without_strides;
 }
 
 /** An arbitrary shape (no compile-time constant parameters) with the specified
@@ -1320,7 +1353,9 @@ class array_ref {
   /** Make an array_ref to the given 'base' pointer, interpreting it as having
    * the shape 'shape'. */
   array_ref(pointer base = nullptr, Shape shape = Shape())
-      : base_(base), shape_(std::move(shape)) {}
+      : base_(base), shape_(std::move(shape)) {
+    assert(shape_.is_known());
+  }
   /** The copy constructor of a ref is a shallow copy. */
   array_ref(const array_ref& other) = default;
   array_ref(array_ref&& other) = default;
@@ -1441,6 +1476,7 @@ class array_ref {
    * 'offset'. */
   void set_shape(Shape new_shape, index_t offset = 0) {
     shape_ = std::move(new_shape);
+    assert(shape_.is_known());
     base_ = internal::pointer_add(base_, offset);
   }
 };
@@ -1492,6 +1528,7 @@ class array {
   // After allocate the array is allocated but uninitialized.
   void allocate() {
     assert(!buffer_);
+    shape_.resolve_unknowns();
     size_t flat_extent = shape_.flat_extent();
     if (flat_extent > 0) {
       buffer_size_ = flat_extent;
@@ -1551,7 +1588,11 @@ class array {
  public:
   /** Construct an array with a default constructed Shape. Most shapes by
    * default are empty, but a Shape with non-zero compile-time constants for all
-   * extents will be non-empty. */
+   * extents will be non-empty.
+   *
+   * When constructing arrays, unknown extents are set to 0, and unknown
+   * strides are set to the currently largest known stride. This is done in
+   * innermost-to-outermost order. */
   array() : array(Shape()) {}
   explicit array(const Alloc& alloc) : array(Shape(), alloc) {}
   /** Construct an array with a particular 'shape', allocated by 'alloc'. All
@@ -1703,6 +1744,7 @@ class array {
   /** Assign the contents of this array to have 'shape' with each element copy
    * constructed from 'value'. */
   void assign(Shape shape, const T& value) {
+    shape.resolve_unknowns();
     if (shape_ == shape) {
       destroy();
     } else {
@@ -1774,7 +1816,7 @@ class array {
     array<T, Shape, Alloc> new_array(new_shape);
 
     // Move the common elements to the new array.
-    Shape intersection = intersect(shape_, new_shape);
+    Shape intersection = intersect(shape_, new_array.shape());
     copy_shape_traits_type::for_each_value(shape_, base_, intersection, new_array.base(),
                                       [](T& src, T& dest) {
       dest = std::move(src);
@@ -1787,6 +1829,7 @@ class array {
   /** Change the shape of the array to 'new_shape', and move the base pointer by
    * 'offset'. */
   void set_shape(Shape new_shape, index_t offset = 0) {
+    assert(new_shape.is_known());
     assert(new_shape.is_subset_of(shape(), -offset));
     shape_ = std::move(new_shape);
     base_ = internal::pointer_add(base_, offset);
