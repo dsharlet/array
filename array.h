@@ -208,6 +208,7 @@ class index_range {
   static constexpr index_t Extent = Extent_;
   static constexpr index_t Max = internal::sub_index(internal::add_index(Min, Extent), 1);
 
+  index_range() : index_range(Min_, Extent_) {}
   /** Construct a new index_range object. If the class template parameters 'Min'
    * or 'Extent' are not 'UNK', these runtime values must match the
    * compile-time values. */
@@ -215,7 +216,7 @@ class index_range {
     set_min(min);
     set_extent(extent);
   }
-  index_range(index_t extent = Extent) : index_range(0, extent) {}
+  index_range(index_t extent) : index_range(0, extent) {}
   index_range(const index_range&) = default;
   index_range(index_range&&) = default;
   /** Copy another index_range object, possibly with different compile-time template
@@ -336,9 +337,11 @@ class dim : public index_range<Min_, Extent_> {
 
  public:
   using index_range = index_range<Min_, Extent_>;
+
   using index_range::Min;
   using index_range::Extent;
   using index_range::Max;
+
   static constexpr index_t Stride = Stride_;
 
   /** Construct a new dim object. If the class template parameters 'Min',
@@ -348,6 +351,7 @@ class dim : public index_range<Min_, Extent_> {
     set_stride(stride);
   }
   dim(index_t extent = Extent) : dim(0, extent) {}
+  dim(const index_range& range, index_t stride = Stride) : dim(range.min(), range.extent(), stride) {}
   dim(const dim&) = default;
   dim(dim&&) = default;
   /** Copy another dim object, possibly with different compile-time template
@@ -499,6 +503,21 @@ template <typename Dims, size_t... Is>
 index_t flat_max(const Dims& dims, std::index_sequence<Is...>) {
   return sum((std::get<Is>(dims).extent() - 1) *
               std::max(static_cast<index_t>(0), std::get<Is>(dims).stride())...);
+}
+
+template <index_t DimMin, index_t DimExtent, index_t DimStride>
+auto crop_dim(const dim<DimMin, DimExtent, DimStride>& d, index_t x) {
+  return dim<UNK, 1, DimStride>(x, 1, d.stride());
+}
+
+template <index_t DimMin, index_t DimExtent, index_t Stride, index_t CropMin, index_t CropExtent>
+auto crop_dim(const dim<DimMin, DimExtent, Stride>& d, const index_range<CropMin, CropExtent>& x) {
+  return dim<CropMin, CropExtent, Stride>(x.min(), x.extent(), d.stride());
+}
+
+template <typename Dims, typename Ranges, size_t... Is>
+auto crop_dims(const Dims& dims, const Ranges& ranges, std::index_sequence<Is...>) {
+  return std::make_tuple(crop_dim(std::get<Is>(dims), std::get<Is>(ranges))...);
 }
 
 // Checks if all indices are in range of each corresponding dim.
@@ -698,7 +717,34 @@ struct all_integral<T, Args...> {
       std::is_convertible<T, index_t>::value && all_integral<Args...>::value;
 };
 
+template<typename... Args>
+struct all_ranges : std::false_type {};
+
+template<>
+struct all_ranges<> : std::true_type {};
+
+template<typename T, typename... Args>
+struct all_ranges<T, Args...> {
+  static constexpr bool value =
+      (std::is_convertible<T, index_t>::value || std::is_constructible<T, index_range<>>::value) &&
+      all_ranges<Args...>::value;
+};
+
 }  // namespace internal
+
+template <typename... Dims>
+class shape;
+
+/** Helper function to make a tuple from a variadic list of dims. */
+template <typename... Dims>
+auto make_shape(Dims... dims) {
+  return shape<Dims...>(std::forward<Dims>(dims)...);
+}
+
+template <typename... Dims>
+shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
+  return shape<Dims...>(dims);
+}
 
 /** A list of 'dim' objects describing a multi-dimensional space of indices.
  * The 'rank' of a shape refers to the number of dimensions in the shape.
@@ -776,6 +822,12 @@ class shape {
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   index_t operator() (Indices... indices) const {
     return internal::flat_offset_pack<0>(dims_, indices...);
+  }
+
+  template <typename... Ranges,
+      typename = typename std::enable_if<internal::all_ranges<Ranges...>::value && !internal::all_integral<Ranges...>::value>::type>
+  auto operator() (Ranges... ranges) const {
+    return make_shape_from_tuple(internal::crop_dims(dims_, std::make_tuple(ranges...), std::make_index_sequence<rank()>()));
   }
 
   /** Get a specific dim of this shape. */
@@ -934,12 +986,6 @@ class shape<> {
   bool operator!=(const shape<>&) const { return false; }
 };
 
-/** Helper function to make a tuple from a variadic list of dims. */
-template <typename... Dims>
-auto make_shape(Dims... dims) {
-  return shape<Dims...>(std::forward<Dims>(dims)...);
-}
-
 /** Helper function to make a dense shape from a variadic list of extents. */
 template <typename... Extents>
 auto make_dense_shape(index_t dim0_extent, Extents... extents) {
@@ -954,7 +1000,7 @@ auto select_dims(const Shape& shape) {
 }
 template <size_t... DimIndices, typename Shape>
 auto reorder(const Shape& shape) {
-  return select_dims<DimIndices...>(shape);
+  return make_shape(shape.template dim<DimIndices>()...);
 }
 
 namespace internal {
@@ -1008,11 +1054,6 @@ void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
     for_each_value_in_order<D - 1>(extent, fn, ptrs...);
     advance<D>(ptrs...);
   }
-}
-
-template <typename... Dims>
-shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
-  return shape<Dims...>(dims);
 }
 
 template <size_t Rank, size_t... Is>
@@ -1096,7 +1137,7 @@ Shape make_compact(const Shape& s) {
  * Rank. */
 template <size_t Rank>
 using shape_of_rank =
-  decltype(internal::make_shape_from_tuple(typename internal::tuple_of_n<dim<>, Rank>::type()));
+  decltype(make_shape_from_tuple(typename internal::tuple_of_n<dim<>, Rank>::type()));
 
 /** A shape where the innermost dimension is a 'dense_dim' object, and all other
  * dimensions are arbitrary. */
@@ -1400,6 +1441,15 @@ void for_all_indices(const Shape& s, Fn&& fn) {
   });
 }
 
+template <typename T, typename Shape>
+class array_ref;
+
+/** Make a new array with shape 'shape', allocated using 'alloc'. */
+template <typename T, typename Shape>
+auto make_array_ref(T* base, const Shape& shape) {
+  return array_ref<T, Shape>(base, shape);
+}
+
 /** A reference to an array is an object with a shape mapping indices to flat
  * offsets, which are used to dereference a pointer. This object has 'reference
  * semantics':
@@ -1452,6 +1502,14 @@ class array_ref {
   template <typename... Indices,
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   reference operator() (Indices... indices) const { return base_[shape_(indices...)]; }
+
+  template <typename... Ranges,
+      typename = typename std::enable_if<internal::all_ranges<Ranges...>::value && !internal::all_integral<Ranges...>::value>::type>
+  auto operator() (Ranges... ranges) const {
+    auto new_shape = shape_(ranges...);
+    pointer base = internal::pointer_add(base_, shape_(new_shape.min()));
+    return make_array_ref(base, new_shape);
+  }
 
   /** Call a function with a reference to each value in this array_ref. The
    * order in which 'fn' is called is undefined. */
@@ -1562,12 +1620,6 @@ using array_ref_of_rank = array_ref<T, shape_of_rank<Rank>>;
  * otherwise, of the compile-time constant 'Rank'. */
 template <typename T, size_t Rank>
 using dense_array_ref = array_ref<T, dense_shape<Rank>>;
-
-/** Make a new array with shape 'shape', allocated using 'alloc'. */
-template <typename T, typename Shape>
-auto make_array_ref(T* base, const Shape& shape) {
-  return array_ref<T, Shape>(base, shape);
-}
 
 /** A multi-dimensional array container that owns an allocation of memory. This
  * container is designed to mirror the semantics of std::vector where possible.
@@ -1842,6 +1894,21 @@ class array {
   template <typename... Indices,
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   const_reference operator() (Indices... indices) const { return base_[shape_(indices...)]; }
+
+  template <typename... Ranges,
+      typename = typename std::enable_if<internal::all_ranges<Ranges...>::value && !internal::all_integral<Ranges...>::value>::type>
+  auto operator() (Ranges... ranges) {
+    auto new_shape = shape_(ranges...);
+    pointer base = internal::pointer_add(base_, shape_(new_shape.min()));
+    return make_array_ref(base, new_shape);
+  }
+  template <typename... Ranges,
+      typename = typename std::enable_if<internal::all_ranges<Ranges...>::value && !internal::all_integral<Ranges...>::value>::type>
+  auto operator() (Ranges... ranges) const {
+    auto new_shape = shape_(ranges...);
+    const_pointer base = internal::pointer_add(base_, shape_(new_shape.min()));
+    return make_array_ref(base, new_shape);
+  }
 
   /** Call a function with a reference to each value in this array. The order in
    * which 'fn' is called is undefined. */

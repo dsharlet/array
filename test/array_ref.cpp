@@ -88,4 +88,23 @@ TEST(array_ref_conversion) {
   null_ref = dense_null_ref;
 }
 
+TEST(array_ref_crop) {
+  dense_array<int, 2> a({8, 9}, 2);
+  fill_pattern(a);
+
+  auto a_crop1 = a(index_range<4, 3>(), 5);
+  ASSERT_EQ(a_crop1.x().min(), 4);
+  ASSERT_EQ(a_crop1.x().extent(), 3);
+  ASSERT_EQ(a_crop1.y().min(), 5);
+  ASSERT_EQ(a_crop1.y().extent(), 1);
+  check_pattern(a_crop1);
+
+  auto a_crop2 = a(index_range<>{2, 6}, index_range<3, 4>());
+  ASSERT_EQ(a_crop2.x().min(), 2);
+  ASSERT_EQ(a_crop2.x().extent(), 6);
+  ASSERT_EQ(a_crop2.y().min(), 3);
+  ASSERT_EQ(a_crop2.y().extent(), 4);
+  check_pattern(a_crop2);
+}
+
 }  // namespace nda
