@@ -173,14 +173,15 @@ inline kernel_array build_kernels(
 template <typename TIn, typename TOut>
 void resample_y(const TIn& in, const TOut& out, const kernel_array& kernels) {
   for (nda::index_t y : out.y()) {
-    nda::dense_array<float, 1> kernel_y = kernels(y);
+    const nda::dense_array<float, 1>& kernel_y = kernels(y);
     for (nda::index_t c : out.c()) {
       for (nda::index_t x : out.x()) {
         out(x, y, c) = 0.0f;
       }
       for (nda::index_t ry : kernel_y.x()) {
+        float kernel_y_ry = kernel_y(ry);
         for (nda::index_t x : out.x()) {
-          out(x, y, c) += in(x, ry, c) * kernel_y(ry);
+          out(x, y, c) += in(x, ry, c) * kernel_y_ry;
         }
       }
     }
@@ -200,6 +201,25 @@ void transpose(const TIn& in, const TOut& out) {
 
 }  // namespace internal
 
+template <size_t Dim, nda::index_t SplitSize, typename T, typename Shape, typename Fn>
+void for_each_split(const nda::array_ref<T, Shape>& a, Fn body) {
+  auto split_dim = a.template dim<Dim>();
+  for (nda::index_t i = split_dim.min(); i <= split_dim.max(); i += SplitSize) {
+    nda::index_t min = std::min(i, split_dim.max() - SplitSize);
+    body(a(a.x(), nda::index_range<nda::UNK, SplitSize>(min, SplitSize), a.c()));
+  }
+}
+
+template <nda::index_t NewStride, nda::index_t Min, nda::index_t Extent, nda::index_t Stride>
+nda::dim<Min, Extent, NewStride> with_stride(const nda::dim<Min, Extent, Stride>& d) {
+  return nda::dim<Min, Extent, NewStride>(d.min(), d.extent(), NewStride);
+}
+
+template <nda::index_t Min, nda::index_t Extent, nda::index_t Stride>
+nda::dim<Min, Extent> without_stride(const nda::dim<Min, Extent, Stride>& d) {
+  return nda::dim<Min, Extent>(d.min(), d.extent());
+}
+
 template <typename TIn, typename TOut, typename ShapeIn, typename ShapeOut>
 void resample(const nda::array_ref<TIn, ShapeIn>& in, const nda::array_ref<TOut, ShapeOut>& out,
             const rational<nda::index_t>& rate_x, const rational<nda::index_t>& rate_y,
@@ -210,6 +230,17 @@ void resample(const nda::array_ref<TIn, ShapeIn>& in, const nda::array_ref<TOut,
       internal::build_kernels(in.y(), out.y(), rate_y, kernel);
 
   constexpr nda::index_t StripSize = 64;
+  for_each_split<1, StripSize>(out, [&](const auto& out_y) {
+    auto strip = make_array<TOut>(make_shape(in.x(), out_y.y(), out_y.c()));
+    auto strip_tr = make_array<TOut>(make_shape(with_stride<1>(out_y.y()), without_stride(in.x()), without_stride(out_y.c())));
+    auto out_tr = make_array<TOut>(make_shape(with_stride<1>(out_y.y()), without_stride(out_y.x()), without_stride(out_y.c())));
+
+    internal::resample_y(in, strip.ref(), kernels_y);
+    internal::transpose(strip.cref(), strip_tr.ref());
+    internal::resample_y(strip_tr.cref(), out_tr.ref(), kernels_x);
+    internal::transpose(out_tr.cref(), out_y);
+  });
+  /*
   for (nda::index_t y = out.y().min(); y <= out.y().max(); y += StripSize) {
     auto out_y = crop(out, out.x().min(), y, out.x().max() + 1, y + StripSize);
     nda::planar_image<TOut> strip(make_dense(make_shape(in.x(), out_y.y(), out.c())));
@@ -220,7 +251,7 @@ void resample(const nda::array_ref<TIn, ShapeIn>& in, const nda::array_ref<TOut,
     internal::transpose(strip.cref(), strip_tr.ref());
     internal::resample_y(strip_tr.cref(), out_tr.ref(), kernels_x);
     internal::transpose(out_tr.cref(), out_y);
-  }
+  }*/
 }
 
 #endif
