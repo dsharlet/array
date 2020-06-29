@@ -173,7 +173,7 @@ inline kernel_array build_kernels(
 template <typename TIn, typename TOut>
 void resample_y(const TIn& in, const TOut& out, const kernel_array& kernels) {
   for (nda::index_t y : out.y()) {
-    nda::dense_array<float, 1> kernel_y = kernels(y);
+    const nda::dense_array<float, 1>& kernel_y = kernels(y);
     for (nda::index_t c : out.c()) {
       for (nda::index_t x : out.x()) {
         out(x, y, c) = 0.0f;
