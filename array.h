@@ -308,7 +308,7 @@ inline index_t clamp(index_t x, index_t min, index_t max) {
   return std::min(std::max(x, min), max);
 }
 
-/** Clamp an index to the range described by an range. */
+/** Clamp an index to the range described by an object with a min and max method. */
 template <typename Dim>
 index_t clamp(index_t x, const Dim& d) {
   return clamp(x, d.min(), d.max());
