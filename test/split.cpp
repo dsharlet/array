@@ -48,7 +48,7 @@ TEST(split_uneven_constant) {
 // Test splits that divide the extents of an array.
 TEST(split_even_nonconstant) {
   dense_array<int, 3> a({4, 8, 9});
-  index_t total_size = 0;
+  size_t total_size = 0;
   for (auto zo : split(a.z(), 3)) {
     for (auto yo : split(a.y(), 4)) {
       auto a_inner = a(_, yo, zo);
@@ -65,7 +65,7 @@ TEST(split_even_nonconstant) {
 // Test splits that do not divide the extents of an array.
 TEST(split_uneven_nonconstant) {
   dense_array<int, 3> a({8, 4, 9});
-  index_t total_size = 0;
+  size_t total_size = 0;
   for (auto zo : split(a.z(), 4)) {
     for (auto xo : split(a.x(), 5)) {
       auto a_inner = a(xo, _, zo);
