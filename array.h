@@ -608,7 +608,7 @@ auto slice_dim(const dim<DimMin, DimExtent, Stride>& d, const range<CropMin, Cro
 }
 
 template <index_t Min, index_t Extent, index_t Stride>
-auto slice_dim(const dim<Min, Extent, Stride>& d, const decltype(_)& x) {
+auto slice_dim(const dim<Min, Extent, Stride>& d, const decltype(_)&) {
   return d;
 }
 
