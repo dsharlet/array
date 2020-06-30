@@ -36,19 +36,6 @@ using matrix = array<T, matrix_shape<Rows, Cols>, Alloc>;
 template <typename T, index_t Rows = UNK, index_t Cols = UNK>
 using matrix_ref = array_ref<T, matrix_shape<Rows, Cols>>;
 
-// Make a reference to a submatrix of 'm', of size 'rows' x 'cols',
-// starting at 'row', 'col'.
-template <index_t Rows = UNK, index_t Cols = UNK, typename T>
-matrix_ref<T, Rows, Cols> submatrix(const matrix_ref<T>& m, index_t row, index_t col,
-                                    index_t rows = Rows, index_t cols = Cols) {
-  assert(row >= m.i().min());
-  assert(row + rows <= m.i().max() + 1);
-  assert(col >= m.j().min());
-  assert(col + cols <= m.j().max() + 1);
-  matrix_shape<Rows, Cols> s({row, rows, m.i().stride()}, {col, cols});
-  return matrix_ref<T, Rows, Cols>(&m(row, col), s);
-}
-
 // A textbook implementation of matrix multiplication. This is very simple,
 // but it is slow, primarily because of poor locality of the loads of b. The
 // reduction loop is innermost.
@@ -126,13 +113,19 @@ void multiply_reduce_tiles(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
   constexpr index_t tile_rows = 3;
   constexpr index_t tile_cols = vector_size * 4;
 
-  for (index_t io = 0; io < c.rows(); io += tile_rows) {
-    for (index_t jo = 0; jo < c.columns(); jo += tile_cols) {
+  for (auto io : split<tile_rows>(c.i())) {
+    for (auto jo : split<tile_cols>(c.j())) {
       // Make a reference to this tile of the output.
-      auto c_tile = submatrix<tile_rows, tile_cols>(c, io, jo);
+      auto c_tile = c(io, jo);
 #if 0
+      // TODO: This should work, but it's slow, probably due to the
+      // absence of __restrict in array/array_ref
+      // (https://bugs.llvm.org/show_bug.cgi?id=45863)
       multiply_reduce_matrices(a, b, c_tile);
 #elif 0
+      // TODO: This should work, but it's slow, probably due to the
+      // absence of __restrict in array/array_ref
+      // (https://bugs.llvm.org/show_bug.cgi?id=45863)
       for (index_t i : c_tile.i()) {
         for (index_t j : c_tile.j()) {
           c_tile(i, j) = 0;
@@ -156,6 +149,9 @@ void multiply_reduce_tiles(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
         }
       }
 #if 0
+      // TODO: This should work, but it's slow, it appears to
+      // blow up the nice in-register accumulation of the loop
+      // above.
       copy(accumulator, c_tile);
 #else
       for (index_t i : c_tile.i()) {
