@@ -222,11 +222,11 @@ void resample(const nda::array_ref<TIn, ShapeIn>& in, const nda::array_ref<TOut,
       internal::build_kernels(in.y(), out.y(), rate_y, kernel);
 
   constexpr nda::index_t StripSize = 64;
-  for (auto yo : split<StripSize>(out.y())) {
+  for (auto yo : nda::split<StripSize>(out.y())) {
     auto out_y = out(out.x(), yo, out.c());
-    auto strip = make_array<TOut>(make_shape(in.x(), without_stride(out_y.y()), without_stride(out_y.c())));
-    auto strip_tr = make_array<TOut>(make_shape(with_stride<1>(out_y.y()), without_stride(in.x()), without_stride(out_y.c())));
-    auto out_tr = make_array<TOut>(make_shape(with_stride<1>(out_y.y()), without_stride(out_y.x()), without_stride(out_y.c())));
+    auto strip = nda::make_array<TOut>(make_shape(in.x(), without_stride(out_y.y()), without_stride(out_y.c())));
+    auto strip_tr = nda::make_array<TOut>(make_shape(with_stride<1>(out_y.y()), without_stride(in.x()), without_stride(out_y.c())));
+    auto out_tr = nda::make_array<TOut>(make_shape(with_stride<1>(out_y.y()), without_stride(out_y.x()), without_stride(out_y.c())));
 
     internal::resample_y(in, strip.ref(), kernels_y);
     internal::transpose(strip.cref(), strip_tr.ref());
