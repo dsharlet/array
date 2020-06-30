@@ -56,7 +56,8 @@ namespace nda {
 
 typedef std::size_t size_t;
 /** When NDARRAY_INT_INDICES is defined, array indices are 'int' values, otherwise
- * they are 'std::ptrdiff_t' */
+ * they are 'std::ptrdiff_t'. std::ptrdiff_t is helpful for the compiler to
+ * optimize loops. */
 #ifdef NDARRAY_INT_INDICES
 typedef int index_t;
 #else
@@ -88,9 +89,8 @@ NDARRAY_INLINE constexpr index_t reconcile(index_t value) {
   if (is_known(Value)) {
     // It would be nice to assert here that Value == value. But, this is used in
     // the innermost loops, so when asserts are on, this ruins performance. It
-    // is also a less helpful place to catch errors like this, because the bug
-    // it is catching is caused by an issue much earlier than this, so it is
-    // better to assert there instead.
+    // is also a less helpful place to catch errors, because the context of the
+    // bug is lost here.
     return Value;
   } else {
     return value;
