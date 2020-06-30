@@ -328,7 +328,7 @@ inline auto clamp(const range<MinX, ExtentX>& x, const range<MinR, ExtentR>& y) 
 namespace internal {
 
 // An iterator for a range of ranges.
-template <index_t InnerExtent>
+template <index_t InnerExtent = UNK>
 class split_iterator {
   range<UNK, InnerExtent> i;
   index_t outer_max;
@@ -341,13 +341,8 @@ class split_iterator {
 
   range<UNK, InnerExtent> operator *() const { return i; }
 
-  split_iterator operator++(int) {
-    split_iterator<InnerExtent> result(i);
-    result.i.set_min(result.i.min() + result.i.extent());
-    return result;
-  }
   split_iterator& operator++() {
-    if (internal::is_known(InnerExtent)) {
+    if (is_known(InnerExtent)) {
       // When the extent of the inner split is a compile-time constant,
       // we can't shrink the out of bounds range. Instead, shift the min,
       // assuming the outer dimension is bigger than the inner extent.
@@ -366,6 +361,11 @@ class split_iterator {
     }
     return *this;
   }
+  split_iterator operator++(int) {
+    split_iterator<InnerExtent> result(i);
+    ++result;
+    return result;
+  }
 };
 
 // TODO: Remove this when std::iterator_range is standard.
@@ -381,6 +381,9 @@ class iterator_range {
   T end() const { return end_; }
 };
 
+template <index_t InnerExtent = UNK>
+using split_iterator_range = iterator_range<split_iterator<InnerExtent>>;
+
 }  // namespace internal
 
 /** Split a range `r` into an iteratable range of ranges by a compile-time
@@ -389,7 +392,7 @@ class iterator_range {
  * to preserve the compile-time constant extent, which implies `r.extent()`
  * must be larger `InnerExtent`. */
 template <index_t InnerExtent, index_t Min, index_t Extent>
-internal::iterator_range<internal::split_iterator<InnerExtent>> split(const range<Min, Extent>& r) {
+internal::split_iterator_range<InnerExtent> split(const range<Min, Extent>& r) {
   assert(r.extent() >= InnerExtent);
   return {
     {range<UNK, InnerExtent>(r.min(), InnerExtent), r.max()},
@@ -404,7 +407,7 @@ internal::iterator_range<internal::split_iterator<InnerExtent>> split(const rang
 // avoid some conversion messes. dim<Min, Extent> probably can't implicitly
 // convert to range<>.
 template <index_t Min, index_t Extent>
-internal::iterator_range<internal::split_iterator<UNK>> split(const range<Min, Extent>& r, index_t inner_extent) {
+internal::split_iterator_range<> split(const range<Min, Extent>& r, index_t inner_extent) {
   return {
     {range<>(r.min(), inner_extent), r.max()},
     {range<>(r.max() + 1, inner_extent), r.max()}
