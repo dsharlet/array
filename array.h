@@ -399,6 +399,9 @@ internal::iterator_range<internal::split_iterator<InnerExtent>> split(const rang
 /** Split a range `r` into an iterable range of ranges by `inner_extent`. If
  * `InnerExtent` does not divide `r.extent()`, the last iteration will be
  * clamped to the outer range. */
+// TODO: This probably doesn't need to be templated, but it might help
+// avoid some conversion messes. dim<Min, Extent> probably can't implicitly
+// convert to range<>.
 template <index_t Min, index_t Extent>
 internal::iterator_range<internal::split_iterator<UNK>> split(const range<Min, Extent>& r, index_t inner_extent) {
   return {
