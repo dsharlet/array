@@ -596,14 +596,11 @@ index_t flat_max(const Dims& dims, std::index_sequence<Is...>) {
 
 template <index_t DimMin, index_t DimExtent, index_t DimStride>
 auto slice_dim(const dim<DimMin, DimExtent, DimStride>& d, index_t x) {
-  assert(d.is_in_range(x));
   return dim<UNK, 1, DimStride>(x, 1, d.stride());
 }
 
 template <index_t DimMin, index_t DimExtent, index_t Stride, index_t CropMin, index_t CropExtent>
 auto slice_dim(const dim<DimMin, DimExtent, Stride>& d, const range<CropMin, CropExtent>& x) {
-  assert(x.min() >= d.min());
-  assert(x.max() <= d.max());
   return dim<CropMin, CropExtent, Stride>(x.min(), x.extent(), d.stride());
 }
 
@@ -614,6 +611,9 @@ auto slice_dim(const dim<Min, Extent, Stride>& d, const decltype(_)&) {
 
 template <typename Dims, typename Ranges, size_t... Is>
 auto slice_dims(const Dims& dims, const Ranges& ranges, std::index_sequence<Is...>) {
+  constexpr size_t dims_rank = std::tuple_size<Dims>::value;
+  constexpr size_t ranges_rank = std::tuple_size<Ranges>::value;
+  static_assert(dims_rank == ranges_rank, "dims and ranges must have the same rank.");
   return std::make_tuple(slice_dim(std::get<Is>(dims), std::get<Is>(ranges))...);
 }
 
@@ -921,6 +921,8 @@ class shape {
     return internal::flat_offset_pack<0>(dims_, indices...);
   }
 
+  /** Create a new shape using the specified crops and slices in `ranges`.
+   * The resulting shape will have the same rank as this shape. */
   template <typename... Ranges,
       typename = typename std::enable_if<internal::all_ranges<Ranges...>::value && !internal::all_integral<Ranges...>::value>::type>
   auto operator() (Ranges... ranges) const {
@@ -1569,10 +1571,14 @@ class array_ref {
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   reference operator() (Indices... indices) const { return base_[shape_(indices...)]; }
 
+  /** Create an array_ref from this array_ref using a series of crops and slices `ranges`.
+   * The resulting array_ref will have the same rank as this array_ref. */
   template <typename... Ranges,
       typename = typename std::enable_if<internal::all_ranges<Ranges...>::value && !internal::all_integral<Ranges...>::value>::type>
   auto operator() (Ranges... ranges) const {
     auto new_shape = shape_(ranges...);
+    assert(shape_.is_in_range(new_shape.min()));
+    assert(shape_.is_in_range(new_shape.max()));
     pointer base = internal::pointer_add(base_, shape_(new_shape.min()));
     return make_array_ref(base, new_shape);
   }
@@ -1961,10 +1967,14 @@ class array {
       typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
   const_reference operator() (Indices... indices) const { return base_[shape_(indices...)]; }
 
+  /** Create an `array_ref` from this array from a series of crops and slices `ranges`.
+   * The resulting `array_ref` will have the same rank as this array. */
   template <typename... Ranges,
       typename = typename std::enable_if<internal::all_ranges<Ranges...>::value && !internal::all_integral<Ranges...>::value>::type>
   auto operator() (Ranges... ranges) {
     auto new_shape = shape_(ranges...);
+    assert(shape_.is_in_range(new_shape.min()));
+    assert(shape_.is_in_range(new_shape.max()));
     pointer base = internal::pointer_add(base_, shape_(new_shape.min()));
     return make_array_ref(base, new_shape);
   }
@@ -1972,6 +1982,8 @@ class array {
       typename = typename std::enable_if<internal::all_ranges<Ranges...>::value && !internal::all_integral<Ranges...>::value>::type>
   auto operator() (Ranges... ranges) const {
     auto new_shape = shape_(ranges...);
+    assert(shape_.is_in_range(new_shape.min()));
+    assert(shape_.is_in_range(new_shape.max()));
     const_pointer base = internal::pointer_add(base_, shape_(new_shape.min()));
     return make_array_ref(base, new_shape);
   }
