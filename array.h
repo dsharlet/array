@@ -391,7 +391,7 @@ class split_range {
  * must be larger `InnerExtent`. */
 template <index_t InnerExtent, index_t Min, index_t Extent>
 internal::split_range<InnerExtent, Min, Extent> split(const range<Min, Extent>& r) {
-  assert(r.extent() > InnerExtent);
+  assert(r.extent() >= InnerExtent);
   return {r, InnerExtent};
 }
 

@@ -201,15 +201,7 @@ void transpose(const TIn& in, const TOut& out) {
 
 }  // namespace internal
 
-template <size_t Dim, nda::index_t SplitSize, typename T, typename Shape, typename Fn>
-void for_each_split(const nda::array_ref<T, Shape>& a, Fn body) {
-  auto split_dim = a.template dim<Dim>();
-  for (nda::index_t i = split_dim.min(); i <= split_dim.max(); i += SplitSize) {
-    nda::index_t min = std::min(i, split_dim.max() - SplitSize);
-    body(a(a.x(), nda::index_range<nda::UNK, SplitSize>(min, SplitSize), a.c()));
-  }
-}
-
+// TODO: Get rid of these ugly helpers. Shapes shouldn't preserve strides in some usages.
 template <nda::index_t NewStride, nda::index_t Min, nda::index_t Extent, nda::index_t Stride>
 nda::dim<Min, Extent, NewStride> with_stride(const nda::dim<Min, Extent, Stride>& d) {
   return nda::dim<Min, Extent, NewStride>(d.min(), d.extent(), NewStride);
@@ -230,8 +222,9 @@ void resample(const nda::array_ref<TIn, ShapeIn>& in, const nda::array_ref<TOut,
       internal::build_kernels(in.y(), out.y(), rate_y, kernel);
 
   constexpr nda::index_t StripSize = 64;
-  for_each_split<1, StripSize>(out, [&](const auto& out_y) {
-    auto strip = make_array<TOut>(make_shape(in.x(), out_y.y(), out_y.c()));
+  for (auto yo : split<StripSize>(out.y())) {
+    auto out_y = out(out.x(), yo, out.c());
+    auto strip = make_array<TOut>(make_shape(in.x(), without_stride(out_y.y()), without_stride(out_y.c())));
     auto strip_tr = make_array<TOut>(make_shape(with_stride<1>(out_y.y()), without_stride(in.x()), without_stride(out_y.c())));
     auto out_tr = make_array<TOut>(make_shape(with_stride<1>(out_y.y()), without_stride(out_y.x()), without_stride(out_y.c())));
 
@@ -239,19 +232,7 @@ void resample(const nda::array_ref<TIn, ShapeIn>& in, const nda::array_ref<TOut,
     internal::transpose(strip.cref(), strip_tr.ref());
     internal::resample_y(strip_tr.cref(), out_tr.ref(), kernels_x);
     internal::transpose(out_tr.cref(), out_y);
-  });
-  /*
-  for (nda::index_t y = out.y().min(); y <= out.y().max(); y += StripSize) {
-    auto out_y = crop(out, out.x().min(), y, out.x().max() + 1, y + StripSize);
-    nda::planar_image<TOut> strip(make_dense(make_shape(in.x(), out_y.y(), out.c())));
-    nda::planar_image<TOut> strip_tr(make_dense(make_shape(out_y.y(), in.x(), out.c())));
-    nda::planar_image<TOut> out_tr(make_dense(make_shape(out_y.y(), out.x(), out.c())));
-
-    internal::resample_y(in, strip.ref(), kernels_y);
-    internal::transpose(strip.cref(), strip_tr.ref());
-    internal::resample_y(strip_tr.cref(), out_tr.ref(), kernels_x);
-    internal::transpose(out_tr.cref(), out_y);
-  }*/
+  }
 }
 
 #endif
