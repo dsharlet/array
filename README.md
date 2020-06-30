@@ -1,5 +1,4 @@
-About
------
+## About
 
 This library provides a multidimensional array class for C++, with the following design goals:
 * Enable specification of array parameters as compile-time constants, enabling significantly more efficient code generation in some cases.
@@ -18,14 +17,15 @@ where:
 * `minN` are the mins in each dimension. The min is the value of the first in-range index in this dimension (the max is `minN + extentN - 1`).
 * `strideN` are the distances in the flat offsets between elements in each dimension.
 
-Usage
------
+## Usage
+
+### Shapes
 
 The basic types provided by the library are:
 * `dim<Min, Extent, Stride>`, a description of a single dimension. The template parameters specify compile-time constant mins, extents, and strides, or are `UNK` (the default, meaning unknown) and are specified at runtime.
 * `shape<Dim0, Dim1, ...>`, a description of multiple dimensions. `Dim0` is referred to as the innermost dimension.
 * `array<T, Shape, Allocator>`, a container following the conventions of `std::vector` where possible. This container manages the allocation of a buffer associated with a `Shape`.
-* `array_ref<T, Shape>`, a wrapper for addressing existing memory with a shape 'Shape'.
+* `array_ref<T, Shape>`, a wrapper for addressing existing memory with a shape `Shape`.
 
 To define an array, define a shape type, and use it to define an array object:
 ```c++
@@ -36,6 +36,8 @@ constexpr int depth = 3;
 my_3d_shape_type my_3d_shape(width, height, depth);
 array<int, my_3d_shape_type> my_array(my_3d_shape);
 ```
+
+### Access and iteration
 
 Accessing `array` or `array_ref` is done via `operator(...)` and `operator[index_type]`.
 There are both variadic and `index_type` overloads of `operator()`.
@@ -92,6 +94,8 @@ for_all_indices(shape, [](int x, int y, int z) {
 
 The default implementation of `shape_traits<Shape>::for_each_value` iterates over a dynamically optimized shape.
 The order will vary depending on the properties of the shape.
+
+### Compile-time constant shapes
 
 In these examples, no array parameters are compile time constants, so all of these accesses and loops expand to a `flat_offset` expression where the strides are runtime variables.
 This can prevent the compiler from generating efficient code.
