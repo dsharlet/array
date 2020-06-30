@@ -425,22 +425,22 @@ class dim : public range<Min_, Extent_> {
   index_t stride_;
 
  public:
-  using range = range<Min_, Extent_>;
+  using base_range = range<Min_, Extent_>;
 
-  using range::Min;
-  using range::Extent;
-  using range::Max;
+  using base_range::Min;
+  using base_range::Extent;
+  using base_range::Max;
 
   static constexpr index_t Stride = Stride_;
 
   /** Construct a new dim object. If the class template parameters 'Min',
    * 'Extent', or 'Stride' are not 'UNK', these runtime values must match the
    * compile-time values. */
-  dim(index_t min, index_t extent, index_t stride = Stride) : range(min, extent) {
+  dim(index_t min, index_t extent, index_t stride = Stride) : base_range(min, extent) {
     set_stride(stride);
   }
   dim(index_t extent = Extent) : dim(0, extent) {}
-  dim(const range& range, index_t stride = Stride) : dim(range.min(), range.extent(), stride) {}
+  dim(const base_range& range, index_t stride = Stride) : dim(range.min(), range.extent(), stride) {}
   dim(const dim&) = default;
   dim(dim&&) = default;
   /** Copy another dim object, possibly with different compile-time template
@@ -471,9 +471,9 @@ class dim : public range<Min_, Extent_> {
     return *this;
   }
 
-  using range::min;
-  using range::max;
-  using range::extent;
+  using base_range::min;
+  using base_range::max;
+  using base_range::extent;
 
   /** Distance in flat indices between neighboring elements in this dim. */
   NDARRAY_INLINE index_t stride() const { return internal::reconcile<Stride>(stride_); }
