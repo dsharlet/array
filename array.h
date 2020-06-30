@@ -327,6 +327,7 @@ inline auto clamp(const range<MinX, ExtentX>& x, const range<MinR, ExtentR>& y) 
 
 namespace internal {
 
+// An iterator for a range of ranges.
 template <index_t InnerExtent>
 class split_iterator {
   range<UNK, InnerExtent> i;
