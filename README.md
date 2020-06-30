@@ -22,7 +22,7 @@ where:
 ### Shapes
 
 The basic types provided by the library are:
-* `dim<Min, Extent, Stride>`, a description of a single dimension. The template parameters specify compile-time constant mins, extents, and strides, or are `UNK` (the default, meaning unknown) and are specified at runtime.
+* `dim<Min, Extent, Stride>`, a description of a single dimension. The template parameters specify a compile-time constant min, extent, or stride, or are `UNK` (the default, meaning unknown) and are specified at runtime.
 * `shape<Dim0, Dim1, ...>`, a description of multiple dimensions. `Dim0` is referred to as the innermost dimension.
 * `array<T, Shape, Allocator>`, a container following the conventions of `std::vector` where possible. This container manages the allocation of a buffer associated with a `Shape`.
 * `array_ref<T, Shape>`, a wrapper for addressing existing memory with a shape `Shape`.
@@ -77,8 +77,8 @@ for_each_index(my_3d_shape, [&](my_3d_shape_type::index_type i) {
 The order in which each of `for_each_value`, `for_each_index`, and `for_all_indices` execute their traversal over the shape is defined by `shape_traits<Shape>`.
 The default implementation of `shape_traits<Shape>::for_each_index` iterates over the innermost dimension as the innermost loop, and proceeds in order to the outermost dimension.
 ```c++
-my_3d_shape_type shape(2, 2, 2);
-for_all_indices(shape, [](int x, int y, int z) {
+my_3d_shape_type my_shape(2, 2, 2);
+for_all_indices(my_shape, [](int x, int y, int z) {
   std::cout << x << ", " << y << ", " << z << std::endl;
 });
 // Output:
@@ -147,3 +147,44 @@ using small_matrix_shape = shape<
 template <typename T, int M, int N>
 using small_matrix = array<T, small_matrix_shape, stack_allocator<T, M*N>>;
 ```
+
+### Slicing, cropping, and splitting
+
+Shapes and arrays can be sliced and cropped using `range<Min, Extent>` objects, which are similar to `dim<>`s.
+They can have either a compile-time constant or runtime valued min and extent.
+```c++
+my_3d_shape_type my_shape(4, 8, 3);
+array<int, my_3d_shape_type> my_array(my_shape);
+// Slicing
+my_3d_shape_type sliced_shape = shape(_, _, 0);
+array_ref<int, my_3d_shape_type> sliced_array = my_array(_, _, 1);
+
+// Cropping
+my_3d_shape_type top_left_shape = my_shape(range<>{0, 2}, range<>{0, 4}, _);
+array_ref<int, my_3d_shape_type> center_crop = my_array(range<>{1, 2}, range<>{2, 4}, _);
+```
+The `_` constant is a placeholder indicating the entire dimension should be preserved.
+When slicing, arrays do not lose rank: the sliced dimension remains with extent 1.
+
+When iterating a `dim`, it is possible to `split` it first by either a compile-time constant or a runtime-valued split factor.
+A split `dim` produces an iterator range that produces `range<>` objects.
+This allows easy tiling of algorithms:
+```c++
+array<int, my_3d_shape_type> my_array(16, 12, 3);
+constexpr index_t x_split_factor = 3;
+const index_t y_split_factor = 5;
+for (auto yo : split(my_array.y(), y_split_factor)) {
+  for (auto xo : split<x_split_factor>(my_array.x()) {
+    auto tile = my_array(xo, yo, _);
+    ...
+  }
+}
+```
+
+The behavior of the last iteration in these cases is different.
+The last iteration of `xo` will overlap the previous iteration, because the size of the split must be a constant.
+This also requires the extent of the dimension being split to be greater than the split factor.
+Because the size of the `yo` split can vary, it is reduced on the last iteration to accomodate the range with an extent not divided by the split factor.
+
+Note that compile-time constant split factors produce ranges with compile-time extents, and shapes and arrays cropped with these ranges will have a corresponding `dim<>` with a compile-time constant extent.
+This allows potentially significant optimizations to be expressed relatively easily.
