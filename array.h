@@ -367,22 +367,17 @@ class split_iterator {
   }
 };
 
-template <index_t InnerExtent, index_t Min, index_t Extent>
-class split_range {
-  range<Min, Extent> r;
-  index_t inner_extent;
+// TODO: Remove this when std::iterator_range is standard.
+template <typename T>
+class iterator_range {
+  T begin_;
+  T end_;
 
  public:
-  split_range(const range<Min, Extent>& r, index_t inner_extent)
-      : r(r), inner_extent(inner_extent) {}
+  iterator_range(T begin, T end) : begin_(begin), end_(end) {}
 
-  split_iterator<InnerExtent> begin() const {
-    return {range<UNK, InnerExtent>(r.min(), inner_extent), r.max()};
-  }
-
-  split_iterator<InnerExtent> end() const {
-    return {range<UNK, InnerExtent>(r.max() + 1, inner_extent), r.max()};
-  }
+  T begin() const { return begin_; }
+  T end() const { return end_; }
 };
 
 }  // namespace internal
@@ -393,17 +388,23 @@ class split_range {
  * to preserve the compile-time constant extent, which implies `r.extent()`
  * must be larger `InnerExtent`. */
 template <index_t InnerExtent, index_t Min, index_t Extent>
-internal::split_range<InnerExtent, Min, Extent> split(const range<Min, Extent>& r) {
+internal::iterator_range<internal::split_iterator<InnerExtent>> split(const range<Min, Extent>& r) {
   assert(r.extent() >= InnerExtent);
-  return {r, InnerExtent};
+  return {
+    {range<UNK, InnerExtent>(r.min(), InnerExtent), r.max()},
+    {range<UNK, InnerExtent>(r.max() + 1, InnerExtent), r.max()}
+  };
 }
 
 /** Split a range `r` into an iterable range of ranges by `inner_extent`. If
  * `InnerExtent` does not divide `r.extent()`, the last iteration will be
  * clamped to the outer range. */
 template <index_t Min, index_t Extent>
-internal::split_range<UNK, Min, Extent> split(const range<Min, Extent>& r, index_t inner_extent) {
-  return {r, inner_extent};
+internal::iterator_range<internal::split_iterator<UNK>> split(const range<Min, Extent>& r, index_t inner_extent) {
+  return {
+    {range<>(r.min(), inner_extent), r.max()},
+    {range<>(r.max() + 1, inner_extent), r.max()}
+  };
 }
 
 /** Describes one dimension of an array. The template parameters enable
