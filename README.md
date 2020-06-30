@@ -181,10 +181,11 @@ for (auto yo : split(my_array.y(), y_split_factor)) {
 }
 ```
 
-The behavior of the last iteration in these cases is different.
-The last iteration of `xo` will overlap the previous iteration, because the extent of the range must be a constant.
-This also requires the extent of the dimension being split to be greater than the split factor.
-Because the extent of the `yo` split can vary, it is reduced on the last iteration to accomodate the range with an extent not divided by the split factor.
+Both loops have extents that are not divided by their split factors.
+To avoid generating an `array_ref` referencing data out of bounds of the original array, the split iterators modify the last iteration.
+The behavior of each kind of split is different:
+* Because the extent of `yo` can vary, it is reduced on the last iteration. This strategy can accommodate dimensions of any extent.
+* Because the extent of `xo` must be a constant, the last iteration will be shifted to overlap the previous iteration. This strategy requires the extent of the dimension being split is greater than the split factor.
 
-Note that compile-time constant split factors produce ranges with compile-time extents, and shapes and arrays cropped with these ranges will have a corresponding `dim<>` with a compile-time constant extent.
-This allows potentially significant optimizations to be expressed relatively easily.
+Compile-time constant split factors produce ranges with compile-time extents, and shapes and arrays cropped with these ranges will have a corresponding `dim<>` with a compile-time constant extent.
+This allows potentially significant optimizations to be expressed relatively easily!
