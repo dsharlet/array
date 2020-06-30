@@ -37,36 +37,35 @@ continuous_kernel parse_kernel(const char* name) {
   }
 }
 
+// Need to call img.syncPixels() when done with this.
+chunky_image_ref<Magick::Quantum, 4> ref(Magick::Image& img) {
+  index_t width = img.columns();
+  index_t height = img.rows();
+  Magick::PixelPacket *pixel_cache = img.setPixels(0, 0, width, height);
+  Magick::Quantum* base = reinterpret_cast<Magick::Quantum*>(pixel_cache);
+  return {base, {width, height, 4}};
+}
+
+chunky_image_ref<const Magick::Quantum, 4> cref(const Magick::Image& img) {
+  index_t width = img.columns();
+  index_t height = img.rows();
+  const Magick::PixelPacket *pixel_cache = img.getConstPixels(0, 0, width, height);
+  const Magick::Quantum* base = reinterpret_cast<const Magick::Quantum*>(pixel_cache);
+  return {base, {width, height, 4}};
+}
+
 template <typename T>
 planar_image<T> magick_to_array(const Magick::Image& img) {
-  planar_image<T> result({img.columns(), img.rows(), 4});
-
-  const Magick::PixelPacket *pixel_cache = img.getConstPixels(0, 0, result.width(), result.height());
-  for (index_t y : result.y()) {
-    for (index_t x : result.x()) {
-      const Magick::PixelPacket& packet = *(pixel_cache + y*result.width() + x);
-      result(x, y, 0) = packet.red;
-      result(x, y, 1) = packet.green;
-      result(x, y, 2) = packet.blue;
-      result(x, y, 3) = packet.opacity;
-    }
-  }
+  auto pixels = cref(img);
+  planar_image<T> result({pixels.width(), pixels.height(), pixels.channels()});
+  copy(pixels, result);
   return result;
 }
 
 template <typename T, typename Shape>
 Magick::Image array_to_magick(const array_ref<T, Shape>& img) {
   Magick::Image result(Magick::Geometry(img.width(), img.height()), Magick::Color());
-  Magick::PixelPacket *pixel_cache = result.setPixels(0, 0, img.width(), img.height());
-  for (index_t y : img.y()) {
-    for (index_t x : img.x()) {
-      Magick::PixelPacket& packet = *(pixel_cache + y*img.width() + x);
-      packet.red = img(x, y, 0);
-      packet.green = img(x, y, 1);
-      packet.blue = img(x, y, 2);
-      packet.opacity = img(x, y, 3);
-    }
-  }
+  copy(img, ref(result));
   result.syncPixels();
   return result;
 }
@@ -95,6 +94,9 @@ int main(int argc, char* argv[]) {
   const rational<index_t> rate_x(output.width(), input.width());
   const rational<index_t> rate_y(output.height(), input.height());
   resample(input.cref(), output.ref(), rate_x, rate_y, kernel);
+
+  const float max_quantum = std::numeric_limits<Magick::Quantum>::max();
+  output.for_each_value([=](float& i) { i = std::max(std::min(i, max_quantum), 0.0f); });
 
   Magick::Image magick_output = array_to_magick(output.cref());
   magick_output.write(output_path);
