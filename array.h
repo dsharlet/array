@@ -1295,47 +1295,16 @@ void for_each_value_in_order(const Shape& shape,
 
 namespace internal {
 
-template <index_t InnerMin, index_t InnerExtent, index_t InnerStride,
-          index_t OuterMin, index_t OuterExtent, index_t OuterStride>
-bool can_fuse(const nda::dim<InnerMin, InnerExtent, InnerStride>& inner,
-              const nda::dim<OuterMin, OuterExtent, OuterStride>& outer) {
+inline bool can_fuse(const dim<>& inner, const dim<>& outer) {
   return inner.stride() * inner.extent() == outer.stride();
 }
 
-template <index_t InnerMin, index_t InnerExtent, index_t InnerStride,
-          index_t OuterMin, index_t OuterExtent, index_t OuterStride>
-auto fuse(const nda::dim<InnerMin, InnerExtent, InnerStride>& inner,
-          const nda::dim<OuterMin, OuterExtent, OuterStride>& outer) {
+inline dim<> fuse(const dim<>& inner, const dim<>& outer) {
   assert(can_fuse(inner, outer));
-  using FusedDim =
-      nda::dim<add_index(InnerMin, mul_index(OuterMin, InnerExtent)),
-               mul_index(InnerExtent, OuterExtent),
-               InnerStride>;
-  return FusedDim(
+  return dim<>(
       inner.min() + outer.min() * inner.extent(),
       inner.extent() * outer.extent(),
       inner.stride());
-}
-
-template <index_t Factor, index_t Min, index_t Extent, index_t Stride>
-bool can_split(const nda::dim<Min, Extent, Stride>& d) {
-  return mod_index(d.min(), Factor) == 0 && mod_index(d.extent(), Factor) == 0;
-}
-
-template <index_t Factor, index_t Min, index_t Extent, index_t Stride>
-auto split(const nda::dim<Min, Extent, Stride>& d) {
-  assert(can_split<Factor>(d));
-  using InnerDim = nda::dim<0, Factor, Stride>;
-  using OuterDim = nda::dim<
-      div_index(Min, Factor),
-      div_index(Extent, Factor),
-      mul_index(Stride, Factor)>;
-  return make_shape(
-      InnerDim(0, Factor, d.stride()),
-      OuterDim(
-          euclidean_div(d.min(), Factor),
-          euclidean_div(d.extent(), Factor),
-          d.stride() * Factor));
 }
 
 // Sort the dims such that strides are increasing from dim 0, and contiguous
