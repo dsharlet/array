@@ -596,11 +596,14 @@ index_t flat_max(const Dims& dims, std::index_sequence<Is...>) {
 
 template <index_t DimMin, index_t DimExtent, index_t DimStride>
 auto slice_dim(const dim<DimMin, DimExtent, DimStride>& d, index_t x) {
+  assert(d.is_in_range(x));
   return dim<UNK, 1, DimStride>(x, 1, d.stride());
 }
 
 template <index_t DimMin, index_t DimExtent, index_t Stride, index_t CropMin, index_t CropExtent>
 auto slice_dim(const dim<DimMin, DimExtent, Stride>& d, const range<CropMin, CropExtent>& x) {
+  assert(x.min() >= d.min());
+  assert(x.max() <= d.max());
   return dim<CropMin, CropExtent, Stride>(x.min(), x.extent(), d.stride());
 }
 
