@@ -118,14 +118,12 @@ void multiply_reduce_tiles(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
       // Make a reference to this tile of the output.
       auto c_tile = c(io, jo);
 #if 0
-      // TODO: This should work, but it's slow, probably due to the
-      // absence of __restrict in array/array_ref
-      // (https://bugs.llvm.org/show_bug.cgi?id=45863)
+      // TODO: This should work, but it's slow, probably due to potential
+      // aliasing that we can't fix due to https://bugs.llvm.org/show_bug.cgi?id=45863
       multiply_reduce_matrices(a, b, c_tile);
 #elif 0
-      // TODO: This should work, but it's slow, probably due to the
-      // absence of __restrict in array/array_ref
-      // (https://bugs.llvm.org/show_bug.cgi?id=45863)
+      // TODO: This should work, but it's slow, probably due to potential
+      // aliasing that we can't fix due to https://bugs.llvm.org/show_bug.cgi?id=45863
       for (index_t i : c_tile.i()) {
         for (index_t j : c_tile.j()) {
           c_tile(i, j) = 0;
