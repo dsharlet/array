@@ -291,6 +291,9 @@ class range {
   }
 };
 
+/** A 'range' that means the entire dimension. */
+const range<0, -1> _;
+
 template <index_t Min, index_t Extent>
 index_iterator begin(const range<Min, Extent>& d) {
   return d.begin();
@@ -594,6 +597,11 @@ auto slice_dim(const dim<DimMin, DimExtent, DimStride>& d, index_t x) {
 template <index_t DimMin, index_t DimExtent, index_t Stride, index_t CropMin, index_t CropExtent>
 auto slice_dim(const dim<DimMin, DimExtent, Stride>& d, const range<CropMin, CropExtent>& x) {
   return dim<CropMin, CropExtent, Stride>(x.min(), x.extent(), d.stride());
+}
+
+template <index_t Min, index_t Extent, index_t Stride>
+auto slice_dim(const dim<Min, Extent, Stride>& d, const decltype(_)& x) {
+  return d;
 }
 
 template <typename Dims, typename Ranges, size_t... Is>

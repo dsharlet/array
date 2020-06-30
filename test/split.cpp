@@ -19,12 +19,12 @@ namespace nda {
 
 // Test compile-time constant splits that divide the extents of an array.
 TEST(split_even_constant) {
-  dense_array<int, 2> a({8, 9});
+  dense_array<int, 3> a({8, 9, 4});
   for (auto yo : split<3>(a.y())) {
     for (auto xo : split<4>(a.x())) {
-      auto a_inner = a(xo, yo);
+      auto a_inner = a(xo, yo, _);
       // Compile-time constant splits should always be the same size.
-      ASSERT_EQ(a_inner.size(), 12);
+      ASSERT_EQ(a_inner.size(), 48);
       fill_pattern(a_inner);
     }
   }
@@ -33,12 +33,12 @@ TEST(split_even_constant) {
 
 // Test compile-time constant splits that do not divide the extents of an array.
 TEST(split_uneven_constant) {
-  dense_array<int, 2> a({8, 9});
+  dense_array<int, 3> a({8, 9, 4});
   for (auto yo : split<4>(a.y())) {
     for (auto xo : split<5>(a.x())) {
-      auto a_inner = a(xo, yo);
+      auto a_inner = a(xo, yo, _);
       // Compile-time constant splits should always be the same size.
-      ASSERT_EQ(a_inner.size(), 20);
+      ASSERT_EQ(a_inner.size(), 80);
       fill_pattern(a_inner);
     }
   }
@@ -47,11 +47,11 @@ TEST(split_uneven_constant) {
 
 // Test splits that divide the extents of an array.
 TEST(split_even_nonconstant) {
-  dense_array<int, 2> a({8, 9});
+  dense_array<int, 3> a({4, 8, 9});
   index_t total_size = 0;
-  for (auto yo : split(a.y(), 3)) {
-    for (auto xo : split(a.x(), 4)) {
-      auto a_inner = a(xo, yo);
+  for (auto zo : split(a.z(), 3)) {
+    for (auto yo : split(a.y(), 4)) {
+      auto a_inner = a(_, yo, zo);
       total_size += a_inner.size();
       fill_pattern(a_inner);
     }
@@ -64,11 +64,11 @@ TEST(split_even_nonconstant) {
 
 // Test splits that do not divide the extents of an array.
 TEST(split_uneven_nonconstant) {
-  dense_array<int, 2> a({8, 9});
+  dense_array<int, 3> a({8, 4, 9});
   index_t total_size = 0;
-  for (auto yo : split(a.y(), 4)) {
+  for (auto zo : split(a.z(), 4)) {
     for (auto xo : split(a.x(), 5)) {
-      auto a_inner = a(xo, yo);
+      auto a_inner = a(xo, _, zo);
       total_size += a_inner.size();
       fill_pattern(a_inner);
     }
