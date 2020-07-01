@@ -1507,17 +1507,21 @@ class array_ref {
   /** The copy constructor of a ref is a shallow copy. */
   array_ref(const array_ref& other) = default;
   array_ref(array_ref&& other) = default;
-  template <typename OtherShape,
-      typename = typename std::enable_if<OtherShape::rank() == rank()>::type>
-  array_ref(const array_ref<T, OtherShape>& other)
+  template <typename U, typename OtherShape,
+      typename = typename std::enable_if<
+          std::is_convertible<U*, T*>::value &&
+          OtherShape::rank() == rank()>::type>
+  array_ref(const array_ref<U, OtherShape>& other)
       : array_ref(other.base(), other.shape()) {}
 
   /** Assigning an array_ref is a shallow assignment. */
   array_ref& operator=(const array_ref& other) = default;
   array_ref& operator=(array_ref&& other) = default;
-  template <typename OtherShape,
-      typename = typename std::enable_if<OtherShape::rank() == rank()>::type>
-  array_ref& operator=(const array_ref<T, OtherShape>& other) {
+  template <typename U, typename OtherShape,
+      typename = typename std::enable_if<
+          std::is_convertible<U*, T*>::value &&
+          OtherShape::rank() == rank()>::type>
+  array_ref& operator=(const array_ref<U, OtherShape>& other) {
     base_ = other.base();
     shape_ = other.shape();
     return *this;
