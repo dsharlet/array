@@ -789,6 +789,15 @@ class shape {
   std::tuple<Dims...> dims_;
 
  public:
+  /** Number of dims in this shape. */
+  static constexpr size_t rank() { return std::tuple_size<std::tuple<Dims...>>::value; }
+
+  /** A shape is scalar if it is rank 0. */
+  static constexpr bool is_scalar() { return rank() == 0; }
+
+  /** The type of an index for this shape. */
+  typedef typename internal::tuple_of_n<index_t, rank()>::type index_type;
+
   /** When constructing shapes, unknown extents are set to 0, and unknown
    * strides are set to the currently largest known stride. This is done in
    * innermost-to-outermost order. */
@@ -801,7 +810,8 @@ class shape {
   shape(shape&&) = default;
   /** Construct this shape from a different type of shape. 'conversion' must
    * be convertible to this shape. */
-  template <typename... OtherDims>
+  template <typename... OtherDims,
+      typename = typename std::enable_if<sizeof...(OtherDims) == rank()>::type>
   shape(const shape<OtherDims...>& conversion)
     : dims_(internal::convert_tuple<Dims...>(conversion.dims())) {}
 
@@ -810,20 +820,12 @@ class shape {
 
   /** Assign this shape from a different type of shape. 'conversion' must be
    * convertible to this shape. */
-  template <typename... OtherDims>
+  template <typename... OtherDims,
+      typename = typename std::enable_if<sizeof...(OtherDims) == rank()>::type>
   shape& operator=(const shape<OtherDims...>& conversion) {
     dims_ = internal::convert_tuple<Dims...>(conversion.dims());
     return *this;
   }
-
-  /** Number of dims in this shape. */
-  static constexpr size_t rank() { return std::tuple_size<std::tuple<Dims...>>::value; }
-
-  /** A shape is scalar if it is rank 0. */
-  static constexpr bool is_scalar() { return rank() == 0; }
-
-  /** The type of an index for this shape. */
-  typedef typename internal::tuple_of_n<index_t, rank()>::type index_type;
 
   /* When constructing arrays, unknown extents are set to 0, and unknown
    * strides are set to the currently largest known stride. This is done in
@@ -851,7 +853,9 @@ class shape {
   index_t operator() (const index_type& indices) const { return internal::flat_offset_tuple(dims_, indices); }
   index_t operator[] (const index_type& indices) const { return internal::flat_offset_tuple(dims_, indices); }
   template <typename... Indices,
-      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
+      typename = typename std::enable_if<
+          sizeof...(Indices) == rank() &&
+          internal::all_integral<Indices...>::value>::type>
   index_t operator() (Indices... indices) const {
     return internal::flat_offset_pack<0>(dims_, indices...);
   }
@@ -859,7 +863,10 @@ class shape {
   /** Create a new shape using the specified crops and slices in `ranges`.
    * The resulting shape will have the same rank as this shape. */
   template <typename... Ranges,
-      typename = typename std::enable_if<internal::all_ranges<Ranges...>::value && !internal::all_integral<Ranges...>::value>::type>
+      typename = typename std::enable_if<
+          sizeof...(Ranges) == rank() &&
+          internal::all_ranges<Ranges...>::value &&
+          !internal::all_integral<Ranges...>::value>::type>
   auto operator() (Ranges... ranges) const {
     return make_shape_from_tuple(internal::slice_dims(dims_, std::make_tuple(ranges...), std::make_index_sequence<rank()>()));
   }
@@ -972,9 +979,11 @@ class shape {
 
   /** A shape is equal to another shape if both of the dim objects of
    * each dimension from both shapes are equal. */
-  template <typename... OtherDims>
+  template <typename... OtherDims,
+      typename = typename std::enable_if<sizeof...(OtherDims) == rank()>::type>
   bool operator==(const shape<OtherDims...>& other) const { return dims_ == other.dims(); }
-  template <typename... OtherDims>
+  template <typename... OtherDims,
+      typename = typename std::enable_if<sizeof...(OtherDims) == rank()>::type>
   bool operator!=(const shape<OtherDims...>& other) const { return dims_ != other.dims(); }
 };
 
@@ -1471,6 +1480,12 @@ class array_ref {
   typedef shape_traits<Shape> shape_traits_type;
   typedef size_t size_type;
 
+  /** The number of dims in the shape of this array. */
+  static constexpr size_t rank() { return Shape::rank(); }
+
+  /** True if the rank of this array is 0. */
+  static constexpr bool is_scalar() { return Shape::is_scalar(); }
+
  private:
   pointer base_;
   Shape shape_;
@@ -1485,14 +1500,16 @@ class array_ref {
   /** The copy constructor of a ref is a shallow copy. */
   array_ref(const array_ref& other) = default;
   array_ref(array_ref&& other) = default;
-  template <typename OtherShape>
+  template <typename OtherShape,
+      typename = typename std::enable_if<OtherShape::rank() == rank()>::type>
   array_ref(const array_ref<T, OtherShape>& other)
       : array_ref(other.base(), other.shape()) {}
 
   /** Assigning an array_ref is a shallow assignment. */
   array_ref& operator=(const array_ref& other) = default;
   array_ref& operator=(array_ref&& other) = default;
-  template <typename OtherShape>
+  template <typename OtherShape,
+      typename = typename std::enable_if<OtherShape::rank() == rank()>::type>
   array_ref& operator=(const array_ref<T, OtherShape>& other) {
     base_ = other.base();
     shape_ = other.shape();
@@ -1503,13 +1520,18 @@ class array_ref {
   reference operator() (const index_type& indices) const { return base_[shape_(indices)]; }
   reference operator[] (const index_type& indices) const { return base_[shape_(indices)]; }
   template <typename... Indices,
-      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
+      typename = typename std::enable_if<
+          sizeof...(Indices) == rank() &&
+          internal::all_integral<Indices...>::value>::type>
   reference operator() (Indices... indices) const { return base_[shape_(indices...)]; }
 
   /** Create an array_ref from this array_ref using a series of crops and slices `ranges`.
    * The resulting array_ref will have the same rank as this array_ref. */
   template <typename... Ranges,
-      typename = typename std::enable_if<internal::all_ranges<Ranges...>::value && !internal::all_integral<Ranges...>::value>::type>
+      typename = typename std::enable_if<
+          sizeof...(Ranges) == rank() &&
+          internal::all_ranges<Ranges...>::value &&
+          !internal::all_integral<Ranges...>::value>::type>
   auto operator() (Ranges... ranges) const {
     auto new_shape = shape_(ranges...);
     assert(shape_.is_in_range(new_shape.min()));
@@ -1534,8 +1556,6 @@ class array_ref {
   /** Shape of this array_ref. */
   const Shape& shape() const { return shape_; }
 
-  static constexpr size_t rank() { return Shape::rank(); }
-  static constexpr bool is_scalar() { return Shape::is_scalar(); }
   template <size_t D>
   auto& dim() { return shape_.template dim<D>(); }
   template <size_t D>
@@ -1649,6 +1669,12 @@ class array {
   typedef shape_traits<Shape> shape_traits_type;
   typedef copy_shape_traits<Shape> copy_shape_traits_type;
   typedef size_t size_type;
+
+  /** The number of dims in the shape of this array. */
+  static constexpr size_t rank() { return Shape::rank(); }
+
+  /** True if the rank of this array is 0. */
+  static constexpr bool is_scalar() { return Shape::is_scalar(); }
 
  private:
   Alloc alloc_;
@@ -1896,16 +1922,23 @@ class array {
   const_reference operator() (const index_type& indices) const { return base_[shape_(indices)]; }
   const_reference operator[] (const index_type& indices) const { return base_[shape_(indices)]; }
   template <typename... Indices,
-      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
+      typename = typename std::enable_if<
+          sizeof...(Indices) == rank() &&
+          internal::all_integral<Indices...>::value>::type>
   reference operator() (Indices... indices) { return base_[shape_(indices...)]; }
   template <typename... Indices,
-      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
+      typename = typename std::enable_if<
+          sizeof...(Indices) == rank() &&
+          internal::all_integral<Indices...>::value>::type>
   const_reference operator() (Indices... indices) const { return base_[shape_(indices...)]; }
 
   /** Create an `array_ref` from this array from a series of crops and slices `ranges`.
    * The resulting `array_ref` will have the same rank as this array. */
   template <typename... Ranges,
-      typename = typename std::enable_if<internal::all_ranges<Ranges...>::value && !internal::all_integral<Ranges...>::value>::type>
+      typename = typename std::enable_if<
+          sizeof...(Ranges) == rank() &&
+          internal::all_ranges<Ranges...>::value &&
+          !internal::all_integral<Ranges...>::value>::type>
   auto operator() (Ranges... ranges) {
     auto new_shape = shape_(ranges...);
     assert(shape_.is_in_range(new_shape.min()));
@@ -1914,7 +1947,10 @@ class array {
     return make_array_ref(base, new_shape);
   }
   template <typename... Ranges,
-      typename = typename std::enable_if<internal::all_ranges<Ranges...>::value && !internal::all_integral<Ranges...>::value>::type>
+      typename = typename std::enable_if<
+          sizeof...(Ranges) == rank() &&
+          internal::all_ranges<Ranges...>::value &&
+          !internal::all_integral<Ranges...>::value>::type>
   auto operator() (Ranges... ranges) const {
     auto new_shape = shape_(ranges...);
     assert(shape_.is_in_range(new_shape.min()));
@@ -1945,8 +1981,6 @@ class array {
   /** Shape of this array. */
   const Shape& shape() const { return shape_; }
 
-  static constexpr size_t rank() { return Shape::rank(); }
-  static constexpr bool is_scalar() { return Shape::is_scalar(); }
   template <size_t D>
   const auto& dim() const { return shape_.template dim<D>(); }
   size_type size() const { return shape_.size(); }
