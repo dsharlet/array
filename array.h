@@ -884,13 +884,14 @@ class shape {
   }
 
   /** Get a specific dim of this shape. */
-  template <size_t D>
+  template <size_t D, typename = typename std::enable_if<D < rank()>::type>
   auto& dim() { return std::get<D>(dims_); }
-  template <size_t D>
+  template <size_t D, typename = typename std::enable_if<D < rank()>::type>
   const auto& dim() const { return std::get<D>(dims_); }
   /** Get a specific dim of this shape with a runtime dimension d. This will
    * lose knowledge of any compile-time constant dimension attributes. */
   nda::dim<> dim(size_t d) const {
+    assert(d < rank());
     return internal::tuple_to_array<nda::dim<>>(dims_)[d];
   }
 
@@ -1568,9 +1569,9 @@ class array_ref {
   /** Shape of this array_ref. */
   const Shape& shape() const { return shape_; }
 
-  template <size_t D>
+  template <size_t D, typename = typename std::enable_if<D < rank()>::type>
   auto& dim() { return shape_.template dim<D>(); }
-  template <size_t D>
+  template <size_t D, typename = typename std::enable_if<D < rank()>::type>
   const auto& dim() const { return shape_.template dim<D>(); }
   size_type size() const { return shape_.size(); }
   bool empty() const { return base() != nullptr ? shape_.empty() : true; }
@@ -1993,7 +1994,7 @@ class array {
   /** Shape of this array. */
   const Shape& shape() const { return shape_; }
 
-  template <size_t D>
+  template <size_t D, typename = typename std::enable_if<D < rank()>::type>
   const auto& dim() const { return shape_.template dim<D>(); }
   size_type size() const { return shape_.size(); }
   bool empty() const { return shape_.empty(); }
