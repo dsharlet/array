@@ -18,7 +18,7 @@
 namespace nda {
 
 TEST(array_default_constructor) {
-  dense_array<int, 1> a(make_dense_shape(10));
+  dense_array<int, 1> a({10});
   for (int x = 0; x < 10; x++) {
     ASSERT_EQ(a(x), 0);
   }
@@ -44,8 +44,7 @@ TEST(array_default_constructor) {
     }
   }
 
-  auto sparse_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10, 20));
-  array<int, shape<dim<>, dim<>>> sparse(sparse_shape);
+  array<int, shape<dim<>, dim<>>> sparse({{-2, 5, 2}, {4, 10, 20}});
   ASSERT_EQ(sparse.rows(), 5);
   ASSERT_EQ(sparse.columns(), 10);
   for (int y = 4; y < 14; y++) {
@@ -60,7 +59,7 @@ TEST(array_default_constructor) {
 }
 
 TEST(array_fill_constructor) {
-  dense_array<int, 1> a(make_dense_shape(10), 3);
+  dense_array<int, 1> a({10}, 3);
   for (int x = 0; x < 10; x++) {
     ASSERT_EQ(a(x), 3);
   }
@@ -81,8 +80,7 @@ TEST(array_fill_constructor) {
     }
   }
 
-  auto sparse_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10, 20));
-  array<int, shape<dim<>, dim<>>> sparse(sparse_shape, 13);
+  array<int, shape<dim<>, dim<>>> sparse({{-2, 5, 2}, {4, 10, 20}}, 13);
   for (int y = 4; y < 14; y++) {
     for (int x = -2; x < 3; x++) {
       ASSERT_EQ(sparse(x, y), 13);
@@ -121,7 +119,7 @@ TEST(array_assign) {
 
 TEST(array_fill_assign) {
   dense_array<int, 1> a;
-  a.assign(make_dense_shape(10), 3);
+  a.assign({10}, 3);
   for (int x = 0; x < 10; x++) {
     ASSERT_EQ(a(x), 3);
   }
@@ -310,8 +308,8 @@ TEST(array_for_each_value_scalar) {
 }
 
 TEST(array_for_each_value) {
-  array_of_rank<int, 3> in_order({dim<>(0, 4, 1), dim<>(0, 4, 4), dim<>(0, 4, 16)});
-  array_of_rank<int, 3> out_of_order({dim<>(0, 4, 16), dim<>(0, 4, 1), dim<>(0, 4, 4)});
+  array_of_rank<int, 3> in_order({{0, 4, 1}, {0, 4, 4}, {0, 4, 16}});
+  array_of_rank<int, 3> out_of_order({{0, 4, 16}, {0, 4, 1}, {0, 4, 4}});
 
   int out_of_order_counter = 0;
   out_of_order.for_each_value([&](int& v) {

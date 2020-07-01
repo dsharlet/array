@@ -29,7 +29,7 @@ TEST(shape_scalar) {
 TEST(shape_1d) {
   for (int stride : {1, 2, 10}) {
     dim<> x(0, 10, stride);
-    shape<dim<>> s = make_shape(x);
+    shape<dim<>> s(x);
     for (int i : x) {
       ASSERT_EQ(s(i), i * stride);
     }
@@ -38,7 +38,7 @@ TEST(shape_1d) {
 
 TEST(shape_1d_dense) {
   dense_dim<> x(0, 10);
-  shape<dense_dim<>> s = make_shape(x);
+  shape<dense_dim<>> s(x);
   for (int i : x) {
     ASSERT_EQ(s(i), i);
   }
@@ -47,7 +47,7 @@ TEST(shape_1d_dense) {
 TEST(shape_2d) {
   dense_dim<> x(0, 10);
   dim<> y(0, 5, x.extent());
-  shape<dense_dim<>, dim<>> s = make_shape(x, y);
+  shape<dense_dim<>, dim<>> s(x, y);
   for (int i : y) {
     for (int j : x) {
       ASSERT_EQ(s(j, i), i * x.extent() + j);
@@ -58,7 +58,7 @@ TEST(shape_2d) {
 TEST(shape_2d_negative_stride) {
   dense_dim<> x(0, 10);
   dim<> y(0, 5, -x.extent());
-  shape<dense_dim<>, dim<>> s = make_shape(x, y);
+  shape<dense_dim<>, dim<>> s(x, y);
   index_t flat_min = s(s.min());
   index_t flat_max = flat_min;
   for (int i : y) {
@@ -79,7 +79,7 @@ TEST(shape_2d_negative_stride) {
 }
 
 TEST(make_dense_shape_1d) {
-  dense_shape<1> s = make_dense_shape(10);
+  dense_shape<1> s(10);
   dense_dim<> x = s.template dim<0>();
   ASSERT_EQ(x.min(), 0);
   ASSERT_EQ(x.extent(), 10);
@@ -174,8 +174,8 @@ void test_auto_strides() {
 }
 
 TEST(auto_strides) {
-  shape<dim<>> s1(dim<>(3, 5, UNK));
-  shape<dim<>> s1_resolved(dim<>(3, 5, 1));
+  shape<dim<>> s1({3, 5, UNK});
+  shape<dim<>> s1_resolved({3, 5, 1});
   ASSERT_EQ(s1, s1_resolved);
 
   shape<dim<>, dim<>> s2(5, 10);
@@ -215,7 +215,7 @@ TEST(auto_strides) {
 TEST(broadcast_dim) {
   dim<> x(0, 10, 1);
   broadcast_dim<> y;
-  shape<dim<>, broadcast_dim<>> s = make_shape(x, y);
+  shape<dim<>, broadcast_dim<>> s(x, y);
   for (int i = 0; i < 10; i++) {
     for (int j : x) {
       ASSERT_EQ(s(j, i), j);
@@ -241,7 +241,7 @@ TEST(for_all_indices_scalar) {
 }
 
 TEST(for_all_indices_1d) {
-  dense_shape<1> s = make_dense_shape(20);
+  dense_shape<1> s(20);
   int expected_flat_offset = 0;
   for_all_indices(s, [&](int x) {
     ASSERT_EQ(s(x), expected_flat_offset);
@@ -327,7 +327,7 @@ TEST(dim_is_in_range) {
 
 TEST(shape_is_in_range_1d) {
   dim<> x(2, 5);
-  shape<dim<>> s = make_shape(x);
+  shape<dim<>> s(x);
 
   for (int i = 2; i < 7; i++) {
     ASSERT(s.is_in_range(i));
@@ -339,7 +339,7 @@ TEST(shape_is_in_range_1d) {
 TEST(shape_is_in_range_2d) {
   dim<> x(2, 5);
   dim<> y(-3, 6);
-  shape<dim<>, dim<>> s = make_shape(x, y);
+  shape<dim<>, dim<>> s(x, y);
 
   for (int i = -3; i < 3; i++) {
     for (int j = 2; j < 7; j++) {
@@ -361,7 +361,7 @@ TEST(shape_conversion) {
   ASSERT_EQ(x.extent(), 10);
   ASSERT_EQ(x.stride(), 1);
 
-  dense_shape<2> static_dense(dense_dim<>(0, 10), dim<>(1, 5));
+  dense_shape<2> static_dense({0, 10}, {1, 5});
   shape_of_rank<2> dense = static_dense;
   ASSERT_EQ(dense, static_dense);
 
@@ -373,7 +373,7 @@ TEST(shape_conversion) {
 
   ASSERT(is_convertible<dense_shape<2>>(dense));
 
-  shape_of_rank<2> sparse(dim<>(0, 10, 2), dim<>(1, 5, 20));
+  shape_of_rank<2> sparse({0, 10, 2}, {1, 5, 20});
   ASSERT(!is_convertible<dense_shape<2>>(sparse));
 }
 
@@ -433,16 +433,16 @@ TEST(shape_optimize) {
 }
 
 TEST(shape_make_compact) {
-  shape<dim<>> s1(dim<>(3, 5, 2));
-  shape<dim<>> s1_compact(dim<>(3, 5, 1));
+  shape<dim<>> s1({3, 5, 2});
+  shape<dim<>> s1_compact({3, 5, 1});
   ASSERT_EQ(make_compact(s1), s1_compact);
 
-  shape<dim<>, dim<>> s2(dim<>(3, 5, 8), dim<>(1, 4, 1));
-  shape<dim<>, dim<>> s2_compact(dim<>(3, 5, 1), dim<>(1, 4, 5));
+  shape<dim<>, dim<>> s2({3, 5, 8}, {1, 4, 1});
+  shape<dim<>, dim<>> s2_compact({3, 5, 1}, {1, 4, 5});
   ASSERT_EQ(make_compact(s2), s2_compact);
 
-  shape<dim<>, dense_dim<>> s3(dim<>(3, 5, 8), dense_dim<>(1, 4));
-  shape<dim<>, dense_dim<>> s3_compact(dim<>(3, 5, 4), dense_dim<>(1, 4));
+  shape<dim<>, dense_dim<>> s3({3, 5, 8}, {1, 4});
+  shape<dim<>, dense_dim<>> s3_compact({3, 5, 4}, {1, 4});
   ASSERT_EQ(make_compact(s3), s3_compact);
 }
 

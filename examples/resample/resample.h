@@ -118,10 +118,10 @@ inline kernel_array build_kernels(
   const rational<nda::index_t> half = rational<nda::index_t>(1, 2);
 
   // We need to compute a kernel for each output position.
-  kernel_array kernels(make_shape(nda::dim<>(out)));
+  kernel_array kernels(out);
 
   // Define a buffer to produce each kernel in.
-  nda::dense_array<float, 1> buffer(make_shape(nda::dim<>(in)));
+  nda::dense_array<float, 1> buffer(in);
 
   // When downsampling, stretch the kernel to perform low pass filtering.
   // TODO: Move this, so it's possible to specify kernels that include
@@ -156,7 +156,7 @@ inline kernel_array build_kernels(
     nda::index_t extent = max - min + 1;
     assert(extent > 0);
     assert(sum > 0.0f);
-    nda::dense_array<float, 1> kernel_x(nda::dense_shape<1>(nda::dense_dim<>(min, extent)));
+    nda::dense_array<float, 1> kernel_x({{min, extent}});
     for (nda::index_t rx : kernel_x.x()) {
       kernel_x(rx) = buffer(rx) / sum;
     }

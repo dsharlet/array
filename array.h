@@ -804,11 +804,17 @@ class shape {
   // TODO: Don't resolve unknowns upon shape construction, do it only when
   // constructing arrays (and not array_refs).
   shape() { resolve_unknowns(); }
-  shape(std::tuple<Dims...> dims) : dims_(std::move(dims)) { resolve_unknowns(); }
+  template <typename... OtherDims,
+      typename = typename std::enable_if<sizeof...(OtherDims) == rank()>::type>
+  shape(const std::tuple<OtherDims...>& dims)
+      : dims_(internal::convert_tuple<Dims...>(dims)) { resolve_unknowns(); }
   shape(Dims... dims) : dims_(std::move(dims)...) { resolve_unknowns(); }
+  template <typename... OtherDims,
+      typename = typename std::enable_if<sizeof...(OtherDims) == rank()>::type>
+  shape(OtherDims... dims) : dims_(dims...) { resolve_unknowns(); }
   shape(const shape&) = default;
   shape(shape&&) = default;
-  /** Construct this shape from a different type of shape. 'conversion' must
+  /** Construct this shape from a different type of shape. `conversion` must
    * be convertible to this shape. */
   template <typename... OtherDims,
       typename = typename std::enable_if<sizeof...(OtherDims) == rank()>::type>
@@ -818,7 +824,7 @@ class shape {
   shape& operator=(const shape&) = default;
   shape& operator=(shape&&) = default;
 
-  /** Assign this shape from a different type of shape. 'conversion' must be
+  /** Assign this shape from a different type of shape. `conversion` must be
    * convertible to this shape. */
   template <typename... OtherDims,
       typename = typename std::enable_if<sizeof...(OtherDims) == rank()>::type>

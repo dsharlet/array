@@ -25,12 +25,12 @@ TEST(array_ref_indices) {
     data[i] = i;
   }
 
-  dense_array_ref<int, 1> ref_1d(data, make_dense_shape(100));
+  dense_array_ref<int, 1> ref_1d(data, {100});
   for_all_indices(ref_1d.shape(), [&](int x) {
     ASSERT_EQ(ref_1d(x), x);
   });
 
-  dense_array_ref<int, 2> ref_2d(data, make_dense_shape(20, 5));
+  dense_array_ref<int, 2> ref_2d(data, {20, 5});
   ASSERT_EQ(ref_2d.width(), 20);
   ASSERT_EQ(ref_2d.height(), 5);
   ASSERT_EQ(ref_2d.rows(), 20);
@@ -65,7 +65,7 @@ TEST(array_ref_copy) {
     data[i] = i;
   }
 
-  array_ref_of_rank<int, 1> evens(data, make_shape(dim<>(0, 50, 2)));
+  array_ref_of_rank<int, 1> evens(data, {dim<>(0, 50, 2)});
   dense_array<int, 1> evens_copy = make_dense_copy(evens);
   for (int i = 0; i < 50; i++) {
     ASSERT_EQ(evens(i), i * 2);
@@ -74,7 +74,7 @@ TEST(array_ref_copy) {
 }
 
 TEST(array_ref_empty) {
-  dense_array_ref<int, 1> null_ref(nullptr, make_dense_shape(10));
+  dense_array_ref<int, 1> null_ref(nullptr, {10});
   ASSERT(null_ref.empty());
   null_ref.set_shape({{3, 3}}, 3);
   ASSERT(null_ref.empty());
@@ -83,7 +83,7 @@ TEST(array_ref_empty) {
 TEST(array_ref_conversion) {
   // The correctness of shape conversion is already tested elsewhere, we just
   // want to make sure this compiles here.
-  array_ref_of_rank<int, 3> null_ref(nullptr, make_dense_shape(10, 20, 30));
+  array_ref_of_rank<int, 3> null_ref(nullptr, {10, 20, 30});
   dense_array_ref<int, 3> dense_null_ref(null_ref);
   null_ref = dense_null_ref;
 }
