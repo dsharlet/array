@@ -97,9 +97,9 @@ The order will vary depending on the properties of the shape.
 
 ### Compile-time constant shapes
 
-In these examples, no array parameters are compile time constants, so all of these accesses and loops expand to a `flat_offset` expression where the strides are runtime variables.
+In the previous examples, no array parameters are compile time constants, so all of these accesses and loops expand to a `flat_offset` expression where the mins, extents, and strides are runtime variables.
 This can prevent the compiler from generating efficient code.
-For example, the compiler may be able to auto-vectorize these loops, but if the stride of the vectorized dimension is a runtime variable, the compiler will have to generate gather and scatter instructions instead of load and store instructions, even if the stride is one.
+For example, the compiler may be able to auto-vectorize these loops, but if the stride of the vectorized dimension is a runtime variable, the compiler will have to generate gathers and scatters instead of vector load and store instructions, even if the stride is one.
 
 To avoid this, we need to make array parameters compile time constants.
 However, while making array parameters compile time constants helps the compiler generate efficient code, it also makes the program less flexible.
@@ -164,7 +164,7 @@ my_3d_shape_type top_left_shape = my_shape(range<>{0, 2}, range<>{0, 4}, _);
 array_ref<int, my_3d_shape_type> center_crop = my_array(range<>{1, 2}, range<>{2, 4}, _);
 ```
 The `_` constant is a placeholder indicating the entire dimension should be preserved.
-When slicing, arrays do not lose rank: the sliced dimension remains with extent 1.
+When slicing, arrays do not lose rank: the sliced dimension remains with extent 1. (See [issue #14](https://github.com/dsharlet/array/issues/14).)
 
 When iterating a `dim`, it is possible to `split` it first by either a compile-time constant or a runtime-valued split factor.
 A split `dim` produces an iterator range that produces `range<>` objects.
