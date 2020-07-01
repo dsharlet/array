@@ -1042,12 +1042,6 @@ class shape<> {
   bool operator!=(const shape<>&) const { return false; }
 };
 
-/** Helper function to make a dense shape from a variadic list of extents. */
-template <typename... Extents>
-auto make_dense_shape(index_t dim0_extent, Extents... extents) {
-  return make_shape(dense_dim<>(dim0_extent), dim<>(extents)...);
-}
-
 /** Create a new shape using a list of DimIndices to use as the dimensions of
  * the shape. */
 template <size_t... DimIndices, typename Shape>

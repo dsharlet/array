@@ -283,7 +283,7 @@ TEST(for_each_index_scalar) {
 }
 
 TEST(for_each_index_1d) {
-  dense_shape<1> s = make_dense_shape(20);
+  dense_shape<1> s(20);
   int expected_flat_offset = 0;
   for_each_index(s, [&](std::tuple<int> x) {
     ASSERT_EQ(s(x), expected_flat_offset);
