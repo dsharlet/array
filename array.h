@@ -257,17 +257,6 @@ index_t clamp(index_t x, const Dim& d) {
   return clamp(x, d.min(), d.max());
 }
 
-template <index_t MinX, index_t ExtentX, index_t MinR, index_t ExtentR>
-auto clamp(const range<MinX, ExtentX>& x, const range<MinR, ExtentR>& y) {
-  constexpr index_t Min = internal::max_index(MinX, MinR);
-  constexpr index_t Max = internal::min_index(x.Max, y.Max);
-  constexpr index_t Extent = internal::add_index(internal::sub_index(Max, Min), 1);
-  index_t min = std::max(x.min(), y.min());
-  index_t max = std::min(x.max(), y.max());
-  index_t extent = max - min + 1;
-  return range<Min, Extent>(min, extent);
-}
-
 namespace internal {
 
 // An iterator for a range of ranges.
