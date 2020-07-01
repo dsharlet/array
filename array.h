@@ -97,23 +97,23 @@ inline constexpr index_t abs(index_t a) {
   return a >= 0 ? a : -a;
 }
 
-inline constexpr index_t add_index(index_t a, index_t b) {
+inline constexpr index_t add(index_t a, index_t b) {
   return is_unknown(a) || is_unknown(b) ? UNK : a + b;
 }
 
-inline constexpr index_t sub_index(index_t a, index_t b) {
+inline constexpr index_t sub(index_t a, index_t b) {
   return is_unknown(a) || is_unknown(b) ? UNK : a - b;
 }
 
-inline constexpr index_t mul_index(index_t a, index_t b) {
+inline constexpr index_t mul(index_t a, index_t b) {
   return is_unknown(a) || is_unknown(b) ? UNK : a * b;
 }
 
-inline constexpr index_t min_index(index_t a, index_t b) {
+inline constexpr index_t min(index_t a, index_t b) {
   return is_unknown(a) || is_unknown(b) ? UNK : (a < b ? a : b);
 }
 
-inline constexpr index_t max_index(index_t a, index_t b) {
+inline constexpr index_t max(index_t a, index_t b) {
   return is_unknown(a) || is_unknown(b) ? UNK : (a > b ? a : b);
 }
 
@@ -149,7 +149,7 @@ class range {
  public:
   static constexpr index_t Min = Min_;
   static constexpr index_t Extent = Extent_;
-  static constexpr index_t Max = internal::sub_index(internal::add_index(Min, Extent), 1);
+  static constexpr index_t Max = internal::sub(internal::add(Min, Extent), 1);
 
   range() : range(Min_, Extent_) {}
   /** Construct a new range object. If the class template parameters `Min`
@@ -1144,9 +1144,9 @@ bool is_shape_compatible(const shape<DimsDest...>&, const ShapeSrc& src, std::in
 
 template <typename DimA, typename DimB>
 auto intersect_dims(const DimA& a, const DimB& b) {
-  constexpr index_t Min = max_index(DimA::Min, DimB::Min);
-  constexpr index_t Max = min_index(DimA::Max, DimB::Max);
-  constexpr index_t Extent = add_index(sub_index(Max, Min), 1);
+  constexpr index_t Min = max(DimA::Min, DimB::Min);
+  constexpr index_t Max = min(DimA::Max, DimB::Max);
+  constexpr index_t Extent = add(sub(Max, Min), 1);
   constexpr index_t Stride = DimA::Stride == DimB::Stride ? DimA::Stride : UNK;
   index_t min = std::max(a.min(), b.min());
   index_t max = std::min(a.max(), b.max());
