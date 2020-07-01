@@ -86,92 +86,35 @@ NDARRAY_INLINE constexpr index_t is_unknown(index_t x) {
 // runtime value.
 template <index_t Value>
 NDARRAY_INLINE constexpr index_t reconcile(index_t value) {
-  if (is_known(Value)) {
-    // It would be nice to assert here that Value == value. But, this is used in
-    // the innermost loops, so when asserts are on, this ruins performance. It
-    // is also a less helpful place to catch errors, because the context of the
-    // bug is lost here.
-    return Value;
-  } else {
-    return value;
-  }
+  // It would be nice to assert here that Value == value. But, this is used in
+  // the innermost loops, so when asserts are on, this ruins performance. It
+  // is also a less helpful place to catch errors, because the context of the
+  // bug is lost here.
+  return is_known(Value) ? Value : value;
 }
 
 inline constexpr index_t abs(index_t a) {
   return a >= 0 ? a : -a;
 }
 
-// Signed integer division in C/C++ is terrible. These implementations
-// of Euclidean division and mod are taken from:
-// https://github.com/halide/Halide/blob/1a0552bb6101273a0e007782c07e8dafe9bc5366/src/CodeGen_Internal.cpp#L358-L408
-inline constexpr index_t euclidean_div(index_t a, index_t b) {
-  index_t q = a / b;
-  index_t r = a - q * b;
-  index_t bs = b >> (sizeof(index_t) * 8 - 1);
-  index_t rs = r >> (sizeof(index_t) * 8 - 1);
-  return q - (rs & bs) + (rs & ~bs);
-}
-
-inline constexpr index_t euclidean_mod(index_t a, index_t b) {
-  index_t r = a % b;
-  index_t sign_mask = r >> (sizeof(index_t) * 8 - 1);
-  return r + (sign_mask & abs(b));
-}
-
 inline constexpr index_t add_index(index_t a, index_t b) {
-  if (is_unknown(a) || is_unknown(b)) {
-    return UNK;
-  } else {
-    return a + b;
-  }
+  return is_unknown(a) || is_unknown(b) ? UNK : a + b;
 }
 
 inline constexpr index_t sub_index(index_t a, index_t b) {
-  if (is_unknown(a) || is_unknown(b)) {
-    return UNK;
-  } else {
-    return a - b;
-  }
+  return is_unknown(a) || is_unknown(b) ? UNK : a - b;
 }
 
 inline constexpr index_t mul_index(index_t a, index_t b) {
-  if (is_unknown(a) || is_unknown(b)) {
-    return UNK;
-  } else {
-    return a * b;
-  }
-}
-
-inline constexpr index_t div_index(index_t a, index_t b) {
-  if (is_unknown(a) || is_unknown(b)) {
-    return UNK;
-  } else {
-    return euclidean_div(a, b);
-  }
-}
-
-inline constexpr index_t mod_index(index_t a, index_t b) {
-  if (is_unknown(a) || is_unknown(b)) {
-    return UNK;
-  } else {
-    return euclidean_mod(a, b);
-  }
+  return is_unknown(a) || is_unknown(b) ? UNK : a * b;
 }
 
 inline constexpr index_t min_index(index_t a, index_t b) {
-  if (is_unknown(a) || is_unknown(b)) {
-    return UNK;
-  } else {
-    return a < b ? a : b;
-  }
+  return is_unknown(a) || is_unknown(b) ? UNK : (a < b ? a : b);
 }
 
 inline constexpr index_t max_index(index_t a, index_t b) {
-  if (is_unknown(a) || is_unknown(b)) {
-    return UNK;
-  } else {
-    return a > b ? a : b;
-  }
+  return is_unknown(a) || is_unknown(b) ? UNK : (a > b ? a : b);
 }
 
 }  // namespace internal
@@ -315,7 +258,7 @@ index_t clamp(index_t x, const Dim& d) {
 }
 
 template <index_t MinX, index_t ExtentX, index_t MinR, index_t ExtentR>
-inline auto clamp(const range<MinX, ExtentX>& x, const range<MinR, ExtentR>& y) {
+auto clamp(const range<MinX, ExtentX>& x, const range<MinR, ExtentR>& y) {
   constexpr index_t Min = internal::max_index(MinX, MinR);
   constexpr index_t Max = internal::min_index(x.Max, y.Max);
   constexpr index_t Extent = internal::add_index(internal::sub_index(Max, Min), 1);
