@@ -21,14 +21,15 @@
 #include <cmath>
 #include <functional>
 
-// A reconstruction kernel is a continuous function.
+/** A reconstruction kernel is a continuous function. */
 using continuous_kernel = std::function<float(float)>;
 
-// Define some common kernels useful for resizing images.
+/** Box kernel. */
 inline float box(float s) {
   return std::abs(s) <= 0.5f ? 1.0f : 0.0f;
 }
 
+/** Linear interpolation kernel. */
 inline float linear(float s) {
   return std::max(0.0f, 1.0f - std::abs(s));
 }
@@ -67,22 +68,22 @@ inline float cubic_family(float s, float B, float C) {
   }
 }
 
-// An interpolating quadratic.
+/** Interpolating quadratic kernel. */
 inline float interpolating_quadratic(float s) {
   return quadratic_family(s, 1.0f);
 }
 
-// An interpolating cubic, i.e. Catmull-Rom spline.
+/** Interpolating cubic, i.e. Catmull-Rom spline. */
 inline float interpolating_cubic(float s) {
   return cubic_family(s, 0.0f, 0.5f);
 }
 
-// Smooth but soft quadratic B-spline approximation.
+/** Smooth but soft quadratic B-spline approximation (not interpolating). */
 inline float quadratic_bspline(float s) {
   return quadratic_family(s, 0.5f);
 }
 
-// Smooth but soft cubic B-spline approximation.
+/** Smooth but soft cubic B-spline approximation (not interpolating). */
 inline float cubic_bspline(float s) {
   return cubic_family(s, 1.0f, 0.0f);
 }
@@ -92,16 +93,16 @@ inline float sinc(float s) {
   return std::abs(s) > 1e-6f ? std::sin(s) / s : 1.0f;
 }
 
-inline float lanczos(float s, int lobes) {
-  if (std::abs(s) <= lobes) {
-    return sinc(s) * sinc(s / lobes);
+/** Lanczos kernel, with `2*side_lobes + 1` lobes. */
+inline float lanczos(float s, int side_lobes) {
+  if (std::abs(s) <= side_lobes) {
+    return sinc(s) * sinc(s / side_lobes);
   } else {
     return 0.0f;
   }
 }
-
-template<int lobes>
-float lanczos(float s) { return lanczos(s, lobes); }
+template<int side_lobes>
+float lanczos(float s) { return lanczos(s, side_lobes); }
 
 namespace internal {
 
@@ -212,25 +213,36 @@ nda::dim<Min, Extent> without_stride(const nda::dim<Min, Extent, Stride>& d) {
   return nda::dim<Min, Extent>(d.min(), d.extent());
 }
 
+/** Resample an array `in` to produce an array `out`, using an interpolation `kernel`.
+ * Input coordinates (x, y) map to output coordinates (x * rate_x, y * rate_y). */
 template <typename TIn, typename TOut, typename ShapeIn, typename ShapeOut>
 void resample(const nda::array_ref<TIn, ShapeIn>& in, const nda::array_ref<TOut, ShapeOut>& out,
             const rational<nda::index_t>& rate_x, const rational<nda::index_t>& rate_y,
             continuous_kernel kernel) {
+  // Make the kernels we need at each output x and y coordinate in the output.
   internal::kernel_array kernels_x =
       internal::build_kernels(in.x(), out.x(), rate_x, kernel);
   internal::kernel_array kernels_y =
       internal::build_kernels(in.y(), out.y(), rate_y, kernel);
 
+  // Split the image into horizontal strips.
   constexpr nda::index_t StripSize = 64;
   for (auto yo : nda::split<StripSize>(out.y())) {
     auto out_y = out(out.x(), yo, out.c());
-    auto strip = nda::make_array<TOut>(make_shape(in.x(), without_stride(out_y.y()), without_stride(out_y.c())));
-    auto strip_tr = nda::make_array<TOut>(make_shape(with_stride<1>(out_y.y()), without_stride(in.x()), without_stride(out_y.c())));
-    auto out_tr = nda::make_array<TOut>(make_shape(with_stride<1>(out_y.y()), without_stride(out_y.x()), without_stride(out_y.c())));
 
+    // Resample the input in y, to an intermediate buffer.
+    auto strip = nda::make_array<TOut>(make_shape(in.x(), without_stride(out_y.y()), without_stride(out_y.c())));
     internal::resample_y(in, strip.ref(), kernels_y);
+
+    // Transpose the intermediate.
+    auto strip_tr = nda::make_array<TOut>(make_shape(with_stride<1>(out_y.y()), without_stride(in.x()), without_stride(out_y.c())));
     internal::transpose(strip.cref(), strip_tr.ref());
+
+    // Resample the intermediate in x.
+    auto out_tr = nda::make_array<TOut>(make_shape(with_stride<1>(out_y.y()), without_stride(out_y.x()), without_stride(out_y.c())));
     internal::resample_y(strip_tr.cref(), out_tr.ref(), kernels_x);
+
+    // Transpose the intermediate to the output.
     internal::transpose(out_tr.cref(), out_y);
   }
 }

@@ -44,7 +44,7 @@ using chunky_image = array<T, chunky_image_shape<Channels, ChannelStride>>;
 template <typename T, index_t Channels, index_t ChannelStride = Channels>
 using chunky_image_ref = array_ref<T, chunky_image_shape<Channels, ChannelStride>>;
 
-/** Calls 'fn' for each index in an image shape 's'. c is the innermost
+/** Calls `fn` for each index in an image shape `s`. c is the innermost
  * dimension of the loop nest. */
 template <typename Shape, typename Fn>
 void for_each_image_index(const Shape& s, Fn&& fn) {
@@ -117,8 +117,8 @@ enum class crop_origin {
   crop,
 };
 
-/** Crop an image shape 's' to the indices [x0, x1) x [y0, y1). The origin of
- * the new shape is determined by 'origin'. */
+/** Crop an image shape `s` to the indices [`x0`, `x1`) x [`y0`, `y1`). The origin of
+ * the new shape is determined by `origin`. */
 template <typename Shape>
 Shape crop_image_shape(Shape s, index_t x0, index_t y0, index_t x1, index_t y1,
                        crop_origin origin = crop_origin::crop) {
@@ -137,9 +137,9 @@ Shape crop_image_shape(Shape s, index_t x0, index_t y0, index_t x1, index_t y1,
   return s;
 }
 
-/** Crop the 'im' image or image ref to the range [x0, x1) x [y0, y1). The
+/** Crop the `im` image or image ref to the range [`x0`, `x1`) x [`y0`, `y1`). The
  * result is a ref of the input image. The origin of the result is determined by
- * 'origin'. */
+ * `origin`. */
 template <typename T, typename Shape>
 array_ref<T, Shape> crop(const array_ref<T, Shape>& im,
                          index_t x0, index_t y0, index_t x1, index_t y1,
@@ -169,7 +169,7 @@ array_ref<T, Shape> crop(array<T, Shape>& im,
   return crop(im.ref(), x0, y0, x1, y1, origin);
 }
 
-/** Get a 2-dimensional ref of the 'Channel' channel of the 'im' image or image
+/** Get a 2-dimensional ref of the `Channel` channel of the `im` image or image
  * ref. */
 template <typename T, typename Shape>
 auto slice_channel(const array_ref<T, Shape>& im, index_t channel) {

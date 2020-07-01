@@ -55,8 +55,8 @@
 namespace nda {
 
 typedef std::size_t size_t;
-/** When NDARRAY_INT_INDICES is defined, array indices are 'int' values, otherwise
- * they are 'std::ptrdiff_t'. std::ptrdiff_t is helpful for the compiler to
+/** When `NDARRAY_INT_INDICES` is defined, array indices are `int` values, otherwise
+ * they are `std::ptrdiff_t`. std::ptrdiff_t is helpful for the compiler to
  * optimize loops. */
 #ifdef NDARRAY_INT_INDICES
 typedef int index_t;
@@ -137,7 +137,7 @@ class index_iterator {
 };
 
 /** Describes a range of indices. The template parameters enable providing
- * compile time constants for the 'min' and 'extent' of the range. These
+ * compile time constants for the `min` and `extent` of the range. These
  * parameters Values not in the range [min, min + extent) are considered to be
  * out of bounds. */
 template <index_t Min_ = UNK, index_t Extent_ = UNK>
@@ -152,8 +152,8 @@ class range {
   static constexpr index_t Max = internal::sub_index(internal::add_index(Min, Extent), 1);
 
   range() : range(Min_, Extent_) {}
-  /** Construct a new range object. If the class template parameters 'Min'
-   * or 'Extent' are not 'UNK', these runtime values must match the
+  /** Construct a new range object. If the class template parameters `Min`
+   * or `Extent` are not `UNK`, these runtime values must match the
    * compile-time values. */
   range(index_t min, index_t extent) {
     set_min(min);
@@ -214,7 +214,7 @@ class range {
   /** Index of the last element in this range. */
   NDARRAY_INLINE index_t max() const { return min() + extent() - 1; }
 
-  /** Returns true if 'at' is within the range [min(), max()]. */
+  /** Returns true if `at` is within the range [`min()`, `max()`]. */
   NDARRAY_INLINE bool is_in_range(index_t at) const { return min() <= at && at <= max(); }
 
   /** Make an iterator referring to the first element in this range. */
@@ -234,7 +234,7 @@ class range {
   }
 };
 
-/** A 'range' that means the entire dimension. */
+/** A `range` that means the entire dimension. */
 const range<0, -1> _;
 
 template <index_t Min, index_t Extent>
@@ -347,7 +347,7 @@ internal::split_iterator_range<> split(const range<Min, Extent>& r, index_t inne
 }
 
 /** Describes one dimension of an array. The template parameters enable
- * providing compile time constants for the 'min', 'extent', and 'stride' of the
+ * providing compile time constants for the `min`, `extent`, and `stride` of the
  * dim. These parameters define a mapping from the indices of the dimension to
  * offsets: offset(x) = (x - min)*stride. The extent does not affect the mapping
  * directly. Values not in the range [min, min + extent) are considered to be
@@ -368,8 +368,8 @@ class dim : public range<Min_, Extent_> {
 
   static constexpr index_t Stride = Stride_;
 
-  /** Construct a new dim object. If the class template parameters 'Min',
-   * 'Extent', or 'Stride' are not 'UNK', these runtime values must match the
+  /** Construct a new dim object. If the class template parameters `Min`,
+   * `Extent`, or `Stride` are not `UNK`, these runtime values must match the
    * compile-time values. */
   dim(index_t min, index_t extent, index_t stride = Stride) : base_range(min, extent) {
     set_stride(stride);
@@ -420,7 +420,7 @@ class dim : public range<Min_, Extent_> {
     }
   }
 
-  /** Offset of the index 'at' in this dim in the flat array. */
+  /** Offset of the index `at` in this dim in the flat array. */
   NDARRAY_INLINE index_t flat_offset(index_t at) const { return (at - min()) * stride(); }
 
   /** Two dim objects are considered equal if their mins, extents, and strides
@@ -435,17 +435,17 @@ class dim : public range<Min_, Extent_> {
   }
 };
 
-/** A specialization of 'dim' where the compile-time stride parameter is known
+/** A specialization of `dim` where the compile-time stride parameter is known
  * to be one. */
 template <index_t Min = UNK, index_t Extent = UNK>
 using dense_dim = dim<Min, Extent, 1>;
 
-/** A specialization of 'dim' where only the stride parameter is specified at
+/** A specialization of `dim` where only the stride parameter is specified at
  * compile time. */
 template <index_t Stride>
 using strided_dim = dim<UNK, UNK, Stride>;
 
-/** A specialization of 'dim' where the compile-time stride parameter is known
+/** A specialization of `dim` where the compile-time stride parameter is known
  * to be zero. */
 template <index_t Min = UNK, index_t Extent = UNK>
 using broadcast_dim = dim<Min, Extent, 0>;
@@ -778,8 +778,8 @@ shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
   return shape<Dims...>(dims);
 }
 
-/** A list of 'dim' objects describing a multi-dimensional space of indices.
- * The 'rank' of a shape refers to the number of dimensions in the shape.
+/** A list of `dim` objects describing a multi-dimensional space of indices.
+ * The `rank` of a shape refers to the number of dimensions in the shape.
  * Shapes map multiple dim objects to offsets by adding each mapping dim to
  * offset together to produce a 'flat offset'. The first dimension is known as
  * the 'innermost' dimension, and dimensions then increase until the
@@ -804,16 +804,22 @@ class shape {
   // TODO: Don't resolve unknowns upon shape construction, do it only when
   // constructing arrays (and not array_refs).
   shape() { resolve_unknowns(); }
+  shape(Dims... dims) : dims_(std::move(dims)...) { resolve_unknowns(); }
+  shape(const shape&) = default;
+  shape(shape&&) = default;
+
+  /** Construct a shape from a tuple of `dims` of another type. */
+  // We cannot have an std::tuple<Dims...> constructor because it will be
+  // ambiguous with the Dims... constructor for 1D shapes.
   template <typename... OtherDims,
       typename = typename std::enable_if<sizeof...(OtherDims) == rank()>::type>
   shape(const std::tuple<OtherDims...>& dims)
       : dims_(internal::convert_tuple<Dims...>(dims)) { resolve_unknowns(); }
-  shape(Dims... dims) : dims_(std::move(dims)...) { resolve_unknowns(); }
+  /** Construct a shape from a different type of `dims`. */
   template <typename... OtherDims,
       typename = typename std::enable_if<sizeof...(OtherDims) == rank()>::type>
   shape(OtherDims... dims) : dims_(dims...) { resolve_unknowns(); }
-  shape(const shape&) = default;
-  shape(shape&&) = default;
+
   /** Construct this shape from a different type of shape. `conversion` must
    * be convertible to this shape. */
   template <typename... OtherDims,
@@ -845,7 +851,7 @@ class shape {
     return internal::all_known(dims_);
   }
 
-  /** Returns true if the index 'indices' are in range of this shape. */
+  /** Returns true if the index `indices` are in range of this shape. */
   bool is_in_range(const index_type& indices) const {
     return internal::is_in_range(dims_, indices);
   }
@@ -855,7 +861,7 @@ class shape {
     return is_in_range(std::make_tuple(indices...));
   }
 
-  /** Compute the flat offset of the index 'indices'. */
+  /** Compute the flat offset of the index `indices`. */
   index_t operator() (const index_type& indices) const { return internal::flat_offset_tuple(dims_, indices); }
   index_t operator[] (const index_type& indices) const { return internal::flat_offset_tuple(dims_, indices); }
   template <typename... Indices,
@@ -929,7 +935,7 @@ class shape {
   /** A shape is empty if its size is 0. */
   bool empty() const { return size() == 0; }
 
-  /** Returns true if this shape is 'compact' in memory. A shape is compact if
+  /** Returns true if this shape is `compact` in memory. A shape is compact if
    * there are no unaddressable flat indices between the first and last
    * addressable flat elements. */
   bool is_compact() const { return flat_extent() <= size(); }
@@ -1152,7 +1158,7 @@ auto intersect(const std::tuple<DimsA...>& a, const std::tuple<DimsB...>& b, std
   return make_shape(intersect_dims(std::get<Is>(a), std::get<Is>(b))...);
 }
 
-// Call 'fn' with the elements of tuple 'args' unwrapped from the tuple.
+// Call `fn` with the elements of tuple `args` unwrapped from the tuple.
 // TODO: When we assume C++17, this can be replaced by std::apply.
 template <typename Fn, typename IndexType, size_t... Is>
 NDARRAY_INLINE auto apply(Fn&& fn, const IndexType& args, std::index_sequence<Is...>) {
@@ -1188,12 +1194,12 @@ template <size_t Rank>
 using shape_of_rank =
   decltype(make_shape_from_tuple(typename internal::tuple_of_n<dim<>, Rank>::type()));
 
-/** A shape where the innermost dimension is a 'dense_dim' object, and all other
+/** A shape where the innermost dimension is a `dense_dim` object, and all other
  * dimensions are arbitrary. */
 template <size_t Rank>
 using dense_shape = decltype(internal::make_default_dense_shape<Rank>());
 
-/** Test if a shape 'src' can be assigned to a shape of type 'ShapeDest' without
+/** Test if a shape `src` can be assigned to a shape of type `ShapeDest` without
  * error. */
 template <typename ShapeDest, typename ShapeSrc>
 bool is_convertible(const ShapeSrc& src) {
@@ -1201,18 +1207,18 @@ bool is_convertible(const ShapeSrc& src) {
   return internal::is_shape_compatible(ShapeDest(), src, std::make_index_sequence<ShapeSrc::rank()>());
 }
 
-/** Compute the intersection of two shapes 'a' and 'b'. The intersection is the
- * shape containing the indices in bounds of both 'a' and 'b'. */
+/** Compute the intersection of two shapes `a` and `b`. The intersection is the
+ * shape containing the indices in bounds of both `a` and `b`. */
 template <typename ShapeA, typename ShapeB>
 auto intersect(const ShapeA& a, const ShapeB& b) {
   constexpr size_t rank = ShapeA::rank() < ShapeB::rank() ? ShapeA::rank() : ShapeB::rank();
   return internal::intersect(a.dims(), b.dims(), std::make_index_sequence<rank>());
 }
 
-/** Iterate over all indices in the shape, calling a function 'fn' for each set
+/** Iterate over all indices in the shape, calling a function `fn` for each set
  * of indices. The indices are in the same order as the dims in the shape. The
- * first dim is the 'inner' loop of the iteration, and the last dim is the
- * 'outer' loop.
+ * first dim is the `inner` loop of the iteration, and the last dim is the
+ * `outer` loop.
  *
  * These functions are typically used to implement shape_traits and
  * copy_shape_traits objects. Use for_each_index, array_ref<>::for_each_value,
@@ -1231,8 +1237,8 @@ void for_each_value_in_order(const Shape& shape, Ptr base, Fn &&fn) {
 }
 
 /** Similar to for_each_value_in_order, but iterates over two arrays
- * simultaneously. 'shape' defines the loop nest, while 'shape_a' and 'shape_b'
- * define the memory layout of 'base_a' and 'base_b'. */
+ * simultaneously. `shape` defines the loop nest, while `shape_a` and `shape_b`
+ * define the memory layout of `base_a` and `base_b`. */
 template<typename Shape, typename ShapeA, typename PtrA, typename ShapeB, typename PtrB, typename Fn>
 void for_each_value_in_order(const Shape& shape,
                              const ShapeA& shape_a, PtrA base_a,
@@ -1443,10 +1449,10 @@ class copy_shape_traits {
   }
 };
 
-/** Iterate over all indices in the shape, calling a function 'fn' for each set
- * of indices. The order is defined by 'shape_traits<Shape>'. 'for_all_indices'
- * calls 'fn' with a list of arguments corresponding to each dim.
- * 'for_each_index' calls 'fn' with a Shape::index_type object describing the
+/** Iterate over all indices in the shape, calling a function `fn` for each set
+ * of indices. The order is defined by `shape_traits<Shape>`. `for_all_indices`
+ * calls `fn` with a list of arguments corresponding to each dim.
+ * `for_each_index` calls `fn` with a Shape::index_type object describing the
  * indices. */
 template <typename Shape, typename Fn>
 void for_each_index(const Shape& s, Fn&& fn) {
@@ -1462,7 +1468,7 @@ void for_all_indices(const Shape& s, Fn&& fn) {
 template <typename T, typename Shape>
 class array_ref;
 
-/** Make a new array with shape 'shape', allocated using 'alloc'. */
+/** Make a new array with shape `shape`, allocated using `alloc`. */
 template <typename T, typename Shape>
 auto make_array_ref(T* base, const Shape& shape) {
   return array_ref<T, Shape>(base, shape);
@@ -1497,8 +1503,8 @@ class array_ref {
   Shape shape_;
 
  public:
-  /** Make an array_ref to the given 'base' pointer, interpreting it as having
-   * the shape 'shape'. */
+  /** Make an array_ref to the given `base` pointer, interpreting it as having
+   * the shape `shape`. */
   array_ref(pointer base = nullptr, Shape shape = Shape())
       : base_(base), shape_(std::move(shape)) {
     assert(shape_.is_known());
@@ -1547,7 +1553,7 @@ class array_ref {
   }
 
   /** Call a function with a reference to each value in this array_ref. The
-   * order in which 'fn' is called is undefined. */
+   * order in which `fn` is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) const {
     shape_traits_type::for_each_value(shape_, base_, fn);
@@ -1601,7 +1607,7 @@ class array_ref {
   index_t rows() const { return shape_.rows(); }
   index_t columns() const { return shape_.columns(); }
 
-  /** Compare the contents of this array_ref to 'other'. For two array_refs to
+  /** Compare the contents of this array_ref to `other`. For two array_refs to
    * be considered equal, they must have the same shape, and all elements
    * addressable by the shape must also be equal. */
   bool operator!=(const array_ref& other) const {
@@ -1636,8 +1642,8 @@ class array_ref {
   /** Allow conversion from array_ref<T> to array_ref<const T>. */
   operator array_ref<const T, Shape>() const { return cref(); }
 
-  /** Change the shape of the array to 'new_shape', and move the base pointer by
-   * 'offset'. */
+  /** Change the shape of the array to `new_shape`, and move the base pointer by
+   * `offset`. */
   void set_shape(Shape new_shape, index_t offset = 0) {
     shape_ = std::move(new_shape);
     assert(shape_.is_known());
@@ -1645,12 +1651,12 @@ class array_ref {
   }
 };
 
-/** array_ref with an arbitrary shape of the compile-time constant 'Rank'. */
+/** array_ref with an arbitrary shape of the compile-time constant `Rank`. */
 template <typename T, size_t Rank>
 using array_ref_of_rank = array_ref<T, shape_of_rank<Rank>>;
 
-/** array_ref with a 'dense_dim' innermost dimension, and an arbitrary shape
- * otherwise, of the compile-time constant 'Rank'. */
+/** array_ref with a `dense_dim` innermost dimension, and an arbitrary shape
+ * otherwise, of the compile-time constant `Rank`. */
 template <typename T, size_t Rank>
 using dense_array_ref = array_ref<T, dense_shape<Rank>>;
 
@@ -1759,30 +1765,30 @@ class array {
    * innermost-to-outermost order. */
   array() : array(Shape()) {}
   explicit array(const Alloc& alloc) : array(Shape(), alloc) {}
-  /** Construct an array with a particular 'shape', allocated by 'alloc'. All
-   * elements in the array are copy-constructed from 'value'. */
+  /** Construct an array with a particular `shape`, allocated by `alloc`. All
+   * elements in the array are copy-constructed from `value`. */
   array(Shape shape, const T& value, const Alloc& alloc = Alloc()) : array(alloc) {
     assign(std::move(shape), value);
   }
-  /** Construct an array with a particular 'shape', allocated by 'alloc', with
+  /** Construct an array with a particular `shape`, allocated by `alloc`, with
    * default constructed elements. */
   explicit array(Shape shape, const Alloc& alloc = Alloc())
       : alloc_(alloc), buffer_(nullptr), buffer_size_(0), base_(nullptr), shape_(std::move(shape)) {
     allocate();
     construct();
   }
-  /** Copy construct from another array 'other', using copy's allocator. This is
-   * a deep copy of the contents of 'other'. */
+  /** Copy construct from another array `other`, using copy's allocator. This is
+   * a deep copy of the contents of `other`. */
   array(const array& other)
       : array(alloc_traits::select_on_container_copy_construction(other.get_allocator())) {
     assign(other);
   }
-  /** Copy construct from another array 'other'. The array is allocated using
-   * 'alloc'. This is a deep copy of the contents of 'other'. */
+  /** Copy construct from another array `other`. The array is allocated using
+   * `alloc`. This is a deep copy of the contents of `other`. */
   array(const array& other, const Alloc& alloc) : array(alloc) {
     assign(other);
   }
-  /** Move construct from another array 'other'. If the allocator of this array
+  /** Move construct from another array `other`. If the allocator of this array
    * and the other array are equal, this operation moves the allocation of other
    * to this array, and the other array becomes a default constructed array. If
    * the allocator of this and the other array are non-equal, each element is
@@ -1805,7 +1811,7 @@ class array {
     deallocate();
   }
 
-  /** Assign the contents of the array as a copy of 'other'. The array is
+  /** Assign the contents of the array as a copy of `other`. The array is
    * deallocated if the allocator cannot be propagated on assignment. The array
    * is then reallocated if necessary, and each element in the array is copy
    * constructed from other. */
@@ -1830,10 +1836,10 @@ class array {
     assign(other);
     return *this;
   }
-  /** Assign the contents of the array by moving from 'other'. If the allocator
-   * can be propagated on move assignment, the allocation of 'other' is moved in
+  /** Assign the contents of the array by moving from `other`. If the allocator
+   * can be propagated on move assignment, the allocation of `other` is moved in
    * an O(1) operation. If the allocator cannot be propagated, each element is
-   * move-assigned from 'other'. */
+   * move-assigned from `other`. */
   array& operator=(array&& other) {
     using std::swap;
     if (base_ == other.base()) {
@@ -1863,9 +1869,9 @@ class array {
     return *this;
   }
 
-  /** Assign the contents of the array to be a copy or move of 'other'. The
+  /** Assign the contents of the array to be a copy or move of `other`. The
    * array is destroyed, reallocated if necessary, and then each element is
-   * copy- or move-constructed from 'other'. */
+   * copy- or move-constructed from `other`. */
   void assign(const array& other) {
     if (base_ == other.base()) {
       if (base_) {
@@ -1905,8 +1911,8 @@ class array {
     move_construct(other);
   }
 
-  /** Assign the contents of this array to have 'shape' with each element copy
-   * constructed from 'value'. */
+  /** Assign the contents of this array to have `shape` with each element copy
+   * constructed from `value`. */
   void assign(Shape shape, const T& value) {
     shape.resolve_unknowns();
     if (shape_ == shape) {
@@ -1966,7 +1972,7 @@ class array {
   }
 
   /** Call a function with a reference to each value in this array. The order in
-   * which 'fn' is called is undefined. */
+   * which `fn` is called is undefined. */
   template <typename Fn>
   void for_each_value(Fn&& fn) {
     shape_traits_type::for_each_value(shape_, base_, fn);
@@ -2019,8 +2025,8 @@ class array {
     swap(new_array);
   }
 
-  /** Change the shape of the array to 'new_shape', and move the base pointer by
-   * 'offset'. */
+  /** Change the shape of the array to `new_shape`, and move the base pointer by
+   * `offset`. */
   void set_shape(Shape new_shape, index_t offset = 0) {
     assert(new_shape.is_known());
     assert(new_shape.is_subset_of(shape(), -offset));
@@ -2051,7 +2057,7 @@ class array {
   index_t rows() const { return shape_.rows(); }
   index_t columns() const { return shape_.columns(); }
 
-  /** Compare the contents of this array to 'other'. For two arrays to be
+  /** Compare the contents of this array to `other`. For two arrays to be
    * considered equal, they must have the same shape, and all elements
    * addressable by the shape must also be equal. */
   bool operator!=(const array& other) const { return cref() != other.cref(); }
@@ -2085,16 +2091,16 @@ class array {
   operator array_ref<const T, Shape>() const { return cref(); }
 };
 
-/** An array type with an arbitrary shape of rank 'Rank'. */
+/** An array type with an arbitrary shape of rank `Rank`. */
 template <typename T, size_t Rank, typename Alloc = std::allocator<T>>
 using array_of_rank = array<T, shape_of_rank<Rank>, Alloc>;
 
-/** array with a 'dense_dim' innermost dimension, and an arbitrary shape
- * otherwise, of rank 'Rank'. */
+/** array with a `dense_dim` innermost dimension, and an arbitrary shape
+ * otherwise, of rank `Rank`. */
 template <typename T, size_t Rank, typename Alloc = std::allocator<T>>
 using dense_array = array<T, dense_shape<Rank>, Alloc>;
 
-/** Make a new array with shape 'shape', allocated using 'alloc'. */
+/** Make a new array with shape `shape`, allocated using `alloc`. */
 template <typename T, typename Shape, typename Alloc = std::allocator<T>>
 auto make_array(const Shape& shape, const Alloc& alloc = Alloc()) {
   return array<T, Shape, Alloc>(shape, alloc);
@@ -2110,9 +2116,9 @@ void swap(array<T, Shape, Alloc>& a, array<T, Shape, Alloc>& b) {
   a.swap(b);
 }
 
-/** Copy the contents of the 'src' array or array_ref to the 'dest' array or
- * array_ref. The range of the shape of 'dest' will be copied, and must be in
- * bounds of 'src'. */
+/** Copy the contents of the `src` array or array_ref to the `dest` array or
+ * array_ref. The range of the shape of `dest` will be copied, and must be in
+ * bounds of `src`. */
 template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest>
 void copy(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDest, ShapeDest>& dest) {
   if (dest.shape().empty()) {
@@ -2141,7 +2147,7 @@ void copy(const array<TSrc, ShapeSrc, AllocSrc>& src, array<TDest, ShapeDest, Al
   copy(src.cref(), dest.ref());
 }
 
-/** Make a copy of the 'src' array or array_ref with a new shape 'shape'. */
+/** Make a copy of the `src` array or array_ref with a new shape `shape`. */
 template <typename T, typename ShapeSrc, typename ShapeDest,
   typename Alloc = std::allocator<typename std::remove_const<T>::type>>
 auto make_copy(const array_ref<T, ShapeSrc>& src, const ShapeDest& shape,
@@ -2157,8 +2163,8 @@ auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const ShapeDest& shape,
   return make_copy(src.cref(), shape, alloc);
 }
 
-/** Make a copy of the 'src' array or array_ref with a dense shape of the same
- * rank as 'src'. */
+/** Make a copy of the `src` array or array_ref with a dense shape of the same
+ * rank as `src`. */
 template <typename T, typename ShapeSrc,
   typename Alloc = std::allocator<typename std::remove_const<T>::type>>
 auto make_dense_copy(const array_ref<T, ShapeSrc>& src,
@@ -2171,7 +2177,7 @@ auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src,
   return make_dense_copy(src.cref(), alloc);
 }
 
-/** Make a copy of the 'src' array or array_ref with a compact version of 'src's
+/** Make a copy of the `src` array or array_ref with a compact version of `src`s
  * shape. */
 template <typename T, typename Shape,
   typename Alloc = std::allocator<typename std::remove_const<T>::type>>
@@ -2185,9 +2191,9 @@ auto make_compact_copy(const array<T, Shape, AllocSrc>& src,
   return make_compact_copy(src.cref(), alloc);
 }
 
-/** Move the contents from the 'src' array or array_ref to the 'dest' array or
- * array_ref. The range of the shape of 'dest' will be moved, and must be in
- * bounds of 'src'. */
+/** Move the contents from the `src` array or array_ref to the `dest` array or
+ * array_ref. The range of the shape of `dest` will be moved, and must be in
+ * bounds of `src`. */
 template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest>
 void move(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDest, ShapeDest>& dest) {
   if (dest.shape().empty()) {
@@ -2216,8 +2222,8 @@ void move(array<TSrc, ShapeSrc, AllocSrc>& src, array<TDest, ShapeDest, AllocDes
   move(src.ref(), dest.ref());
 }
 
-/** Make a copy of the 'src' array or array_ref with a new shape 'shape'. The
- * elements of 'src' are moved to the result. */
+/** Make a copy of the `src` array or array_ref with a new shape `shape`. The
+ * elements of `src` are moved to the result. */
 template <typename T, typename ShapeSrc, typename ShapeDest, typename Alloc = std::allocator<T>>
 auto make_move(const array_ref<T, ShapeSrc>& src, const ShapeDest& shape,
                const Alloc& alloc = Alloc()) {
@@ -2235,8 +2241,8 @@ auto make_move(array<T, ShapeSrc, AllocSrc>& src, const ShapeDest& shape,
   return make_move(src.ref(), shape, alloc);
 }
 
-/** Make a copy of the 'src' array or array_ref with a dense shape of the same
- * rank as 'src'. The elements of 'src' are moved to the result. */
+/** Make a copy of the `src` array or array_ref with a dense shape of the same
+ * rank as `src`. The elements of `src` are moved to the result. */
 template <typename T, typename ShapeSrc, typename Alloc = std::allocator<T>>
 auto make_dense_move(const array_ref<T, ShapeSrc>& src, const Alloc& alloc = Alloc()) {
   return make_move(src, make_dense(src.shape()), alloc);
@@ -2249,8 +2255,8 @@ auto make_dense_move(array<T, ShapeSrc, AllocSrc>& src, const AllocDest& alloc =
   return make_dense_move(src.ref(), alloc);
 }
 
-/** Make a copy of the 'src' array or array_ref with a compact version of 'src's
- * shape. The elements of 'src' are moved to the result. */
+/** Make a copy of the `src` array or array_ref with a compact version of `src`s
+ * shape. The elements of `src` are moved to the result. */
 template <typename T, typename Shape, typename Alloc = std::allocator<T>>
 auto make_compact_move(const array_ref<T, Shape>& src, const Alloc& alloc = Alloc()) {
   return make_move(src, make_compact(src.shape()), alloc);
@@ -2263,8 +2269,8 @@ auto make_compact_move(array<T, Shape, AllocSrc>& src, const AllocDest& alloc = 
   return make_compact_move(src.ref(), alloc);
 }
 
-/** Reinterpret the array or array_ref 'a' of type 'T' to have a different type
- * 'U'. The size of 'T' must be equal to the size of 'U'. */
+/** Reinterpret the array or array_ref `a` of type `T` to have a different type
+ * `U`. The size of `T` must be equal to the size of `U`. */
 template <typename U, typename T, typename Shape>
 array_ref<U, Shape> reinterpret(const array_ref<T, Shape>& a) {
   static_assert(sizeof(T) == sizeof(U), "sizeof(reinterpreted type U) != sizeof(array type T)");
@@ -2279,8 +2285,8 @@ array_ref<const U, Shape> reinterpret(const array<T, Shape, Alloc>& a) {
   return reinterpret<const U>(a.cref());
 }
 
-/** Reinterpret the shape of the array or array_ref 'a' to be a new shape
- * 'new_shape', with a base pointer offset 'offset'. */
+/** Reinterpret the shape of the array or array_ref `a` to be a new shape
+ * `new_shape`, with a base pointer offset `offset`. */
 template <typename NewShape, typename T, typename OldShape>
 array_ref<T, NewShape> reinterpret_shape(const array_ref<T, OldShape>& a,
                                          NewShape new_shape, index_t offset = 0) {
