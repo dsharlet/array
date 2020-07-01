@@ -64,10 +64,6 @@ std::ostream& operator<<(std::ostream& s, const shape<Dims...>& sh) {
   return s << sh.dims();
 }
 
-inline float randf() {
-  return rand() / static_cast<float>(RAND_MAX);
-}
-
 // Base class of a test callback.
 class test {
 public:
@@ -98,7 +94,7 @@ public:
   }
 
   template <typename T>
-  assert_stream& operator << (const T& x) {
+  assert_stream& operator<<(const T& x) {
     if (fail_) {
       msg_ << x;
     }
