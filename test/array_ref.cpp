@@ -109,6 +109,8 @@ TEST(array_ref_crop) {
   ASSERT_EQ(a_crop1_slice2.rank(), 1);
   ASSERT_EQ(a_crop1_slice2.x().min(), 4);
   ASSERT_EQ(a_crop1_slice2.x().extent(), 3);
+  // TODO: This doesn't pass because check_pattern doesn't understand
+  // that there is a second dimension to the pattern.
   //check_pattern(a_crop1_slice2);
 
   auto a_crop1_crop2 = a(range<>{2, 6}, range<3, 4>());
