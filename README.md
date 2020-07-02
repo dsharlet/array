@@ -29,13 +29,17 @@ The basic types provided by the library are:
 
 To define an array, define a shape type, and use it to define an array object:
 ```c++
-using my_3d_shape_type = shape<dim<>, dim<>, dim<>>;
-constexpr int width = 16;
-constexpr int height = 10;
-constexpr int depth = 3;
-my_3d_shape_type my_3d_shape(width, height, depth);
-array<int, my_3d_shape_type> my_array(my_3d_shape);
+  using my_3d_shape_type = shape<dim<>, dim<>, dim<>>;
+  constexpr int width = 16;
+  constexpr int height = 10;
+  constexpr int depth = 3;
+  my_3d_shape_type my_3d_shape(width, height, depth);
+  array<int, my_3d_shape_type> my_array(my_3d_shape);
 ```
+
+General shapes and arrays like this have the following built-in aliases:
+* `shape_of_rank<N>`, an N-dimensional shape.
+* `array_ref_of_rank<T, N>` and `array_of_rank<T, N, Allocator>`, N-dimensional arrays with a shape of `shape_of_rank<N>`.
 
 ### Access and iteration
 
@@ -43,53 +47,53 @@ Accessing `array` or `array_ref` is done via `operator(...)` and `operator[index
 There are both variadic and `index_type` overloads of `operator()`.
 `index_type` is a specialization of `std::tuple` defined by `shape` (and `array` and `array_ref`), e.g. `my_3d_shape_type::index_type`.
 ```c++
-for (int z = 0; z < depth; z++) {
-  for (int y = 0; y < height; y++) {
-    for (int x = 0; x < width; x++) {
-      // Variadic verion:
-      my_array(x, y, z) = 5;
-      // Or the index_type versions:
-      my_array({x, y, z}) = 5;
-      my_array[{x, y, z}] = 5;
+  for (int z = 0; z < depth; z++) {
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        // Variadic verion:
+        my_array(x, y, z) = 5;
+        // Or the index_type versions:
+        my_array({x, y, z}) = 5;
+        my_array[{x, y, z}] = 5;
+      }
     }
   }
-}
 ```
 
 `array::for_each_value` and `array_ref::for_each_value` calls a function with a reference to each value in the array.
 ```c++
-my_array.for_each_value([](int& value) {
-  value = 5;
-});
+  my_array.for_each_value([](int& value) {
+    value = 5;
+  });
 ```
 
 `for_all_indices` is a free function taking a shape object and a function to call with every index in the shape.
 `for_each_index` is similar, calling a free function with the index as an instance of the index type `my_3d_shape_type::index_type`.
 ```c++
-for_all_indices(my_3d_shape, [&](int x, int y, int z) {
-  my_array(x, y, z) = 5;
-});
-for_each_index(my_3d_shape, [&](my_3d_shape_type::index_type i) {
-  my_array[i] = 5;
-});
+  for_all_indices(my_3d_shape, [&](int x, int y, int z) {
+    my_array(x, y, z) = 5;
+  });
+  for_each_index(my_3d_shape, [&](my_3d_shape_type::index_type i) {
+    my_array[i] = 5;
+  });
 ```
 
 The order in which each of `for_each_value`, `for_each_index`, and `for_all_indices` execute their traversal over the shape is defined by `shape_traits<Shape>`.
 The default implementation of `shape_traits<Shape>::for_each_index` iterates over the innermost dimension as the innermost loop, and proceeds in order to the outermost dimension.
 ```c++
-my_3d_shape_type my_shape(2, 2, 2);
-for_all_indices(my_shape, [](int x, int y, int z) {
-  std::cout << x << ", " << y << ", " << z << std::endl;
-});
-// Output:
-// 0, 0, 0
-// 1, 0, 0
-// 0, 1, 0
-// 1, 1, 0
-// 0, 0, 1
-// 1, 0, 1
-// 0, 1, 1
-// 1, 1, 1
+  my_3d_shape_type my_shape(2, 2, 2);
+  for_all_indices(my_shape, [](int x, int y, int z) {
+    std::cout << x << ", " << y << ", " << z << std::endl;
+  });
+  // Output:
+  // 0, 0, 0
+  // 1, 0, 0
+  // 0, 1, 0
+  // 1, 1, 0
+  // 0, 0, 1
+  // 1, 0, 1
+  // 0, 1, 1
+  // 1, 1, 1
 ```
 
 The default implementation of `shape_traits<Shape>::for_each_value` iterates over a dynamically optimized shape.
@@ -108,13 +112,19 @@ This library helps balance this tradeoff by enabling any of the array parameters
 Which parameters should be made into compile time constants will vary depending on the use case.
 A common case is to make the innermost dimension have stride 1:
 ```c++
-using my_dense_3d_shape_type = shape<
-    dim</*Min=*/UNK, /*Extent=*/UNK, /*Stride=*/1>,
-    dim<>,
-    dim<>>;
+  using my_dense_3d_shape_type = shape<
+      dim</*Min=*/UNK, /*Extent=*/UNK, /*Stride=*/1>,
+      dim<>,
+      dim<>>;
+  array<char, my_dense_3d_shape_type> my_dense_array({16, 3, 3});
+  for (auto x : my_dense_array.x()) {
+    // The compiler knows that each loop iteration accesses
+    // elements that are contiguous in memory for contiguous x.
+    my_dense_array(x, 1, 2) = 0;
+  }
 ```
 
-A dimension with unknown min and extent, and stride 1, is common enough that it has a built-in alias `dense_dim<>`, and shapes with a dense first dimension are common enough that they have the following built-in aliases:
+A dimension with unknown min and extent, and stride 1, is common enough that it has a built-in alias `dense_dim<>`, and shapes with a dense first dimension are common enough that shapes and arrays have the following built-in aliases:
 * `dense_shape<N>`, an N-dimensional shape with the first dimension being dense.
 * `dense_array_ref<T, N>` and `dense_array<T, N, Allocator>`, N-dimensional arrays with a shape of `dense_shape<N>`.
 
@@ -133,7 +143,14 @@ using chunky_image_shape = shape<
 
 Another common example is matrices indexed `(row, column)` with the column dimension stored densely:
 ```c++
-using matrix_shape = shape<dim<>, dense_dim<>>;
+  using matrix_shape = shape<dim<>, dense_dim<>>;
+  array<double, matrix_shape> my_matrix({10, 4});
+  for (auto i : my_matrix.i()) {
+    for (auto j : my_matrix.j()) {
+      // This loop ordering is efficient for this type.
+      my_matrix(i, j) = 0.0;
+    }
+  }
 ```
 
 There are also many use cases for matrices with small constant sizes.
@@ -145,7 +162,10 @@ using small_matrix_shape = shape<
     dim<0, M>,
     dense_dim<0, N>>;
 template <typename T, int M, int N>
-using small_matrix = array<T, small_matrix_shape, stack_allocator<T, M*N>>;
+using small_matrix = array<T, small_matrix_shape<M, N>, stack_allocator<T, M*N>>;
+small_matrix<float, 4, 4> my_small_matrix;
+// my_small_matrix is only one fixed size allocation, no new/delete calls
+// happen. sizeof(small_matrix) = sizeof(float) * 4 * 4 + (overhead)
 ```
 
 ### Slicing, cropping, and splitting
@@ -153,15 +173,13 @@ using small_matrix = array<T, small_matrix_shape, stack_allocator<T, M*N>>;
 Shapes and arrays can be sliced and cropped using `range<Min, Extent>` objects, which are similar to `dim<>`s.
 They can have either a compile-time constant or runtime valued min and extent.
 ```c++
-my_3d_shape_type my_shape(4, 8, 3);
-array<int, my_3d_shape_type> my_array(my_shape);
-// Slicing.
-array_ref_of_rank<int, 2> sliced_shape = shape(_, _, 0);
-array_ref<int, 2> sliced_array = my_array(_, _, 1);
+  // Slicing
+  array_ref_of_rank<int, 2> channel1 = my_array(_, _, 1);
+  array_ref_of_rank<int, 1> row4_channel2 = my_array(_, 4, 2);
 
-// Cropping
-my_3d_shape_type top_left_shape = my_shape(range<>{0, 2}, range<>{0, 4}, _);
-array_ref<int, my_3d_shape_type> center_crop = my_array(range<>{1, 2}, range<>{2, 4}, _);
+  // Cropping
+  array_ref_of_rank<int, 3> top_left = my_array(range<>{0, 2}, range<>{0, 4}, _);
+  array_ref_of_rank<int, 2> center_channel0 = my_array(range<>{1, 2}, range<>{2, 4}, 0);
 ```
 The `_` constant is a placeholder indicating the entire dimension should be preserved.
 Dimensions that are sliced are removed from the shape of the array.
@@ -170,15 +188,17 @@ When iterating a `dim`, it is possible to `split` it first by either a compile-t
 A split `dim` produces an iterator range that produces `range<>` objects.
 This allows easy tiling of algorithms:
 ```c++
-array<int, my_3d_shape_type> my_array(16, 12, 3);
-constexpr index_t x_split_factor = 3;
-const index_t y_split_factor = 5;
-for (auto yo : split(my_array.y(), y_split_factor)) {
-  for (auto xo : split<x_split_factor>(my_array.x())) {
-    auto tile = my_array(xo, yo, _);
-    ...
+  constexpr index_t x_split_factor = 3;
+  const index_t y_split_factor = 5;
+  for (auto yo : split(my_array.y(), y_split_factor)) {
+    for (auto xo : split<x_split_factor>(my_array.x())) {
+      auto tile = my_array(xo, yo, _);
+      for (auto x : tile.x()) {
+        // The compiler knows this loop has a fixed extent x_split_factor!
+        tile(x, 0, 0) = x;
+      }
+    }
   }
-}
 ```
 
 Both loops have extents that are not divided by their split factors.
