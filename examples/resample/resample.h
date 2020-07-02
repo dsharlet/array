@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RESAMPLE_H
-#define RESAMPLE_H
+#ifndef NDARRAY_RESAMPLE_H
+#define NDARRAY_RESAMPLE_H
 
 #include "array.h"
 #include "rational.h"
@@ -247,4 +247,4 @@ void resample(const nda::array_ref<TIn, ShapeIn>& in, const nda::array_ref<TOut,
   }
 }
 
-#endif
+#endif  // NDARRAY_RESAMPLE_H

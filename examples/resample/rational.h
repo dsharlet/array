@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RATIONAL_H
-#define RATIONAL_H
+#ifndef NDARRAY_RATIONAL_H
+#define NDARRAY_RATIONAL_H
 
 // Signed integer division in C/C++ is terrible. These implementations
 // of Euclidean division and mod are taken from:
@@ -109,4 +109,4 @@ float to_float(const rational<T>& r) {
   return static_cast<float>(r.numerator()) / r.denominator();
 }
 
-#endif
+#endif  // NDARRAY_RATIONAL_H
