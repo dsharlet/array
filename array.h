@@ -552,12 +552,12 @@ auto ranges_with_strides(const Ranges& ranges, const Dims& dims, std::index_sequ
 // Make a tuple of dims corresponding to elements in ranges that are not slices.
 template <typename Dim>
 std::tuple<> skip_slices_impl(const Dim& dim, index_t) {
-  return {};
+  return std::tuple<>();
 }
 
 template <typename Dim>
 std::tuple<Dim> skip_slices_impl(const Dim& dim, const range<>&) {
-  return {dim};
+  return std::tuple<Dim>(dim);
 }
 
 template <typename Dims, typename Ranges, size_t... Is>
