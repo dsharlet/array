@@ -838,7 +838,7 @@ class shape {
   // TODO: Don't resolve unknowns upon shape construction, do it only when
   // constructing arrays (and not array_refs).
   shape() { resolve_unknowns(); }
-  shape(Dims... dims) : dims_(std::move(dims)...) { resolve_unknowns(); }
+  shape(const Dims&... dims) : dims_(dims...) { resolve_unknowns(); }
   shape(const shape&) = default;
   shape(shape&&) = default;
 
@@ -1541,8 +1541,8 @@ class array_ref {
  public:
   /** Make an array_ref to the given `base` pointer, interpreting it as having
    * the shape `shape`. */
-  explicit array_ref(pointer base = nullptr, Shape shape = Shape())
-      : base_(base), shape_(std::move(shape)) {
+  explicit array_ref(pointer base = nullptr, const Shape& shape = Shape())
+      : base_(base), shape_(shape) {
     assert(shape_.is_known());
   }
   /** The copy constructor of a ref is a shallow copy. */
@@ -1721,8 +1721,8 @@ class array_ref {
 
   /** Change the shape of the array to `new_shape`, and move the base pointer by
    * `offset`. */
-  void set_shape(Shape new_shape, index_t offset = 0) {
-    shape_ = std::move(new_shape);
+  void set_shape(const Shape& new_shape, index_t offset = 0) {
+    shape_ = new_shape;
     assert(shape_.is_known());
     base_ = internal::pointer_add(base_, offset);
   }
@@ -1844,13 +1844,13 @@ class array {
   explicit array(const Alloc& alloc) : array(Shape(), alloc) {}
   /** Construct an array with a particular `shape`, allocated by `alloc`. All
    * elements in the array are copy-constructed from `value`. */
-  array(Shape shape, const T& value, const Alloc& alloc = Alloc()) : array(alloc) {
-    assign(std::move(shape), value);
+  array(const Shape& shape, const T& value, const Alloc& alloc = Alloc()) : array(alloc) {
+    assign(shape, value);
   }
   /** Construct an array with a particular `shape`, allocated by `alloc`, with
    * default constructed elements. */
-  explicit array(Shape shape, const Alloc& alloc = Alloc())
-      : alloc_(alloc), buffer_(nullptr), buffer_size_(0), base_(nullptr), shape_(std::move(shape)) {
+  explicit array(const Shape& shape, const Alloc& alloc = Alloc())
+      : alloc_(alloc), buffer_(nullptr), buffer_size_(0), base_(nullptr), shape_(shape) {
     allocate();
     construct();
   }
@@ -2106,10 +2106,10 @@ class array {
 
   /** Change the shape of the array to `new_shape`, and move the base pointer by
    * `offset`. */
-  void set_shape(Shape new_shape, index_t offset = 0) {
+  void set_shape(const Shape& new_shape, index_t offset = 0) {
     assert(new_shape.is_known());
     assert(new_shape.is_subset_of(shape(), -offset));
-    shape_ = std::move(new_shape);
+    shape_ = new_shape;
     base_ = internal::pointer_add(base_, offset);
   }
 
@@ -2368,18 +2368,18 @@ array_ref<const U, Shape> reinterpret(const array<T, Shape, Alloc>& a) {
  * `new_shape`, with a base pointer offset `offset`. */
 template <typename NewShape, typename T, typename OldShape>
 array_ref<T, NewShape> reinterpret_shape(const array_ref<T, OldShape>& a,
-                                         NewShape new_shape, index_t offset = 0) {
+                                         const NewShape& new_shape, index_t offset = 0) {
   assert(new_shape.is_subset_of(a.shape(), -offset));
-  return array_ref<T, NewShape>(a.base() + offset, std::move(new_shape));
+  return array_ref<T, NewShape>(a.base() + offset, new_shape);
 }
 template <typename NewShape, typename T, typename OldShape, typename Allocator>
 array_ref<T, NewShape> reinterpret_shape(array<T, OldShape, Allocator>& a,
-                                         NewShape new_shape, index_t offset = 0) {
+                                         const NewShape& new_shape, index_t offset = 0) {
   return reinterpret_shape(a.ref(), new_shape, offset);
 }
 template <typename NewShape, typename T, typename OldShape, typename Allocator>
 array_ref<const T, NewShape> reinterpret_shape(const array<T, OldShape, Allocator>& a,
-                                               NewShape new_shape, index_t offset = 0) {
+                                               const NewShape& new_shape, index_t offset = 0) {
   return reinterpret_shape(a.cref(), new_shape, offset);
 }
 
