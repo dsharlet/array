@@ -1541,7 +1541,7 @@ class array_ref {
  public:
   /** Make an array_ref to the given `base` pointer, interpreting it as having
    * the shape `shape`. */
-  array_ref(pointer base = nullptr, Shape shape = Shape())
+  explicit array_ref(pointer base = nullptr, Shape shape = Shape())
       : base_(base), shape_(std::move(shape)) {
     assert(shape_.is_known());
   }
