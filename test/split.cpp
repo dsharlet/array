@@ -66,7 +66,7 @@ TEST(split_even_nonconstant) {
 TEST(split_uneven_nonconstant) {
   dense_array<int, 3> a({dense_dim<>(2, 8), dim<>(1, 9), 4});
   size_t total_size = 0;
-  for (auto zo : split(a.z(), 4)) {
+  for (auto zo : split(a.z(), 3)) {
     for (auto xo : split(a.x(), 5)) {
       auto a_inner = a(xo, _, zo);
       total_size += a_inner.size();
