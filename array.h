@@ -1552,21 +1552,21 @@ class array_ref {
   /** Conversions from other types of arrays or array_ref. */
   template <typename U, typename OtherShape,
       typename = typename std::enable_if<
-          std::is_constructible<T*, T*>::value &&
+          std::is_constructible<T*, U*>::value &&
           std::is_constructible<Shape, OtherShape>::value>::type>
   array_ref(const array_ref<U, OtherShape>& other)
       : array_ref(other.base(), other.shape()) {}
   template <typename U, typename OtherShape, typename Alloc,
       typename = typename std::enable_if<
-          std::is_constructible<T*, U*>::value &&
           !std::is_const<T>::value &&
+          std::is_constructible<T*, U*>::value &&
           std::is_constructible<Shape, OtherShape>::value>::type>
   array_ref(array<U, OtherShape, Alloc>& other)
       : array_ref(other.base(), other.shape()) {}
   template <typename U, typename OtherShape, typename Alloc,
       typename = typename std::enable_if<
-          std::is_constructible<T*, const U*>::value &&
           std::is_const<T>::value &&
+          std::is_constructible<T*, const U*>::value &&
           std::is_constructible<Shape, OtherShape>::value>::type>
   array_ref(const array<U, OtherShape, Alloc>& other)
       : array_ref(other.base(), other.shape()) {}
