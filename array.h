@@ -1038,7 +1038,7 @@ class shape {
   index_t rows() const { return i().extent(); }
   index_t columns() const { return j().extent(); }
 
-  /** A shape is equal to another shape if both of the dim objects of
+  /** A shape is equal to another shape if the dim objects of
    * each dimension from both shapes are equal. */
   template <typename... OtherDims, typename = enable_if_same_rank<OtherDims...>>
   bool operator==(const shape<OtherDims...>& other) const { return dims_ == other.dims(); }
@@ -1542,9 +1542,6 @@ class array_ref {
   static constexpr bool is_scalar() { return Shape::is_scalar(); }
 
  private:
-  using enable_if_const_ref = std::enable_if<std::is_const<T>::value>;
-  using enable_if_mutable_ref = std::enable_if<!std::is_const<T>::value>;
-
   template <typename U>
   using enable_if_type_compatible =
       typename std::enable_if<std::is_constructible<T*, U*>::value>::type;
@@ -1589,13 +1586,11 @@ class array_ref {
   array_ref(const array_ref<U, OtherShape>& other)
       : array_ref(other.base(), other.shape()) {}
   template <typename U, typename OtherShape, typename Alloc,
-      typename = enable_if_mutable_ref,
       typename = enable_if_type_compatible<U>,
       typename = enable_if_shape_compatible<OtherShape>>
   array_ref(array<U, OtherShape, Alloc>& other)
       : array_ref(other.base(), other.shape()) {}
   template <typename U, typename OtherShape, typename Alloc,
-      typename = enable_if_const_ref,
       typename = enable_if_type_compatible<const U>,
       typename = enable_if_shape_compatible<OtherShape>>
   array_ref(const array<U, OtherShape, Alloc>& other)
@@ -1615,7 +1610,6 @@ class array_ref {
     return *this;
   }
   template <typename U, typename OtherShape, typename Alloc,
-      typename = enable_if_mutable_ref,
       typename = enable_if_type_compatible<U>,
       typename = enable_if_shape_compatible<OtherShape>>
   array_ref& operator=(array<U, OtherShape, Alloc>& other) {
@@ -1624,7 +1618,6 @@ class array_ref {
     return *this;
   }
   template <typename U, typename OtherShape, typename Alloc,
-      typename = enable_if_const_ref,
       typename = enable_if_type_compatible<const U>,
       typename = enable_if_shape_compatible<OtherShape>>
   array_ref& operator=(const array<U, OtherShape, Alloc>& other) {
@@ -1790,17 +1783,6 @@ class array {
   static constexpr bool is_scalar() { return Shape::is_scalar(); }
 
  private:
-  using enable_if_const_ref = std::enable_if<std::is_const<T>::value>;
-  using enable_if_mutable_ref = std::enable_if<!std::is_const<T>::value>;
-
-  template <typename U>
-  using enable_if_type_compatible =
-      typename std::enable_if<std::is_constructible<T*, U*>::value>::type;
-
-  template <typename OtherShape>
-  using enable_if_shape_compatible =
-      typename std::enable_if<std::is_constructible<Shape, OtherShape>::value>::type;
-
   template <typename... Args>
   using enable_if_same_rank =
       typename std::enable_if<sizeof...(Args) == rank()>::type;

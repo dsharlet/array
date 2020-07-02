@@ -99,6 +99,9 @@ TEST(array_ref_conversion) {
   array_of_rank<int, 3> a({5, 10, 20});
   f_dense(a);
   f_const_dense(a);
+
+  const array_of_rank<int, 3>& ar = a;
+  f_const_dense(ar);
 }
 
 TEST(array_ref_crop) {
