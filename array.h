@@ -530,26 +530,39 @@ index_t flat_max(const Dims& dims, std::index_sequence<Is...>) {
 }
 
 template <index_t DimMin, index_t DimExtent, index_t DimStride>
-auto slice_dim(const dim<DimMin, DimExtent, DimStride>& d, index_t x) {
+auto range_with_stride(index_t x, const dim<DimMin, DimExtent, DimStride>& d) {
   return dim<UNK, 1, DimStride>(x, 1, d.stride());
 }
 
-template <index_t DimMin, index_t DimExtent, index_t Stride, index_t CropMin, index_t CropExtent>
-auto slice_dim(const dim<DimMin, DimExtent, Stride>& d, const range<CropMin, CropExtent>& x) {
+template <index_t CropMin, index_t CropExtent, index_t DimMin, index_t DimExtent, index_t Stride>
+auto range_with_stride(const range<CropMin, CropExtent>& x, const dim<DimMin, DimExtent, Stride>& d) {
   return dim<CropMin, CropExtent, Stride>(x.min(), x.extent(), d.stride());
 }
 
 template <index_t Min, index_t Extent, index_t Stride>
-auto slice_dim(const dim<Min, Extent, Stride>& d, const decltype(_)&) {
+auto range_with_stride(const decltype(_)&, const dim<Min, Extent, Stride>& d) {
   return d;
 }
 
+template <typename Ranges, typename Dims, size_t... Is>
+auto ranges_with_strides(const Ranges& ranges, const Dims& dims, std::index_sequence<Is...>) {
+  return std::make_tuple(range_with_stride(std::get<Is>(ranges), std::get<Is>(dims))...);
+}
+
+// Make a tuple of dims corresponding to elements in ranges that are not slices.
+template <typename Dim>
+std::tuple<> skip_slices_impl(const Dim& dim, index_t) {
+  return {};
+}
+
+template <typename Dim>
+std::tuple<Dim> skip_slices_impl(const Dim& dim, const range<>&) {
+  return {dim};
+}
+
 template <typename Dims, typename Ranges, size_t... Is>
-auto slice_dims(const Dims& dims, const Ranges& ranges, std::index_sequence<Is...>) {
-  constexpr size_t dims_rank = std::tuple_size<Dims>::value;
-  constexpr size_t ranges_rank = std::tuple_size<Ranges>::value;
-  static_assert(dims_rank == ranges_rank, "dims and ranges must have the same rank.");
-  return std::make_tuple(slice_dim(std::get<Is>(dims), std::get<Is>(ranges))...);
+auto skip_slices(const Dims& dims, const Ranges& ranges, std::index_sequence<Is...>) {
+  return std::tuple_cat(skip_slices_impl(std::get<Is>(dims), std::get<Is>(ranges))...);
 }
 
 // Checks if all indices are in range of each corresponding dim.
@@ -564,6 +577,27 @@ bool is_in_range(const Dims& dims, const Indices& indices) {
   constexpr size_t indices_rank = std::tuple_size<Indices>::value;
   static_assert(dims_rank == indices_rank, "dims and indices must have the same rank.");
   return is_in_range_impl(dims, indices, std::make_index_sequence<dims_rank>());
+}
+
+// We want to be able to call mins on a mixed tuple of int/index_t, range, and dim.
+template <typename Dim>
+inline index_t min_of_range(index_t x, const Dim&) {
+  return x;
+}
+
+template <index_t Min, index_t Extent, typename Dim>
+index_t min_of_range(const range<Min, Extent>& x, const Dim&) {
+  return x.min();
+}
+
+template <typename Dim>
+index_t min_of_range(const decltype(_)&, const Dim& dim) {
+  return dim.min();
+}
+
+template <typename Ranges, typename Dims, size_t... Is>
+auto mins_of_ranges(const Ranges& ranges, const Dims& dims, std::index_sequence<Is...>) {
+  return std::make_tuple(min_of_range(std::get<Is>(ranges), std::get<Is>(dims))...);
 }
 
 template <typename... Dims, size_t... Is>
@@ -856,7 +890,9 @@ class shape {
     return internal::is_in_range(dims_, indices);
   }
   template <typename... Indices,
-      typename = typename std::enable_if<internal::all_integral<Indices...>::value>::type>
+      typename = typename std::enable_if<
+          sizeof...(Indices) == rank() &&
+          internal::all_integral<Indices...>::value>::type>
   bool is_in_range(Indices... indices) const {
     return is_in_range(std::make_tuple(indices...));
   }
@@ -873,14 +909,17 @@ class shape {
   }
 
   /** Create a new shape using the specified crops and slices in `ranges`.
-   * The resulting shape will have the same rank as this shape. */
+   * The resulting shape will have the sliced dimensions removed. */
   template <typename... Ranges,
       typename = typename std::enable_if<
           sizeof...(Ranges) == rank() &&
           internal::all_ranges<Ranges...>::value &&
           !internal::all_integral<Ranges...>::value>::type>
   auto operator() (Ranges... ranges) const {
-    return make_shape_from_tuple(internal::slice_dims(dims_, std::make_tuple(ranges...), std::make_index_sequence<rank()>()));
+    auto ranges_tuple = std::make_tuple(ranges...);
+    auto dims_with_slices = internal::ranges_with_strides(ranges_tuple, dims_, std::make_index_sequence<rank()>());
+    auto dims_without_slices = internal::skip_slices(dims_with_slices, ranges_tuple, std::make_index_sequence<rank()>());
+    return make_shape_from_tuple(dims_without_slices);
   }
 
   /** Get a specific dim of this shape. */
@@ -1585,9 +1624,8 @@ class array_ref {
           !internal::all_integral<Ranges...>::value>::type>
   auto operator() (Ranges... ranges) const {
     auto new_shape = shape_(ranges...);
-    assert(shape_.is_in_range(new_shape.min()));
-    assert(shape_.is_in_range(new_shape.max()));
-    pointer base = internal::pointer_add(base_, shape_(new_shape.min()));
+    auto old_min_offset = shape_(internal::mins_of_ranges(std::make_tuple(ranges...), shape_.dims(), std::make_index_sequence<rank()>()));
+    pointer base = internal::pointer_add(base_, old_min_offset);
     return make_array_ref(base, new_shape);
   }
 
@@ -1996,9 +2034,8 @@ class array {
           !internal::all_integral<Ranges...>::value>::type>
   auto operator() (Ranges... ranges) {
     auto new_shape = shape_(ranges...);
-    assert(shape_.is_in_range(new_shape.min()));
-    assert(shape_.is_in_range(new_shape.max()));
-    pointer base = internal::pointer_add(base_, shape_(new_shape.min()));
+    auto old_min_offset = shape_(internal::mins_of_ranges(std::make_tuple(ranges...), shape_.dims(), std::make_index_sequence<rank()>()));
+    pointer base = internal::pointer_add(base_, old_min_offset);
     return make_array_ref(base, new_shape);
   }
   template <typename... Ranges,
@@ -2008,9 +2045,8 @@ class array {
           !internal::all_integral<Ranges...>::value>::type>
   auto operator() (Ranges... ranges) const {
     auto new_shape = shape_(ranges...);
-    assert(shape_.is_in_range(new_shape.min()));
-    assert(shape_.is_in_range(new_shape.max()));
-    const_pointer base = internal::pointer_add(base_, shape_(new_shape.min()));
+    auto old_min_offset = shape_(internal::mins_of_ranges(std::make_tuple(ranges...), shape_.dims(), std::make_index_sequence<rank()>()));
+    const_pointer base = internal::pointer_add(base_, old_min_offset);
     return make_array_ref(base, new_shape);
   }
 

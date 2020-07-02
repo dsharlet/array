@@ -155,16 +155,16 @@ They can have either a compile-time constant or runtime valued min and extent.
 ```c++
 my_3d_shape_type my_shape(4, 8, 3);
 array<int, my_3d_shape_type> my_array(my_shape);
-// Slicing
-my_3d_shape_type sliced_shape = shape(_, _, 0);
-array_ref<int, my_3d_shape_type> sliced_array = my_array(_, _, 1);
+// Slicing.
+array_ref_of_rank<int, 2> sliced_shape = shape(_, _, 0);
+array_ref<int, 2> sliced_array = my_array(_, _, 1);
 
 // Cropping
 my_3d_shape_type top_left_shape = my_shape(range<>{0, 2}, range<>{0, 4}, _);
 array_ref<int, my_3d_shape_type> center_crop = my_array(range<>{1, 2}, range<>{2, 4}, _);
 ```
 The `_` constant is a placeholder indicating the entire dimension should be preserved.
-When slicing, arrays do not lose rank: the sliced dimension remains with extent 1. (See [issue #14](https://github.com/dsharlet/array/issues/14).)
+Dimensions that are sliced are removed from the shape of the array.
 
 When iterating a `dim`, it is possible to `split` it first by either a compile-time constant or a runtime-valued split factor.
 A split `dim` produces an iterator range that produces `range<>` objects.
@@ -174,7 +174,7 @@ array<int, my_3d_shape_type> my_array(16, 12, 3);
 constexpr index_t x_split_factor = 3;
 const index_t y_split_factor = 5;
 for (auto yo : split(my_array.y(), y_split_factor)) {
-  for (auto xo : split<x_split_factor>(my_array.x()) {
+  for (auto xo : split<x_split_factor>(my_array.x())) {
     auto tile = my_array(xo, yo, _);
     ...
   }
