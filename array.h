@@ -1169,9 +1169,9 @@ bool is_dim_compatible(const dim<Min, Extent, Stride>&, const DimSrc& src) {
     (is_unknown(Stride) || src.stride() == Stride);
 }
 
-template <typename... DimsDest, typename ShapeSrc, size_t... Is>
-bool is_shape_compatible(const shape<DimsDest...>&, const ShapeSrc& src, std::index_sequence<Is...>) {
-  return all(is_dim_compatible(DimsDest(), src.template dim<Is>())...);
+template <typename... DimsDst, typename ShapeSrc, size_t... Is>
+bool is_shape_compatible(const shape<DimsDst...>&, const ShapeSrc& src, std::index_sequence<Is...>) {
+  return all(is_dim_compatible(DimsDst(), src.template dim<Is>())...);
 }
 
 template <typename DimA, typename DimB>
@@ -1232,12 +1232,12 @@ using shape_of_rank =
 template <size_t Rank>
 using dense_shape = decltype(internal::make_default_dense_shape<Rank>());
 
-/** Test if a shape `src` can be assigned to a shape of type `ShapeDest` without
+/** Test if a shape `src` can be assigned to a shape of type `ShapeDst` without
  * error. */
-template <typename ShapeDest, typename ShapeSrc>
+template <typename ShapeDst, typename ShapeSrc>
 bool is_convertible(const ShapeSrc& src) {
-  static_assert(ShapeSrc::rank() == ShapeDest::rank(), "shapes must have the same rank.");
-  return internal::is_shape_compatible(ShapeDest(), src, std::make_index_sequence<ShapeSrc::rank()>());
+  static_assert(ShapeSrc::rank() == ShapeDst::rank(), "shapes must have the same rank.");
+  return internal::is_shape_compatible(ShapeDst(), src, std::make_index_sequence<ShapeSrc::rank()>());
 }
 
 /** Compute the intersection of two shapes `a` and `b`. The intersection is the
@@ -1335,37 +1335,37 @@ shape_of_rank<Shape::rank()> dynamic_optimize_shape(const Shape& shape) {
   return shape_of_rank<Shape::rank()>(array_to_tuple(dims));
 }
 
-// Optimize a src and dest shape. The dest shape is made dense, and contiguous
+// Optimize a src and dst shape. The dst shape is made dense, and contiguous
 // dimensions are fused.
-template <typename ShapeSrc, typename ShapeDest>
-auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
+template <typename ShapeSrc, typename ShapeDst>
+auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDst& dst) {
   constexpr size_t rank = ShapeSrc::rank();
-  static_assert(rank == ShapeDest::rank(), "copy shapes must have same rank.");
+  static_assert(rank == ShapeDst::rank(), "copy shapes must have same rank.");
   auto src_dims = internal::tuple_to_array<dim<>>(src.dims());
-  auto dest_dims = internal::tuple_to_array<dim<>>(dest.dims());
+  auto dst_dims = internal::tuple_to_array<dim<>>(dst.dims());
 
   struct copy_dims {
     dim<> src;
-    dim<> dest;
+    dim<> dst;
   };
   std::array<copy_dims, rank> dims;
   for (size_t i = 0; i < rank; i++) {
-    dims[i] = {src_dims[i], dest_dims[i]};
+    dims[i] = {src_dims[i], dst_dims[i]};
   }
 
-  // Sort the dims by the dest stride.
+  // Sort the dims by the dst stride.
   std::sort(dims.begin(), dims.end(), [](const copy_dims& l, const copy_dims& r) {
-    return l.dest.stride() < r.dest.stride();
+    return l.dst.stride() < r.dst.stride();
   });
 
   // Find dimensions that are contiguous and fuse them.
   size_t new_rank = dims.size();
   for (size_t i = 0; i + 1 < new_rank;) {
-    if (dims[i].src.extent() == dims[i].dest.extent() &&
+    if (dims[i].src.extent() == dims[i].dst.extent() &&
         can_fuse(dims[i].src, dims[i + 1].src) &&
-        can_fuse(dims[i].dest, dims[i + 1].dest)) {
+        can_fuse(dims[i].dst, dims[i + 1].dst)) {
       dims[i].src = fuse(dims[i].src, dims[i + 1].src);
-      dims[i].dest = fuse(dims[i].dest, dims[i + 1].dest);
+      dims[i].dst = fuse(dims[i].dst, dims[i + 1].dst);
       for (size_t j = i + 1; j + 1 < new_rank; j++) {
         dims[j] = dims[j + 1];
       }
@@ -1380,18 +1380,18 @@ auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
   for (size_t i = new_rank; i < dims.size(); i++) {
     dims[i] = {
       dim<>(0, 1, dims[i - 1].src.stride() * dims[i - 1].src.extent()),
-      dim<>(0, 1, dims[i - 1].dest.stride() * dims[i - 1].dest.extent()),
+      dim<>(0, 1, dims[i - 1].dst.stride() * dims[i - 1].dst.extent()),
     };
   }
 
   for (size_t i = 0; i < dims.size(); i++) {
     src_dims[i] = dims[i].src;
-    dest_dims[i] = dims[i].dest;
+    dst_dims[i] = dims[i].dst;
   }
 
   return std::make_pair(
     shape_of_rank<rank>(array_to_tuple(src_dims)),
-    shape_of_rank<rank>(array_to_tuple(dest_dims)));
+    shape_of_rank<rank>(array_to_tuple(dst_dims)));
 }
 
 template <typename Shape>
@@ -1406,15 +1406,15 @@ auto optimize_shape(const shape<Dim0>& shape) {
   return shape;
 }
 
-template <typename ShapeSrc, typename ShapeDest>
-auto optimize_copy_shapes(const ShapeSrc& src, const ShapeDest& dest) {
-  return dynamic_optimize_copy_shapes(src, dest);
+template <typename ShapeSrc, typename ShapeDst>
+auto optimize_copy_shapes(const ShapeSrc& src, const ShapeDst& dst) {
+  return dynamic_optimize_copy_shapes(src, dst);
 }
 
-template <typename Dim0Src, typename Dim0Dest>
-auto optimize_copy_shapes(const shape<Dim0Src>& src, const shape<Dim0Dest>& dest) {
+template <typename Dim0Src, typename Dim0Dst>
+auto optimize_copy_shapes(const shape<Dim0Src>& src, const shape<Dim0Dst>& dst) {
   // Nothing to do for rank 1 shapes.
-  return std::make_pair(src, dest);
+  return std::make_pair(src, dst);
 }
 
 template <typename T>
@@ -1465,20 +1465,20 @@ class shape_traits<shape<>> {
 
 /** Copy shape traits enable some behaviors to be overriden on a pairwise shape
  * basis for copies. */
-template <typename ShapeSrc, typename ShapeDest = ShapeSrc>
+template <typename ShapeSrc, typename ShapeDst = ShapeSrc>
 class copy_shape_traits {
  public:
-  template <typename Fn, typename TSrc, typename TDest>
+  template <typename Fn, typename TSrc, typename TDst>
   static void for_each_value(const ShapeSrc& shape_src, TSrc src,
-                             const ShapeDest& shape_dest, TDest dest,
+                             const ShapeDst& shape_dst, TDst dst,
                              Fn&& fn) {
     // For this function, we don't care about the order in which the callback is
     // called. Optimize the shapes for memory access order.
-    auto opt_shape = internal::optimize_copy_shapes(shape_src, shape_dest);
+    auto opt_shape = internal::optimize_copy_shapes(shape_src, shape_dst);
     const auto& opt_shape_src = opt_shape.first;
-    const auto& opt_shape_dest = opt_shape.second;
+    const auto& opt_shape_dst = opt_shape.second;
 
-    for_each_value_in_order(opt_shape_dest, opt_shape_src, src, opt_shape_dest, dest, fn);
+    for_each_value_in_order(opt_shape_dst, opt_shape_src, src, opt_shape_dst, dst, fn);
   }
 };
 
@@ -1825,20 +1825,20 @@ class array {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
     copy_shape_traits_type::for_each_value(other.shape(), other.base(), shape_, base_,
-                                      [&](const value_type& src, value_type& dest) {
-      alloc_traits::construct(alloc_, &dest, src);
+                                      [&](const value_type& src, value_type& dst) {
+      alloc_traits::construct(alloc_, &dst, src);
     });
   }
   void move_construct(array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
     copy_shape_traits_type::for_each_value(other.shape(), other.base(), shape_, base_,
-                                      [&](value_type& src, value_type& dest) {
-      alloc_traits::construct(alloc_, &dest, std::move(src));
+                                      [&](value_type& src, value_type& dst) {
+      alloc_traits::construct(alloc_, &dst, std::move(src));
     });
   }
 
-  // Call the destructor on every element.
+  // Call the dstructor on every element.
   void destroy() {
     assert(base_ || shape_.empty());
     for_each_value([&](T& x) {
@@ -2114,8 +2114,8 @@ class array {
     // Move the common elements to the new array.
     Shape intersection = intersect(shape_, new_array.shape());
     copy_shape_traits_type::for_each_value(shape_, base_, intersection, new_array.base(),
-                                      [](T& src, T& dest) {
-      dest = std::move(src);
+                                      [](T& src, T& dst) {
+      dst = std::move(src);
     });
 
     // Swap this with the new array.
@@ -2213,50 +2213,50 @@ void swap(array<T, Shape, Alloc>& a, array<T, Shape, Alloc>& b) {
   a.swap(b);
 }
 
-/** Copy the contents of the `src` array or array_ref to the `dest` array or
- * array_ref. The range of the shape of `dest` will be copied, and must be in
+/** Copy the contents of the `src` array or array_ref to the `dst` array or
+ * array_ref. The range of the shape of `dst` will be copied, and must be in
  * bounds of `src`. */
-template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest>
-void copy(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDest, ShapeDest>& dest) {
-  if (dest.shape().empty()) {
+template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst>
+void copy(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDst, ShapeDst>& dst) {
+  if (dst.shape().empty()) {
     return;
   }
-  if (!src.shape().is_in_range(dest.shape().min()) ||
-      !src.shape().is_in_range(dest.shape().max())) {
-    NDARRAY_THROW_OUT_OF_RANGE("dest indices out of range of src");
+  if (!src.shape().is_in_range(dst.shape().min()) ||
+      !src.shape().is_in_range(dst.shape().max())) {
+    NDARRAY_THROW_OUT_OF_RANGE("dst indices out of range of src");
   }
 
-  copy_shape_traits<ShapeSrc, ShapeDest>::for_each_value(src.shape(), src.base(), dest.shape(), dest.base(),
-                                                         [](const TSrc& src_i, TDest& dest_i) {
-    dest_i = src_i;
+  copy_shape_traits<ShapeSrc, ShapeDst>::for_each_value(src.shape(), src.base(), dst.shape(), dst.base(),
+                                                         [](const TSrc& src_i, TDst& dst_i) {
+    dst_i = src_i;
   });
 }
-template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest, typename AllocDest>
-void copy(const array_ref<TSrc, ShapeSrc>& src, array<TDest, ShapeDest, AllocDest>& dest) {
-  copy(src, dest.ref());
+template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, typename AllocDst>
+void copy(const array_ref<TSrc, ShapeSrc>& src, array<TDst, ShapeDst, AllocDst>& dst) {
+  copy(src, dst.ref());
 }
-template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest, typename AllocSrc>
-void copy(const array<TSrc, ShapeSrc, AllocSrc>& src, const array_ref<TDest, ShapeDest>& dest) {
-  copy(src.cref(), dest);
+template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, typename AllocSrc>
+void copy(const array<TSrc, ShapeSrc, AllocSrc>& src, const array_ref<TDst, ShapeDst>& dst) {
+  copy(src.cref(), dst);
 }
-template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest, typename AllocSrc, typename AllocDest>
-void copy(const array<TSrc, ShapeSrc, AllocSrc>& src, array<TDest, ShapeDest, AllocDest>& dest) {
-  copy(src.cref(), dest.ref());
+template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, typename AllocSrc, typename AllocDst>
+void copy(const array<TSrc, ShapeSrc, AllocSrc>& src, array<TDst, ShapeDst, AllocDst>& dst) {
+  copy(src.cref(), dst.ref());
 }
 
 /** Make a copy of the `src` array or array_ref with a new shape `shape`. */
-template <typename T, typename ShapeSrc, typename ShapeDest,
+template <typename T, typename ShapeSrc, typename ShapeDst,
   typename Alloc = std::allocator<typename std::remove_const<T>::type>>
-auto make_copy(const array_ref<T, ShapeSrc>& src, const ShapeDest& shape,
+auto make_copy(const array_ref<T, ShapeSrc>& src, const ShapeDst& shape,
                const Alloc& alloc = Alloc()) {
-  array<typename std::remove_const<T>::type, ShapeDest, Alloc> dest(shape, alloc);
-  copy(src, dest);
-  return dest;
+  array<typename std::remove_const<T>::type, ShapeDst, Alloc> dst(shape, alloc);
+  copy(src, dst);
+  return dst;
 }
-template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc,
-  typename AllocDest = AllocSrc>
-auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const ShapeDest& shape,
-               const AllocDest& alloc = AllocDest()) {
+template <typename T, typename ShapeSrc, typename ShapeDst, typename AllocSrc,
+  typename AllocDst = AllocSrc>
+auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const ShapeDst& shape,
+               const AllocDst& alloc = AllocDst()) {
   return make_copy(src.cref(), shape, alloc);
 }
 
@@ -2268,9 +2268,9 @@ auto make_dense_copy(const array_ref<T, ShapeSrc>& src,
                      const Alloc& alloc = Alloc()) {
   return make_copy(src, make_dense(src.shape()), alloc);
 }
-template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = AllocSrc>
+template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDst = AllocSrc>
 auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src,
-                     const AllocDest& alloc = AllocDest()) {
+                     const AllocDst& alloc = AllocDst()) {
   return make_dense_copy(src.cref(), alloc);
 }
 
@@ -2282,59 +2282,59 @@ auto make_compact_copy(const array_ref<T, Shape>& src,
                        const Alloc& alloc = Alloc()) {
   return make_copy(src, make_compact(src.shape()), alloc);
 }
-template <typename T, typename Shape, typename AllocSrc, typename AllocDest = AllocSrc>
+template <typename T, typename Shape, typename AllocSrc, typename AllocDst = AllocSrc>
 auto make_compact_copy(const array<T, Shape, AllocSrc>& src,
-                       const AllocDest& alloc = AllocDest()) {
+                       const AllocDst& alloc = AllocDst()) {
   return make_compact_copy(src.cref(), alloc);
 }
 
-/** Move the contents from the `src` array or array_ref to the `dest` array or
- * array_ref. The range of the shape of `dest` will be moved, and must be in
+/** Move the contents from the `src` array or array_ref to the `dst` array or
+ * array_ref. The range of the shape of `dst` will be moved, and must be in
  * bounds of `src`. */
-template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest>
-void move(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDest, ShapeDest>& dest) {
-  if (dest.shape().empty()) {
+template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst>
+void move(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDst, ShapeDst>& dst) {
+  if (dst.shape().empty()) {
     return;
   }
-  if (!src.shape().is_in_range(dest.shape().min()) ||
-      !src.shape().is_in_range(dest.shape().max())) {
-    NDARRAY_THROW_OUT_OF_RANGE("dest indices out of range of src");
+  if (!src.shape().is_in_range(dst.shape().min()) ||
+      !src.shape().is_in_range(dst.shape().max())) {
+    NDARRAY_THROW_OUT_OF_RANGE("dst indices out of range of src");
   }
 
-  copy_shape_traits<ShapeSrc, ShapeDest>::for_each_value(src.shape(), src.base(), dest.shape(), dest.base(),
-                                                         [](TSrc& src_i, TDest& dest_i) {
-    dest_i = std::move(src_i);
+  copy_shape_traits<ShapeSrc, ShapeDst>::for_each_value(src.shape(), src.base(), dst.shape(), dst.base(),
+                                                         [](TSrc& src_i, TDst& dst_i) {
+    dst_i = std::move(src_i);
   });
 }
-template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest, typename AllocDest>
-void move(const array_ref<TSrc, ShapeSrc>& src, array<TDest, ShapeDest, AllocDest>& dest) {
-  move(src, dest.ref());
+template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, typename AllocDst>
+void move(const array_ref<TSrc, ShapeSrc>& src, array<TDst, ShapeDst, AllocDst>& dst) {
+  move(src, dst.ref());
 }
-template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest, typename AllocSrc>
-void move(array<TSrc, ShapeSrc, AllocSrc>& src, const array_ref<TDest, ShapeDest>& dest) {
-  move(src.ref(), dest);
+template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, typename AllocSrc>
+void move(array<TSrc, ShapeSrc, AllocSrc>& src, const array_ref<TDst, ShapeDst>& dst) {
+  move(src.ref(), dst);
 }
-template <typename TSrc, typename TDest, typename ShapeSrc, typename ShapeDest, typename AllocSrc, typename AllocDest>
-void move(array<TSrc, ShapeSrc, AllocSrc>& src, array<TDest, ShapeDest, AllocDest>& dest) {
-  move(src.ref(), dest.ref());
+template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, typename AllocSrc, typename AllocDst>
+void move(array<TSrc, ShapeSrc, AllocSrc>& src, array<TDst, ShapeDst, AllocDst>& dst) {
+  move(src.ref(), dst.ref());
 }
 
 /** Make a copy of the `src` array or array_ref with a new shape `shape`. The
  * elements of `src` are moved to the result. */
-template <typename T, typename ShapeSrc, typename ShapeDest, typename Alloc = std::allocator<T>>
-auto make_move(const array_ref<T, ShapeSrc>& src, const ShapeDest& shape,
+template <typename T, typename ShapeSrc, typename ShapeDst, typename Alloc = std::allocator<T>>
+auto make_move(const array_ref<T, ShapeSrc>& src, const ShapeDst& shape,
                const Alloc& alloc = Alloc()) {
-  array<T, ShapeDest, Alloc> dest(shape, alloc);
-  move(src, dest);
-  return dest;
+  array<T, ShapeDst, Alloc> dst(shape, alloc);
+  move(src, dst);
+  return dst;
 }
 // TODO: Should this taken an rvalue reference for src, and should it move the
 // whole array if the shapes are equal?
 // (https://github.com/dsharlet/array/issues/8)
-template <typename T, typename ShapeSrc, typename ShapeDest, typename AllocSrc,
-  typename AllocDest = AllocSrc>
-auto make_move(array<T, ShapeSrc, AllocSrc>& src, const ShapeDest& shape,
-               const AllocDest& alloc = AllocDest()) {
+template <typename T, typename ShapeSrc, typename ShapeDst, typename AllocSrc,
+  typename AllocDst = AllocSrc>
+auto make_move(array<T, ShapeSrc, AllocSrc>& src, const ShapeDst& shape,
+               const AllocDst& alloc = AllocDst()) {
   return make_move(src.ref(), shape, alloc);
 }
 
@@ -2347,8 +2347,8 @@ auto make_dense_move(const array_ref<T, ShapeSrc>& src, const Alloc& alloc = All
 // TODO: Should this taken an rvalue reference for src, and should it move the
 // whole array if the shapes are equal?
 // (https://github.com/dsharlet/array/issues/8)
-template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDest = AllocSrc>
-auto make_dense_move(array<T, ShapeSrc, AllocSrc>& src, const AllocDest& alloc = AllocDest()) {
+template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDst = AllocSrc>
+auto make_dense_move(array<T, ShapeSrc, AllocSrc>& src, const AllocDst& alloc = AllocDst()) {
   return make_dense_move(src.ref(), alloc);
 }
 
@@ -2361,8 +2361,8 @@ auto make_compact_move(const array_ref<T, Shape>& src, const Alloc& alloc = Allo
 // TODO: Should this taken an rvalue reference for src, and should it move the
 // whole array if the shapes are equal?
 // (https://github.com/dsharlet/array/issues/8)
-template <typename T, typename Shape, typename AllocSrc, typename AllocDest = AllocSrc>
-auto make_compact_move(array<T, Shape, AllocSrc>& src, const AllocDest& alloc = AllocDest()) {
+template <typename T, typename Shape, typename AllocSrc, typename AllocDst = AllocSrc>
+auto make_compact_move(array<T, Shape, AllocSrc>& src, const AllocDst& alloc = AllocDst()) {
   return make_compact_move(src.ref(), alloc);
 }
 
