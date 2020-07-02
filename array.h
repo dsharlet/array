@@ -93,6 +93,10 @@ NDARRAY_INLINE constexpr index_t reconcile(index_t value) {
   return is_known(Value) ? Value : value;
 }
 
+template <index_t A, index_t B>
+using enable_if_compatible =
+    typename std::enable_if<is_unknown(A) || is_unknown(B) || A == B>::type;
+
 inline constexpr index_t abs(index_t a) {
   return a >= 0 ? a : -a;
 }
@@ -164,30 +168,21 @@ class range {
   range(range&&) = default;
   /** Copy another range object, possibly with different compile-time template
    * parameters. */
-  template <index_t CopyMin, index_t CopyExtent>
+  template <index_t CopyMin, index_t CopyExtent,
+      typename = internal::enable_if_compatible<Min, CopyMin>,
+      typename = internal::enable_if_compatible<Extent, CopyExtent>>
   range(const range<CopyMin, CopyExtent>& other)
       : range(other.min(), other.extent()) {
-    // We can statically check the compile-time constants, which produces a
-    // more convenient compiler error instead of a runtime error.
-    static_assert(internal::is_unknown(Min) || internal::is_unknown(CopyMin) || Min == CopyMin,
-                  "incompatible mins.");
-    static_assert(internal::is_unknown(Extent) || internal::is_unknown(CopyExtent) || Extent == CopyExtent,
-                  "incompatible extents.");
   }
 
   range& operator=(const range&) = default;
   range& operator=(range&&) = default;
   /** Copy assignment of a range object, possibly with different compile-time
    * template parameters. */
-  template <index_t CopyMin, index_t CopyExtent>
+  template <index_t CopyMin, index_t CopyExtent,
+      typename = internal::enable_if_compatible<Min, CopyMin>,
+      typename = internal::enable_if_compatible<Extent, CopyExtent>>
   range& operator=(const range<CopyMin, CopyExtent>& other) {
-    // We can statically check the compile-time constants, which produces a
-    // more convenient compiler error instead of a runtime error.
-    static_assert(internal::is_unknown(Min) || internal::is_unknown(CopyMin) || Min == CopyMin,
-                  "incompatible mins.");
-    static_assert(internal::is_unknown(Extent) || internal::is_unknown(CopyExtent) || Extent == CopyExtent,
-                  "incompatible extents.");
-
     set_min(other.min());
     set_extent(other.extent());
     return *this;
@@ -380,26 +375,23 @@ class dim : public range<Min_, Extent_> {
   dim(dim&&) = default;
   /** Copy another dim object, possibly with different compile-time template
    * parameters. */
-  template <index_t CopyMin, index_t CopyExtent, index_t CopyStride>
+  template <index_t CopyMin, index_t CopyExtent, index_t CopyStride,
+      typename = internal::enable_if_compatible<Min, CopyMin>,
+      typename = internal::enable_if_compatible<Extent, CopyExtent>,
+      typename = internal::enable_if_compatible<Stride, CopyStride>>
   dim(const dim<CopyMin, CopyExtent, CopyStride>& other)
       : dim(other.min(), other.extent(), other.stride()) {
-    // We can statically check the compile-time constants, which produces a
-    // more convenient compiler error instead of a runtime error.
-    static_assert(internal::is_unknown(Stride) || internal::is_unknown(CopyStride) || Stride == CopyStride,
-                  "incompatible strides.");
   }
 
   dim& operator=(const dim&) = default;
   dim& operator=(dim&&) = default;
   /** Copy assignment of a dim object, possibly with different compile-time
    * template parameters. */
-  template <index_t CopyMin, index_t CopyExtent, index_t CopyStride>
+  template <index_t CopyMin, index_t CopyExtent, index_t CopyStride,
+      typename = internal::enable_if_compatible<Min, CopyMin>,
+      typename = internal::enable_if_compatible<Extent, CopyExtent>,
+      typename = internal::enable_if_compatible<Stride, CopyStride>>
   dim& operator=(const dim<CopyMin, CopyExtent, CopyStride>& other) {
-    // We can statically check the compile-time constants, which produces a
-    // more convenient compiler error instead of a runtime error.
-    static_assert(internal::is_unknown(Stride) || internal::is_unknown(CopyStride) || Stride == CopyStride,
-                  "incompatible strides.");
-
     set_min(other.min());
     set_extent(other.extent());
     set_stride(other.stride());
