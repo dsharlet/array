@@ -17,6 +17,9 @@
 
 namespace nda {
 
+// TODO: Find a way to embed these snippets in README.md without having
+// to copy-paste them.
+
 // Define a compile-time "chunky" imag eshape.
 template <int Channels, int ChannelStride = Channels>
 using chunky_image_shape = shape<
@@ -128,7 +131,6 @@ TEST(readme) {
   for (auto yo : split(my_array.y(), y_split_factor)) {
     for (auto xo : split<x_split_factor>(my_array.x())) {
       auto tile = my_array(xo, yo, _);
-      // tile.shape().x() has type dense_dim<UNK, x_split_factor>
       for (auto x : tile.x()) {
         // The compiler knows this loop has a fixed extent x_split_factor!
         tile(x, 0, 0) = x;
