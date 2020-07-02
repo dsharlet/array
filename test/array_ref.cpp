@@ -80,7 +80,8 @@ TEST(array_ref_empty) {
   ASSERT(null_ref.empty());
 }
 
-void f_dense(const dense_array_ref<const int, 3>& r) {}
+void f_dense(const dense_array_ref<int, 3>& r) {}
+void f_const_dense(const dense_array_ref<const int, 3>& r) {}
 
 TEST(array_ref_conversion) {
   // The correctness of shape conversion is already tested elsewhere, we just
@@ -88,9 +89,16 @@ TEST(array_ref_conversion) {
   array_ref_of_rank<int, 3> null_ref(nullptr, {10, 20, 30});
   dense_array_ref<int, 3> dense_null_ref(null_ref);
   null_ref = dense_null_ref;
+  array_ref_of_rank<const int, 3> const_null_ref(dense_null_ref);
 
   // Test conversion from array_ref<T*> to array_ref<const T*>.
   f_dense(null_ref);
+  f_const_dense(null_ref);
+  f_const_dense(const_null_ref);
+
+  array_of_rank<int, 3> a({5, 10, 20});
+  f_dense(a);
+  f_const_dense(a);
 }
 
 TEST(array_ref_crop) {

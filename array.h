@@ -1462,6 +1462,8 @@ void for_all_indices(const Shape& s, Fn&& fn) {
 
 template <typename T, typename Shape>
 class array_ref;
+template <typename T, typename Shape, typename Alloc>
+class array;
 
 /** Make a new array with shape `shape`, allocated using `alloc`. */
 template <typename T, typename Shape>
@@ -1507,21 +1509,59 @@ class array_ref {
   /** The copy constructor of a ref is a shallow copy. */
   array_ref(const array_ref& other) = default;
   array_ref(array_ref&& other) = default;
+
+  /** Conversions from other types of arrays or array_ref. */
   template <typename U, typename OtherShape,
       typename = typename std::enable_if<
-          std::is_convertible<U*, T*>::value &&
-          OtherShape::rank() == rank()>::type>
+          std::is_constructible<T*, T*>::value &&
+          std::is_constructible<Shape, OtherShape>::value>::type>
   array_ref(const array_ref<U, OtherShape>& other)
+      : array_ref(other.base(), other.shape()) {}
+  template <typename U, typename OtherShape, typename Alloc,
+      typename = typename std::enable_if<
+          std::is_constructible<T*, U*>::value &&
+          !std::is_const<T>::value &&
+          std::is_constructible<Shape, OtherShape>::value>::type>
+  array_ref(array<U, OtherShape, Alloc>& other)
+      : array_ref(other.base(), other.shape()) {}
+  template <typename U, typename OtherShape, typename Alloc,
+      typename = typename std::enable_if<
+          std::is_constructible<T*, const U*>::value &&
+          std::is_const<T>::value &&
+          std::is_constructible<Shape, OtherShape>::value>::type>
+  array_ref(const array<U, OtherShape, Alloc>& other)
       : array_ref(other.base(), other.shape()) {}
 
   /** Assigning an array_ref is a shallow assignment. */
   array_ref& operator=(const array_ref& other) = default;
   array_ref& operator=(array_ref&& other) = default;
+
+  /** Conversions from other types of arrays or array_ref. */
   template <typename U, typename OtherShape,
       typename = typename std::enable_if<
-          std::is_convertible<U*, T*>::value &&
-          OtherShape::rank() == rank()>::type>
+          std::is_assignable<T*, U*>::value &&
+          std::is_assignable<Shape, OtherShape>::value>::type>
   array_ref& operator=(const array_ref<U, OtherShape>& other) {
+    base_ = other.base();
+    shape_ = other.shape();
+    return *this;
+  }
+  template <typename U, typename OtherShape, typename Alloc,
+      typename = typename std::enable_if<
+          std::is_assignable<T*, U*>::value &&
+          !std::is_const<T>::value &&
+          std::is_assignable<Shape, OtherShape>::value>::type>
+  array_ref& operator=(array<U, OtherShape, Alloc>& other) {
+    base_ = other.base();
+    shape_ = other.shape();
+    return *this;
+  }
+  template <typename U, typename OtherShape, typename Alloc,
+      typename = typename std::enable_if<
+          std::is_assignable<T*, const U*>::value &&
+          std::is_const<T>::value &&
+          std::is_assignable<Shape, OtherShape>::value>::type>
+  array_ref& operator=(const array<U, OtherShape, Alloc>& other) {
     base_ = other.base();
     shape_ = other.shape();
     return *this;
@@ -1809,6 +1849,10 @@ class array {
   ~array() {
     deallocate();
   }
+
+  // Let's choose not to provide array(const array_ref&) constructors. This is
+  // a deep copy that may be unintentional, perhaps it is better to require
+  // being explicit via `make_copy`.
 
   /** Assign the contents of the array as a copy of `other`. The array is
    * deallocated if the allocator cannot be propagated on assignment. The array
