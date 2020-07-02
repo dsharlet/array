@@ -72,16 +72,16 @@ int main(int argc, const char** argv) {
   for (auto& i : tests()) {
     if (!wildcard_match(filter, i.first.c_str())) continue;
 
-    std::cout << i.first;
+    std::cout << i.first << " ";
 #ifndef NDARRAY_NO_EXCEPTIONS
     try {
 #endif
       i.second();
-      std::cout << " passed" << std::endl;
+      std::cout << "passed" << std::endl;
       passed++;
 #ifndef NDARRAY_NO_EXCEPTIONS
     } catch(const std::exception& e) {
-      std::cout << " failed: " << e.what() << std::endl;
+      std::cout << "failed: " << e.what() << std::endl;
     }
 #endif
     total++;
