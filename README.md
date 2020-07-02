@@ -154,7 +154,7 @@ Another common example is matrices indexed `(row, column)` with the column dimen
 ```
 
 There are also many use cases for matrices with small constant sizes.
-This library provides `stack_allocator<T, N>`, an `std::allocator` compatible allocator that only allocates buffers of `N` small fixed sized objects.
+This library provides `auto_allocator<T, N>`, an `std::allocator` compatible allocator that only allocates buffers of `N` small fixed sized objects with automatic storage.
 This makes it possible to define a small matrix type that will not use any dynamic memory allocation:
 ```c++
 template <int M, int N>
@@ -162,7 +162,7 @@ using small_matrix_shape = shape<
     dim<0, M>,
     dense_dim<0, N>>;
 template <typename T, int M, int N>
-using small_matrix = array<T, small_matrix_shape<M, N>, stack_allocator<T, M*N>>;
+using small_matrix = array<T, small_matrix_shape<M, N>, auto_allocator<T, M*N>>;
 small_matrix<float, 4, 4> my_small_matrix;
 // my_small_matrix is only one fixed size allocation, no new/delete calls
 // happen. sizeof(small_matrix) = sizeof(float) * 4 * 4 + (overhead)

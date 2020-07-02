@@ -17,31 +17,31 @@
 
 namespace nda {
 
-typedef dense_array<int, 3, stack_allocator<int, 32>> dense3d_int_stack_array;
+typedef dense_array<int, 3, auto_allocator<int, 32>> dense3d_int_auto_array;
 
-TEST(stack_array) {
-  dense3d_int_stack_array stack_array({4, 3, 2});
-  for_all_indices(stack_array.shape(), [&](int x, int y, int c) {
-    stack_array(x, y, c) = x;
+TEST(auto_array) {
+  dense3d_int_auto_array auto_array({4, 3, 2});
+  for_all_indices(auto_array.shape(), [&](int x, int y, int c) {
+    auto_array(x, y, c) = x;
   });
 
-  dense3d_int_stack_array copy_array(stack_array);
+  dense3d_int_auto_array copy_array(auto_array);
   for_all_indices(copy_array.shape(), [&](int x, int y, int c) {
     ASSERT_EQ(copy_array(x, y, c), x);
   });
 
-  dense3d_int_stack_array assign_array;
-  assign_array = stack_array;
+  dense3d_int_auto_array assign_array;
+  assign_array = auto_array;
   for_all_indices(assign_array.shape(), [&](int x, int y, int c) {
     ASSERT_EQ(assign_array(x, y, c), x);
   });
 
-  dense3d_int_stack_array move_array(std::move(stack_array));
+  dense3d_int_auto_array move_array(std::move(auto_array));
   for_all_indices(move_array.shape(), [&](int x, int y, int c) {
     ASSERT_EQ(move_array(x, y, c), x);
   });
 
-  dense3d_int_stack_array move_assign;
+  dense3d_int_auto_array move_assign;
   move_assign = std::move(assign_array);
   for_all_indices(move_assign.shape(), [&](int x, int y, int c) {
     ASSERT_EQ(move_assign(x, y, c), x);
@@ -49,10 +49,10 @@ TEST(stack_array) {
 }
 
 #ifndef NDARRAY_NO_EXCEPTIONS
-TEST(stack_array_bad_alloc) {
+TEST(auto_array_bad_alloc) {
   try {
-    // This array is too big for our stack allocator.
-    dense3d_int_stack_array stack_array({4, 3, 5});
+    // This array is too big for our auto allocator.
+    dense3d_int_auto_array auto_array({4, 3, 5});
     ASSERT(false);
   } catch (const std::bad_alloc&) {
     // This is success.

@@ -27,16 +27,16 @@ using chunky_image_shape = shape<
     dim<>,
     dense_dim</*Min=*/0, /*Extent=*/Channels>>;
 
-// Define a compile-time small matrix type, with storage inline with the
-// allocator.
+// Define a compile-time small matrix type, with the array data in
+// automatic storage.
 template <int M, int N>
 using small_matrix_shape = shape<
     dim<0, M>,
     dense_dim<0, N>>;
 template <typename T, int M, int N>
-using small_matrix = array<T, small_matrix_shape<M, N>, stack_allocator<T, M*N>>;
+using small_matrix = array<T, small_matrix_shape<M, N>, auto_allocator<T, M*N>>;
 small_matrix<float, 4, 4> my_small_matrix;
-// my_small_matrix is only one fixed size allocation, no new/delete calls
+// my_small_matrix is only one fixed size allocation, no dynamic allocations
 // happen. sizeof(small_matrix) = sizeof(float) * 4 * 4 + (overhead)
 
 TEST(readme) {

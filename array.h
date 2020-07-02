@@ -2383,15 +2383,12 @@ array_ref<const T, NewShape> reinterpret_shape(const array<T, OldShape, Allocato
   return reinterpret_shape(a.cref(), new_shape, offset);
 }
 
-/** std::allocator-compatible Allocator that owns a buffer of fixed size, which
- * will be placed on the stack if the owning container is allocated on the
- * stack. This can only be used with containers that have a maximum of one
- * concurrent live allocation, which is the case for array::array. */
-// TODO: "stack_allocator" isn't a good name for this. It's a fixed allocation,
-// but not necessarily a stack allocation
-// (https://github.com/dsharlet/array/issues/6).
+/** Allocator satisfying the std::allocator interface which allocates memory
+ * from a buffer with automatic storage. This can only be used with containers
+ * that have a maximum of one concurrent live allocation, which is the case for
+ * `array`. */
 template <class T, size_t N, size_t Alignment = sizeof(T)>
-class stack_allocator {
+class auto_allocator {
   alignas(Alignment) char buffer[N * sizeof(T)];
   bool allocated;
 
@@ -2402,20 +2399,20 @@ class stack_allocator {
   typedef std::false_type propagate_on_container_move_assignment;
   typedef std::false_type propagate_on_container_swap;
 
-  static stack_allocator select_on_container_copy_construction(const stack_allocator&) {
-    return stack_allocator();
+  static auto_allocator select_on_container_copy_construction(const auto_allocator&) {
+    return auto_allocator();
   }
 
-  stack_allocator() : allocated(false) {}
+  auto_allocator() : allocated(false) {}
   template <class U, size_t U_N> constexpr
-  stack_allocator(const stack_allocator<U, U_N>&) noexcept : allocated(false) {}
+  auto_allocator(const auto_allocator<U, U_N>&) noexcept : allocated(false) {}
   // TODO: Most of these constructors/assignment operators are hacks,
   // because the C++ STL I'm using seems to not be respecting the
   // propagate typedefs or the 'select_on_...' function above.
-  stack_allocator(const stack_allocator&) noexcept : allocated(false) {}
-  stack_allocator(stack_allocator&&) noexcept : allocated(false) {}
-  stack_allocator& operator=(const stack_allocator&) { return *this; }
-  stack_allocator& operator=(stack_allocator&&) { return *this; }
+  auto_allocator(const auto_allocator&) noexcept : allocated(false) {}
+  auto_allocator(auto_allocator&&) noexcept : allocated(false) {}
+  auto_allocator& operator=(const auto_allocator&) { return *this; }
+  auto_allocator& operator=(auto_allocator&&) { return *this; }
 
   T* allocate(size_t n) {
     if (allocated) NDARRAY_THROW_BAD_ALLOC();
@@ -2428,12 +2425,12 @@ class stack_allocator {
   }
 
   template <class U, size_t U_N>
-  friend bool operator==(const stack_allocator<T, N>& a, const stack_allocator<U, U_N>& b) {
+  friend bool operator==(const auto_allocator<T, N>& a, const auto_allocator<U, U_N>& b) {
     return &a.buffer[0] == &b.buffer[0];
   }
 
   template <class U, size_t U_N>
-  friend bool operator!=(const stack_allocator<T, N>& a, const stack_allocator<U, U_N>& b) {
+  friend bool operator!=(const auto_allocator<T, N>& a, const auto_allocator<U, U_N>& b) {
     return &a.buffer[0] != &b.buffer[0];
   }
 };

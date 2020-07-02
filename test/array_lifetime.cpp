@@ -27,7 +27,7 @@ using lifetime_array = array<lifetime_counter, LifetimeShape, Alloc>;
 
 // Run all of these tests with 3 allocators:
 typedef std::allocator<lifetime_counter> std_alloc;
-typedef stack_allocator<lifetime_counter, 256> stack_alloc;
+typedef auto_allocator<lifetime_counter, 256> auto_alloc;
 
 class custom_alloc {
  public:
@@ -62,7 +62,7 @@ void test_default_init_lifetime() {
 TEST(array_default_init_lifetime) {
   test_default_init_lifetime<std_alloc>();
   test_default_init_lifetime<custom_alloc>();
-  test_default_init_lifetime<stack_alloc>();
+  test_default_init_lifetime<auto_alloc>();
 }
 
 
@@ -81,7 +81,7 @@ void test_default_init_constant_lifetime() {
 TEST(array_default_init_constant_lifetime) {
   test_default_init_constant_lifetime<std_alloc>();
   test_default_init_constant_lifetime<custom_alloc>();
-  test_default_init_constant_lifetime<stack_alloc>();
+  test_default_init_constant_lifetime<auto_alloc>();
 }
 
 
@@ -98,7 +98,7 @@ void test_copy_init_lifetime() {
 TEST(array_copy_init_lifetime) {
   test_copy_init_lifetime<std_alloc>();
   test_copy_init_lifetime<custom_alloc>();
-  test_copy_init_lifetime<stack_alloc>();
+  test_copy_init_lifetime<auto_alloc>();
 }
 
 
@@ -124,7 +124,7 @@ void test_copy_lifetime() {
 TEST(array_copy_lifetime) {
   test_copy_lifetime<std_alloc>();
   test_copy_lifetime<custom_alloc>();
-  test_copy_lifetime<stack_alloc>();
+  test_copy_lifetime<auto_alloc>();
 }
 
 
@@ -160,7 +160,7 @@ void test_move_lifetime(bool alloc_movable = true) {
 TEST(array_move_lifetime) {
   test_move_lifetime<std_alloc>();
   test_move_lifetime<custom_alloc>();
-  test_move_lifetime<stack_alloc>(false);
+  test_move_lifetime<auto_alloc>(false);
 }
 
 
@@ -186,7 +186,7 @@ void test_move_alloc_lifetime(bool alloc_movable = true) {
 TEST(array_move_alloc_lifetime) {
   test_move_alloc_lifetime<std_alloc>();
   test_move_alloc_lifetime<custom_alloc>();
-  test_move_alloc_lifetime<stack_alloc>(false);
+  test_move_alloc_lifetime<auto_alloc>(false);
 }
 
 
@@ -205,7 +205,7 @@ void test_copy_assign_lifetime() {
 TEST(array_copy_assign_lifetime) {
   test_copy_assign_lifetime<std_alloc>();
   test_copy_assign_lifetime<custom_alloc>();
-  test_copy_assign_lifetime<stack_alloc>();
+  test_copy_assign_lifetime<auto_alloc>();
 }
 
 
@@ -232,7 +232,7 @@ void test_move_assign_lifetime(bool alloc_movable = true) {
 TEST(array_move_assign_lifetime) {
   test_move_assign_lifetime<std_alloc>();
   test_move_assign_lifetime<custom_alloc>();
-  test_move_assign_lifetime<stack_alloc>(false);
+  test_move_assign_lifetime<auto_alloc>(false);
 }
 
 
@@ -248,7 +248,7 @@ void test_clear_lifetime() {
 TEST(array_clear_lifetime) {
   test_clear_lifetime<std_alloc>();
   test_clear_lifetime<custom_alloc>();
-  test_clear_lifetime<stack_alloc>();
+  test_clear_lifetime<auto_alloc>();
 }
 
 
@@ -273,7 +273,7 @@ void test_swap_lifetime(bool alloc_movable = true) {
 TEST(array_swap_lifetime) {
   test_swap_lifetime<std_alloc>();
   test_swap_lifetime<custom_alloc>();
-  test_swap_lifetime<stack_alloc>(false);
+  test_swap_lifetime<auto_alloc>(false);
 }
 
 
@@ -326,7 +326,7 @@ void test_lifetime_leaks() {
 TEST(array_lifetime_leaks) {
   test_lifetime_leaks<std_alloc>();
   test_lifetime_leaks<custom_alloc>();
-  test_lifetime_leaks<stack_alloc>();
+  test_lifetime_leaks<auto_alloc>();
 }
 
 }  // namespace nda
