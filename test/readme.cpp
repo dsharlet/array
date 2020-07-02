@@ -52,11 +52,7 @@ TEST(readme) {
   for (int z = 0; z < depth; z++) {
     for (int y = 0; y < height; y++) {
       for (int x = 0; x < width; x++) {
-        // Variadic verion:
         my_array(x, y, z) = 5;
-        // Or the index_type versions:
-        my_array({x, y, z}) = 5;
-        my_array[{x, y, z}] = 5;
       }
     }
   }
