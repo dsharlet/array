@@ -54,14 +54,14 @@
 
 namespace nda {
 
-typedef std::size_t size_t;
+using size_t = std::size_t;
 /** When `NDARRAY_INT_INDICES` is defined, array indices are `int` values, otherwise
  * they are `std::ptrdiff_t`. std::ptrdiff_t is helpful for the compiler to
  * optimize loops. */
 #ifdef NDARRAY_INT_INDICES
-typedef int index_t;
+using index_t = int;
 #else
-typedef std::ptrdiff_t index_t;
+using index_t = std::ptrdiff_t;
 #endif
 
 /** This value indicates a compile-time constant stride is unknown, and to use
@@ -74,7 +74,7 @@ constexpr index_t UNK = -9;
 
 namespace internal {
 
-NDARRAY_INLINE constexpr index_t abs(index_t a) { return a >= 0 ? a : -a; }
+NDARRAY_INLINE index_t abs(index_t a) { return a >= 0 ? a : -a; }
 
 NDARRAY_INLINE constexpr index_t is_known(index_t x) { return x != UNK; }
 NDARRAY_INLINE constexpr index_t is_unknown(index_t x) { return x == UNK; }
@@ -91,14 +91,15 @@ NDARRAY_INLINE constexpr index_t reconcile(index_t value) {
 }
 
 template <index_t A, index_t B>
-using enable_if_compatible = typename std::enable_if<is_unknown(A) || is_unknown(B) || A == B>::type;
+using enable_if_compatible =
+    typename std::enable_if<is_unknown(A) || is_unknown(B) || A == B>::type;
 
-inline constexpr bool is_unknown(index_t a, index_t b) { return is_unknown(a) || is_unknown(b); }
-inline constexpr index_t add(index_t a, index_t b) { return is_unknown(a, b) ? UNK : a + b; }
-inline constexpr index_t sub(index_t a, index_t b) { return is_unknown(a, b) ? UNK : a - b; }
-inline constexpr index_t mul(index_t a, index_t b) { return is_unknown(a, b) ? UNK : a * b; }
-inline constexpr index_t min(index_t a, index_t b) { return is_unknown(a, b) ? UNK : (a < b ? a : b); }
-inline constexpr index_t max(index_t a, index_t b) { return is_unknown(a, b) ? UNK : (a > b ? a : b); }
+constexpr bool is_unknown(index_t a, index_t b) { return is_unknown(a) || is_unknown(b); }
+constexpr index_t add(index_t a, index_t b) { return is_unknown(a, b) ? UNK : a + b; }
+constexpr index_t sub(index_t a, index_t b) { return is_unknown(a, b) ? UNK : a - b; }
+constexpr index_t mul(index_t a, index_t b) { return is_unknown(a, b) ? UNK : a * b; }
+constexpr index_t min(index_t a, index_t b) { return is_unknown(a, b) ? UNK : (a < b ? a : b); }
+constexpr index_t max(index_t a, index_t b) { return is_unknown(a, b) ? UNK : (a > b ? a : b); }
 
 }  // namespace internal
 
@@ -148,8 +149,8 @@ class range {
   /** Copy another range object, possibly with different compile-time template
    * parameters. */
   template <index_t CopyMin, index_t CopyExtent,
-      typename = internal::enable_if_compatible<Min, CopyMin>,
-      typename = internal::enable_if_compatible<Extent, CopyExtent>>
+      class = internal::enable_if_compatible<Min, CopyMin>,
+      class = internal::enable_if_compatible<Extent, CopyExtent>>
   range(const range<CopyMin, CopyExtent>& other) : range(other.min(), other.extent()) {}
 
   range& operator=(const range&) = default;
@@ -157,8 +158,8 @@ class range {
   /** Copy assignment of a range object, possibly with different compile-time
    * template parameters. */
   template <index_t CopyMin, index_t CopyExtent,
-      typename = internal::enable_if_compatible<Min, CopyMin>,
-      typename = internal::enable_if_compatible<Extent, CopyExtent>>
+      class = internal::enable_if_compatible<Min, CopyMin>,
+      class = internal::enable_if_compatible<Extent, CopyExtent>>
   range& operator=(const range<CopyMin, CopyExtent>& other) {
     set_min(other.min());
     set_extent(other.extent());
@@ -225,7 +226,7 @@ inline index_t clamp(index_t x, index_t min, index_t max) {
 }
 
 /** Clamp an index to the range described by an object with a min and max method. */
-template <typename Dim>
+template <class Dim>
 index_t clamp(index_t x, const Dim& d) {
   return clamp(x, d.min(), d.max());
 }
@@ -239,7 +240,8 @@ class split_iterator {
   index_t outer_max;
 
  public:
-  split_iterator(const range<UNK, InnerExtent>& i, index_t outer_max) : i(i), outer_max(outer_max) {}
+  split_iterator(const range<UNK, InnerExtent>& i, index_t outer_max)
+      : i(i), outer_max(outer_max) {}
 
   bool operator==(const split_iterator& r) const { return i.min() == r.i.min(); }
   bool operator!=(const split_iterator& r) const { return i.min() != r.i.min(); }
@@ -274,7 +276,7 @@ class split_iterator {
 };
 
 // TODO: Remove this when std::iterator_range is standard.
-template <typename T>
+template <class T>
 class iterator_range {
   T begin_;
   T end_;
@@ -300,9 +302,8 @@ template <index_t InnerExtent, index_t Min, index_t Extent>
 internal::split_iterator_range<InnerExtent> split(const range<Min, Extent>& r) {
   assert(r.extent() >= InnerExtent);
   return {
-    {range<UNK, InnerExtent>(r.min(), InnerExtent), r.max()},
-    {range<UNK, InnerExtent>(r.max() + 1, InnerExtent), r.max()}
-  };
+      {range<UNK, InnerExtent>(r.min(), InnerExtent), r.max()},
+      {range<UNK, InnerExtent>(r.max() + 1, InnerExtent), r.max()}};
 }
 
 /** Split a range `r` into an iterable range of ranges by `inner_extent`. If
@@ -314,9 +315,8 @@ internal::split_iterator_range<InnerExtent> split(const range<Min, Extent>& r) {
 template <index_t Min, index_t Extent>
 internal::split_iterator_range<> split(const range<Min, Extent>& r, index_t inner_extent) {
   return {
-    {range<>(r.min(), inner_extent), r.max()},
-    {range<>(r.max() + 1, inner_extent), r.max()}
-  };
+      {range<>(r.min(), inner_extent), r.max()},
+      {range<>(r.max() + 1, inner_extent), r.max()}};
 }
 
 /** Describes one dimension of an array. The template parameters enable
@@ -348,15 +348,16 @@ class dim : public range<Min_, Extent_> {
     set_stride(stride);
   }
   dim(index_t extent = Extent) : dim(0, extent) {}
-  dim(const base_range& range, index_t stride = Stride) : dim(range.min(), range.extent(), stride) {}
+  dim(const base_range& range, index_t stride = Stride)
+      : dim(range.min(), range.extent(), stride) {}
   dim(const dim&) = default;
   dim(dim&&) = default;
   /** Copy another dim object, possibly with different compile-time template
    * parameters. */
   template <index_t CopyMin, index_t CopyExtent, index_t CopyStride,
-      typename = internal::enable_if_compatible<Min, CopyMin>,
-      typename = internal::enable_if_compatible<Extent, CopyExtent>,
-      typename = internal::enable_if_compatible<Stride, CopyStride>>
+      class = internal::enable_if_compatible<Min, CopyMin>,
+      class = internal::enable_if_compatible<Extent, CopyExtent>,
+      class = internal::enable_if_compatible<Stride, CopyStride>>
   dim(const dim<CopyMin, CopyExtent, CopyStride>& other)
       : dim(other.min(), other.extent(), other.stride()) {
   }
@@ -366,9 +367,9 @@ class dim : public range<Min_, Extent_> {
   /** Copy assignment of a dim object, possibly with different compile-time
    * template parameters. */
   template <index_t CopyMin, index_t CopyExtent, index_t CopyStride,
-      typename = internal::enable_if_compatible<Min, CopyMin>,
-      typename = internal::enable_if_compatible<Extent, CopyExtent>,
-      typename = internal::enable_if_compatible<Stride, CopyStride>>
+      class = internal::enable_if_compatible<Min, CopyMin>,
+      class = internal::enable_if_compatible<Extent, CopyExtent>,
+      class = internal::enable_if_compatible<Stride, CopyStride>>
   dim& operator=(const dim<CopyMin, CopyExtent, CopyStride>& other) {
     set_min(other.min());
     set_extent(other.extent());
@@ -425,75 +426,81 @@ using broadcast_dim = dim<Min, Extent, 0>;
 
 namespace internal {
 
-// Some variadic reduction helpers.
-NDARRAY_INLINE constexpr index_t sum() { return 0; }
-NDARRAY_INLINE constexpr index_t product() { return 1; }
-NDARRAY_INLINE constexpr index_t variadic_min() { return std::numeric_limits<index_t>::max(); }
+using std::index_sequence;
+using std::make_index_sequence;
 
-template <typename... Rest>
-NDARRAY_INLINE constexpr index_t sum(index_t first, Rest... rest) {
+// Call `fn` with the elements of tuple `args` unwrapped from the tuple.
+// TODO: When we assume C++17, this can be replaced by std::apply.
+template <class Fn, class Args, size_t... Is>
+NDARRAY_INLINE auto apply(Fn&& fn, const Args& args, index_sequence<Is...>) {
+  return fn(std::get<Is>(args)...);
+}
+
+template <class Fn, class Args>
+NDARRAY_INLINE auto apply(Fn&& fn, const Args& args) {
+  return apply(fn, args, make_index_sequence<std::tuple_size<Args>::value>());
+}
+
+// Some variadic reduction helpers.
+NDARRAY_INLINE index_t sum() { return 0; }
+template <class... Rest>
+NDARRAY_INLINE index_t sum(index_t first, Rest... rest) {
   return first + sum(rest...);
 }
 
-template <typename... Rest>
-NDARRAY_INLINE constexpr index_t product(index_t first, Rest... rest) {
+NDARRAY_INLINE index_t product() { return 1; }
+template <class... Rest>
+NDARRAY_INLINE index_t product(index_t first, Rest... rest) {
   return first * product(rest...);
 }
 
-template <typename... Rest>
-NDARRAY_INLINE constexpr index_t variadic_min(index_t first, Rest... rest) {
-  return min(first, variadic_min(rest...));
+NDARRAY_INLINE index_t variadic_min() { return std::numeric_limits<index_t>::max(); }
+template <class... Rest>
+NDARRAY_INLINE index_t variadic_min(index_t first, Rest... rest) {
+  return std::min(first, variadic_min(rest...));
 }
 
 // Computes the product of the extents of the dims.
-template <typename... Ts, size_t... Is>
-constexpr index_t product(const std::tuple<Ts...>& t, std::index_sequence<Is...>) {
+template <class Tuple, size_t... Is>
+index_t product(const Tuple& t, index_sequence<Is...>) {
   return product(std::get<Is>(t)...);
 }
 
 // Returns true if all of bools are true.
-template <typename... Bools>
-constexpr bool all(Bools... bools) {
+template <class... Bools>
+bool all(Bools... bools) {
   return sum((bools ? 0 : 1)...) == 0;
 }
 
 // Computes the sum of the offsets of a list of dims and indices.
-template <typename Dims, typename Indices, size_t... Is>
-index_t flat_offset_tuple_impl(const Dims& dims, const Indices& indices, std::index_sequence<Is...>) {
+template <class Dims, class Indices, size_t... Is>
+index_t flat_offset_tuple(const Dims& dims, const Indices& indices, index_sequence<Is...>) {
   return sum(std::get<Is>(dims).flat_offset(std::get<Is>(indices))...);
 }
 
-template <typename Dims, typename Indices>
-index_t flat_offset_tuple(const Dims& dims, const Indices& indices) {
-  constexpr size_t dims_rank = std::tuple_size<Dims>::value;
-  constexpr size_t indices_rank = std::tuple_size<Indices>::value;
-  static_assert(dims_rank == indices_rank, "dims and indices must have the same rank.");
-  return flat_offset_tuple_impl(dims, indices, std::make_index_sequence<dims_rank>());
-}
-
-template <size_t D, typename Dims>
+template <size_t D, class Dims>
 index_t flat_offset_pack(const Dims& dims) {
-  constexpr size_t dims_rank = std::tuple_size<Dims>::value;
-  static_assert(dims_rank == D, "dims and indices must have the same rank.");
   return 0;
 }
 
-template <size_t D, typename Dims, typename... Indices>
+template <size_t D, class Dims, class... Indices>
 index_t flat_offset_pack(const Dims& dims, index_t i0, Indices... indices) {
   return std::get<D>(dims).flat_offset(i0) + flat_offset_pack<D + 1>(dims, indices...);
 }
 
 // Computes one more than the sum of the offsets of the last index in every dim.
-template <typename Dims, size_t... Is>
-index_t flat_min(const Dims& dims, std::index_sequence<Is...>) {
-  return sum((std::get<Is>(dims).extent() - 1) *
-              std::min(static_cast<index_t>(0), std::get<Is>(dims).stride())...);
+template <class Dims, size_t... Is>
+index_t flat_min(const Dims& dims, index_sequence<Is...>) {
+  return sum(
+      (std::get<Is>(dims).extent() - 1) *
+      std::min(static_cast<index_t>(0), std::get<Is>(dims).stride())...);
 }
 
-template <typename Dims, size_t... Is>
-index_t flat_max(const Dims& dims, std::index_sequence<Is...>) {
-  return sum((std::get<Is>(dims).extent() - 1) *
-              std::max(static_cast<index_t>(0), std::get<Is>(dims).stride())...);
+template <class Dims, size_t... Is>
+index_t flat_max(const Dims& dims, index_sequence<Is...>) {
+  return sum(
+      (std::get<Is>(dims).extent() - 1) *
+      std::max(static_cast<index_t>(0), std::get<Is>(dims).stride())...);
 }
 
 template <index_t DimMin, index_t DimExtent, index_t DimStride>
@@ -502,7 +509,8 @@ auto range_with_stride(index_t x, const dim<DimMin, DimExtent, DimStride>& d) {
 }
 
 template <index_t CropMin, index_t CropExtent, index_t DimMin, index_t DimExtent, index_t Stride>
-auto range_with_stride(const range<CropMin, CropExtent>& x, const dim<DimMin, DimExtent, Stride>& d) {
+auto range_with_stride(
+    const range<CropMin, CropExtent>& x, const dim<DimMin, DimExtent, Stride>& d) {
   return dim<CropMin, CropExtent, Stride>(x.min(), x.extent(), d.stride());
 }
 
@@ -511,88 +519,75 @@ auto range_with_stride(const decltype(_)&, const dim<Min, Extent, Stride>& d) {
   return d;
 }
 
-template <typename Ranges, typename Dims, size_t... Is>
-auto ranges_with_strides(const Ranges& ranges, const Dims& dims, std::index_sequence<Is...>) {
+template <class Ranges, class Dims, size_t... Is>
+auto ranges_with_strides(const Ranges& ranges, const Dims& dims, index_sequence<Is...>) {
   return std::make_tuple(range_with_stride(std::get<Is>(ranges), std::get<Is>(dims))...);
 }
 
 // Make a tuple of dims corresponding to elements in ranges that are not slices.
-template <typename Dim>
+template <class Dim>
 std::tuple<> skip_slices_impl(const Dim& dim, index_t) {
   return std::tuple<>();
 }
 
-template <typename Dim>
+template <class Dim>
 std::tuple<Dim> skip_slices_impl(const Dim& dim, const range<>&) {
   return std::tuple<Dim>(dim);
 }
 
-template <typename Dims, typename Ranges, size_t... Is>
-auto skip_slices(const Dims& dims, const Ranges& ranges, std::index_sequence<Is...>) {
+template <class Dims, class Ranges, size_t... Is>
+auto skip_slices(const Dims& dims, const Ranges& ranges, index_sequence<Is...>) {
   return std::tuple_cat(skip_slices_impl(std::get<Is>(dims), std::get<Is>(ranges))...);
 }
 
 // Checks if all indices are in range of each corresponding dim.
-template <typename Dims, typename Indices, size_t... Is>
-index_t is_in_range_impl(const Dims& dims, const Indices& indices, std::index_sequence<Is...>) {
+template <class Dims, class Indices, size_t... Is>
+bool is_in_range(const Dims& dims, const Indices& indices, index_sequence<Is...>) {
   return all(std::get<Is>(dims).is_in_range(std::get<Is>(indices))...);
 }
 
-template <typename Dims, typename Indices>
-bool is_in_range(const Dims& dims, const Indices& indices) {
-  constexpr size_t dims_rank = std::tuple_size<Dims>::value;
-  constexpr size_t indices_rank = std::tuple_size<Indices>::value;
-  static_assert(dims_rank == indices_rank, "dims and indices must have the same rank.");
-  return is_in_range_impl(dims, indices, std::make_index_sequence<dims_rank>());
-}
-
 // We want to be able to call mins on a mixed tuple of int/index_t, range, and dim.
-template <typename Dim>
-inline range<UNK, 1> to_range(index_t x, const Dim&) {
-  return range<UNK, 1>(x, 1);
-}
-
-template <index_t Min, index_t Extent, typename Dim>
-range<Min, Extent> to_range(const range<Min, Extent>& x, const Dim&) {
+template <class Dim>
+index_t min_of_range(index_t x, const Dim&) {
   return x;
 }
 
-template <index_t Min, index_t Extent, index_t Stride>
-range<Min, Extent> to_range(const decltype(_)&, const dim<Min, Extent, Stride>& dim) {
-  return dim;
+template <index_t Min, index_t Extent, class Dim>
+index_t min_of_range(const range<Min, Extent>& x, const Dim&) {
+  return x.min();
 }
 
-template <typename Ranges, typename Dims, size_t... Is>
-auto mins_of_ranges(const Ranges& ranges, const Dims& dims, std::index_sequence<Is...>) {
-  return std::make_tuple(to_range(std::get<Is>(ranges), std::get<Is>(dims)).min()...);
+template <class Dim>
+index_t min_of_range(const decltype(_)&, const Dim& dim) {
+  return dim.min();
 }
 
-template <typename Ranges, typename Dims, size_t... Is>
-auto maxs_of_ranges(const Ranges& ranges, const Dims& dims, std::index_sequence<Is...>) {
-  return std::make_tuple(to_range(std::get<Is>(ranges), std::get<Is>(dims)).max()...);
+template <class Ranges, class Dims, size_t... Is>
+auto mins_of_ranges(const Ranges& ranges, const Dims& dims, index_sequence<Is...>) {
+  return std::make_tuple(min_of_range(std::get<Is>(ranges), std::get<Is>(dims))...);
 }
 
-template <typename... Dims, size_t... Is>
-auto mins(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
+template <class... Dims, size_t... Is>
+auto mins(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
   return std::make_tuple(std::get<Is>(dims).min()...);
 }
 
-template <typename... Dims, size_t... Is>
-auto extents(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
+template <class... Dims, size_t... Is>
+auto extents(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
   return std::make_tuple(std::get<Is>(dims).extent()...);
 }
 
-template <typename... Dims, size_t... Is>
-auto strides(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
+template <class... Dims, size_t... Is>
+auto strides(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
   return std::make_tuple(std::get<Is>(dims).stride()...);
 }
 
-template <typename... Dims, size_t... Is>
-auto maxs(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
+template <class... Dims, size_t... Is>
+auto maxs(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
   return std::make_tuple(std::get<Is>(dims).max()...);
 }
 
-template <typename Dim>
+template <class Dim>
 bool is_dim_ok(index_t stride, index_t extent, const Dim& dim) {
   if (is_unknown(dim.stride())) {
     // If the dimension has an unknown stride, it's OK, we're resolving the
@@ -611,40 +606,41 @@ bool is_dim_ok(index_t stride, index_t extent, const Dim& dim) {
   return false;
 }
 
-template <typename AllDims, size_t... Is>
-bool is_dim_ok(index_t stride, index_t extent, const AllDims& all_dims, std::index_sequence<Is...>) {
+template <class AllDims, size_t... Is>
+bool is_dim_ok(index_t stride, index_t extent, const AllDims& all_dims, index_sequence<Is...>) {
   return all(is_dim_ok(stride, extent, std::get<Is>(all_dims))...);
 }
 
-template <typename AllDims>
+template <class AllDims>
 index_t filter_stride(index_t stride, index_t extent, const AllDims& all_dims) {
   constexpr size_t rank = std::tuple_size<AllDims>::value;
-  if (is_dim_ok(stride, extent, all_dims, std::make_index_sequence<rank>())) {
+  if (is_dim_ok(stride, extent, all_dims, make_index_sequence<rank>())) {
     return stride;
   } else {
     return std::numeric_limits<index_t>::max();
   }
 }
 
-template <size_t D, typename AllDims>
+template <size_t D, class AllDims>
 index_t candidate_stride(index_t extent, const AllDims& all_dims) {
   index_t stride_d = std::get<D>(all_dims).stride();
   if (is_unknown(stride_d)) {
     return std::numeric_limits<index_t>::max();
   }
-  index_t stride = std::max(static_cast<index_t>(1), abs(stride_d) * std::get<D>(all_dims).extent());
+  index_t stride =
+      std::max(static_cast<index_t>(1), abs(stride_d) * std::get<D>(all_dims).extent());
   return filter_stride(stride, extent, all_dims);
 }
 
-template <typename AllDims, size_t... Is>
-index_t find_stride(index_t extent, const AllDims& all_dims, std::index_sequence<Is...>) {
-  return variadic_min(filter_stride(1, extent, all_dims),
-                      candidate_stride<Is>(extent, all_dims)...);
+template <class AllDims, size_t... Is>
+index_t find_stride(index_t extent, const AllDims& all_dims, index_sequence<Is...>) {
+  return variadic_min(
+      filter_stride(1, extent, all_dims), candidate_stride<Is>(extent, all_dims)...);
 }
 
 inline void resolve_unknown_extents() {}
 
-template <typename Dim0, typename... Dims>
+template <class Dim0, class... Dims>
 void resolve_unknown_extents(Dim0& dim0, Dims&... dims) {
   if (is_unknown(dim0.extent())) {
     dim0.set_extent(0);
@@ -652,70 +648,65 @@ void resolve_unknown_extents(Dim0& dim0, Dims&... dims) {
   resolve_unknown_extents(dims...);
 }
 
-template <typename Dims, size_t... Is>
-void resolve_unknown_extents(Dims& dims, std::index_sequence<Is...>) {
+template <class Dims, size_t... Is>
+void resolve_unknown_extents(Dims& dims, index_sequence<Is...>) {
   resolve_unknown_extents(std::get<Is>(dims)...);
 }
 
 
-template <typename AllDims>
+template <class AllDims>
 void resolve_unknown_strides(AllDims& all_dims) {}
 
-template <typename AllDims, typename Dim0, typename... Dims>
+template <class AllDims, class Dim0, class... Dims>
 void resolve_unknown_strides(AllDims& all_dims, Dim0& dim0, Dims&... dims) {
   if (is_unknown(dim0.stride())) {
     constexpr size_t rank = std::tuple_size<AllDims>::value;
-    dim0.set_stride(find_stride(dim0.extent(), all_dims, std::make_index_sequence<rank>()));
+    dim0.set_stride(find_stride(dim0.extent(), all_dims, make_index_sequence<rank>()));
   }
   resolve_unknown_strides(all_dims, dims...);
 }
 
-template <typename Dims, size_t... Is>
-void resolve_unknown_strides(Dims& dims, std::index_sequence<Is...>) {
+template <class Dims, size_t... Is>
+void resolve_unknown_strides(Dims& dims, index_sequence<Is...>) {
   resolve_unknown_strides(dims, std::get<Is>(dims)...);
 }
 
-template <typename Dims>
+template <class Dims>
 void resolve_unknowns(Dims& dims) {
   constexpr size_t rank = std::tuple_size<Dims>::value;
-  resolve_unknown_extents(dims, std::make_index_sequence<rank>());
-  resolve_unknown_strides(dims, std::make_index_sequence<rank>());
+  resolve_unknown_extents(dims, make_index_sequence<rank>());
+  resolve_unknown_strides(dims, make_index_sequence<rank>());
 }
 
-template <typename Dim>
+template <class Dim>
 bool is_known(const Dim& dim) {
   return is_known(dim.min()) && is_known(dim.extent()) && is_known(dim.stride());
 }
 
-template<typename Dims, size_t... Is>
-bool all_known(const Dims& dims, std::index_sequence<Is...>) {
+template<class Dims, size_t... Is>
+bool all_known(const Dims& dims, index_sequence<Is...>) {
   return all(is_known(std::get<Is>(dims))...);
 }
 
-template<typename Dims>
-bool all_known(const Dims& s) {
-  return all_known(s, std::make_index_sequence<std::tuple_size<Dims>::value>());
-}
-
 // A helper to transform an array to a tuple.
-template <typename T, typename... Ts, size_t... Is>
-std::array<T, sizeof...(Is)> tuple_to_array(const std::tuple<Ts...>& t, std::index_sequence<Is...>) {
+template <class T, class Tuple, size_t... Is>
+std::array<T, sizeof...(Is)> tuple_to_array(const Tuple& t, index_sequence<Is...>) {
   return {{std::get<Is>(t)...}};
 }
 
-template <typename T, typename... Ts>
+template <class T, class... Ts>
 std::array<T, sizeof...(Ts)> tuple_to_array(const std::tuple<Ts...>& t) {
-  return tuple_to_array<T>(t, std::make_index_sequence<sizeof...(Ts)>());
+  return tuple_to_array<T>(t, make_index_sequence<sizeof...(Ts)>());
 }
 
-template <typename T, size_t N, size_t... Is>
-auto array_to_tuple(const std::array<T, N>& a, std::index_sequence<Is...>) {
+template <class T, size_t N, size_t... Is>
+auto array_to_tuple(const std::array<T, N>& a, index_sequence<Is...>) {
   return std::make_tuple(a[Is]...);
 }
 
-template <typename T, size_t N>
+template <class T, size_t N>
 auto array_to_tuple(const std::array<T, N>& a) {
-  return array_to_tuple(a, std::make_index_sequence<N>());
+  return array_to_tuple(a, make_index_sequence<N>());
 }
 
 template<class T, size_t N>
@@ -729,46 +720,32 @@ struct tuple_of_n<T, 0> {
   using type = std::tuple<>;
 };
 
-// https://github.com/halide/Halide/blob/fc8cfb078bed19389f72883a65d56d979d18aebe/src/runtime/HalideBuffer.h#L43-L63
-// A helper to check if a parameter pack is entirely implicitly int-convertible
-// to use with std::enable_if
-template<typename... Args>
-struct all_integral : std::false_type {};
+// A helper to check if a parameter pack is entirely implicitly convertible to type T, for use with
+// std::enable_if
+template <class T, class... Args>
+struct all_of_type : std::false_type {};
 
-template<>
-struct all_integral<> : std::true_type {};
+template <class T>
+struct all_of_type<T> : std::true_type {};
 
-template<typename T, typename... Args>
-struct all_integral<T, Args...> {
+template <class T, class Arg, class... Args>
+struct all_of_type<T, Arg, Args...> {
   static constexpr bool value =
-      std::is_convertible<T, index_t>::value && all_integral<Args...>::value;
-};
-
-template<typename... Args>
-struct all_ranges : std::false_type {};
-
-template<>
-struct all_ranges<> : std::true_type {};
-
-template<typename T, typename... Args>
-struct all_ranges<T, Args...> {
-  static constexpr bool value =
-      (std::is_convertible<T, index_t>::value || std::is_constructible<T, range<>>::value) &&
-      all_ranges<Args...>::value;
+      std::is_constructible<T, Arg>::value && all_of_type<T, Args...>::value;
 };
 
 }  // namespace internal
 
-template <typename... Dims>
+template <class... Dims>
 class shape;
 
 /** Helper function to make a tuple from a variadic list of dims. */
-template <typename... Dims>
+template <class... Dims>
 auto make_shape(Dims... dims) {
   return shape<Dims...>(std::forward<Dims>(dims)...);
 }
 
-template <typename... Dims>
+template <class... Dims>
 shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
   return shape<Dims...>(dims);
 }
@@ -779,7 +756,7 @@ shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
  * offset together to produce a 'flat offset'. The first dimension is known as
  * the 'innermost' dimension, and dimensions then increase until the
  * 'outermost' dimension. */
-template <typename... Dims>
+template <class... Dims>
 class shape {
   std::tuple<Dims...> dims_;
 
@@ -791,28 +768,27 @@ class shape {
   static constexpr bool is_scalar() { return rank() == 0; }
 
   /** The type of an index for this shape. */
-  typedef typename internal::tuple_of_n<index_t, rank()>::type index_type;
+  using index_type = typename internal::tuple_of_n<index_t, rank()>::type;
 
-  typedef size_t size_type;
+  using size_type = size_t;
 
  private:
   // TODO: This should use std::is_constructible<std::tuple<Dims...>, std::tuple<OtherDims...>>
   // but it is broken on some compilers.
-  template <typename... OtherDims>
-  using enable_if_dims_compatible =
-      typename std::enable_if<sizeof...(OtherDims) == rank()>::type;
+  template <class... OtherDims>
+  using enable_if_dims_compatible = typename std::enable_if<sizeof...(OtherDims) == rank()>::type;
 
-  template <typename... Args>
-  using enable_if_same_rank =
-      typename std::enable_if<sizeof...(Args) == rank()>::type;
+  template <class... Args>
+  using enable_if_same_rank = typename std::enable_if<sizeof...(Args) == rank()>::type;
 
-  template <typename... Args>
+  template <class... Args>
   using enable_if_indices =
-      typename std::enable_if<internal::all_integral<Args...>::value>::type;
+      typename std::enable_if<internal::all_of_type<index_t, Args...>::value>::type;
 
-  template <typename... Args>
-  using enable_if_ranges =
-      typename std::enable_if<internal::all_ranges<Args...>::value && !internal::all_integral<Args...>::value>::type;
+  template <class... Args>
+  using enable_if_ranges = typename std::enable_if<
+      internal::all_of_type<range<>, Args...>::value &&
+      !internal::all_of_type<index_t, Args...>::value>::type;
 
   template <size_t Dim>
   using enable_if_dim = typename std::enable_if<Dim < rank()>::type;
@@ -826,7 +802,7 @@ class shape {
   shape() { resolve(); }
   // TODO: This is a bit messy, but necessary to avoid ambiguous default
   // constructors when Dims is empty.
-  template <size_t N = sizeof...(Dims), typename = typename std::enable_if<(N > 0)>::type>
+  template <size_t N = sizeof...(Dims), class = typename std::enable_if<(N > 0)>::type>
   shape(const Dims&... dims) : dims_(dims...) { resolve(); }
   shape(const shape&) = default;
   shape(shape&&) = default;
@@ -834,15 +810,15 @@ class shape {
   /** Construct a shape from a tuple of `dims` of another type. */
   // We cannot have an std::tuple<Dims...> constructor because it will be
   // ambiguous with the Dims... constructor for 1D shapes.
-  template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
+  template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
   shape(const std::tuple<OtherDims...>& dims) : dims_(dims) { resolve(); }
   /** Construct a shape from a different type of `dims`. */
-  template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
+  template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
   shape(OtherDims... dims) : dims_(dims...) { resolve(); }
 
   /** Construct this shape from a different type of shape. `conversion` must
    * be convertible to this shape. */
-  template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
+  template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
   shape(const shape<OtherDims...>& conversion) : dims_(conversion.dims()) { resolve(); }
 
   shape& operator=(const shape&) = default;
@@ -850,7 +826,7 @@ class shape {
 
   /** Assign this shape from a different type of shape. `conversion` must be
    * convertible to this shape. */
-  template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
+  template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
   shape& operator=(const shape<OtherDims...>& conversion) {
     dims_ = conversion.dims();
     return *this;
@@ -862,47 +838,55 @@ class shape {
   void resolve() { internal::resolve_unknowns(dims_); }
 
   /** Check if all values of the shape are known. */
-  bool is_known() const { return internal::all_known(dims_); }
+  bool is_known() const {
+    return internal::all_known(dims_, internal::make_index_sequence<rank()>());
+  }
 
   /** Returns true if the index `indices` are in range of this shape. */
-  bool is_in_range(const index_type& indices) const { return internal::is_in_range(dims_, indices); }
+  bool is_in_range(const index_type& indices) const {
+    return internal::is_in_range(dims_, indices, internal::make_index_sequence<rank()>());
+  }
   // This supports both indices and ranges. It appears not to be possible
   // to have two overloads differentiated by enable_if_indices and
   // enable_if_ranges.
-  template <typename... Args, typename = enable_if_same_rank<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>>
   bool is_in_range(Args... ranges) const {
-    auto range = std::make_tuple(ranges...);
-    auto mins = internal::mins_of_ranges(range, dims(), std::make_index_sequence<rank()>());
-    auto maxs = internal::maxs_of_ranges(range, dims(), std::make_index_sequence<rank()>());
-    return is_in_range(mins) && is_in_range(maxs);
+    return internal::is_in_range(
+        dims_, std::make_tuple(ranges...), internal::make_index_sequence<rank()>());
   }
 
   /** Compute the flat offset of the index `indices`. */
-  index_t operator() (const index_type& indices) const { return internal::flat_offset_tuple(dims_, indices); }
-  index_t operator[] (const index_type& indices) const { return internal::flat_offset_tuple(dims_, indices); }
-  template <typename... Args,
-      typename = enable_if_same_rank<Args...>,
-      typename = enable_if_indices<Args...>>
+  index_t operator() (const index_type& indices) const {
+    return internal::flat_offset_tuple(dims_, indices, internal::make_index_sequence<rank()>());
+  }
+  index_t operator[] (const index_type& indices) const {
+    return internal::flat_offset_tuple(dims_, indices, internal::make_index_sequence<rank()>());
+  }
+  template <class... Args,
+      class = enable_if_same_rank<Args...>,
+      class = enable_if_indices<Args...>>
   index_t operator() (Args... indices) const {
     return internal::flat_offset_pack<0>(dims_, indices...);
   }
 
   /** Create a new shape using the specified crops and slices in `ranges`.
    * The resulting shape will have the sliced dimensions removed. */
-  template <typename... Args,
-      typename = enable_if_same_rank<Args...>,
-      typename = enable_if_ranges<Args...>>
+  template <class... Args,
+      class = enable_if_same_rank<Args...>,
+      class = enable_if_ranges<Args...>>
   auto operator() (Args... ranges) const {
     auto ranges_tuple = std::make_tuple(ranges...);
-    auto dims_with_slices = internal::ranges_with_strides(ranges_tuple, dims_, std::make_index_sequence<rank()>());
-    auto dims_without_slices = internal::skip_slices(dims_with_slices, ranges_tuple, std::make_index_sequence<rank()>());
-    return make_shape_from_tuple(dims_without_slices);
+    auto new_dims =
+        internal::ranges_with_strides(ranges_tuple, dims_, internal::make_index_sequence<rank()>());
+    auto new_dims_no_slices =
+        internal::skip_slices(new_dims, ranges_tuple, internal::make_index_sequence<rank()>());
+    return make_shape_from_tuple(new_dims_no_slices);
   }
 
   /** Get a specific dim of this shape. */
-  template <size_t D, typename = enable_if_dim<D>>
+  template <size_t D, class = enable_if_dim<D>>
   auto& dim() { return std::get<D>(dims_); }
-  template <size_t D, typename = enable_if_dim<D>>
+  template <size_t D, class = enable_if_dim<D>>
   const auto& dim() const { return std::get<D>(dims_); }
   /** Get a specific dim of this shape with a runtime dimension d. This will
    * lose knowledge of any compile-time constant dimension attributes. */
@@ -917,15 +901,23 @@ class shape {
 
   /** Get an index pointing to the min or max index in each dimension of this
    * shape. */
-  index_type min() const { return internal::mins(dims(), std::make_index_sequence<rank()>()); }
-  index_type max() const { return internal::maxs(dims(), std::make_index_sequence<rank()>()); }
-  index_type extent() const { return internal::extents(dims(), std::make_index_sequence<rank()>()); }
-  index_type stride() const { return internal::strides(dims(), std::make_index_sequence<rank()>()); }
+  index_type min() const { return internal::mins(dims(), internal::make_index_sequence<rank()>()); }
+  index_type max() const { return internal::maxs(dims(), internal::make_index_sequence<rank()>()); }
+  index_type extent() const {
+    return internal::extents(dims(), internal::make_index_sequence<rank()>());
+  }
+  index_type stride() const {
+    return internal::strides(dims(), internal::make_index_sequence<rank()>());
+  }
 
   /** Compute the flat extent of this shape. This is the extent of the valid
    * range of values returned by at or operator(). */
-  index_t flat_min() const { return internal::flat_min(dims_, std::make_index_sequence<rank()>()); }
-  index_t flat_max() const { return internal::flat_max(dims_, std::make_index_sequence<rank()>()); }
+  index_t flat_min() const {
+    return internal::flat_min(dims_, internal::make_index_sequence<rank()>());
+  }
+  index_t flat_max() const {
+    return internal::flat_max(dims_, internal::make_index_sequence<rank()>());
+  }
   size_type flat_extent() const {
     index_t e = flat_max() - flat_min() + 1;
     return e < 0 ? 0 : static_cast<size_type>(e);
@@ -933,7 +925,7 @@ class shape {
 
   /** Compute the total number of items in the shape. */
   size_type size() const {
-    index_t s = internal::product(extent(), std::make_index_sequence<rank()>());
+    index_t s = internal::product(extent(), internal::make_index_sequence<rank()>());
     return s < 0 ? 0 : static_cast<size_type>(s);
   }
 
@@ -958,9 +950,7 @@ class shape {
    * subset of the other shape's projection to flat indices with an offset. */
   bool is_subset_of(const shape& other, index_t offset) const {
     // TODO: https://github.com/dsharlet/array/issues/2
-    return
-        flat_min() >= other.flat_min() + offset &&
-        flat_max() <= other.flat_max() + offset;
+    return flat_min() >= other.flat_min() + offset && flat_max() <= other.flat_max() + offset;
   }
 
   /** Provide some aliases for common interpretations of dimensions. */
@@ -996,35 +986,35 @@ class shape {
 
   /** A shape is equal to another shape if the dim objects of
    * each dimension from both shapes are equal. */
-  template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
+  template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
   bool operator==(const shape<OtherDims...>& other) const { return dims_ == other.dims(); }
-  template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
+  template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
   bool operator!=(const shape<OtherDims...>& other) const { return dims_ != other.dims(); }
 };
 
 /** Create a new shape using a list of DimIndices to use as the dimensions of
  * the shape. */
-template <size_t... DimIndices, typename Shape>
+template <size_t... DimIndices, class Shape>
 auto select_dims(const Shape& shape) {
   return make_shape(shape.template dim<DimIndices>()...);
 }
-template <size_t... DimIndices, typename Shape>
+template <size_t... DimIndices, class Shape>
 auto reorder(const Shape& shape) {
   return make_shape(shape.template dim<DimIndices>()...);
 }
 
 namespace internal {
 
-template<size_t D, typename Dims, typename Fn, typename... Indices,
-  std::enable_if_t<(D == 0), int> = 0>
+template<size_t D, class Dims, class Fn, class... Indices,
+    std::enable_if_t<(D == 0), int> = 0>
 void for_each_index_in_order(const Dims& dims, Fn&& fn, const std::tuple<Indices...>& indices) {
   for (index_t i : std::get<D>(dims)) {
     fn(std::tuple_cat(std::make_tuple(i), indices));
   }
 }
 
-template<size_t D, typename Dims, typename Fn, typename... Indices,
-  std::enable_if_t<(D > 0), int> = 0>
+template<size_t D, class Dims, class Fn, class... Indices,
+    std::enable_if_t<(D > 0), int> = 0>
 void for_each_index_in_order(const Dims& dims, Fn&& fn, const std::tuple<Indices...>& indices) {
   for (index_t i : std::get<D>(dims)) {
     for_each_index_in_order<D - 1>(dims, fn, std::tuple_cat(std::make_tuple(i), indices));
@@ -1034,14 +1024,14 @@ void for_each_index_in_order(const Dims& dims, Fn&& fn, const std::tuple<Indices
 template <size_t D>
 NDARRAY_INLINE void advance() {}
 
-template <size_t D, typename Ptr, typename... Ptrs>
+template <size_t D, class Ptr, class... Ptrs>
 NDARRAY_INLINE void advance(Ptr& ptr, Ptrs&... ptrs) {
   std::get<0>(ptr) += std::get<D>(std::get<1>(ptr));
   advance<D>(ptrs...);
 }
 
-template <size_t D, typename ExtentType, typename Fn, typename... Ptrs,
-  std::enable_if_t<(D == 0), int> = 0>
+template <size_t D, class ExtentType, class Fn, class... Ptrs,
+    std::enable_if_t<(D == 0), int> = 0>
 void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
   index_t extent_d = std::get<D>(extent);
   if (all(std::get<D>(std::get<1>(ptrs)) == 1 ...)) {
@@ -1056,8 +1046,8 @@ void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
   }
 }
 
-template <size_t D, typename ExtentType, typename Fn, typename... Ptrs,
-  std::enable_if_t<(D > 0), int> = 0>
+template <size_t D, class ExtentType, class Fn, class... Ptrs,
+    std::enable_if_t<(D > 0), int> = 0>
 void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
   index_t extent_d = std::get<D>(extent);
   for (index_t i = 0; i < extent_d; i++) {
@@ -1068,22 +1058,23 @@ void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
 
 template <size_t Rank, size_t... Is>
 auto make_default_dense_shape() {
-  return make_shape_from_tuple(std::tuple_cat(std::make_tuple(dense_dim<>()),
-                                              typename tuple_of_n<dim<>, Rank - 1>::type()));
+  return make_shape_from_tuple(std::tuple_cat(
+      std::make_tuple(dense_dim<>()), typename tuple_of_n<dim<>, Rank - 1>::type()));
 }
 
-template <typename Shape, size_t... Is>
-auto make_dense_shape(const Shape& dims, std::index_sequence<Is...>) {
-  return make_shape(dense_dim<>(std::get<0>(dims).min(), std::get<0>(dims).extent()),
-                    dim<>(std::get<Is + 1>(dims).min(), std::get<Is + 1>(dims).extent())...);
+template <class Shape, size_t... Is>
+auto make_dense_shape(const Shape& dims, index_sequence<Is...>) {
+  return make_shape(
+      dense_dim<>(std::get<0>(dims).min(), std::get<0>(dims).extent()),
+      dim<>(std::get<Is + 1>(dims).min(), std::get<Is + 1>(dims).extent())...);
 }
 
-template <typename... Dims, size_t... Is>
-shape<Dims...> without_strides(const shape<Dims...>& s, std::index_sequence<Is...>) {
+template <class Shape, size_t... Is>
+Shape without_strides(const Shape& s, index_sequence<Is...>) {
   return {{s.template dim<Is>().min(), s.template dim<Is>().extent()}...};
 }
 
-template <index_t Min, index_t Extent, index_t Stride, typename DimSrc>
+template <index_t Min, index_t Extent, index_t Stride, class DimSrc>
 bool is_dim_compatible(const dim<Min, Extent, Stride>&, const DimSrc& src) {
   return
     (is_unknown(Min) || src.min() == Min) &&
@@ -1091,12 +1082,12 @@ bool is_dim_compatible(const dim<Min, Extent, Stride>&, const DimSrc& src) {
     (is_unknown(Stride) || src.stride() == Stride);
 }
 
-template <typename... DimsDst, typename ShapeSrc, size_t... Is>
-bool is_shape_compatible(const shape<DimsDst...>&, const ShapeSrc& src, std::index_sequence<Is...>) {
+template <class... DimsDst, class ShapeSrc, size_t... Is>
+bool is_shape_compatible(const shape<DimsDst...>&, const ShapeSrc& src, index_sequence<Is...>) {
   return all(is_dim_compatible(DimsDst(), src.template dim<Is>())...);
 }
 
-template <typename DimA, typename DimB>
+template <class DimA, class DimB>
 auto intersect_dims(const DimA& a, const DimB& b) {
   constexpr index_t Min = max(DimA::Min, DimB::Min);
   constexpr index_t Max = min(DimA::Max, DimB::Max);
@@ -1108,37 +1099,26 @@ auto intersect_dims(const DimA& a, const DimB& b) {
   return dim<Min, Extent, Stride>(min, extent);
 }
 
-template <typename... DimsA, typename... DimsB, size_t... Is>
-auto intersect(const std::tuple<DimsA...>& a, const std::tuple<DimsB...>& b, std::index_sequence<Is...>) {
+template <class DimsA, class DimsB, size_t... Is>
+auto intersect(const DimsA& a, const DimsB& b, index_sequence<Is...>) {
   return make_shape(intersect_dims(std::get<Is>(a), std::get<Is>(b))...);
-}
-
-// Call `fn` with the elements of tuple `args` unwrapped from the tuple.
-// TODO: When we assume C++17, this can be replaced by std::apply.
-template <typename Fn, typename IndexType, size_t... Is>
-NDARRAY_INLINE auto apply(Fn&& fn, const IndexType& args, std::index_sequence<Is...>) {
-  return fn(std::get<Is>(args)...);
-}
-
-template <typename Fn, typename IndexType>
-NDARRAY_INLINE auto apply(Fn&& fn, const IndexType& args) {
-  return apply(fn, args, std::make_index_sequence<std::tuple_size<IndexType>::value>());
 }
 
 }  // namespace internal
 
 /** Make a shape with an equivalent domain of indices, with dense strides. */
-template <typename... Dims>
+template <class... Dims>
 auto make_dense(const shape<Dims...>& shape) {
   constexpr size_t rank = sizeof...(Dims);
-  return internal::make_dense_shape(shape.dims(), std::make_index_sequence<rank - 1>());
+  return internal::make_dense_shape(shape.dims(), internal::make_index_sequence<rank - 1>());
 }
 
 /** Make a shape with an equivalent domain of indices, but with compact strides.
  * Only required strides are respected. */
-template <typename Shape>
+template <class Shape>
 Shape make_compact(const Shape& s) {
-  Shape without_strides = internal::without_strides(s, std::make_index_sequence<Shape::rank()>());
+  Shape without_strides =
+      internal::without_strides(s, internal::make_index_sequence<Shape::rank()>());
   without_strides.resolve();
   return without_strides;
 }
@@ -1147,7 +1127,7 @@ Shape make_compact(const Shape& s) {
  * Rank. */
 template <size_t Rank>
 using shape_of_rank =
-  decltype(make_shape_from_tuple(typename internal::tuple_of_n<dim<>, Rank>::type()));
+    decltype(make_shape_from_tuple(typename internal::tuple_of_n<dim<>, Rank>::type()));
 
 /** A shape where the innermost dimension is a `dense_dim` object, and all other
  * dimensions are arbitrary. */
@@ -1159,18 +1139,19 @@ using dense_shape = decltype(internal::make_default_dense_shape<Rank>());
 // Unfortunately, this is backwards from std::is_convertible. But the other way
 // around doesn't work without forcing the caller to specify ShapeSrc when it
 // should be inferred.
-template <typename ShapeDst, typename ShapeSrc>
+template <class ShapeDst, class ShapeSrc>
 bool is_compatible(const ShapeSrc& src) {
   static_assert(ShapeSrc::rank() == ShapeDst::rank(), "shapes must have the same rank.");
-  return internal::is_shape_compatible(ShapeDst(), src, std::make_index_sequence<ShapeSrc::rank()>());
+  return internal::is_shape_compatible(
+      ShapeDst(), src, internal::make_index_sequence<ShapeSrc::rank()>());
 }
 
 /** Compute the intersection of two shapes `a` and `b`. The intersection is the
  * shape containing the indices in bounds of both `a` and `b`. */
-template <typename ShapeA, typename ShapeB>
+template <class ShapeA, class ShapeB>
 auto intersect(const ShapeA& a, const ShapeB& b) {
   constexpr size_t rank = ShapeA::rank() < ShapeB::rank() ? ShapeA::rank() : ShapeB::rank();
-  return internal::intersect(a.dims(), b.dims(), std::make_index_sequence<rank>());
+  return internal::intersect(a.dims(), b.dims(), internal::make_index_sequence<rank>());
 }
 
 /** Iterate over all indices in the shape, calling a function `fn` for each set
@@ -1181,13 +1162,13 @@ auto intersect(const ShapeA& a, const ShapeB& b) {
  * These functions are typically used to implement shape_traits and
  * copy_shape_traits objects. Use for_each_index, array_ref<>::for_each_value,
  * or array<>::for_each_value instead. */
-template<typename Shape, typename Fn>
+template<class Shape, class Fn>
 void for_each_index_in_order(const Shape& shape, Fn &&fn) {
   internal::for_each_index_in_order<Shape::rank() - 1>(shape.dims(), fn, std::tuple<>());
 }
-template<typename Shape, typename Ptr, typename Fn>
+template<class Shape, class Ptr, class Fn>
 void for_each_value_in_order(const Shape& shape, Ptr base, Fn &&fn) {
-  typedef typename Shape::index_type index_type;
+  using index_type = typename Shape::index_type;
   // TODO: This is losing compile-time constant extents and strides info
   // (https://github.com/dsharlet/array/issues/1).
   std::tuple<Ptr, index_type> base_and_stride(base, shape.stride());
@@ -1197,16 +1178,15 @@ void for_each_value_in_order(const Shape& shape, Ptr base, Fn &&fn) {
 /** Similar to for_each_value_in_order, but iterates over two arrays
  * simultaneously. `shape` defines the loop nest, while `shape_a` and `shape_b`
  * define the memory layout of `base_a` and `base_b`. */
-template<typename Shape, typename ShapeA, typename PtrA, typename ShapeB, typename PtrB, typename Fn>
-void for_each_value_in_order(const Shape& shape,
-                             const ShapeA& shape_a, PtrA base_a,
-                             const ShapeB& shape_b, PtrB base_b,
-                             Fn &&fn) {
+template<class Shape, class ShapeA, class PtrA, class ShapeB, class PtrB, class Fn>
+void for_each_value_in_order(
+    const Shape& shape, const ShapeA& shape_a, PtrA base_a, const ShapeB& shape_b, PtrB base_b,
+    Fn &&fn) {
   base_a += shape_a(shape.min());
   base_b += shape_b(shape.min());
   // TODO: This is losing compile-time constant extents and strides info
   // (https://github.com/dsharlet/array/issues/1).
-  typedef typename Shape::index_type index_type;
+  using index_type = typename Shape::index_type;
   std::tuple<PtrA, index_type> a(base_a, shape_a.stride());
   std::tuple<PtrB, index_type> b(base_b, shape_b.stride());
   internal::for_each_value_in_order<Shape::rank() - 1>(shape.extent(), fn, a, b);
@@ -1228,7 +1208,7 @@ inline dim<> fuse(const dim<>& inner, const dim<>& outer) {
 
 // Sort the dims such that strides are increasing from dim 0, and contiguous
 // dimensions are fused.
-template <typename Shape>
+template <class Shape>
 shape_of_rank<Shape::rank()> dynamic_optimize_shape(const Shape& shape) {
   auto dims = internal::tuple_to_array<dim<>>(shape.dims());
 
@@ -1262,7 +1242,7 @@ shape_of_rank<Shape::rank()> dynamic_optimize_shape(const Shape& shape) {
 
 // Optimize a src and dst shape. The dst shape is made dense, and contiguous
 // dimensions are fused.
-template <typename ShapeSrc, typename ShapeDst>
+template <class ShapeSrc, class ShapeDst>
 auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDst& dst) {
   constexpr size_t rank = ShapeSrc::rank();
   static_assert(rank == ShapeDst::rank(), "copy shapes must have same rank.");
@@ -1304,9 +1284,8 @@ auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDst& dst) {
   // the end of the array with size 1 dimensions.
   for (size_t i = new_rank; i < dims.size(); i++) {
     dims[i] = {
-      dim<>(0, 1, dims[i - 1].src.stride() * dims[i - 1].src.extent()),
-      dim<>(0, 1, dims[i - 1].dst.stride() * dims[i - 1].dst.extent()),
-    };
+        dim<>(0, 1, dims[i - 1].src.stride() * dims[i - 1].src.extent()),
+        dim<>(0, 1, dims[i - 1].dst.stride() * dims[i - 1].dst.extent())};
   }
 
   for (size_t i = 0; i < dims.size(); i++) {
@@ -1315,53 +1294,53 @@ auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDst& dst) {
   }
 
   return std::make_pair(
-    shape_of_rank<rank>(array_to_tuple(src_dims)),
-    shape_of_rank<rank>(array_to_tuple(dst_dims)));
+      shape_of_rank<rank>(array_to_tuple(src_dims)),
+      shape_of_rank<rank>(array_to_tuple(dst_dims)));
 }
 
-template <typename Shape>
+template <class Shape>
 auto optimize_shape(const Shape& shape) {
   // In the general case, dynamically optimize the shape.
   return dynamic_optimize_shape(shape);
 }
 
-template <typename Dim0>
+template <class Dim0>
 auto optimize_shape(const shape<Dim0>& shape) {
   // Nothing to do for rank 1 shapes.
   return shape;
 }
 
-template <typename ShapeSrc, typename ShapeDst>
+template <class ShapeSrc, class ShapeDst>
 auto optimize_copy_shapes(const ShapeSrc& src, const ShapeDst& dst) {
   return dynamic_optimize_copy_shapes(src, dst);
 }
 
-template <typename Dim0Src, typename Dim0Dst>
+template <class Dim0Src, class Dim0Dst>
 auto optimize_copy_shapes(const shape<Dim0Src>& src, const shape<Dim0Dst>& dst) {
   // Nothing to do for rank 1 shapes.
   return std::make_pair(src, dst);
 }
 
-template <typename T>
+template <class T>
 T* pointer_add(T* x, index_t offset) {
   return x != nullptr ? x + offset : x;
 }
 
-template <typename Shape, typename OtherShape>
+template <class Shape, class OtherShape>
 using enable_if_shapes_compatible =
     typename std::enable_if<std::is_constructible<Shape, OtherShape>::value>::type;
 
 }  // namespace internal
 
 /** Shape traits enable some behaviors to be overriden per shape type. */
-template <typename Shape>
+template <class Shape>
 class shape_traits {
  public:
-  typedef Shape shape_type;
+  using shape_type = Shape;
 
   /** The for_each_index implementation for the shape may choose to iterate in a
    * different order than the default (in-order). */
-  template <typename Fn>
+  template <class Fn>
   static void for_each_index(const Shape& shape, Fn&& fn) {
     for_each_index_in_order(shape, fn);
   }
@@ -1369,7 +1348,7 @@ class shape_traits {
   /** The for_each_value implementation for the shape may be able to statically
    * optimize shape. The default implementation optimizes the shape at runtime,
    * and the only attempts to convert the shape to a dense_shape. */
-  template <typename Ptr, typename Fn>
+  template <class Ptr, class Fn>
   static void for_each_value(const Shape& shape, Ptr base, Fn&& fn) {
     auto opt_shape = internal::optimize_shape(shape);
     for_each_value_in_order(opt_shape, base, fn);
@@ -1379,14 +1358,14 @@ class shape_traits {
 template <>
 class shape_traits<shape<>> {
  public:
-  typedef shape<> shape_type;
+  using shape_type = shape<>;
 
-  template <typename Fn>
+  template <class Fn>
   static void for_each_index(const shape<>&, Fn&& fn) {
     fn(std::tuple<>());
   }
 
-  template <typename Ptr, typename Fn>
+  template <class Ptr, class Fn>
   static void for_each_value(const shape<>&, Ptr base, Fn&& fn) {
     fn(*base);
   }
@@ -1394,13 +1373,12 @@ class shape_traits<shape<>> {
 
 /** Copy shape traits enable some behaviors to be overriden on a pairwise shape
  * basis for copies. */
-template <typename ShapeSrc, typename ShapeDst = ShapeSrc>
+template <class ShapeSrc, class ShapeDst = ShapeSrc>
 class copy_shape_traits {
  public:
-  template <typename Fn, typename TSrc, typename TDst>
-  static void for_each_value(const ShapeSrc& shape_src, TSrc src,
-                             const ShapeDst& shape_dst, TDst dst,
-                             Fn&& fn) {
+  template <class Fn, class TSrc, class TDst>
+  static void for_each_value(
+      const ShapeSrc& shape_src, TSrc src, const ShapeDst& shape_dst, TDst dst, Fn&& fn) {
     // For this function, we don't care about the order in which the callback is
     // called. Optimize the shapes for memory access order.
     auto opt_shape = internal::optimize_copy_shapes(shape_src, shape_dst);
@@ -1416,24 +1394,24 @@ class copy_shape_traits {
  * calls `fn` with a list of arguments corresponding to each dim.
  * `for_each_index` calls `fn` with a Shape::index_type object describing the
  * indices. */
-template <typename Shape, typename Fn>
+template <class Shape, class Fn>
 void for_each_index(const Shape& s, Fn&& fn) {
   shape_traits<Shape>::for_each_index(s, fn);
 }
-template <typename Shape, typename Fn>
+template <class Shape, class Fn>
 void for_all_indices(const Shape& s, Fn&& fn) {
   shape_traits<Shape>::for_each_index(s, [&](const typename Shape::index_type&i) {
     internal::apply(fn, i);
   });
 }
 
-template <typename T, typename Shape>
+template <class T, class Shape>
 class array_ref;
-template <typename T, typename Shape, typename Alloc>
+template <class T, class Shape, class Alloc>
 class array;
 
 /** Make a new array with shape `shape`, allocated using `alloc`. */
-template <typename T, typename Shape>
+template <class T, class Shape>
 array_ref<T, Shape> make_array_ref(T* base, const Shape& shape) {
   return {base, shape};
 }
@@ -1443,18 +1421,18 @@ array_ref<T, Shape> make_array_ref(T* base, const Shape& shape) {
  * semantics':
  * - O(1) copy construction, cheap to pass by value.
  * - Cannot be reassigned. */
-template <typename T, typename Shape>
+template <class T, class Shape>
 class array_ref {
  public:
   /** Type of elements referenced in this array_ref. */
-  typedef T value_type;
-  typedef value_type& reference;
-  typedef value_type* pointer;
+  using value_type = T;
+  using reference = value_type&;
+  using pointer = value_type*;
   /** Type of the shape of this array_ref. */
-  typedef Shape shape_type;
-  typedef typename Shape::index_type index_type;
-  typedef shape_traits<Shape> shape_traits_type;
-  typedef size_t size_type;
+  using shape_type = Shape;
+  using index_type = typename Shape::index_type;
+  using shape_traits_type = shape_traits<Shape>;
+  using size_type = size_t;
 
   /** The number of dims in the shape of this array. */
   static constexpr size_t rank() { return Shape::rank(); }
@@ -1463,24 +1441,24 @@ class array_ref {
   static constexpr bool is_scalar() { return Shape::is_scalar(); }
 
  private:
-  template <typename U>
+  template <class U>
   using enable_if_type_compatible =
       typename std::enable_if<std::is_constructible<T*, U*>::value>::type;
 
-  template <typename OtherShape>
+  template <class OtherShape>
   using enable_if_shape_compatible = internal::enable_if_shapes_compatible<Shape, OtherShape>;
 
-  template <typename... Args>
-  using enable_if_same_rank =
-      typename std::enable_if<sizeof...(Args) == rank()>::type;
+  template <class... Args>
+  using enable_if_same_rank = typename std::enable_if<sizeof...(Args) == rank()>::type;
 
-  template <typename... Args>
+  template <class... Args>
   using enable_if_indices =
-      typename std::enable_if<internal::all_integral<Args...>::value>::type;
+      typename std::enable_if<internal::all_of_type<index_t, Args...>::value>::type;
 
-  template <typename... Args>
-  using enable_if_ranges =
-      typename std::enable_if<internal::all_ranges<Args...>::value && !internal::all_integral<Args...>::value>::type;
+  template <class... Args>
+  using enable_if_ranges = typename std::enable_if<
+      internal::all_of_type<range<>, Args...>::value &&
+      !internal::all_of_type<index_t, Args...>::value>::type;
 
   template <size_t Dim>
   using enable_if_dim = typename std::enable_if<Dim < rank()>::type;
@@ -1491,21 +1469,19 @@ class array_ref {
  public:
   /** Make an array_ref to the given `base` pointer, interpreting it as having
    * the shape `shape`. */
-  array_ref(pointer base = nullptr, const Shape& shape = Shape())
-      : base_(base), shape_(shape) {
+  array_ref(pointer base = nullptr, const Shape& shape = Shape()) : base_(base), shape_(shape) {
     shape_.resolve();
   }
   /** The copy constructor of a ref is a shallow copy. */
   array_ref(const array_ref& other) = default;
   array_ref(array_ref&& other) = default;
-  template <typename OtherShape, typename = enable_if_shape_compatible<OtherShape>>
-  array_ref(const array_ref<T, OtherShape>& other)
-      : array_ref(other.base(), other.shape()) {}
+  template <class OtherShape, class = enable_if_shape_compatible<OtherShape>>
+  array_ref(const array_ref<T, OtherShape>& other) : array_ref(other.base(), other.shape()) {}
 
   /** Assigning an array_ref is a shallow assignment. */
   array_ref& operator=(const array_ref& other) = default;
   array_ref& operator=(array_ref&& other) = default;
-  template <typename OtherShape, typename = enable_if_shape_compatible<OtherShape>>
+  template <class OtherShape, class = enable_if_shape_compatible<OtherShape>>
   array_ref& operator=(const array_ref<T, OtherShape>& other) {
     base_ = other.base();
     shape_ = other.shape();
@@ -1515,26 +1491,28 @@ class array_ref {
   /** Get a reference to the element at the given indices. */
   reference operator() (const index_type& indices) const { return base_[shape_(indices)]; }
   reference operator[] (const index_type& indices) const { return base_[shape_(indices)]; }
-  template <typename... Args,
-      typename = enable_if_same_rank<Args...>,
-      typename = enable_if_indices<Args...>>
+  template <class... Args,
+      class = enable_if_same_rank<Args...>,
+      class = enable_if_indices<Args...>>
   reference operator() (Args... indices) const { return base_[shape_(indices...)]; }
 
   /** Create an array_ref from this array_ref using a series of crops and slices `ranges`.
    * The resulting array_ref will have the same rank as this array_ref. */
-  template <typename... Args,
-      typename = enable_if_same_rank<Args...>,
-      typename = enable_if_ranges<Args...>>
+  template <class... Args,
+      class = enable_if_same_rank<Args...>,
+      class = enable_if_ranges<Args...>>
   auto operator() (Args... ranges) const {
     auto new_shape = shape_(ranges...);
-    auto old_min_offset = shape_(internal::mins_of_ranges(std::make_tuple(ranges...), shape_.dims(), std::make_index_sequence<rank()>()));
+    auto new_mins = internal::mins_of_ranges(
+        std::make_tuple(ranges...), shape_.dims(), internal::make_index_sequence<rank()>());
+    auto old_min_offset = shape_(new_mins);
     pointer base = internal::pointer_add(base_, old_min_offset);
     return make_array_ref(base, new_shape);
   }
 
   /** Call a function with a reference to each value in this array_ref. The
    * order in which `fn` is called is undefined. */
-  template <typename Fn>
+  template <class Fn>
   void for_each_value(Fn&& fn) const {
     shape_traits_type::for_each_value(shape_, base_, fn);
   }
@@ -1548,9 +1526,9 @@ class array_ref {
   /** Shape of this array_ref. */
   const Shape& shape() const { return shape_; }
 
-  template <size_t D, typename = enable_if_dim<D>>
+  template <size_t D, class = enable_if_dim<D>>
   auto& dim() { return shape_.template dim<D>(); }
-  template <size_t D, typename = enable_if_dim<D>>
+  template <size_t D, class = enable_if_dim<D>>
   const auto& dim() const { return shape_.template dim<D>(); }
   size_type size() const { return shape_.size(); }
   bool empty() const { return base() != nullptr ? shape_.empty() : true; }
@@ -1591,8 +1569,7 @@ class array_ref {
    * be considered equal, they must have the same shape, and all elements
    * addressable by the shape must also be equal. */
   bool operator!=(const array_ref& other) const {
-    if (shape_.min() != other.shape_.min() ||
-        shape_.extent() != other.shape_.extent()) {
+    if (shape_.min() != other.shape_.min() || shape_.extent() != other.shape_.extent()) {
       return true;
     }
 
@@ -1600,8 +1577,8 @@ class array_ref {
     // even after we find a non-equal element
     // (https://github.com/dsharlet/array/issues/4).
     bool result = false;
-    copy_shape_traits<Shape, Shape>::for_each_value(shape_, base_, other.shape_, other.base_,
-                                                    [&](const value_type& a, const value_type& b) {
+    copy_shape_traits<Shape, Shape>::for_each_value(
+        shape_, base_, other.shape_, other.base_, [&](const value_type& a, const value_type& b) {
       if (a != b) {
         result = true;
       }
@@ -1626,35 +1603,35 @@ class array_ref {
 };
 
 /** array_ref with an arbitrary shape of the compile-time constant `Rank`. */
-template <typename T, size_t Rank>
+template <class T, size_t Rank>
 using array_ref_of_rank = array_ref<T, shape_of_rank<Rank>>;
 
 /** array_ref with a `dense_dim` innermost dimension, and an arbitrary shape
  * otherwise, of the compile-time constant `Rank`. */
-template <typename T, size_t Rank>
+template <class T, size_t Rank>
 using dense_array_ref = array_ref<T, dense_shape<Rank>>;
 
 /** A multi-dimensional array container that owns an allocation of memory. This
  * container is designed to mirror the semantics of std::vector where possible.
  */
-template <typename T, typename Shape, typename Alloc = std::allocator<T>>
+template <class T, class Shape, class Alloc = std::allocator<T>>
 class array {
  public:
   /** Type of the allocator used to allocate memory in this array. */
-  typedef Alloc allocator_type;
-  typedef std::allocator_traits<Alloc> alloc_traits;
+  using allocator_type = Alloc;
+  using alloc_traits = std::allocator_traits<Alloc>;
   /** Type of the values stored in this array. */
-  typedef T value_type;
-  typedef value_type& reference;
-  typedef const value_type& const_reference;
-  typedef typename alloc_traits::pointer pointer;
-  typedef typename alloc_traits::const_pointer const_pointer;
+  using value_type = T;
+  using reference = value_type&;
+  using const_reference = const value_type&;
+  using pointer = typename alloc_traits::pointer;
+  using const_pointer = typename alloc_traits::const_pointer;
   /** Type of the shape of this array. */
-  typedef Shape shape_type;
-  typedef typename Shape::index_type index_type;
-  typedef shape_traits<Shape> shape_traits_type;
-  typedef copy_shape_traits<Shape> copy_shape_traits_type;
-  typedef size_t size_type;
+  using shape_type = Shape;
+  using index_type = typename Shape::index_type;
+  using shape_traits_type = shape_traits<Shape>;
+  using copy_shape_traits_type = copy_shape_traits<Shape>;
+  using size_type = size_t;
 
   /** The number of dims in the shape of this array. */
   static constexpr size_t rank() { return Shape::rank(); }
@@ -1663,17 +1640,17 @@ class array {
   static constexpr bool is_scalar() { return Shape::is_scalar(); }
 
  private:
-  template <typename... Args>
-  using enable_if_same_rank =
-      typename std::enable_if<sizeof...(Args) == rank()>::type;
+  template <class... Args>
+  using enable_if_same_rank = typename std::enable_if<sizeof...(Args) == rank()>::type;
 
-  template <typename... Args>
+  template <class... Args>
   using enable_if_indices =
-      typename std::enable_if<internal::all_integral<Args...>::value>::type;
+      typename std::enable_if<internal::all_of_type<index_t, Args...>::value>::type;
 
-  template <typename... Args>
-  using enable_if_ranges =
-      typename std::enable_if<internal::all_ranges<Args...>::value && !internal::all_integral<Args...>::value>::type;
+  template <class... Args>
+  using enable_if_ranges = typename std::enable_if<
+      internal::all_of_type<range<>, Args...>::value &&
+      !internal::all_of_type<index_t, Args...>::value>::type;
 
   template <size_t Dim>
   using enable_if_dim = typename std::enable_if<Dim < rank()>::type;
@@ -1712,16 +1689,16 @@ class array {
   void copy_construct(const array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
-    copy_shape_traits_type::for_each_value(other.shape(), other.base(), shape_, base_,
-                                      [&](const value_type& src, value_type& dst) {
+    copy_shape_traits_type::for_each_value(
+        other.shape(), other.base(), shape_, base_, [&](const value_type& src, value_type& dst) {
       alloc_traits::construct(alloc_, &dst, src);
     });
   }
   void move_construct(array& other) {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
-    copy_shape_traits_type::for_each_value(other.shape(), other.base(), shape_, base_,
-                                      [&](value_type& src, value_type& dst) {
+    copy_shape_traits_type::for_each_value(
+        other.shape(), other.base(), shape_, base_, [&](value_type& src, value_type& dst) {
       alloc_traits::construct(alloc_, &dst, std::move(src));
     });
   }
@@ -1926,43 +1903,47 @@ class array {
   reference operator[] (const index_type& indices) { return base_[shape_(indices)]; }
   const_reference operator() (const index_type& indices) const { return base_[shape_(indices)]; }
   const_reference operator[] (const index_type& indices) const { return base_[shape_(indices)]; }
-  template <typename... Args,
-      typename = enable_if_same_rank<Args...>,
-      typename = enable_if_indices<Args...>>
+  template <class... Args,
+      class = enable_if_same_rank<Args...>,
+      class = enable_if_indices<Args...>>
   reference operator() (Args... indices) { return base_[shape_(indices...)]; }
-  template <typename... Args,
-      typename = enable_if_same_rank<Args...>,
-      typename = enable_if_indices<Args...>>
+  template <class... Args,
+      class = enable_if_same_rank<Args...>,
+      class = enable_if_indices<Args...>>
   const_reference operator() (Args... indices) const { return base_[shape_(indices...)]; }
 
   /** Create an `array_ref` from this array from a series of crops and slices `ranges`.
    * The resulting `array_ref` will have the same rank as this array. */
-  template <typename... Args,
-      typename = enable_if_same_rank<Args...>,
-      typename = enable_if_ranges<Args...>>
+  template <class... Args,
+      class = enable_if_same_rank<Args...>,
+      class = enable_if_ranges<Args...>>
   auto operator() (Args... ranges) {
     auto new_shape = shape_(ranges...);
-    auto old_min_offset = shape_(internal::mins_of_ranges(std::make_tuple(ranges...), shape_.dims(), std::make_index_sequence<rank()>()));
+    auto new_mins = internal::mins_of_ranges(
+        std::make_tuple(ranges...), shape_.dims(), internal::make_index_sequence<rank()>());
+    auto old_min_offset = shape_(new_mins);
     pointer base = internal::pointer_add(base_, old_min_offset);
     return make_array_ref(base, new_shape);
   }
-  template <typename... Args,
-      typename = enable_if_same_rank<Args...>,
-      typename = enable_if_ranges<Args...>>
+  template <class... Args,
+      class = enable_if_same_rank<Args...>,
+      class = enable_if_ranges<Args...>>
   auto operator() (Args... ranges) const {
     auto new_shape = shape_(ranges...);
-    auto old_min_offset = shape_(internal::mins_of_ranges(std::make_tuple(ranges...), shape_.dims(), std::make_index_sequence<rank()>()));
+    auto new_mins = internal::mins_of_ranges(
+        std::make_tuple(ranges...), shape_.dims(), internal::make_index_sequence<rank()>());
+    auto old_min_offset = shape_(new_mins);
     const_pointer base = internal::pointer_add(base_, old_min_offset);
     return make_array_ref(base, new_shape);
   }
 
   /** Call a function with a reference to each value in this array. The order in
    * which `fn` is called is undefined. */
-  template <typename Fn>
+  template <class Fn>
   void for_each_value(Fn&& fn) {
     shape_traits_type::for_each_value(shape_, base_, fn);
   }
-  template <typename Fn>
+  template <class Fn>
   void for_each_value(Fn&& fn) const {
     shape_traits_type::for_each_value(shape_, base_, fn);
   }
@@ -1978,7 +1959,7 @@ class array {
   /** Shape of this array. */
   const Shape& shape() const { return shape_; }
 
-  template <size_t D, typename = enable_if_dim<D>>
+  template <size_t D, class = enable_if_dim<D>>
   const auto& dim() const { return shape_.template dim<D>(); }
   size_type size() const { return shape_.size(); }
   bool empty() const { return shape_.empty(); }
@@ -2005,8 +1986,8 @@ class array {
 
     // Move the common elements to the new array.
     Shape intersection = intersect(shape_, new_array.shape());
-    copy_shape_traits_type::for_each_value(shape_, base_, intersection, new_array.base(),
-                                      [](T& src, T& dst) {
+    copy_shape_traits_type::for_each_value(
+        shape_, base_, intersection, new_array.base(), [](T& src, T& dst) {
       dst = std::move(src);
     });
 
@@ -2080,26 +2061,26 @@ class array {
 };
 
 /** An array type with an arbitrary shape of rank `Rank`. */
-template <typename T, size_t Rank, typename Alloc = std::allocator<T>>
+template <class T, size_t Rank, class Alloc = std::allocator<T>>
 using array_of_rank = array<T, shape_of_rank<Rank>, Alloc>;
 
 /** array with a `dense_dim` innermost dimension, and an arbitrary shape
  * otherwise, of rank `Rank`. */
-template <typename T, size_t Rank, typename Alloc = std::allocator<T>>
+template <class T, size_t Rank, class Alloc = std::allocator<T>>
 using dense_array = array<T, dense_shape<Rank>, Alloc>;
 
 /** Make a new array with shape `shape`, allocated using `alloc`. */
-template <typename T, typename Shape, typename Alloc = std::allocator<T>>
+template <class T, class Shape, class Alloc = std::allocator<T>>
 auto make_array(const Shape& shape, const Alloc& alloc = Alloc()) {
   return array<T, Shape, Alloc>(shape, alloc);
 }
-template <typename T, typename Shape, typename Alloc = std::allocator<T>>
+template <class T, class Shape, class Alloc = std::allocator<T>>
 auto make_array(const Shape& shape, const T& value, const Alloc& alloc = Alloc()) {
   return array<T, Shape, Alloc>(shape, value, alloc);
 }
 
 /** Swap the contents of two arrays. */
-template <typename T, typename Shape, typename Alloc>
+template <class T, class Shape, class Alloc>
 void swap(array<T, Shape, Alloc>& a, array<T, Shape, Alloc>& b) {
   a.swap(b);
 }
@@ -2107,8 +2088,8 @@ void swap(array<T, Shape, Alloc>& a, array<T, Shape, Alloc>& b) {
 /** Copy the contents of the `src` array or array_ref to the `dst` array or
  * array_ref. The range of the shape of `dst` will be copied, and must be in
  * bounds of `src`. */
-template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst,
-    typename = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
+template <class TSrc, class TDst, class ShapeSrc, class ShapeDst,
+    class = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
 void copy(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDst, ShapeDst>& dst) {
   if (dst.shape().empty()) {
     return;
@@ -2118,61 +2099,64 @@ void copy(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDst, ShapeDst>&
     NDARRAY_THROW_OUT_OF_RANGE("dst indices out of range of src");
   }
 
-  copy_shape_traits<ShapeSrc, ShapeDst>::for_each_value(src.shape(), src.base(), dst.shape(), dst.base(),
-                                                         [](const TSrc& src_i, TDst& dst_i) {
+  copy_shape_traits<ShapeSrc, ShapeDst>::for_each_value(
+      src.shape(), src.base(), dst.shape(), dst.base(), [](const TSrc& src_i, TDst& dst_i) {
     dst_i = src_i;
   });
 }
-template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, typename AllocDst,
-    typename = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
+template <class TSrc, class TDst, class ShapeSrc, class ShapeDst, class AllocDst,
+    class = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
 void copy(const array_ref<TSrc, ShapeSrc>& src, array<TDst, ShapeDst, AllocDst>& dst) {
   copy(src, dst.ref());
 }
-template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, typename AllocSrc,
-    typename = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
+template <class TSrc, class TDst, class ShapeSrc, class ShapeDst, class AllocSrc,
+    class = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
 void copy(const array<TSrc, ShapeSrc, AllocSrc>& src, const array_ref<TDst, ShapeDst>& dst) {
   copy(src.cref(), dst);
 }
-template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, typename AllocSrc, typename AllocDst,
-    typename = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
+template <class TSrc, class TDst, class ShapeSrc, class ShapeDst, class AllocSrc, class AllocDst,
+    class = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
 void copy(const array<TSrc, ShapeSrc, AllocSrc>& src, array<TDst, ShapeDst, AllocDst>& dst) {
   copy(src.cref(), dst.ref());
 }
 
 /** Make a copy of the `src` array or array_ref with a new shape `shape`. */
-template <typename T, typename ShapeSrc, typename ShapeDst,
-  typename Alloc = std::allocator<typename std::remove_const<T>::type>>
-auto make_copy(const array_ref<T, ShapeSrc>& src, const ShapeDst& shape, const Alloc& alloc = Alloc()) {
+template <class T, class ShapeSrc, class ShapeDst,
+  class Alloc = std::allocator<typename std::remove_const<T>::type>>
+auto make_copy(
+    const array_ref<T, ShapeSrc>& src, const ShapeDst& shape, const Alloc& alloc = Alloc()) {
   array<typename std::remove_const<T>::type, ShapeDst, Alloc> dst(shape, alloc);
   copy(src, dst);
   return dst;
 }
-template <typename T, typename ShapeSrc, typename ShapeDst, typename AllocSrc,
-  typename AllocDst = AllocSrc>
-auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const ShapeDst& shape, const AllocDst& alloc = AllocDst()) {
+template <class T, class ShapeSrc, class ShapeDst, class AllocSrc,
+  class AllocDst = AllocSrc>
+auto make_copy(
+    const array<T, ShapeSrc, AllocSrc>& src, const ShapeDst& shape,
+    const AllocDst& alloc = AllocDst()) {
   return make_copy(src.cref(), shape, alloc);
 }
 
 /** Make a copy of the `src` array or array_ref with a dense shape of the same
  * rank as `src`. */
-template <typename T, typename ShapeSrc,
-  typename Alloc = std::allocator<typename std::remove_const<T>::type>>
+template <class T, class ShapeSrc,
+  class Alloc = std::allocator<typename std::remove_const<T>::type>>
 auto make_dense_copy(const array_ref<T, ShapeSrc>& src, const Alloc& alloc = Alloc()) {
   return make_copy(src, make_dense(src.shape()), alloc);
 }
-template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDst = AllocSrc>
+template <class T, class ShapeSrc, class AllocSrc, class AllocDst = AllocSrc>
 auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src, const AllocDst& alloc = AllocDst()) {
   return make_dense_copy(src.cref(), alloc);
 }
 
 /** Make a copy of the `src` array or array_ref with a compact version of `src`s
  * shape. */
-template <typename T, typename Shape,
-  typename Alloc = std::allocator<typename std::remove_const<T>::type>>
+template <class T, class Shape,
+  class Alloc = std::allocator<typename std::remove_const<T>::type>>
 auto make_compact_copy(const array_ref<T, Shape>& src, const Alloc& alloc = Alloc()) {
   return make_copy(src, make_compact(src.shape()), alloc);
 }
-template <typename T, typename Shape, typename AllocSrc, typename AllocDst = AllocSrc>
+template <class T, class Shape, class AllocSrc, class AllocDst = AllocSrc>
 auto make_compact_copy(const array<T, Shape, AllocSrc>& src, const AllocDst& alloc = AllocDst()) {
   return make_compact_copy(src.cref(), alloc);
 }
@@ -2180,8 +2164,8 @@ auto make_compact_copy(const array<T, Shape, AllocSrc>& src, const AllocDst& all
 /** Move the contents from the `src` array or array_ref to the `dst` array or
  * array_ref. The range of the shape of `dst` will be moved, and must be in
  * bounds of `src`. */
-template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst,
-    typename = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
+template <class TSrc, class TDst, class ShapeSrc, class ShapeDst,
+    class = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
 void move(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDst, ShapeDst>& dst) {
   if (dst.shape().empty()) {
     return;
@@ -2191,43 +2175,44 @@ void move(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDst, ShapeDst>&
     NDARRAY_THROW_OUT_OF_RANGE("dst indices out of range of src");
   }
 
-  copy_shape_traits<ShapeSrc, ShapeDst>::for_each_value(src.shape(), src.base(), dst.shape(), dst.base(),
-                                                         [](TSrc& src_i, TDst& dst_i) {
+  copy_shape_traits<ShapeSrc, ShapeDst>::for_each_value(
+      src.shape(), src.base(), dst.shape(), dst.base(), [](TSrc& src_i, TDst& dst_i) {
     dst_i = std::move(src_i);
   });
 }
-template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, typename AllocDst,
-    typename = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
+template <class TSrc, class TDst, class ShapeSrc, class ShapeDst, class AllocDst,
+    class = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
 void move(const array_ref<TSrc, ShapeSrc>& src, array<TDst, ShapeDst, AllocDst>& dst) {
   move(src, dst.ref());
 }
-template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, typename AllocSrc,
-    typename = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
+template <class TSrc, class TDst, class ShapeSrc, class ShapeDst, class AllocSrc,
+    class = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
 void move(array<TSrc, ShapeSrc, AllocSrc>& src, const array_ref<TDst, ShapeDst>& dst) {
   move(src.ref(), dst);
 }
-template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, typename AllocSrc, typename AllocDst,
-    typename = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
+template <class TSrc, class TDst, class ShapeSrc, class ShapeDst, class AllocSrc, class AllocDst,
+    class = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
 void move(array<TSrc, ShapeSrc, AllocSrc>& src, array<TDst, ShapeDst, AllocDst>& dst) {
   move(src.ref(), dst.ref());
 }
-template <typename T, typename Shape, typename Alloc>
+template <class T, class Shape, class Alloc>
 void move(array<T, Shape, Alloc>&& src, array<T, Shape, Alloc>& dst) { dst = std::move(src); }
 
 /** Make a copy of the `src` array or array_ref with a new shape `shape`. The
  * elements of `src` are moved to the result. */
-template <typename T, typename ShapeSrc, typename ShapeDst, typename Alloc = std::allocator<T>>
+template <class T, class ShapeSrc, class ShapeDst, class Alloc = std::allocator<T>>
 auto make_move(const array_ref<T, ShapeSrc>& src, const ShapeDst& shape,
                const Alloc& alloc = Alloc()) {
   array<T, ShapeDst, Alloc> dst(shape, alloc);
   move(src, dst);
   return dst;
 }
-template <typename T, typename ShapeSrc, typename ShapeDst, typename AllocSrc, typename AllocDst = AllocSrc>
-auto make_move(array<T, ShapeSrc, AllocSrc>& src, const ShapeDst& shape, const AllocDst& alloc = AllocDst()) {
+template <class T, class ShapeSrc, class ShapeDst, class AllocSrc, class AllocDst = AllocSrc>
+auto make_move(
+    array<T, ShapeSrc, AllocSrc>& src, const ShapeDst& shape, const AllocDst& alloc = AllocDst()) {
   return make_move(src.ref(), shape, alloc);
 }
-template <typename T, typename Shape, typename Alloc>
+template <class T, class Shape, class Alloc>
 auto make_move(array<T, Shape, Alloc>&& src, const Shape& shape, const Alloc& alloc = Alloc()) {
   if (src.shape() == shape && alloc == src.get_allocator()) {
     return src;
@@ -2238,83 +2223,83 @@ auto make_move(array<T, Shape, Alloc>&& src, const Shape& shape, const Alloc& al
 
 /** Make a copy of the `src` array or array_ref with a dense shape of the same
  * rank as `src`. The elements of `src` are moved to the result. */
-template <typename T, typename Shape, typename Alloc = std::allocator<T>>
+template <class T, class Shape, class Alloc = std::allocator<T>>
 auto make_dense_move(const array_ref<T, Shape>& src, const Alloc& alloc = Alloc()) {
   return make_move(src, make_dense(src.shape()), alloc);
 }
-template <typename T, typename Shape, typename AllocSrc, typename AllocDst = AllocSrc>
+template <class T, class Shape, class AllocSrc, class AllocDst = AllocSrc>
 auto make_dense_move(array<T, Shape, AllocSrc>& src, const AllocDst& alloc = AllocDst()) {
   return make_dense_move(src.ref(), alloc);
 }
-template <typename T, typename Shape, typename Alloc>
+template <class T, class Shape, class Alloc>
 auto make_dense_move(array<T, Shape, Alloc>&& src, const Alloc& alloc = Alloc()) {
   return make_move(src, make_dense(src.shape()), alloc);
 }
 
 /** Make a copy of the `src` array or array_ref with a compact version of `src`s
  * shape. The elements of `src` are moved to the result. */
-template <typename T, typename Shape, typename Alloc = std::allocator<T>>
+template <class T, class Shape, class Alloc = std::allocator<T>>
 auto make_compact_move(const array_ref<T, Shape>& src, const Alloc& alloc = Alloc()) {
   return make_move(src, make_compact(src.shape()), alloc);
 }
-template <typename T, typename Shape, typename AllocSrc, typename AllocDst = AllocSrc>
+template <class T, class Shape, class AllocSrc, class AllocDst = AllocSrc>
 auto make_compact_move(array<T, Shape, AllocSrc>& src, const AllocDst& alloc = AllocDst()) {
   return make_compact_move(src.ref(), alloc);
 }
-template <typename T, typename Shape, typename Alloc>
+template <class T, class Shape, class Alloc>
 auto make_compact_move(array<T, Shape, Alloc>&& src, const Alloc& alloc = Alloc()) {
   return make_move(src, make_compact(src.shape()), alloc);
 }
 
 /** Convert the shape of the array or array_ref `a` to be a new shape
  * `new_shape`. */
-template <typename NewShape, typename T, typename OldShape>
+template <class NewShape, class T, class OldShape>
 array_ref<T, NewShape> convert_shape(const array_ref<T, OldShape>& a) {
   return array_ref<T, NewShape>(a.base(), a.shape());
 }
-template <typename NewShape, typename T, typename OldShape, typename Allocator>
+template <class NewShape, class T, class OldShape, class Allocator>
 array_ref<T, NewShape> convert_shape(array<T, OldShape, Allocator>& a) {
   return convert_shape<NewShape>(a.ref());
 }
-template <typename NewShape, typename T, typename OldShape, typename Allocator>
+template <class NewShape, class T, class OldShape, class Allocator>
 array_ref<const T, NewShape> convert_shape(const array<T, OldShape, Allocator>& a) {
   return convert_shape<NewShape>(a.cref());
 }
 
 /** Reinterpret the array or array_ref `a` of type `T` to have a different type
  * `U`. The size of `T` must be equal to the size of `U`. */
-template <typename U, typename T, typename Shape,
-    typename = typename std::enable_if<sizeof(T) == sizeof(U)>::type>
+template <class U, class T, class Shape,
+    class = typename std::enable_if<sizeof(T) == sizeof(U)>::type>
 array_ref<U, Shape> reinterpret(const array_ref<T, Shape>& a) {
   return array_ref<U, Shape>(reinterpret_cast<U*>(a.base()), a.shape());
 }
-template <typename U, typename T, typename Shape, typename Alloc,
-    typename = typename std::enable_if<sizeof(T) == sizeof(U)>::type>
+template <class U, class T, class Shape, class Alloc,
+    class = typename std::enable_if<sizeof(T) == sizeof(U)>::type>
 array_ref<U, Shape> reinterpret(array<T, Shape, Alloc>& a) {
   return reinterpret<U>(a.ref());
 }
-template <typename U, typename T, typename Shape, typename Alloc,
-    typename = typename std::enable_if<sizeof(T) == sizeof(U)>::type>
+template <class U, class T, class Shape, class Alloc,
+    class = typename std::enable_if<sizeof(T) == sizeof(U)>::type>
 array_ref<const U, Shape> reinterpret(const array<T, Shape, Alloc>& a) {
   return reinterpret<const U>(a.cref());
 }
 
 /** Reinterpret the shape of the array or array_ref `a` to be a new shape
  * `new_shape`, with a base pointer offset `offset`. */
-template <typename NewShape, typename T, typename OldShape>
-array_ref<T, NewShape> reinterpret_shape(const array_ref<T, OldShape>& a,
-                                         const NewShape& new_shape, index_t offset = 0) {
+template <class NewShape, class T, class OldShape>
+array_ref<T, NewShape> reinterpret_shape(
+    const array_ref<T, OldShape>& a, const NewShape& new_shape, index_t offset = 0) {
   assert(new_shape.is_subset_of(a.shape(), -offset));
   return array_ref<T, NewShape>(a.base() + offset, new_shape);
 }
-template <typename NewShape, typename T, typename OldShape, typename Allocator>
-array_ref<T, NewShape> reinterpret_shape(array<T, OldShape, Allocator>& a,
-                                         const NewShape& new_shape, index_t offset = 0) {
+template <class NewShape, class T, class OldShape, class Allocator>
+array_ref<T, NewShape> reinterpret_shape(
+    array<T, OldShape, Allocator>& a, const NewShape& new_shape, index_t offset = 0) {
   return reinterpret_shape(a.ref(), new_shape, offset);
 }
-template <typename NewShape, typename T, typename OldShape, typename Allocator>
-array_ref<const T, NewShape> reinterpret_shape(const array<T, OldShape, Allocator>& a,
-                                               const NewShape& new_shape, index_t offset = 0) {
+template <class NewShape, class T, class OldShape, class Allocator>
+array_ref<const T, NewShape> reinterpret_shape(
+    const array<T, OldShape, Allocator>& a, const NewShape& new_shape, index_t offset = 0) {
   return reinterpret_shape(a.cref(), new_shape, offset);
 }
 
@@ -2328,11 +2313,11 @@ class auto_allocator {
   bool allocated;
 
  public:
-  typedef T value_type;
+  using value_type = T;
 
-  typedef std::false_type propagate_on_container_copy_assignment;
-  typedef std::false_type propagate_on_container_move_assignment;
-  typedef std::false_type propagate_on_container_swap;
+  using propagate_on_container_copy_assignment = std::false_type;
+  using propagate_on_container_move_assignment = std::false_type;
+  using propagate_on_container_swap = std::false_type;
 
   static auto_allocator select_on_container_copy_construction(const auto_allocator&) {
     return auto_allocator();
