@@ -1442,10 +1442,6 @@ class array_ref {
   static constexpr bool is_scalar() { return Shape::is_scalar(); }
 
  private:
-  template <class U>
-  using enable_if_type_compatible =
-      typename std::enable_if<std::is_constructible<T*, U*>::value>::type;
-
   template <class OtherShape>
   using enable_if_shape_compatible = internal::enable_if_shapes_compatible<Shape, OtherShape>;
 
