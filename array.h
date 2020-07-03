@@ -2384,16 +2384,18 @@ auto make_compact_move(array<T, Shape, AllocSrc>& src, const AllocDst& alloc = A
 
 /** Reinterpret the array or array_ref `a` of type `T` to have a different type
  * `U`. The size of `T` must be equal to the size of `U`. */
-template <typename U, typename T, typename Shape>
+template <typename U, typename T, typename Shape,
+    typename = typename std::enable_if<sizeof(T) == sizeof(U)>::type>
 array_ref<U, Shape> reinterpret(const array_ref<T, Shape>& a) {
-  static_assert(sizeof(T) == sizeof(U), "sizeof(reinterpreted type U) != sizeof(array type T)");
   return array_ref<U, Shape>(reinterpret_cast<U*>(a.base()), a.shape());
 }
-template <typename U, typename T, typename Shape, typename Alloc>
+template <typename U, typename T, typename Shape, typename Alloc,
+    typename = typename std::enable_if<sizeof(T) == sizeof(U)>::type>
 array_ref<U, Shape> reinterpret(array<T, Shape, Alloc>& a) {
   return reinterpret<U>(a.ref());
 }
-template <typename U, typename T, typename Shape, typename Alloc>
+template <typename U, typename T, typename Shape, typename Alloc,
+    typename = typename std::enable_if<sizeof(T) == sizeof(U)>::type>
 array_ref<const U, Shape> reinterpret(const array<T, Shape, Alloc>& a) {
   return reinterpret<const U>(a.cref());
 }
