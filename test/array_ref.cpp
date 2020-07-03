@@ -90,6 +90,16 @@ void non_template_const(const array_ref_of_rank<const int, 3>&) {}
 
 void non_template_dense(const dense_array_ref<int, 3>&) {}
 
+enum {
+  general = 0,
+  dense = 1,
+};
+
+int overload_shape(const array_ref_of_rank<int, 3>&) { return general; }
+int overload_shape(const dense_array_ref<int, 3>&) { return dense; }
+int overload_shape_const(const array_ref_of_rank<const int, 3>&) { return general; }
+int overload_shape_const(const dense_array_ref<const int, 3>&) { return dense; }
+
 TEST(array_ref_conversion) {
   array_ref_of_rank<int, 3> null_ref(nullptr, {10, 20, 30});
   array_of_rank<int, 3> non_ref({5, 10, 20});
@@ -105,7 +115,6 @@ TEST(array_ref_conversion) {
 
   // non-const -> const
   array_ref_of_rank<const int, 3> const_null_ref(null_ref);
-  array_ref_of_rank<const int, 3> const_ref2(non_ref);
   const_null_ref = null_ref;
   const_ref = non_ref;
   non_template_const(null_ref);
@@ -115,18 +124,23 @@ TEST(array_ref_conversion) {
   dense_array_ref<int, 3> dense_null_ref(null_ref);
   dense_null_ref = null_ref;
   non_template_dense(null_ref);
-  non_template_dense(non_ref);
+  //non_template_dense(non_ref);
 
   // dense -> general
   array_ref_of_rank<int, 3> null_ref2(dense_null_ref);
   null_ref = dense_null_ref;
   non_template(dense_null_ref);
-  non_template(dense_non_ref);
+  //non_template(dense_non_ref);
 
   // nullptr -> ref
   non_template(nullptr);
   non_template_const(nullptr);
   non_template_dense(nullptr);
+
+  ASSERT_EQ(overload_shape(null_ref), general);
+  ASSERT_EQ(overload_shape(dense_null_ref), dense);
+  ASSERT_EQ(overload_shape_const(null_ref), general);
+  ASSERT_EQ(overload_shape_const(dense_null_ref), dense);
 }
 
 TEST(array_ref_crop) {

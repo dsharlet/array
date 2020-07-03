@@ -176,4 +176,39 @@ TEST(image_chunky_padded) {
   }
 }
 
+void general_chunky(const chunky_image_ref<const int>&) {}
+
+void overload_shape(const planar_image_ref<const int>&) {}
+void overload_shape(const chunky_image_ref<const int>&) {}
+
+TEST(image_overload_shape) {
+  planar_image<int> planar({10, 20, 3});
+  chunky_image<int> chunky({10, 20, 3});
+  chunky_image<int, 3> chunky3({10, 20, 3});
+
+  general_chunky(chunky3.cref());
+
+  overload_shape(planar);
+  overload_shape(chunky);
+  // TODO: Enable decay to non-constant channels.
+  //overload_shape(chunky3.cref());
+}
+
+void overload_chunky(const chunky_image_ref<const int, 1>&) {}
+void overload_chunky(const chunky_image_ref<const int, 2>&) {}
+void overload_chunky(const chunky_image_ref<const int, 3>&) {}
+void overload_chunky(const chunky_image_ref<const int, 4>&) {}
+
+TEST(image_overload_chunky) {
+  chunky_image<int, 1> chunky1({10, 20, 1});
+  chunky_image<int, 2> chunky2({10, 20, 2});
+  chunky_image<int, 3> chunky3({10, 20, 3});
+  chunky_image<int, 4> chunky4({10, 20, 4});
+
+  overload_chunky(chunky1);
+  overload_chunky(chunky2);
+  overload_chunky(chunky3);
+  overload_chunky(chunky4);
+}
+
 }  // namespace nda

@@ -1573,49 +1573,15 @@ class array_ref {
   /** The copy constructor of a ref is a shallow copy. */
   array_ref(const array_ref& other) = default;
   array_ref(array_ref&& other) = default;
+  template <typename OtherShape, typename = enable_if_shape_compatible<OtherShape>>
+  array_ref(const array_ref<T, OtherShape>& other)
+      : array_ref(other.base(), other.shape()) {}
 
   /** Assigning an array_ref is a shallow assignment. */
   array_ref& operator=(const array_ref& other) = default;
   array_ref& operator=(array_ref&& other) = default;
-
-  /** Conversions from other types of arrays or array_ref. */
-  template <typename U, typename OtherShape,
-      typename = enable_if_type_compatible<U>,
-      typename = enable_if_shape_compatible<OtherShape>>
-  array_ref(const array_ref<U, OtherShape>& other)
-      : array_ref(other.base(), other.shape()) {}
-  template <typename U, typename OtherShape, typename Alloc,
-      typename = enable_if_type_compatible<U>,
-      typename = enable_if_shape_compatible<OtherShape>>
-  array_ref(array<U, OtherShape, Alloc>& other)
-      : array_ref(other.base(), other.shape()) {}
-  template <typename U, typename OtherShape, typename Alloc,
-      typename = enable_if_type_compatible<const U>,
-      typename = enable_if_shape_compatible<OtherShape>>
-  array_ref(const array<U, OtherShape, Alloc>& other)
-      : array_ref(other.base(), other.shape()) {}
-
-  /** Conversions from other types of arrays or array_ref. */
-  template <typename U, typename OtherShape,
-      typename = enable_if_type_compatible<U>,
-      typename = enable_if_shape_compatible<OtherShape>>
-  array_ref& operator=(const array_ref<U, OtherShape>& other) {
-    base_ = other.base();
-    shape_ = other.shape();
-    return *this;
-  }
-  template <typename U, typename OtherShape, typename Alloc,
-      typename = enable_if_type_compatible<U>,
-      typename = enable_if_shape_compatible<OtherShape>>
-  array_ref& operator=(array<U, OtherShape, Alloc>& other) {
-    base_ = other.base();
-    shape_ = other.shape();
-    return *this;
-  }
-  template <typename U, typename OtherShape, typename Alloc,
-      typename = enable_if_type_compatible<const U>,
-      typename = enable_if_shape_compatible<OtherShape>>
-  array_ref& operator=(const array<U, OtherShape, Alloc>& other) {
+  template <typename OtherShape, typename = enable_if_shape_compatible<OtherShape>>
+  array_ref& operator=(const array_ref<T, OtherShape>& other) {
     base_ = other.base();
     shape_ = other.shape();
     return *this;
