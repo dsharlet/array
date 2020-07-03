@@ -436,9 +436,9 @@ NDARRAY_INLINE auto apply(Fn&& fn, const Args& args, index_sequence<Is...>) {
   return fn(std::get<Is>(args)...);
 }
 
-template <class Fn, class Args>
-NDARRAY_INLINE auto apply(Fn&& fn, const Args& args) {
-  return apply(fn, args, make_index_sequence<std::tuple_size<Args>::value>());
+template <class Fn, class... Args>
+NDARRAY_INLINE auto apply(Fn&& fn, const std::tuple<Args...>& args) {
+  return apply(fn, args, make_index_sequence<sizeof...(Args)>());
 }
 
 // Some variadic reduction helpers.
@@ -948,7 +948,8 @@ class shape {
 
   /** Returns true if this shape projects to a set of flat indices that is a
    * subset of the other shape's projection to flat indices with an offset. */
-  bool is_subset_of(const shape& other, index_t offset) const {
+  template <typename OtherShape>
+  bool is_subset_of(const OtherShape& other, index_t offset) const {
     // TODO: https://github.com/dsharlet/array/issues/2
     return flat_min() >= other.flat_min() + offset && flat_max() <= other.flat_max() + offset;
   }
@@ -1596,8 +1597,9 @@ class array_ref {
   /** Change the shape of the array to `new_shape`, and move the base pointer by
    * `offset`. */
   void set_shape(const Shape& new_shape, index_t offset = 0) {
+    assert(new_shape.is_known());
+    assert(new_shape.is_subset_of(shape_, -offset));
     shape_ = new_shape;
-    assert(shape_.is_known());
     base_ = internal::pointer_add(base_, offset);
   }
 };
@@ -1998,7 +2000,7 @@ class array {
    * `offset`. */
   void set_shape(const Shape& new_shape, index_t offset = 0) {
     assert(new_shape.is_known());
-    assert(new_shape.is_subset_of(shape(), -offset));
+    assert(new_shape.is_subset_of(shape_, -offset));
     shape_ = new_shape;
     base_ = internal::pointer_add(base_, offset);
   }
