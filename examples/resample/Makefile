@@ -2,10 +2,10 @@ CFLAGS := $(CFLAGS) -O2 -ffast-math -fstrict-aliasing -march=native
 CXXFLAGS := $(CXXFLAGS) -std=c++14 -Wall
 LDFLAGS := $(LDFLAGS)
 
-ARRAY_DEPS = ../../array.h ../../image.h ../benchmark.h
-HEADERS = resample.h rational.h
+ARRAY_DEPS := ../../array.h ../../image.h ../benchmark.h
+HEADERS := resample.h rational.h
 
-GRAPHICSMAGICK_CONFIG=`GraphicsMagick++-config --cppflags --cxxflags --ldflags --libs`
+GRAPHICSMAGICK_CONFIG := `GraphicsMagick++-config --cppflags --cxxflags --ldflags --libs`
 
 bin/resample: resample.cpp $(HEADERS) $(ARRAY_DEPS)
 	mkdir -p $(@D)
