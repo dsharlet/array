@@ -36,12 +36,12 @@ using image_ref = array_ref<T, image_shape>;
  * than the number of channels, to allow for padding pixels to a convenient
  * alignment. This is a common image storage format used by many programs
  * working with images. */
-template <index_t Channels, index_t ChannelStride = Channels>
+template <index_t Channels = UNK, index_t ChannelStride = Channels>
 using chunky_image_shape =
   shape<strided_dim<ChannelStride>, dim<>, dense_dim<0, Channels>>;
-template <typename T, index_t Channels, index_t ChannelStride = Channels>
+template <typename T, index_t Channels = UNK, index_t ChannelStride = Channels>
 using chunky_image = array<T, chunky_image_shape<Channels, ChannelStride>>;
-template <typename T, index_t Channels, index_t ChannelStride = Channels>
+template <typename T, index_t Channels = UNK, index_t ChannelStride = Channels>
 using chunky_image_ref = array_ref<T, chunky_image_shape<Channels, ChannelStride>>;
 
 /** Calls `fn` for each index in an image shape `s`. c is the innermost
