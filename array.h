@@ -1993,8 +1993,12 @@ class array {
   /** Reallocate the array, and move the intersection of the old and new shapes
    * to the new array. */
   void reshape(const Shape& new_shape) {
+    if (shape_ == new_shape) {
+      return;
+    }
+
     // Allocate an array with the new shape.
-    array<T, Shape, Alloc> new_array(new_shape);
+    array new_array(new_shape);
 
     // Move the common elements to the new array.
     Shape intersection = intersect(shape_, new_array.shape());
@@ -2003,8 +2007,7 @@ class array {
       dst = std::move(src);
     });
 
-    // Swap this with the new array.
-    swap(new_array);
+    *this = std::move(new_array);
   }
 
   /** Change the shape of the array to `new_shape`, and move the base pointer by

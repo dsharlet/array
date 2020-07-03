@@ -251,6 +251,36 @@ TEST(array_clear_lifetime) {
   test_clear_lifetime<auto_alloc>();
 }
 
+template <typename Alloc>
+void test_reshape_lifetime(bool alloc_movable = true) {
+  lifetime_array<Alloc> default_init(lifetime_shape);
+  {
+    lifetime_counter::reset();
+    default_init.reshape(lifetime_shape);
+    ASSERT_EQ(lifetime_counter::moves(), 0);
+    ASSERT_EQ(lifetime_counter::destructs, 0);
+  }
+  {
+    lifetime_counter::reset();
+    default_init.reshape(lifetime_subshape);
+    if (alloc_movable) {
+      ASSERT_EQ(lifetime_counter::constructs(), lifetime_subshape.size());
+      ASSERT_EQ(lifetime_counter::moves(), lifetime_subshape.size());
+      ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size());
+    } else {
+      ASSERT_EQ(lifetime_counter::constructs(), lifetime_subshape.size() * 2);
+      ASSERT_EQ(lifetime_counter::moves(), lifetime_subshape.size() * 2);
+      ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size() + lifetime_subshape.size());
+    }
+  }
+}
+
+TEST(array_reshape_lifetime) {
+  test_reshape_lifetime<std_alloc>();
+  test_reshape_lifetime<custom_alloc>();
+  test_reshape_lifetime<auto_alloc>(false);
+}
+
 
 template <typename Alloc>
 void test_swap_lifetime(bool alloc_movable = true) {
