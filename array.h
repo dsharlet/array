@@ -1347,6 +1347,10 @@ T* pointer_add(T* x, index_t offset) {
   return x != nullptr ? x + offset : x;
 }
 
+template <typename Shape, typename OtherShape>
+using enable_if_shapes_compatible =
+    typename std::enable_if<std::is_constructible<Shape, OtherShape>::value>::type;
+
 }  // namespace internal
 
 /** Shape traits enable some behaviors to be overriden per shape type. */
@@ -1464,8 +1468,7 @@ class array_ref {
       typename std::enable_if<std::is_constructible<T*, U*>::value>::type;
 
   template <typename OtherShape>
-  using enable_if_shape_compatible =
-      typename std::enable_if<std::is_constructible<Shape, OtherShape>::value>::type;
+  using enable_if_shape_compatible = internal::enable_if_shapes_compatible<Shape, OtherShape>;
 
   template <typename... Args>
   using enable_if_same_rank =
@@ -2101,19 +2104,11 @@ void swap(array<T, Shape, Alloc>& a, array<T, Shape, Alloc>& b) {
   a.swap(b);
 }
 
-namespace internal {
-
-template <typename ShapeSrc, typename ShapeDst>
-using enable_if_copy_shapes_compatible =
-    typename std::enable_if<ShapeSrc::rank() == ShapeDst::rank()>::type;
-
-}  // namespace internal
-
 /** Copy the contents of the `src` array or array_ref to the `dst` array or
  * array_ref. The range of the shape of `dst` will be copied, and must be in
  * bounds of `src`. */
 template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst,
-    typename = internal::enable_if_copy_shapes_compatible<ShapeSrc, ShapeDst>>
+    typename = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
 void copy(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDst, ShapeDst>& dst) {
   if (dst.shape().empty()) {
     return;
@@ -2129,17 +2124,17 @@ void copy(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDst, ShapeDst>&
   });
 }
 template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, typename AllocDst,
-    typename = internal::enable_if_copy_shapes_compatible<ShapeSrc, ShapeDst>>
+    typename = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
 void copy(const array_ref<TSrc, ShapeSrc>& src, array<TDst, ShapeDst, AllocDst>& dst) {
   copy(src, dst.ref());
 }
 template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, typename AllocSrc,
-    typename = internal::enable_if_copy_shapes_compatible<ShapeSrc, ShapeDst>>
+    typename = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
 void copy(const array<TSrc, ShapeSrc, AllocSrc>& src, const array_ref<TDst, ShapeDst>& dst) {
   copy(src.cref(), dst);
 }
 template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, typename AllocSrc, typename AllocDst,
-    typename = internal::enable_if_copy_shapes_compatible<ShapeSrc, ShapeDst>>
+    typename = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
 void copy(const array<TSrc, ShapeSrc, AllocSrc>& src, array<TDst, ShapeDst, AllocDst>& dst) {
   copy(src.cref(), dst.ref());
 }
@@ -2186,7 +2181,7 @@ auto make_compact_copy(const array<T, Shape, AllocSrc>& src, const AllocDst& all
  * array_ref. The range of the shape of `dst` will be moved, and must be in
  * bounds of `src`. */
 template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst,
-    typename = internal::enable_if_copy_shapes_compatible<ShapeSrc, ShapeDst>>
+    typename = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
 void move(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDst, ShapeDst>& dst) {
   if (dst.shape().empty()) {
     return;
@@ -2202,17 +2197,17 @@ void move(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDst, ShapeDst>&
   });
 }
 template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, typename AllocDst,
-    typename = internal::enable_if_copy_shapes_compatible<ShapeSrc, ShapeDst>>
+    typename = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
 void move(const array_ref<TSrc, ShapeSrc>& src, array<TDst, ShapeDst, AllocDst>& dst) {
   move(src, dst.ref());
 }
 template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, typename AllocSrc,
-    typename = internal::enable_if_copy_shapes_compatible<ShapeSrc, ShapeDst>>
+    typename = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
 void move(array<TSrc, ShapeSrc, AllocSrc>& src, const array_ref<TDst, ShapeDst>& dst) {
   move(src.ref(), dst);
 }
 template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, typename AllocSrc, typename AllocDst,
-    typename = internal::enable_if_copy_shapes_compatible<ShapeSrc, ShapeDst>>
+    typename = internal::enable_if_shapes_compatible<ShapeDst, ShapeSrc>>
 void move(array<TSrc, ShapeSrc, AllocSrc>& src, array<TDst, ShapeDst, AllocDst>& dst) {
   move(src.ref(), dst.ref());
 }
