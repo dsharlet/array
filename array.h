@@ -881,7 +881,7 @@ class shape {
   }
 
   /** Check if all values of the shape are known. */
-  bool is_known() {
+  bool is_known() const {
     return internal::all_known(dims_);
   }
 
