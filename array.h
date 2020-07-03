@@ -822,6 +822,8 @@ class shape {
   /** The type of an index for this shape. */
   typedef typename internal::tuple_of_n<index_t, rank()>::type index_type;
 
+  typedef size_t size_type;
+
  private:
   // TODO: This should use std::is_constructible<std::tuple<Dims...>, std::tuple<OtherDims...>>
   // but it is broken on some compilers.
@@ -974,15 +976,15 @@ class shape {
   index_t flat_max() const {
     return internal::flat_max(dims_, std::make_index_sequence<rank()>());
   }
-  size_t flat_extent() const {
+  size_type flat_extent() const {
     index_t e = flat_max() - flat_min() + 1;
-    return e < 0 ? 0 : static_cast<size_t>(e);
+    return e < 0 ? 0 : static_cast<size_type>(e);
   }
 
   /** Compute the total number of items in the shape. */
-  size_t size() const {
+  size_type size() const {
     index_t s = internal::product(extent(), std::make_index_sequence<rank()>());
-    return s < 0 ? 0 : static_cast<size_t>(s);
+    return s < 0 ? 0 : static_cast<size_type>(s);
   }
 
   /** A shape is empty if its size is 0. */
@@ -1731,7 +1733,7 @@ class array {
 
   Alloc alloc_;
   pointer buffer_;
-  size_t buffer_size_;
+  size_type buffer_size_;
   pointer base_;
   Shape shape_;
 
@@ -1739,7 +1741,7 @@ class array {
   void allocate() {
     assert(!buffer_);
     shape_.resolve();
-    size_t flat_extent = shape_.flat_extent();
+    size_type flat_extent = shape_.flat_extent();
     if (flat_extent > 0) {
       buffer_size_ = flat_extent;
       buffer_ = alloc_traits::allocate(alloc_, buffer_size_);
