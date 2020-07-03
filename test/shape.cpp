@@ -173,32 +173,30 @@ void test_auto_strides() {
   test_one_dense_stride<rank>();
 }
 
+template <size_t Rank>
+void check_resolved_strides(const shape_of_rank<Rank>& shape, const std::vector<index_t>& strides) {
+  for (size_t i = 0; i < strides.size(); i++) {
+    ASSERT_EQ(shape.dim(i).stride(), strides[i]);
+  }
+}
+
 TEST(auto_strides) {
-  shape<dim<>> s1({3, 5, UNK});
-  shape<dim<>> s1_resolved({3, 5, 1});
-  ASSERT_EQ(s1, s1_resolved);
+  check_resolved_strides<1>({{3, 5, UNK}}, {1});
+  check_resolved_strides<2>({5, 10}, {1, 5});
 
-  shape<dim<>, dim<>> s2(5, 10);
-  shape<dim<>, dim<>> s2_resolved({0, 5, 1}, {0, 10, 5});
-  ASSERT_EQ(s2, s2_resolved);
-
+  // Small interleaved.
   // TODO: This test would be nice to enable, but the automatic strides are too clever.
   // x is given a stride of 1, which is safe and correct, but annoying.
-  //shape<dim<>, dim<>, dim<>> s_small_interleaved(1, 1, {0, 2, 1});
-  //shape<dim<>, dim<>, dim<>> s_small_interleaved_resolved({0, 1, 2}, {0, 1, 2}, {0, 2, 1});
-  //ASSERT_EQ(s_small_interleaved, s_small_interleaved_resolved);
+  //check_resolved_strides<3>({1, 1, {0, 2, 1}}, {2, 2, 1});
 
-  shape<dim<>, dim<>, dim<>> s_interleaved_with_row_stride(5, {0, 4, 20}, {0, 3, 1});
-  shape<dim<>, dim<>, dim<>> s_interleaved_with_row_stride_resolved({0, 5, 3}, {0, 4, 20}, {0, 3, 1});
-  ASSERT_EQ(s_interleaved_with_row_stride, s_interleaved_with_row_stride_resolved);
+  // Interleaved with row stride.
+  check_resolved_strides<3>({5, {0, 4, 20}, {0, 3, 1}}, {3, 20, 1});
 
-  shape<dim<>, dim<>, dim<>> s_interleaved_with_row_stride_dense(5, {0, 4, 15}, {0, 3, 1});
-  shape<dim<>, dim<>, dim<>> s_interleaved_with_row_stride_dense_resolved({0, 5, 3}, {0, 4, 15}, {0, 3, 1});
-  ASSERT_EQ(s_interleaved_with_row_stride_dense, s_interleaved_with_row_stride_dense_resolved);
+  // Interleaved with row stride dense.
+  check_resolved_strides<3>({5, {0, 4, 15}, {0, 3, 1}}, {3, 15, 1});
 
-  shape<dim<>, dim<>, dim<>> s_interleaved_with_row_stride_oops(5, {0, 4, 14}, {0, 3, 1});
-  shape<dim<>, dim<>, dim<>> s_interleaved_with_row_stride_oops_resolved({0, 5, 56}, {0, 4, 14}, {0, 3, 1});
-  ASSERT_EQ(s_interleaved_with_row_stride_oops, s_interleaved_with_row_stride_oops_resolved);
+  // Interleaved with row stride oops.
+  check_resolved_strides<3>({5, {0, 4, 14}, {0, 3, 1}}, {56, 14, 1});
 
   test_auto_strides<1>();
   test_auto_strides<2>();
