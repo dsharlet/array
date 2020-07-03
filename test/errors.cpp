@@ -20,7 +20,7 @@
 
 namespace nda {
 
-shape<dim<>, dim<>> s;
+shape_of_rank<2> s;
 dense_array_ref<int, 2> ref;
 dense_array<int, 3> a;
 
@@ -66,6 +66,26 @@ void array_at_too_few_indices() {
 
 void copy_different_rank() {
   copy(a, ref);
+}
+
+void make_copy_different_rank() {
+  auto a2 = make_copy(a, shape_of_rank<2>());
+}
+
+void make_copy_ref_different_rank() {
+  auto a2 = make_copy(ref, shape_of_rank<3>());
+}
+
+void move_different_rank() {
+  move(a, ref);
+}
+
+void make_move_different_rank() {
+  auto a2 = make_move(a, shape_of_rank<2>());
+}
+
+void make_move_ref_different_rank() {
+  auto a2 = make_move(ref, shape_of_rank<3>());
 }
 
 }  // namespace nda
