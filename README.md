@@ -120,7 +120,7 @@ A common case is to make the innermost dimension have stride 1:
   for (auto x : my_dense_array.x()) {
     // The compiler knows that each loop iteration accesses
     // elements that are contiguous in memory for contiguous x.
-    my_dense_array(x, 1, 2) = 0;
+    my_dense_array(x, y, z) = 0;
   }
 ```
 
@@ -195,7 +195,7 @@ This allows easy tiling of algorithms:
       auto tile = my_array(xo, yo, _);
       for (auto x : tile.x()) {
         // The compiler knows this loop has a fixed extent x_split_factor!
-        tile(x, 0, 0) = x;
+        tile(x, y, z) = x;
       }
     }
   }

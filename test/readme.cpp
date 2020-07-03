@@ -85,6 +85,9 @@ TEST(readme) {
   // 0, 1, 1
   // 1, 1, 1
 
+  index_t y = 0;
+  index_t z = 0;
+
   // Define a compile-time dense 3 dimensional shape.
   using my_dense_3d_shape_type = shape<
       dim</*Min=*/UNK, /*Extent=*/UNK, /*Stride=*/1>,
@@ -94,7 +97,7 @@ TEST(readme) {
   for (auto x : my_dense_array.x()) {
     // The compiler knows that each loop iteration accesses
     // elements that are contiguous in memory for contiguous x.
-    my_dense_array(x, 1, 2) = 0;
+    my_dense_array(x, y, z) = 0;
   }
 
   // Define a matrix type with row, column indices.
@@ -129,7 +132,7 @@ TEST(readme) {
       auto tile = my_array(xo, yo, _);
       for (auto x : tile.x()) {
         // The compiler knows this loop has a fixed extent x_split_factor!
-        tile(x, 0, 0) = x;
+        tile(x, y, z) = x;
       }
     }
   }
