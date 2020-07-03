@@ -1563,7 +1563,7 @@ class array_ref {
    * the shape `shape`. */
   array_ref(pointer base = nullptr, const Shape& shape = Shape())
       : base_(base), shape_(shape) {
-    assert(shape_.is_known());
+    shape_.resolve_unknowns();
   }
   /** The copy constructor of a ref is a shallow copy. */
   array_ref(const array_ref& other) = default;
@@ -2071,7 +2071,7 @@ class array {
 
   /** Reallocate the array, and move the intersection of the old and new shapes
    * to the new array. */
-  void reshape(Shape new_shape) {
+  void reshape(const Shape& new_shape) {
     // Allocate an array with the new shape.
     array<T, Shape, Alloc> new_array(new_shape);
 
