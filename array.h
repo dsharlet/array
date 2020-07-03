@@ -451,40 +451,34 @@ using broadcast_dim = dim<Min, Extent, 0>;
 namespace internal {
 
 // Some variadic reduction helpers.
-NDARRAY_INLINE index_t sum() { return 0; }
-NDARRAY_INLINE index_t product() { return 1; }
-NDARRAY_INLINE index_t variadic_min() { return std::numeric_limits<index_t>::max(); }
-NDARRAY_INLINE index_t variadic_max() { return std::numeric_limits<index_t>::min(); }
+constexpr NDARRAY_INLINE index_t sum() { return 0; }
+constexpr NDARRAY_INLINE index_t product() { return 1; }
+constexpr NDARRAY_INLINE index_t variadic_min() { return std::numeric_limits<index_t>::max(); }
 
 template <typename... Rest>
-NDARRAY_INLINE index_t sum(index_t first, Rest... rest) {
+constexpr NDARRAY_INLINE index_t sum(index_t first, Rest... rest) {
   return first + sum(rest...);
 }
 
 template <typename... Rest>
-NDARRAY_INLINE index_t product(index_t first, Rest... rest) {
+constexpr NDARRAY_INLINE index_t product(index_t first, Rest... rest) {
   return first * product(rest...);
 }
 
 template <typename... Rest>
-NDARRAY_INLINE index_t variadic_min(index_t first, Rest... rest) {
-  return std::min(first, variadic_min(rest...));
-}
-
-template <typename... Rest>
-NDARRAY_INLINE index_t variadic_max(index_t first, Rest... rest) {
-  return std::max(first, variadic_max(rest...));
+constexpr NDARRAY_INLINE index_t variadic_min(index_t first, Rest... rest) {
+  return min(first, variadic_min(rest...));
 }
 
 // Computes the product of the extents of the dims.
 template <typename... Ts, size_t... Is>
-index_t product(const std::tuple<Ts...>& t, std::index_sequence<Is...>) {
+constexpr index_t product(const std::tuple<Ts...>& t, std::index_sequence<Is...>) {
   return product(std::get<Is>(t)...);
 }
 
 // Returns true if all of bools are true.
 template <typename... Bools>
-bool all(Bools... bools) {
+constexpr bool all(Bools... bools) {
   return sum((bools ? 0 : 1)...) == 0;
 }
 
@@ -820,6 +814,12 @@ class shape {
   typedef typename internal::tuple_of_n<index_t, rank()>::type index_type;
 
  private:
+  // TODO: This should use std::is_constructible<std::tuple<Dims...>, std::tuple<OtherDims...>>
+  // but it is broken on some compilers.
+  template <typename... OtherDims>
+  using enable_if_dims_compatible =
+      typename std::enable_if<sizeof...(OtherDims) == rank()>::type;
+
   template <typename... Args>
   using enable_if_same_rank =
       typename std::enable_if<sizeof...(Args) == rank()>::type;
@@ -849,16 +849,16 @@ class shape {
   /** Construct a shape from a tuple of `dims` of another type. */
   // We cannot have an std::tuple<Dims...> constructor because it will be
   // ambiguous with the Dims... constructor for 1D shapes.
-  template <typename... OtherDims, typename = enable_if_same_rank<OtherDims...>>
+  template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
   shape(const std::tuple<OtherDims...>& dims)
       : dims_(dims) { resolve_unknowns(); }
   /** Construct a shape from a different type of `dims`. */
-  template <typename... OtherDims, typename = enable_if_same_rank<OtherDims...>>
+  template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
   shape(OtherDims... dims) : dims_(dims...) { resolve_unknowns(); }
 
   /** Construct this shape from a different type of shape. `conversion` must
    * be convertible to this shape. */
-  template <typename... OtherDims, typename = enable_if_same_rank<OtherDims...>>
+  template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
   shape(const shape<OtherDims...>& conversion)
     : dims_(conversion.dims()) {}
 
@@ -867,7 +867,7 @@ class shape {
 
   /** Assign this shape from a different type of shape. `conversion` must be
    * convertible to this shape. */
-  template <typename... OtherDims, typename = enable_if_same_rank<OtherDims...>>
+  template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
   shape& operator=(const shape<OtherDims...>& conversion) {
     dims_ = conversion.dims();
     return *this;
@@ -1027,9 +1027,9 @@ class shape {
 
   /** A shape is equal to another shape if the dim objects of
    * each dimension from both shapes are equal. */
-  template <typename... OtherDims, typename = enable_if_same_rank<OtherDims...>>
+  template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
   bool operator==(const shape<OtherDims...>& other) const { return dims_ == other.dims(); }
-  template <typename... OtherDims, typename = enable_if_same_rank<OtherDims...>>
+  template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
   bool operator!=(const shape<OtherDims...>& other) const { return dims_ != other.dims(); }
 };
 
