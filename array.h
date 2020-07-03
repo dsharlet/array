@@ -214,6 +214,10 @@ class range {
 
   /** Returns true if `at` is within the range [`min()`, `max()`]. */
   NDARRAY_INLINE bool is_in_range(index_t at) const { return min() <= at && at <= max(); }
+  template <index_t OtherMin, index_t OtherExtent>
+  NDARRAY_INLINE bool is_in_range(const range<OtherMin, OtherExtent>& at) const {
+    return min() <= at.min() && at.max() <= max();
+  }
 
   /** Make an iterator referring to the first element in this range. */
   index_iterator begin() const { return index_iterator(min()); }
@@ -573,23 +577,28 @@ bool is_in_range(const Dims& dims, const Indices& indices) {
 
 // We want to be able to call mins on a mixed tuple of int/index_t, range, and dim.
 template <typename Dim>
-inline index_t min_of_range(index_t x, const Dim&) {
-  return x;
+inline range<UNK, 1> to_range(index_t x, const Dim&) {
+  return range<UNK, 1>(x, 1);
 }
 
 template <index_t Min, index_t Extent, typename Dim>
-index_t min_of_range(const range<Min, Extent>& x, const Dim&) {
-  return x.min();
+range<Min, Extent> to_range(const range<Min, Extent>& x, const Dim&) {
+  return x;
 }
 
-template <typename Dim>
-index_t min_of_range(const decltype(_)&, const Dim& dim) {
-  return dim.min();
+template <index_t Min, index_t Extent, index_t Stride>
+range<Min, Extent> to_range(const decltype(_)&, const dim<Min, Extent, Stride>& dim) {
+  return dim;
 }
 
 template <typename Ranges, typename Dims, size_t... Is>
 auto mins_of_ranges(const Ranges& ranges, const Dims& dims, std::index_sequence<Is...>) {
-  return std::make_tuple(min_of_range(std::get<Is>(ranges), std::get<Is>(dims))...);
+  return std::make_tuple(to_range(std::get<Is>(ranges), std::get<Is>(dims)).min()...);
+}
+
+template <typename Ranges, typename Dims, size_t... Is>
+auto maxs_of_ranges(const Ranges& ranges, const Dims& dims, std::index_sequence<Is...>) {
+  return std::make_tuple(to_range(std::get<Is>(ranges), std::get<Is>(dims)).max()...);
 }
 
 template <typename... Dims, size_t... Is>
@@ -889,11 +898,16 @@ class shape {
   bool is_in_range(const index_type& indices) const {
     return internal::is_in_range(dims_, indices);
   }
+  // This supports both indices and ranges. It appears not to be possible
+  // to have two overloads differentiated by enable_if_indices and
+  // enable_if_ranges.
   template <typename... Args,
-      typename = enable_if_same_rank<Args...>,
-      typename = enable_if_indices<Args...>>
-  bool is_in_range(Args... indices) const {
-    return is_in_range(std::make_tuple(indices...));
+      typename = enable_if_same_rank<Args...>>
+  bool is_in_range(Args... ranges) const {
+    auto range = std::make_tuple(ranges...);
+    auto mins = internal::mins_of_ranges(range, dims(), std::make_index_sequence<rank()>());
+    auto maxs = internal::maxs_of_ranges(range, dims(), std::make_index_sequence<rank()>());
+    return is_in_range(mins) && is_in_range(maxs);
   }
 
   /** Compute the flat offset of the index `indices`. */

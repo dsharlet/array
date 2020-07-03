@@ -321,6 +321,10 @@ TEST(dim_is_in_range) {
   }
   ASSERT(!x.is_in_range(1));
   ASSERT(!x.is_in_range(8));
+
+  ASSERT(x.is_in_range(x));
+  ASSERT(!x.is_in_range(range<>(1, 2)));
+  ASSERT(!x.is_in_range(range<>(8, 2)));
 }
 
 TEST(shape_is_in_range_1d) {
@@ -332,6 +336,10 @@ TEST(shape_is_in_range_1d) {
   }
   ASSERT(!s.is_in_range(1));
   ASSERT(!s.is_in_range(8));
+
+  ASSERT(s.is_in_range(x));
+  ASSERT(!s.is_in_range(range<>(0, 2)));
+  ASSERT(!s.is_in_range(range<>(8, 12)));
 }
 
 TEST(shape_is_in_range_2d) {
@@ -349,6 +357,10 @@ TEST(shape_is_in_range_2d) {
 
   ASSERT(!s.is_in_range(8, 0));
   ASSERT(!s.is_in_range(2, 4));
+
+  ASSERT(s.is_in_range(x, y));
+  ASSERT(!s.is_in_range(1, y));
+  ASSERT(!s.is_in_range(x, -4));
 }
 
 TEST(shape_conversion) {
