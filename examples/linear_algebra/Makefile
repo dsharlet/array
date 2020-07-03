@@ -4,14 +4,15 @@ LDFLAGS := $(LDFLAGS)
 
 ARRAY_DEPS = ../../array.h ../../image.h ../benchmark.h
 
-bin/matrix: matrix.cpp $(ARRAY_DEPS)
+bin/%: %.cpp $(ARRAY_DEPS)
 	mkdir -p $(@D)
-	$(CXX) -I../../ -I../ -o $@ matrix.cpp $(CFLAGS) $(CXXFLAGS) -lstdc++ -lm
+	$(CXX) -I../../ -I../ -o $@ $< $(CFLAGS) $(CXXFLAGS) -lstdc++ -lm
 
 .PHONY: all clean test
 
 clean:
 	rm -rf obj/* bin/*
 
-test: bin/matrix
+test: bin/matrix bin/conv
 	bin/matrix
+	bin/conv
