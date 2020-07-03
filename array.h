@@ -1233,7 +1233,7 @@ using dense_shape = decltype(internal::make_default_dense_shape<Rank>());
 // around doesn't work without forcing the caller to specify ShapeSrc when it
 // should be inferred.
 template <typename ShapeDst, typename ShapeSrc>
-bool is_convertible(const ShapeSrc& src) {
+bool is_compatible(const ShapeSrc& src) {
   static_assert(ShapeSrc::rank() == ShapeDst::rank(), "shapes must have the same rank.");
   return internal::is_shape_compatible(ShapeDst(), src, std::make_index_sequence<ShapeSrc::rank()>());
 }
