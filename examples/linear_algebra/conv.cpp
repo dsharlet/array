@@ -58,10 +58,6 @@ void conv(const Input& input, const Filter& filter, const Output& output) {
           output(co, x, y, n) = 0;
         }
       }
-    }
-  }
-  for (index_t n : output.dim<3>()) {
-    for (index_t y : output.dim<2>()) {
       for (index_t ci : filter.dim<3>()) {
         for (index_t dy : filter.dim<2>()) {
           for (index_t dx : filter.dim<1>()) {
