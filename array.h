@@ -19,7 +19,6 @@
 #ifndef NDARRAY_ARRAY_H
 #define NDARRAY_ARRAY_H
 
-#include <algorithm>
 #include <array>
 #include <cassert>
 #include <functional>
@@ -1215,6 +1214,20 @@ inline dim<> fuse(const dim<>& inner, const dim<>& outer) {
       inner.stride());
 }
 
+// We need a sort that only needs to deal with very small lists,
+// and extra complexity here is costly in code size/compile time.
+// This is a rare job for bubble sort!
+template <class Iterator, class Compare>
+void sort(Iterator begin, Iterator end, Compare&& comp) {
+  for (Iterator i = begin; i != end; ++i) {
+    for (Iterator j = i; j != end; ++j) {
+      if (comp(*j, *i)) {
+        std::swap(*i, *j);
+      }
+    }
+  }
+}
+
 // Sort the dims such that strides are increasing from dim 0, and contiguous
 // dimensions are fused.
 template <class Shape>
@@ -1222,7 +1235,7 @@ shape_of_rank<Shape::rank()> dynamic_optimize_shape(const Shape& shape) {
   auto dims = internal::tuple_to_array<dim<>>(shape.dims());
 
   // Sort the dims by stride.
-  std::sort(dims.begin(), dims.end(), [](const dim<>& l, const dim<>& r) {
+  sort(dims.begin(), dims.end(), [](const dim<>& l, const dim<>& r) {
     return l.stride() < r.stride();
   });
 
@@ -1269,7 +1282,7 @@ auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDst& dst) {
   }
 
   // Sort the dims by the dst stride.
-  std::sort(dims.begin(), dims.end(), [](const copy_dims& l, const copy_dims& r) {
+  sort(dims.begin(), dims.end(), [](const copy_dims& l, const copy_dims& r) {
     return l.dst.stride() < r.dst.stride();
   });
 
