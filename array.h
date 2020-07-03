@@ -208,6 +208,9 @@ class range {
   }
   /** Index of the last element in this range. */
   NDARRAY_INLINE index_t max() const { return min() + extent() - 1; }
+  NDARRAY_INLINE void set_max(index_t max) {
+    set_extent(max - min() + 1);
+  }
 
   /** Returns true if `at` is within the range [`min()`, `max()`]. */
   NDARRAY_INLINE bool is_in_range(index_t at) const { return min() <= at && at <= max(); }
@@ -398,6 +401,9 @@ class dim : public range<Min_, Extent_> {
     return *this;
   }
 
+  using base_range::set_min;
+  using base_range::set_extent;
+  using base_range::set_max;
   using base_range::min;
   using base_range::max;
   using base_range::extent;
@@ -749,17 +755,6 @@ struct tuple_of_n<T, 0> {
   using type = std::tuple<>;
 };
 
-template <typename... New, typename... Old, size_t... Is>
-std::tuple<New...> convert_tuple(const std::tuple<Old...>& in, std::index_sequence<Is...>) {
-  return std::tuple<New...>(std::get<Is>(in)...);
-}
-
-template <typename... New, typename... Old>
-std::tuple<New...> convert_tuple(const std::tuple<Old...>& in) {
-  static_assert(sizeof...(New) == sizeof...(Old), "tuple conversion of differently sized tuples");
-  return convert_tuple<New...>(in, std::make_index_sequence<sizeof...(Old)>());
-}
-
 // https://github.com/halide/Halide/blob/fc8cfb078bed19389f72883a65d56d979d18aebe/src/runtime/HalideBuffer.h#L43-L63
 // A helper to check if a parameter pack is entirely implicitly int-convertible
 // to use with std::enable_if
@@ -856,7 +851,7 @@ class shape {
   // ambiguous with the Dims... constructor for 1D shapes.
   template <typename... OtherDims, typename = enable_if_same_rank<OtherDims...>>
   shape(const std::tuple<OtherDims...>& dims)
-      : dims_(internal::convert_tuple<Dims...>(dims)) { resolve_unknowns(); }
+      : dims_(dims) { resolve_unknowns(); }
   /** Construct a shape from a different type of `dims`. */
   template <typename... OtherDims, typename = enable_if_same_rank<OtherDims...>>
   shape(OtherDims... dims) : dims_(dims...) { resolve_unknowns(); }
@@ -865,7 +860,7 @@ class shape {
    * be convertible to this shape. */
   template <typename... OtherDims, typename = enable_if_same_rank<OtherDims...>>
   shape(const shape<OtherDims...>& conversion)
-    : dims_(internal::convert_tuple<Dims...>(conversion.dims())) {}
+    : dims_(conversion.dims()) {}
 
   shape& operator=(const shape&) = default;
   shape& operator=(shape&&) = default;
@@ -874,7 +869,7 @@ class shape {
    * convertible to this shape. */
   template <typename... OtherDims, typename = enable_if_same_rank<OtherDims...>>
   shape& operator=(const shape<OtherDims...>& conversion) {
-    dims_ = internal::convert_tuple<Dims...>(conversion.dims());
+    dims_ = conversion.dims();
     return *this;
   }
 
