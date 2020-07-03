@@ -143,12 +143,33 @@ TEST(array_ref_conversion) {
   ASSERT_EQ(overload_shape_const(dense_null_ref), dense);
 }
 
+template <index_t Expected, index_t Min, index_t Extent, index_t Stride>
+void assert_static_min_eq(const dim<Min, Extent, Stride>& dim) {
+  static_assert(Expected == Min, "");
+  ASSERT_EQ(dim.min(), Expected);
+}
+
+template <index_t Expected, index_t Min, index_t Extent, index_t Stride>
+void assert_static_extent_eq(const dim<Min, Extent, Stride>& dim) {
+  static_assert(Expected == Extent, "");
+  ASSERT_EQ(dim.extent(), Expected);
+}
+
+template <index_t Expected, index_t Min, index_t Extent, index_t Stride>
+void assert_static_stride_eq(const dim<Min, Extent, Stride>& dim) {
+  static_assert(Expected == Stride, "");
+  ASSERT_EQ(dim.stride(), Expected);
+}
+
 TEST(array_ref_crop) {
-  dense_array<int, 2> a({8, 9});
+  array<int, shape<dim<0, UNK, 1>, dim<>>> a({8, 9});
   fill_pattern(a);
 
   auto a_crop1_slice2 = a(range<4, 3>(), 5);
   ASSERT_EQ(a_crop1_slice2.rank(), 1);
+  assert_static_min_eq<4>(a_crop1_slice2.x());
+  assert_static_extent_eq<3>(a_crop1_slice2.x());
+  assert_static_stride_eq<1>(a_crop1_slice2.x());
   ASSERT_EQ(a_crop1_slice2.x().min(), 4);
   ASSERT_EQ(a_crop1_slice2.x().extent(), 3);
   // TODO: This doesn't pass because check_pattern doesn't understand
@@ -159,14 +180,20 @@ TEST(array_ref_crop) {
   ASSERT_EQ(a_crop1_crop2.rank(), 2);
   ASSERT_EQ(a_crop1_crop2.x().min(), 2);
   ASSERT_EQ(a_crop1_crop2.x().extent(), 6);
+  assert_static_min_eq<3>(a_crop1_crop2.y());
+  assert_static_extent_eq<4>(a_crop1_crop2.y());
   ASSERT_EQ(a_crop1_crop2.y().min(), 3);
   ASSERT_EQ(a_crop1_crop2.y().extent(), 4);
   check_pattern(a_crop1_crop2);
 
   auto a_all1_crop2 = a(_, range<3, 4>());
   ASSERT_EQ(a_all1_crop2.rank(), 2);
+  assert_static_min_eq<0>(a_all1_crop2.x());
+  assert_static_stride_eq<1>(a_all1_crop2.x());
   ASSERT_EQ(a_all1_crop2.x().min(), 0);
   ASSERT_EQ(a_all1_crop2.x().extent(), 8);
+  assert_static_min_eq<3>(a_all1_crop2.y());
+  assert_static_extent_eq<4>(a_all1_crop2.y());
   ASSERT_EQ(a_all1_crop2.y().min(), 3);
   ASSERT_EQ(a_all1_crop2.y().extent(), 4);
   check_pattern(a_all1_crop2);
