@@ -2147,16 +2147,14 @@ void copy(const array<TSrc, ShapeSrc, AllocSrc>& src, array<TDst, ShapeDst, Allo
 /** Make a copy of the `src` array or array_ref with a new shape `shape`. */
 template <typename T, typename ShapeSrc, typename ShapeDst,
   typename Alloc = std::allocator<typename std::remove_const<T>::type>>
-auto make_copy(const array_ref<T, ShapeSrc>& src, const ShapeDst& shape,
-               const Alloc& alloc = Alloc()) {
+auto make_copy(const array_ref<T, ShapeSrc>& src, const ShapeDst& shape, const Alloc& alloc = Alloc()) {
   array<typename std::remove_const<T>::type, ShapeDst, Alloc> dst(shape, alloc);
   copy(src, dst);
   return dst;
 }
 template <typename T, typename ShapeSrc, typename ShapeDst, typename AllocSrc,
   typename AllocDst = AllocSrc>
-auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const ShapeDst& shape,
-               const AllocDst& alloc = AllocDst()) {
+auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const ShapeDst& shape, const AllocDst& alloc = AllocDst()) {
   return make_copy(src.cref(), shape, alloc);
 }
 
@@ -2164,13 +2162,11 @@ auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const ShapeDst& shape,
  * rank as `src`. */
 template <typename T, typename ShapeSrc,
   typename Alloc = std::allocator<typename std::remove_const<T>::type>>
-auto make_dense_copy(const array_ref<T, ShapeSrc>& src,
-                     const Alloc& alloc = Alloc()) {
+auto make_dense_copy(const array_ref<T, ShapeSrc>& src, const Alloc& alloc = Alloc()) {
   return make_copy(src, make_dense(src.shape()), alloc);
 }
 template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDst = AllocSrc>
-auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src,
-                     const AllocDst& alloc = AllocDst()) {
+auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src, const AllocDst& alloc = AllocDst()) {
   return make_dense_copy(src.cref(), alloc);
 }
 
@@ -2178,13 +2174,11 @@ auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src,
  * shape. */
 template <typename T, typename Shape,
   typename Alloc = std::allocator<typename std::remove_const<T>::type>>
-auto make_compact_copy(const array_ref<T, Shape>& src,
-                       const Alloc& alloc = Alloc()) {
+auto make_compact_copy(const array_ref<T, Shape>& src, const Alloc& alloc = Alloc()) {
   return make_copy(src, make_compact(src.shape()), alloc);
 }
 template <typename T, typename Shape, typename AllocSrc, typename AllocDst = AllocSrc>
-auto make_compact_copy(const array<T, Shape, AllocSrc>& src,
-                       const AllocDst& alloc = AllocDst()) {
+auto make_compact_copy(const array<T, Shape, AllocSrc>& src, const AllocDst& alloc = AllocDst()) {
   return make_compact_copy(src.cref(), alloc);
 }
 
@@ -2222,6 +2216,8 @@ template <typename TSrc, typename TDst, typename ShapeSrc, typename ShapeDst, ty
 void move(array<TSrc, ShapeSrc, AllocSrc>& src, array<TDst, ShapeDst, AllocDst>& dst) {
   move(src.ref(), dst.ref());
 }
+template <typename T, typename Shape, typename Alloc>
+void move(array<T, Shape, Alloc>&& src, array<T, Shape, Alloc>& dst) { dst = std::move(src); }
 
 /** Make a copy of the `src` array or array_ref with a new shape `shape`. The
  * elements of `src` are moved to the result. */
@@ -2232,28 +2228,32 @@ auto make_move(const array_ref<T, ShapeSrc>& src, const ShapeDst& shape,
   move(src, dst);
   return dst;
 }
-// TODO: Should this taken an rvalue reference for src, and should it move the
-// whole array if the shapes are equal?
-// (https://github.com/dsharlet/array/issues/8)
-template <typename T, typename ShapeSrc, typename ShapeDst, typename AllocSrc,
-  typename AllocDst = AllocSrc>
-auto make_move(array<T, ShapeSrc, AllocSrc>& src, const ShapeDst& shape,
-               const AllocDst& alloc = AllocDst()) {
+template <typename T, typename ShapeSrc, typename ShapeDst, typename AllocSrc, typename AllocDst = AllocSrc>
+auto make_move(array<T, ShapeSrc, AllocSrc>& src, const ShapeDst& shape, const AllocDst& alloc = AllocDst()) {
   return make_move(src.ref(), shape, alloc);
+}
+template <typename T, typename Shape, typename Alloc>
+auto make_move(array<T, Shape, Alloc>&& src, const Shape& shape, const Alloc& alloc = Alloc()) {
+  if (src.shape() == shape && alloc == src.get_allocator()) {
+    return src;
+  } else {
+    return make_move(src.ref(), shape, alloc);
+  }
 }
 
 /** Make a copy of the `src` array or array_ref with a dense shape of the same
  * rank as `src`. The elements of `src` are moved to the result. */
-template <typename T, typename ShapeSrc, typename Alloc = std::allocator<T>>
-auto make_dense_move(const array_ref<T, ShapeSrc>& src, const Alloc& alloc = Alloc()) {
+template <typename T, typename Shape, typename Alloc = std::allocator<T>>
+auto make_dense_move(const array_ref<T, Shape>& src, const Alloc& alloc = Alloc()) {
   return make_move(src, make_dense(src.shape()), alloc);
 }
-// TODO: Should this taken an rvalue reference for src, and should it move the
-// whole array if the shapes are equal?
-// (https://github.com/dsharlet/array/issues/8)
-template <typename T, typename ShapeSrc, typename AllocSrc, typename AllocDst = AllocSrc>
-auto make_dense_move(array<T, ShapeSrc, AllocSrc>& src, const AllocDst& alloc = AllocDst()) {
+template <typename T, typename Shape, typename AllocSrc, typename AllocDst = AllocSrc>
+auto make_dense_move(array<T, Shape, AllocSrc>& src, const AllocDst& alloc = AllocDst()) {
   return make_dense_move(src.ref(), alloc);
+}
+template <typename T, typename Shape, typename Alloc>
+auto make_dense_move(array<T, Shape, Alloc>&& src, const Alloc& alloc = Alloc()) {
+  return make_move(src, make_dense(src.shape()), alloc);
 }
 
 /** Make a copy of the `src` array or array_ref with a compact version of `src`s
@@ -2262,12 +2262,13 @@ template <typename T, typename Shape, typename Alloc = std::allocator<T>>
 auto make_compact_move(const array_ref<T, Shape>& src, const Alloc& alloc = Alloc()) {
   return make_move(src, make_compact(src.shape()), alloc);
 }
-// TODO: Should this taken an rvalue reference for src, and should it move the
-// whole array if the shapes are equal?
-// (https://github.com/dsharlet/array/issues/8)
 template <typename T, typename Shape, typename AllocSrc, typename AllocDst = AllocSrc>
 auto make_compact_move(array<T, Shape, AllocSrc>& src, const AllocDst& alloc = AllocDst()) {
   return make_compact_move(src.ref(), alloc);
+}
+template <typename T, typename Shape, typename Alloc>
+auto make_compact_move(array<T, Shape, Alloc>&& src, const Alloc& alloc = Alloc()) {
+  return make_move(src, make_compact(src.shape()), alloc);
 }
 
 /** Convert the shape of the array or array_ref `a` to be a new shape
