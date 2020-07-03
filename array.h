@@ -1234,6 +1234,9 @@ using dense_shape = decltype(internal::make_default_dense_shape<Rank>());
 
 /** Test if a shape `src` can be assigned to a shape of type `ShapeDst` without
  * error. */
+// Unfortunately, this is backwards from std::is_convertible. But the other way
+// around doesn't work without forcing the caller to specify ShapeSrc when it
+// should be inferred.
 template <typename ShapeDst, typename ShapeSrc>
 bool is_convertible(const ShapeSrc& src) {
   static_assert(ShapeSrc::rank() == ShapeDst::rank(), "shapes must have the same rank.");
@@ -1563,13 +1566,17 @@ class array_ref {
  public:
   /** Make an array_ref to the given `base` pointer, interpreting it as having
    * the shape `shape`. */
-  explicit array_ref(pointer base = nullptr, const Shape& shape = Shape())
+  array_ref(pointer base = nullptr, const Shape& shape = Shape())
       : base_(base), shape_(shape) {
     assert(shape_.is_known());
   }
   /** The copy constructor of a ref is a shallow copy. */
   array_ref(const array_ref& other) = default;
   array_ref(array_ref&& other) = default;
+
+  /** Assigning an array_ref is a shallow assignment. */
+  array_ref& operator=(const array_ref& other) = default;
+  array_ref& operator=(array_ref&& other) = default;
 
   /** Conversions from other types of arrays or array_ref. */
   template <typename U, typename OtherShape,
@@ -1587,10 +1594,6 @@ class array_ref {
       typename = enable_if_shape_compatible<OtherShape>>
   array_ref(const array<U, OtherShape, Alloc>& other)
       : array_ref(other.base(), other.shape()) {}
-
-  /** Assigning an array_ref is a shallow assignment. */
-  array_ref& operator=(const array_ref& other) = default;
-  array_ref& operator=(array_ref&& other) = default;
 
   /** Conversions from other types of arrays or array_ref. */
   template <typename U, typename OtherShape,
@@ -2380,6 +2383,21 @@ auto make_compact_move(const array_ref<T, Shape>& src, const Alloc& alloc = Allo
 template <typename T, typename Shape, typename AllocSrc, typename AllocDst = AllocSrc>
 auto make_compact_move(array<T, Shape, AllocSrc>& src, const AllocDst& alloc = AllocDst()) {
   return make_compact_move(src.ref(), alloc);
+}
+
+/** Convert the shape of the array or array_ref `a` to be a new shape
+ * `new_shape`. */
+template <typename NewShape, typename T, typename OldShape>
+array_ref<T, NewShape> convert_shape(const array_ref<T, OldShape>& a) {
+  return array_ref<T, NewShape>(a.base(), a.shape());
+}
+template <typename NewShape, typename T, typename OldShape, typename Allocator>
+array_ref<T, NewShape> convert_shape(array<T, OldShape, Allocator>& a) {
+  return convert_shape<NewShape>(a.ref());
+}
+template <typename NewShape, typename T, typename OldShape, typename Allocator>
+array_ref<const T, NewShape> convert_shape(const array<T, OldShape, Allocator>& a) {
+  return convert_shape<NewShape>(a.cref());
 }
 
 /** Reinterpret the array or array_ref `a` of type `T` to have a different type

@@ -80,28 +80,53 @@ TEST(array_ref_empty) {
   ASSERT(null_ref.empty());
 }
 
-void f_dense(const dense_array_ref<int, 3>& r) {}
-void f_const_dense(const dense_array_ref<const int, 3>& r) {}
+template <typename Shape>
+void template_shape(const array_ref<int, Shape>&) {}
+template <typename Shape>
+void template_shape_const(const array_ref<const int, Shape>&) {}
+
+void non_template(const array_ref_of_rank<int, 3>&) {}
+void non_template_const(const array_ref_of_rank<const int, 3>&) {}
+
+void non_template_dense(const dense_array_ref<int, 3>&) {}
 
 TEST(array_ref_conversion) {
-  // The correctness of shape conversion is already tested elsewhere, we just
-  // want to make sure this compiles here.
   array_ref_of_rank<int, 3> null_ref(nullptr, {10, 20, 30});
+  array_of_rank<int, 3> non_ref({5, 10, 20});
+  dense_array<int, 3> dense_non_ref({5, 10, 20});
+  const array_of_rank<int, 3>& const_non_ref = non_ref;
+
+  // array -> ref
+  array_ref_of_rank<int, 3> ref(non_ref);
+  array_ref_of_rank<const int, 3> const_ref(const_non_ref);
+  ref = non_ref;
+  const_ref = non_ref;
+  const_ref = const_non_ref;
+
+  // non-const -> const
+  array_ref_of_rank<const int, 3> const_null_ref(null_ref);
+  array_ref_of_rank<const int, 3> const_ref2(non_ref);
+  const_null_ref = null_ref;
+  const_ref = non_ref;
+  non_template_const(null_ref);
+  non_template_const(non_ref);
+
+  // arbitrary -> dense
   dense_array_ref<int, 3> dense_null_ref(null_ref);
+  dense_null_ref = null_ref;
+  non_template_dense(null_ref);
+  non_template_dense(non_ref);
+
+  // dense -> general
+  array_ref_of_rank<int, 3> null_ref2(dense_null_ref);
   null_ref = dense_null_ref;
-  array_ref_of_rank<const int, 3> const_null_ref(dense_null_ref);
+  non_template(dense_null_ref);
+  non_template(dense_non_ref);
 
-  // Test conversion from array_ref<T*> to array_ref<const T*>.
-  f_dense(null_ref);
-  f_const_dense(null_ref);
-  f_const_dense(const_null_ref);
-
-  array_of_rank<int, 3> a({5, 10, 20});
-  f_dense(a);
-  f_const_dense(a);
-
-  const array_of_rank<int, 3>& ar = a;
-  f_const_dense(ar);
+  // nullptr -> ref
+  non_template(nullptr);
+  non_template_const(nullptr);
+  non_template_dense(nullptr);
 }
 
 TEST(array_ref_crop) {
