@@ -841,8 +841,8 @@ class shape {
    * innermost-to-outermost order. */
   // TODO: Don't resolve unknowns upon shape construction, do it only when
   // constructing arrays (and not array_refs).
-  shape() { resolve_unknowns(); }
-  shape(const Dims&... dims) : dims_(dims...) { resolve_unknowns(); }
+  shape() { resolve(); }
+  shape(const Dims&... dims) : dims_(dims...) { resolve(); }
   shape(const shape&) = default;
   shape(shape&&) = default;
 
@@ -851,16 +851,16 @@ class shape {
   // ambiguous with the Dims... constructor for 1D shapes.
   template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
   shape(const std::tuple<OtherDims...>& dims)
-      : dims_(dims) { resolve_unknowns(); }
+      : dims_(dims) { resolve(); }
   /** Construct a shape from a different type of `dims`. */
   template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
-  shape(OtherDims... dims) : dims_(dims...) { resolve_unknowns(); }
+  shape(OtherDims... dims) : dims_(dims...) { resolve(); }
 
   /** Construct this shape from a different type of shape. `conversion` must
    * be convertible to this shape. */
   template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
   shape(const shape<OtherDims...>& conversion)
-    : dims_(conversion.dims()) {}
+    : dims_(conversion.dims()) { resolve(); }
 
   shape& operator=(const shape&) = default;
   shape& operator=(shape&&) = default;
@@ -876,7 +876,7 @@ class shape {
   /* When constructing arrays, unknown extents are set to 0, and unknown
    * strides are set to the currently largest known stride. This is done in
    * innermost-to-outermost order. */
-  void resolve_unknowns() {
+  void resolve() {
     internal::resolve_unknowns(dims_);
   }
 
@@ -1045,7 +1045,7 @@ class shape<> {
 
   typedef std::tuple<> index_type;
 
-  void resolve_unknowns() {}
+  void resolve() {}
 
   bool is_in_range(const std::tuple<>&) const { return true; }
   bool is_in_range() const { return true; }
@@ -1212,7 +1212,7 @@ auto make_dense(const shape<Dims...>& shape) {
 template <typename Shape>
 Shape make_compact(const Shape& s) {
   Shape without_strides = internal::without_strides(s, std::make_index_sequence<Shape::rank()>());
-  without_strides.resolve_unknowns();
+  without_strides.resolve();
   return without_strides;
 }
 
@@ -1563,7 +1563,7 @@ class array_ref {
    * the shape `shape`. */
   array_ref(pointer base = nullptr, const Shape& shape = Shape())
       : base_(base), shape_(shape) {
-    shape_.resolve_unknowns();
+    shape_.resolve();
   }
   /** The copy constructor of a ref is a shallow copy. */
   array_ref(const array_ref& other) = default;
@@ -1763,7 +1763,7 @@ class array {
   // After allocate the array is allocated but uninitialized.
   void allocate() {
     assert(!buffer_);
-    shape_.resolve_unknowns();
+    shape_.resolve();
     size_t flat_extent = shape_.flat_extent();
     if (flat_extent > 0) {
       buffer_size_ = flat_extent;
@@ -1983,7 +1983,7 @@ class array {
   /** Assign the contents of this array to have `shape` with each element copy
    * constructed from `value`. */
   void assign(Shape shape, const T& value) {
-    shape.resolve_unknowns();
+    shape.resolve();
     if (shape_ == shape) {
       destroy();
     } else {
