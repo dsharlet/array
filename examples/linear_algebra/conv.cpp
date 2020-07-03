@@ -20,14 +20,6 @@
 
 using namespace nda;
 
-// Define a fully compile-time constant shape.
-template <index_t X, index_t Y, index_t Z, index_t W>
-using tensor_shape = shape<
-    dense_dim<0, X>,
-    dim<0, Y, X>,
-    dim<0, Z, X * Y>,
-    dim<0, W, X * Y * Z>>;
-
 template <typename Input, typename Filter, typename Output>
 void conv_naive(const Input& input, const Filter& filter, const Output& output) {
   for (index_t n : output.dim<3>()) {
@@ -138,6 +130,13 @@ void conv_tiled(const Input& input, const Filter& filter, const Output& output) 
   }
 }
 
+// Define a fully compile-time constant shape.
+template <index_t X, index_t Y, index_t Z, index_t W>
+using tensor_shape = shape<
+    dense_dim<0, X>,
+    dim<0, Y, X>,
+    dim<0, Z, X * Y>,
+    dim<0, W, X * Y * Z>>;
 
 int main(int, const char**) {
   constexpr int N = 5;
