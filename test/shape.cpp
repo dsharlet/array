@@ -15,6 +15,7 @@
 #include "array.h"
 #include "test.h"
 
+#include <algorithm>
 #include <vector>
 
 namespace nda {
