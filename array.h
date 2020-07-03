@@ -74,13 +74,10 @@ constexpr index_t UNK = -9;
 
 namespace internal {
 
-NDARRAY_INLINE constexpr index_t is_known(index_t x) {
-  return x != UNK;
-}
+NDARRAY_INLINE constexpr index_t abs(index_t a) { return a >= 0 ? a : -a; }
 
-NDARRAY_INLINE constexpr index_t is_unknown(index_t x) {
-  return x == UNK;
-}
+NDARRAY_INLINE constexpr index_t is_known(index_t x) { return x != UNK; }
+NDARRAY_INLINE constexpr index_t is_unknown(index_t x) { return x == UNK; }
 
 // Given a compile-time static value, reconcile a compile-time static value and
 // runtime value.
@@ -94,32 +91,14 @@ NDARRAY_INLINE constexpr index_t reconcile(index_t value) {
 }
 
 template <index_t A, index_t B>
-using enable_if_compatible =
-    typename std::enable_if<is_unknown(A) || is_unknown(B) || A == B>::type;
+using enable_if_compatible = typename std::enable_if<is_unknown(A) || is_unknown(B) || A == B>::type;
 
-inline constexpr index_t abs(index_t a) {
-  return a >= 0 ? a : -a;
-}
-
-inline constexpr index_t add(index_t a, index_t b) {
-  return is_unknown(a) || is_unknown(b) ? UNK : a + b;
-}
-
-inline constexpr index_t sub(index_t a, index_t b) {
-  return is_unknown(a) || is_unknown(b) ? UNK : a - b;
-}
-
-inline constexpr index_t mul(index_t a, index_t b) {
-  return is_unknown(a) || is_unknown(b) ? UNK : a * b;
-}
-
-inline constexpr index_t min(index_t a, index_t b) {
-  return is_unknown(a) || is_unknown(b) ? UNK : (a < b ? a : b);
-}
-
-inline constexpr index_t max(index_t a, index_t b) {
-  return is_unknown(a) || is_unknown(b) ? UNK : (a > b ? a : b);
-}
+inline constexpr bool is_unknown(index_t a, index_t b) { return is_unknown(a) || is_unknown(b); }
+inline constexpr index_t add(index_t a, index_t b) { return is_unknown(a, b) ? UNK : a + b; }
+inline constexpr index_t sub(index_t a, index_t b) { return is_unknown(a, b) ? UNK : a - b; }
+inline constexpr index_t mul(index_t a, index_t b) { return is_unknown(a, b) ? UNK : a * b; }
+inline constexpr index_t min(index_t a, index_t b) { return is_unknown(a, b) ? UNK : (a < b ? a : b); }
+inline constexpr index_t max(index_t a, index_t b) { return is_unknown(a, b) ? UNK : (a > b ? a : b); }
 
 }  // namespace internal
 
@@ -171,9 +150,7 @@ class range {
   template <index_t CopyMin, index_t CopyExtent,
       typename = internal::enable_if_compatible<Min, CopyMin>,
       typename = internal::enable_if_compatible<Extent, CopyExtent>>
-  range(const range<CopyMin, CopyExtent>& other)
-      : range(other.min(), other.extent()) {
-  }
+  range(const range<CopyMin, CopyExtent>& other) : range(other.min(), other.extent()) {}
 
   range& operator=(const range&) = default;
   range& operator=(range&&) = default;
@@ -208,9 +185,7 @@ class range {
   }
   /** Index of the last element in this range. */
   NDARRAY_INLINE index_t max() const { return min() + extent() - 1; }
-  NDARRAY_INLINE void set_max(index_t max) {
-    set_extent(max - min() + 1);
-  }
+  NDARRAY_INLINE void set_max(index_t max) { set_extent(max - min() + 1); }
 
   /** Returns true if `at` is within the range [`min()`, `max()`]. */
   NDARRAY_INLINE bool is_in_range(index_t at) const { return min() <= at && at <= max(); }
@@ -240,13 +215,9 @@ class range {
 const range<0, -1> _;
 
 template <index_t Min, index_t Extent>
-index_iterator begin(const range<Min, Extent>& d) {
-  return d.begin();
-}
+index_iterator begin(const range<Min, Extent>& d) { return d.begin(); }
 template <index_t Min, index_t Extent>
-index_iterator end(const range<Min, Extent>& d) {
-  return d.end();
-}
+index_iterator end(const range<Min, Extent>& d) { return d.end(); }
 
 /** Clamp an index to the range [min, max]. */
 inline index_t clamp(index_t x, index_t min, index_t max) {
@@ -455,22 +426,22 @@ using broadcast_dim = dim<Min, Extent, 0>;
 namespace internal {
 
 // Some variadic reduction helpers.
-constexpr NDARRAY_INLINE index_t sum() { return 0; }
-constexpr NDARRAY_INLINE index_t product() { return 1; }
-constexpr NDARRAY_INLINE index_t variadic_min() { return std::numeric_limits<index_t>::max(); }
+NDARRAY_INLINE constexpr index_t sum() { return 0; }
+NDARRAY_INLINE constexpr index_t product() { return 1; }
+NDARRAY_INLINE constexpr index_t variadic_min() { return std::numeric_limits<index_t>::max(); }
 
 template <typename... Rest>
-constexpr NDARRAY_INLINE index_t sum(index_t first, Rest... rest) {
+NDARRAY_INLINE constexpr index_t sum(index_t first, Rest... rest) {
   return first + sum(rest...);
 }
 
 template <typename... Rest>
-constexpr NDARRAY_INLINE index_t product(index_t first, Rest... rest) {
+NDARRAY_INLINE constexpr index_t product(index_t first, Rest... rest) {
   return first * product(rest...);
 }
 
 template <typename... Rest>
-constexpr NDARRAY_INLINE index_t variadic_min(index_t first, Rest... rest) {
+NDARRAY_INLINE constexpr index_t variadic_min(index_t first, Rest... rest) {
   return min(first, variadic_min(rest...));
 }
 
@@ -864,8 +835,7 @@ class shape {
   // We cannot have an std::tuple<Dims...> constructor because it will be
   // ambiguous with the Dims... constructor for 1D shapes.
   template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
-  shape(const std::tuple<OtherDims...>& dims)
-      : dims_(dims) { resolve(); }
+  shape(const std::tuple<OtherDims...>& dims) : dims_(dims) { resolve(); }
   /** Construct a shape from a different type of `dims`. */
   template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
   shape(OtherDims... dims) : dims_(dims...) { resolve(); }
@@ -873,8 +843,7 @@ class shape {
   /** Construct this shape from a different type of shape. `conversion` must
    * be convertible to this shape. */
   template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
-  shape(const shape<OtherDims...>& conversion)
-    : dims_(conversion.dims()) { resolve(); }
+  shape(const shape<OtherDims...>& conversion) : dims_(conversion.dims()) { resolve(); }
 
   shape& operator=(const shape&) = default;
   shape& operator=(shape&&) = default;
@@ -890,24 +859,17 @@ class shape {
   /* When constructing arrays, unknown extents are set to 0, and unknown
    * strides are set to the currently largest known stride. This is done in
    * innermost-to-outermost order. */
-  void resolve() {
-    internal::resolve_unknowns(dims_);
-  }
+  void resolve() { internal::resolve_unknowns(dims_); }
 
   /** Check if all values of the shape are known. */
-  bool is_known() const {
-    return internal::all_known(dims_);
-  }
+  bool is_known() const { return internal::all_known(dims_); }
 
   /** Returns true if the index `indices` are in range of this shape. */
-  bool is_in_range(const index_type& indices) const {
-    return internal::is_in_range(dims_, indices);
-  }
+  bool is_in_range(const index_type& indices) const { return internal::is_in_range(dims_, indices); }
   // This supports both indices and ranges. It appears not to be possible
   // to have two overloads differentiated by enable_if_indices and
   // enable_if_ranges.
-  template <typename... Args,
-      typename = enable_if_same_rank<Args...>>
+  template <typename... Args, typename = enable_if_same_rank<Args...>>
   bool is_in_range(Args... ranges) const {
     auto range = std::make_tuple(ranges...);
     auto mins = internal::mins_of_ranges(range, dims(), std::make_index_sequence<rank()>());
@@ -955,27 +917,15 @@ class shape {
 
   /** Get an index pointing to the min or max index in each dimension of this
    * shape. */
-  index_type min() const {
-    return internal::mins(dims(), std::make_index_sequence<rank()>());
-  }
-  index_type max() const {
-    return internal::maxs(dims(), std::make_index_sequence<rank()>());
-  }
-  index_type extent() const {
-    return internal::extents(dims(), std::make_index_sequence<rank()>());
-  }
-  index_type stride() const {
-    return internal::strides(dims(), std::make_index_sequence<rank()>());
-  }
+  index_type min() const { return internal::mins(dims(), std::make_index_sequence<rank()>()); }
+  index_type max() const { return internal::maxs(dims(), std::make_index_sequence<rank()>()); }
+  index_type extent() const { return internal::extents(dims(), std::make_index_sequence<rank()>()); }
+  index_type stride() const { return internal::strides(dims(), std::make_index_sequence<rank()>()); }
 
   /** Compute the flat extent of this shape. This is the extent of the valid
    * range of values returned by at or operator(). */
-  index_t flat_min() const {
-    return internal::flat_min(dims_, std::make_index_sequence<rank()>());
-  }
-  index_t flat_max() const {
-    return internal::flat_max(dims_, std::make_index_sequence<rank()>());
-  }
+  index_t flat_min() const { return internal::flat_min(dims_, std::make_index_sequence<rank()>()); }
+  index_t flat_max() const { return internal::flat_max(dims_, std::make_index_sequence<rank()>()); }
   size_type flat_extent() const {
     index_t e = flat_max() - flat_min() + 1;
     return e < 0 ? 0 : static_cast<size_type>(e);
@@ -1480,8 +1430,8 @@ class array;
 
 /** Make a new array with shape `shape`, allocated using `alloc`. */
 template <typename T, typename Shape>
-auto make_array_ref(T* base, const Shape& shape) {
-  return array_ref<T, Shape>(base, shape);
+array_ref<T, Shape> make_array_ref(T* base, const Shape& shape) {
+  return {base, shape};
 }
 
 /** A reference to an array is an object with a shape mapping indices to flat
@@ -1655,16 +1605,10 @@ class array_ref {
     });
     return result;
   }
-  bool operator==(const array_ref& other) const {
-    return !operator!=(other);
-  }
+  bool operator==(const array_ref& other) const { return !operator!=(other); }
 
-  const array_ref<T, Shape>& ref() const {
-    return *this;
-  }
-  const array_ref<const T, Shape> cref() const {
-    return array_ref<const T, Shape>(base_, shape_);
-  }
+  const array_ref<T, Shape>& ref() const { return *this; }
+  const array_ref<const T, Shape> cref() const { return array_ref<const T, Shape>(base_, shape_); }
 
   /** Allow conversion from array_ref<T> to array_ref<const T>. */
   operator array_ref<const T, Shape>() const { return cref(); }
