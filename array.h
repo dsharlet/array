@@ -851,6 +851,9 @@ class shape {
   // TODO: Don't resolve unknowns upon shape construction, do it only when
   // constructing arrays (and not array_refs).
   shape() { resolve(); }
+  // TODO: This is a bit messy, but necessary to avoid ambiguous default
+  // constructors when Dims is empty.
+  template <size_t N = sizeof...(Dims), typename = typename std::enable_if<(N > 0)>::type>
   shape(const Dims&... dims) : dims_(dims...) { resolve(); }
   shape(const shape&) = default;
   shape(shape&&) = default;
@@ -1045,48 +1048,6 @@ class shape {
   bool operator==(const shape<OtherDims...>& other) const { return dims_ == other.dims(); }
   template <typename... OtherDims, typename = enable_if_dims_compatible<OtherDims...>>
   bool operator!=(const shape<OtherDims...>& other) const { return dims_ != other.dims(); }
-};
-
-// TODO: Try to avoid needing this specialization
-// (https://github.com/dsharlet/array/issues/3).
-template <>
-class shape<> {
- public:
-  shape() {}
-
-  static constexpr size_t rank() { return 0; }
-  static constexpr bool is_scalar() { return true; }
-
-  typedef std::tuple<> index_type;
-
-  void resolve() {}
-
-  bool is_in_range(const std::tuple<>&) const { return true; }
-  bool is_in_range() const { return true; }
-
-  index_t operator() (const std::tuple<>&) const { return 0; }
-  index_t operator[] (const std::tuple<>&) const { return 0; }
-  index_t operator() () const { return 0; }
-
-  nda::dim<> dim(size_t) const { return nda::dim<>(); }
-  std::tuple<> dims() const { return std::tuple<>(); }
-
-  index_type min() const { return std::tuple<>(); }
-  index_type max() const { return std::tuple<>(); }
-  index_type extent() const { return std::tuple<>(); }
-
-  index_t flat_min() const { return 0; }
-  index_t flat_max() const { return 0; }
-  size_t flat_extent() const { return 1; }
-  size_t size() const { return 1; }
-  bool empty() const { return false; }
-
-  bool is_subset_of(const shape<>&) const { return true; }
-  bool is_one_to_one() const { return true; }
-  bool is_compact() const { return true; }
-
-  bool operator==(const shape<>&) const { return true; }
-  bool operator!=(const shape<>&) const { return false; }
 };
 
 /** Create a new shape using a list of DimIndices to use as the dimensions of
