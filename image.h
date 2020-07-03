@@ -173,7 +173,7 @@ array_ref<T, Shape> crop(array<T, Shape>& im,
  * ref. */
 template <typename T, typename Shape>
 auto slice_channel(const array_ref<T, Shape>& im, index_t channel) {
-  return im(_, _, channel);
+  return im(im.x(), im.y(), channel);
 }
 template <typename T, typename Shape>
 auto slice_channel(const array<T, Shape>& im, index_t channel) {

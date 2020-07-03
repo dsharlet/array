@@ -63,11 +63,13 @@ void test_slice(index_t channels) {
 
   for (index_t c = 0; c < channels; c++) {
     auto slice = slice_channel(base, c);
+    ASSERT_EQ(slice.shape().size(), base.width() * base.height());
     for_all_indices(slice.shape(), [&](int x, int y) {
       ASSERT_EQ(slice(x, y), pattern<int>(std::make_tuple(x, y, c)));
     });
 
     auto crop_slice = slice_channel(crop(base, 5, 3, 80, 70, crop_origin::crop), c);
+    ASSERT_EQ(crop_slice.shape().size(), (80 - 5) * (70 - 3));
     for_all_indices(crop_slice.shape(), [&](int x, int y) {
       ASSERT_EQ(crop_slice(x, y), pattern<int>(std::make_tuple(x, y, c)));
     });
