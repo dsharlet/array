@@ -217,8 +217,8 @@ nda::dim<Min, Extent> without_stride(const nda::dim<Min, Extent, Stride>& d) {
  * Input coordinates (x, y) map to output coordinates (x * rate_x, y * rate_y). */
 template <typename TIn, typename TOut, typename ShapeIn, typename ShapeOut>
 void resample(const nda::array_ref<TIn, ShapeIn>& in, const nda::array_ref<TOut, ShapeOut>& out,
-            const rational<nda::index_t>& rate_x, const rational<nda::index_t>& rate_y,
-            continuous_kernel kernel) {
+              const rational<nda::index_t>& rate_x, const rational<nda::index_t>& rate_y,
+              continuous_kernel kernel) {
   // Make the kernels we need at each output x and y coordinate in the output.
   internal::kernel_array kernels_x =
       internal::build_kernels(in.x(), out.x(), rate_x, kernel);
