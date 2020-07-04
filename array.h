@@ -2294,7 +2294,7 @@ void fill(const array_ref<T, Shape>& dst, const T& value) {
 }
 template <class T, class Shape, class Alloc>
 void fill(array<T, Shape, Alloc>& dst, const T& value) {
-  dst.for_each_value([value](T& i) { i = value; });
+  fill(dst.ref(), value);
 }
 
 /** Fill `dst` array or array_ref with the result of calling a generator
@@ -2306,7 +2306,7 @@ void generate(const array_ref<T, Shape>& dst, Generator g) {
 }
 template <class T, class Shape, class Alloc, class Generator>
 void generate(array<T, Shape, Alloc>& dst, Generator g) {
-  dst.for_each_value([g](T& i) { i = g(); });
+  generate(dst.ref(), g);
 }
 
 /** Convert the shape of the array or array_ref `a` to be a new shape

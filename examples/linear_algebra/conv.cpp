@@ -97,7 +97,7 @@ void conv_tiled(const Input& input, const Filter& filter, const Output& output) 
 #elif 0
           // TODO: This is slow, probably due to potential aliasing that
           // we can't fix due to https://bugs.llvm.org/show_bug.cgi?id=45863
-          T buffer[tile_x * tile_co];
+          T buffer[tile_x * tile_co] = { 0 };
           auto accumulator = make_array_ref(buffer, make_compact(output_tile.shape()));
           conv(input, filter, accumulator);
           for (index_t x : xo) {
