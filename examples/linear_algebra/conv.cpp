@@ -43,13 +43,19 @@ void conv_naive(const Input& input, const Filter& filter, const Output& output) 
 template <typename Input, typename Filter, typename Output>
 __attribute__((always_inline))
 void conv(const Input& input, const Filter& filter, const Output& output) {
+  typedef typename Output::value_type T;
+
   for (index_t n : output.dim<3>()) {
     for (index_t y : output.dim<2>()) {
+#if 1
+      fill(output(_, _, y, n), static_cast<T>(0));
+#else
       for (index_t x : output.dim<1>()) {
         for (index_t co : output.dim<0>()) {
           output(co, x, y, n) = 0;
         }
       }
+#endif
       for (index_t ci : filter.dim<3>()) {
         for (index_t dy : filter.dim<2>()) {
           for (index_t dx : filter.dim<1>()) {
@@ -82,6 +88,7 @@ void conv_tiled(const Input& input, const Filter& filter, const Output& output) 
     for (index_t y : output.dim<2>()) {
       for (auto xo : split<tile_x>(output.dim<1>())) {
         for (auto coo : split<tile_co>(output.dim<0>())) {
+          // Don't slice the y, n dims by making them a range here.
           auto output_tile = output(coo, xo, fixed_range<1>(y), fixed_range<1>(n));
 #if 1
           // TODO: This is slow, probably due to potential aliasing that
@@ -100,13 +107,19 @@ void conv_tiled(const Input& input, const Filter& filter, const Output& output) 
           }
 #else
           // TODO: This scalarizes for some unknown reason.
-          T buffer[tile_x * tile_co];
+          T buffer[tile_x * tile_co] = { 0 };
           auto accumulator = make_array_ref(buffer, make_compact(output_tile.shape()));
+#if 1
+#if 0
+          fill(accumulator, static_cast<T>(0));
+#else
           for (index_t x : xo) {
             for (index_t co : coo) {
               accumulator(co, x, y, n) = 0;
             }
           }
+#endif
+#endif
           for (index_t ci : filter.dim<3>()) {
             for (index_t dy : filter.dim<2>()) {
               for (index_t dx : filter.dim<1>()) {
@@ -118,11 +131,15 @@ void conv_tiled(const Input& input, const Filter& filter, const Output& output) 
               }
             }
           }
+#if 0
+          copy(accumulator, output_tile);
+#else
           for (index_t x : xo) {
             for (index_t co : coo) {
               output(co, x, y, n) = accumulator(co, x, y, n);
             }
           }
+#endif
 #endif
         }
       }
@@ -153,8 +170,8 @@ int main(int, const char**) {
   // matrices with random values.
   std::mt19937_64 rng;
   std::uniform_real_distribution<float> uniform(0, 1);
-  input.for_each_value([&](float& x) { x = uniform(rng); });
-  filter.for_each_value([&](float& x) { x = uniform(rng); });
+  generate(input, [&]() { return uniform(rng); });
+  generate(filter, [&]() { return uniform(rng); });
 
   auto naive_output = make_array<float>(tensor_shape<CO, W, H, N>());
   double naive_time = benchmark([&]() {

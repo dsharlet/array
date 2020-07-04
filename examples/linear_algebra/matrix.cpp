@@ -131,8 +131,8 @@ void multiply_reduce_tiles(
 
   // We want the tiles to be as big as possible without spilling any
   // of the accumulator registers to the stack.
-  constexpr index_t tile_rows = 3;
-  constexpr index_t tile_cols = vector_size * 4;
+  constexpr index_t tile_rows = 4;
+  constexpr index_t tile_cols = vector_size * 3;
 
   for (auto io : split<tile_rows>(c.i())) {
     for (auto jo : split<tile_cols>(c.j())) {
@@ -145,11 +145,15 @@ void multiply_reduce_tiles(
 #elif 0
       // TODO: This should work, but it's slow, probably due to potential
       // aliasing that we can't fix due to https://bugs.llvm.org/show_bug.cgi?id=45863
+#if 0
+      fill(c_tile, static_cast<TC>(0));
+#else
       for (index_t i : c_tile.i()) {
         for (index_t j : c_tile.j()) {
           c_tile(i, j) = 0;
         }
       }
+#endif
       for (index_t k : a.j()) {
         for (index_t i : c_tile.i()) {
           for (index_t j : c_tile.j()) {
@@ -158,7 +162,7 @@ void multiply_reduce_tiles(
         }
       }
 #else
-      TC buffer[tile_rows * tile_cols] = { 0.0f };
+      TC buffer[tile_rows * tile_cols] = { 0 };
       auto accumulator = make_array_ref(buffer, make_compact(c_tile.shape()));
       for (index_t k : a.j()) {
         for (index_t i : c_tile.i()) {
@@ -190,7 +194,7 @@ float relative_error(float a, float b) {
 
 int main(int, const char**) {
   // Define two input matrices.
-  constexpr index_t M = 24;
+  constexpr index_t M = 32;
   constexpr index_t K = 10000;
   constexpr index_t N = 64;
   matrix<float> a({M, K});
@@ -201,8 +205,8 @@ int main(int, const char**) {
   // matrices with random values.
   std::mt19937_64 rng;
   std::uniform_real_distribution<float> uniform(0, 1);
-  a.for_each_value([&](float& x) { x = uniform(rng); });
-  b.for_each_value([&](float& x) { x = uniform(rng); });
+  generate(a, [&]() { return uniform(rng); });
+  generate(b, [&]() { return uniform(rng); });
 
   // Compute the result using all matrix multiply methods.
   matrix<float> c_reduce_cols({M, N});

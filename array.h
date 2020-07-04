@@ -2154,7 +2154,8 @@ void copy(const array<TSrc, ShapeSrc, AllocSrc>& src, array<TDst, ShapeDst, Allo
 }
 
 /** Make a copy of the `src` array or array_ref with a new shape `shape`. */
-template <class T, class ShapeSrc, class ShapeDst,
+template <
+    class T, class ShapeSrc, class ShapeDst,
     class Alloc = std::allocator<typename std::remove_const<T>::type>,
     class = internal::enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
 auto make_copy(
@@ -2173,8 +2174,8 @@ auto make_copy(
 
 /** Make a copy of the `src` array or array_ref with a dense shape of the same
  * rank as `src`. */
-template <class T, class ShapeSrc,
-    class Alloc = std::allocator<typename std::remove_const<T>::type>>
+template <
+    class T, class ShapeSrc, class Alloc = std::allocator<typename std::remove_const<T>::type>>
 auto make_dense_copy(const array_ref<T, ShapeSrc>& src, const Alloc& alloc = Alloc()) {
   return make_copy(src, make_dense(src.shape()), alloc);
 }
@@ -2284,6 +2285,28 @@ auto make_compact_move(array<T, Shape, AllocSrc>& src, const AllocDst& alloc = A
 template <class T, class Shape, class Alloc>
 auto make_compact_move(array<T, Shape, Alloc>&& src, const Alloc& alloc = Alloc()) {
   return make_move(src, make_compact(src.shape()), alloc);
+}
+
+/** Fill `dst` array or array_ref by copy-assigning `value`. */
+template <class T, class Shape>
+void fill(const array_ref<T, Shape>& dst, const T& value) {
+  dst.for_each_value([value](T& i) { i = value; });
+}
+template <class T, class Shape, class Alloc>
+void fill(array<T, Shape, Alloc>& dst, const T& value) {
+  dst.for_each_value([value](T& i) { i = value; });
+}
+
+/** Fill `dst` array or array_ref with the result of calling a generator
+ * `g`. The order in which `g` is called is the same as
+ * `shape_traits<Shape>::for_each_value`. */
+template <class T, class Shape, class Generator>
+void generate(const array_ref<T, Shape>& dst, Generator g) {
+  dst.for_each_value([g](T& i) { i = g(); });
+}
+template <class T, class Shape, class Alloc, class Generator>
+void generate(array<T, Shape, Alloc>& dst, Generator g) {
+  dst.for_each_value([g](T& i) { i = g(); });
 }
 
 /** Convert the shape of the array or array_ref `a` to be a new shape
