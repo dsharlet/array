@@ -2160,7 +2160,7 @@ template <
     class = internal::enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
 auto make_copy(
     const array_ref<T, ShapeSrc>& src, const ShapeDst& shape, const Alloc& alloc = Alloc()) {
-  array<typename std::remove_const<T>::type, ShapeDst, Alloc> dst(shape, alloc);
+  array<typename std::allocator_traits<Alloc>::value_type, ShapeDst, Alloc> dst(shape, alloc);
   copy(src, dst);
   return dst;
 }
@@ -2238,7 +2238,7 @@ template <class T, class ShapeSrc, class ShapeDst, class Alloc = std::allocator<
     class = internal::enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
 auto make_move(const array_ref<T, ShapeSrc>& src, const ShapeDst& shape,
                const Alloc& alloc = Alloc()) {
-  array<T, ShapeDst, Alloc> dst(shape, alloc);
+  array<typename std::allocator_traits<Alloc>::value_type, ShapeDst, Alloc> dst(shape, alloc);
   move(src, dst);
   return dst;
 }

@@ -56,10 +56,9 @@ chunky_image_ref<const Magick::Quantum, 4> cref(const Magick::Image& img) {
 
 template <typename T>
 planar_image<T> magick_to_array(const Magick::Image& img) {
-  auto pixels = cref(img);
-  planar_image<T> result({pixels.width(), pixels.height(), pixels.channels()});
-  copy(pixels, result);
-  return result;
+  // We can tell make_dense_copy the value_type of the array we want by giving
+  // it an allocator for that type.
+  return make_dense_copy(cref(img), std::allocator<T>());
 }
 
 template <typename T, typename Shape>
