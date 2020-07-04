@@ -134,7 +134,7 @@ class range {
   static constexpr index_t Extent = Extent_;
   static constexpr index_t Max = internal::sub(internal::add(Min, Extent), 1);
 
-  range() : range(Min_, Extent_) {}
+  range() : range(Min, Extent) {}
   /** Construct a new range object. If the class template parameters `Min`
    * or `Extent` are not `UNK`, these runtime values must match the
    * compile-time values. */
@@ -346,7 +346,8 @@ class dim : public range<Min_, Extent_> {
   dim(index_t min, index_t extent, index_t stride = Stride) : base_range(min, extent) {
     set_stride(stride);
   }
-  dim(index_t extent = Extent) : dim(0, extent) {}
+  dim(index_t extent) : dim(0, extent) {}
+  dim() : dim(Min, Extent, Stride) {}
   dim(const base_range& range, index_t stride = Stride)
       : dim(range.min(), range.extent(), stride) {}
   dim(const dim&) = default;

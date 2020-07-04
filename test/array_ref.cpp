@@ -143,59 +143,54 @@ TEST(array_ref_conversion) {
   ASSERT_EQ(overload_shape_const(dense_null_ref), dense);
 }
 
-template <index_t Expected, index_t Min, index_t Extent, index_t Stride>
-void assert_static_min_eq(const dim<Min, Extent, Stride>& dim) {
-  static_assert(Expected == Min, "");
-  ASSERT_EQ(dim.min(), Expected);
+template <
+    index_t MinA, index_t ExtentA, index_t StrideA,
+    index_t MinB, index_t ExtentB, index_t StrideB>
+void assert_dim_eq(const dim<MinA, ExtentA, StrideA>& a, const dim<MinB, ExtentB, StrideB>& b) {
+  static_assert(MinA == MinB, "");
+  static_assert(ExtentA == ExtentB, "");
+  static_assert(StrideA == StrideB, "");
+  ASSERT_EQ(a.min(), b.min());
+  ASSERT_EQ(a.extent(), b.extent());
+  ASSERT_EQ(a.stride(), b.stride());
 }
 
-template <index_t Expected, index_t Min, index_t Extent, index_t Stride>
-void assert_static_extent_eq(const dim<Min, Extent, Stride>& dim) {
-  static_assert(Expected == Extent, "");
-  ASSERT_EQ(dim.extent(), Expected);
-}
-
-template <index_t Expected, index_t Min, index_t Extent, index_t Stride>
-void assert_static_stride_eq(const dim<Min, Extent, Stride>& dim) {
-  static_assert(Expected == Stride, "");
-  ASSERT_EQ(dim.stride(), Expected);
-}
-
-TEST(array_ref_crop) {
+TEST(array_ref_crop_slice) {
   array<int, shape<dim<0, UNK, 1>, dim<>>> a({8, 9});
   fill_pattern(a);
 
-  auto a_crop1_slice2 = a(range<4, 3>(), 5);
-  ASSERT_EQ(a_crop1_slice2.rank(), 1);
-  assert_static_min_eq<4>(a_crop1_slice2.x());
-  assert_static_extent_eq<3>(a_crop1_slice2.x());
-  assert_static_stride_eq<1>(a_crop1_slice2.x());
-  ASSERT_EQ(a_crop1_slice2.x().min(), 4);
-  ASSERT_EQ(a_crop1_slice2.x().extent(), 3);
+  auto a_slice1 = a(3, _);
+  static_assert(a_slice1.rank() == 1, "");
+  assert_dim_eq(a_slice1.x(), a.y());
   // TODO: This doesn't pass because check_pattern doesn't understand
   // that there is a second dimension to the pattern.
+  //check_pattern(a_slice1);
+
+  auto a_slice2 = a(_, 2);
+  static_assert(a_slice2.rank() == 1, "");
+  assert_dim_eq(a_slice2.x(), a.x());
+  //check_pattern(a_slice2);
+
+  auto a_crop1_slice2 = a(range<4, 3>(), 5);
+  static_assert(a_crop1_slice2.rank() == 1, "");
+  assert_dim_eq(a_crop1_slice2.x(), dense_dim<4, 3>());
   //check_pattern(a_crop1_slice2);
 
-  auto a_crop1_crop2 = a(range<>{2, 6}, range<3, 4>());
-  ASSERT_EQ(a_crop1_crop2.rank(), 2);
-  ASSERT_EQ(a_crop1_crop2.x().min(), 2);
-  ASSERT_EQ(a_crop1_crop2.x().extent(), 6);
-  assert_static_min_eq<3>(a_crop1_crop2.y());
-  assert_static_extent_eq<4>(a_crop1_crop2.y());
-  ASSERT_EQ(a_crop1_crop2.y().min(), 3);
-  ASSERT_EQ(a_crop1_crop2.y().extent(), 4);
+  auto a_slice1_crop2 = a(6, range<4, 3>());
+  static_assert(a_slice1_crop2.rank() == 1, "");
+  assert_dim_eq(a_slice1_crop2.x(), dim<4, 3>(4, 3, a.y().stride()));
+  //check_pattern(a_slice1_crop2);
+
+  auto a_crop1_crop2 = a(range<>(2, 6), range<3, 4>());
+  static_assert(a_crop1_crop2.rank() == 2, "");
+  assert_dim_eq(a_crop1_crop2.x(), dense_dim<>(2, 6));
+  assert_dim_eq(a_crop1_crop2.y(), dim<3, 4>(3, 4, a.y().stride()));
   check_pattern(a_crop1_crop2);
 
   auto a_all1_crop2 = a(_, range<3, 4>());
-  ASSERT_EQ(a_all1_crop2.rank(), 2);
-  assert_static_min_eq<0>(a_all1_crop2.x());
-  assert_static_stride_eq<1>(a_all1_crop2.x());
-  ASSERT_EQ(a_all1_crop2.x().min(), 0);
-  ASSERT_EQ(a_all1_crop2.x().extent(), 8);
-  assert_static_min_eq<3>(a_all1_crop2.y());
-  assert_static_extent_eq<4>(a_all1_crop2.y());
-  ASSERT_EQ(a_all1_crop2.y().min(), 3);
-  ASSERT_EQ(a_all1_crop2.y().extent(), 4);
+  static_assert(a_all1_crop2.rank() == 2, "");
+  assert_dim_eq(a_all1_crop2.x(), a.x());
+  assert_dim_eq(a_all1_crop2.y(), dim<3, 4>(3, 4, a.y().stride()));
   check_pattern(a_all1_crop2);
 }
 
