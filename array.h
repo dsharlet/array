@@ -134,15 +134,13 @@ class range {
   static constexpr index_t Extent = Extent_;
   static constexpr index_t Max = internal::sub(internal::add(Min, Extent), 1);
 
-  range() : range(Min, Extent) {}
   /** Construct a new range object. If the class template parameters `Min`
    * or `Extent` are not `UNK`, these runtime values must match the
    * compile-time values. */
-  range(index_t min, index_t extent) {
+  range(index_t min = Min, index_t extent = Extent) {
     set_min(min);
     set_extent(extent);
   }
-  range(index_t min) : range(min, Extent_) {}
   range(const range&) = default;
   range(range&&) = default;
   /** Copy another range object, possibly with different compile-time template
@@ -211,9 +209,19 @@ class range {
   }
 };
 
+/** Specialization of `range` where the min is unknown. */
+template <index_t Extent>
+using fixed_range = range<UNK, Extent>;
+
+/** Make a range from a half-open interval [`begin`, `end`). */
+inline range<> interval(index_t begin, index_t end) {
+  return range<>(begin, end - begin);
+}
+
 /** A `range` that means the entire dimension. */
 const range<0, -1> _;
 
+/** Overloads of `std::begin` and `std::end` */
 template <index_t Min, index_t Extent>
 index_iterator begin(const range<Min, Extent>& d) { return d.begin(); }
 template <index_t Min, index_t Extent>
@@ -235,17 +243,17 @@ namespace internal {
 // An iterator for a range of ranges.
 template <index_t InnerExtent = UNK>
 class split_iterator {
-  range<UNK, InnerExtent> i;
+  fixed_range<InnerExtent> i;
   index_t outer_max;
 
  public:
-  split_iterator(const range<UNK, InnerExtent>& i, index_t outer_max)
+  split_iterator(const fixed_range<InnerExtent>& i, index_t outer_max)
       : i(i), outer_max(outer_max) {}
 
   bool operator==(const split_iterator& r) const { return i.min() == r.i.min(); }
   bool operator!=(const split_iterator& r) const { return i.min() != r.i.min(); }
 
-  range<UNK, InnerExtent> operator *() const { return i; }
+  fixed_range<InnerExtent> operator *() const { return i; }
 
   split_iterator& operator++() {
     if (is_known(InnerExtent)) {
@@ -301,8 +309,8 @@ template <index_t InnerExtent, index_t Min, index_t Extent>
 internal::split_iterator_range<InnerExtent> split(const range<Min, Extent>& r) {
   assert(r.extent() >= InnerExtent);
   return {
-      {range<UNK, InnerExtent>(r.min(), InnerExtent), r.max()},
-      {range<UNK, InnerExtent>(r.max() + 1, InnerExtent), r.max()}};
+      {fixed_range<InnerExtent>(r.min()), r.max()},
+      {fixed_range<InnerExtent>(r.max() + 1), r.max()}};
 }
 
 /** Split a range `r` into an iterable range of ranges by `inner_extent`. If
@@ -409,17 +417,21 @@ class dim : public range<Min_, Extent_> {
   }
 };
 
-/** A specialization of `dim` where the compile-time stride parameter is known
+/** Specialization of `dim` where the min is not specified at compile time. */
+template <index_t Extent, index_t Stride = UNK>
+using fixed_dim = dim<UNK, Extent, Stride>;
+
+/** Specialization of `dim` where the compile-time stride parameter is known
  * to be one. */
 template <index_t Min = UNK, index_t Extent = UNK>
 using dense_dim = dim<Min, Extent, 1>;
 
-/** A specialization of `dim` where only the stride parameter is specified at
+/** Specialization of `dim` where only the stride parameter is specified at
  * compile time. */
 template <index_t Stride>
 using strided_dim = dim<UNK, UNK, Stride>;
 
-/** A specialization of `dim` where the compile-time stride parameter is known
+/** Specialization of `dim` where the compile-time stride parameter is known
  * to be zero. */
 template <index_t Min = UNK, index_t Extent = UNK>
 using broadcast_dim = dim<Min, Extent, 0>;

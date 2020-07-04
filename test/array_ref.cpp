@@ -180,6 +180,12 @@ TEST(array_ref_crop_slice) {
   assert_dim_eq(a_all1_crop2.x(), a.x());
   assert_dim_eq(a_all1_crop2.y(), dim<3, 4>(3, 4, a.y().stride()));
   check_pattern(a_all1_crop2);
+
+  auto a_intervals = a(interval(2, 6), fixed_range<5>(3));
+  static_assert(a_intervals.rank() == 2, "");
+  assert_dim_eq(a_intervals.x(), dense_dim<>(2, 4));
+  assert_dim_eq(a_intervals.y(), fixed_dim<5>(3, 5, a.y().stride()));
+  check_pattern(a_intervals);
 }
 
 }  // namespace nda

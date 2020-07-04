@@ -82,7 +82,7 @@ void conv_tiled(const Input& input, const Filter& filter, const Output& output) 
     for (index_t y : output.dim<2>()) {
       for (auto xo : split<tile_x>(output.dim<1>())) {
         for (auto coo : split<tile_co>(output.dim<0>())) {
-          auto output_tile = output(coo, xo, range<UNK, 1>(y), range<UNK, 1>(n));
+          auto output_tile = output(coo, xo, fixed_range<1>(y), fixed_range<1>(n));
 #if 1
           // TODO: This is slow, probably due to potential aliasing that
           // we can't fix due to https://bugs.llvm.org/show_bug.cgi?id=45863
