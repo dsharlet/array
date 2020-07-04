@@ -850,9 +850,9 @@ class shape {
   // to have two overloads differentiated by enable_if_indices and
   // enable_if_ranges.
   template <class... Args, class = enable_if_same_rank<Args...>>
-  bool is_in_range(Args... ranges) const {
+  bool is_in_range(Args... args) const {
     return internal::is_in_range(
-        dims_, std::make_tuple(ranges...), internal::make_index_sequence<rank()>());
+        dims_, std::make_tuple(args...), internal::make_index_sequence<rank()>());
   }
 
   /** Compute the flat offset of the index `indices`. */
@@ -869,13 +869,13 @@ class shape {
     return internal::flat_offset_pack<0>(dims_, indices...);
   }
 
-  /** Create a new shape using the specified crops and slices in `ranges`.
+  /** Create a new shape using the specified crops and slices in `args`.
    * The resulting shape will have the sliced dimensions removed. */
   template <class... Args,
       class = enable_if_same_rank<Args...>,
       class = enable_if_ranges<Args...>>
-  auto operator() (Args... ranges) const {
-    auto ranges_tuple = std::make_tuple(ranges...);
+  auto operator() (Args... args) const {
+    auto ranges_tuple = std::make_tuple(args...);
     auto new_dims =
         internal::ranges_with_strides(ranges_tuple, dims_, internal::make_index_sequence<rank()>());
     auto new_dims_no_slices =
@@ -1436,6 +1436,19 @@ array_ref<T, Shape> make_array_ref(T* base, const Shape& shape) {
   return {base, shape};
 }
 
+namespace internal {
+
+template <class T, class Shape, class... Args>
+auto make_array_ref_at(T base, const Shape& shape, Args... args) {
+  auto new_shape = shape(args...);
+  auto new_mins = mins_of_ranges(
+      std::make_tuple(args...), shape.dims(), make_index_sequence<sizeof...(Args)>());
+  auto old_min_offset = shape(new_mins);
+  return make_array_ref(internal::pointer_add(base, old_min_offset), new_shape);
+}
+
+}  // namespace internal
+
 /** A reference to an array is an object with a shape mapping indices to flat
  * offsets, which are used to dereference a pointer. This object has 'reference
  * semantics':
@@ -1512,18 +1525,13 @@ class array_ref {
       class = enable_if_indices<Args...>>
   reference operator() (Args... indices) const { return base_[shape_(indices...)]; }
 
-  /** Create an array_ref from this array_ref using a series of crops and slices `ranges`.
+  /** Create an array_ref from this array_ref using a series of crops and slices `args`.
    * The resulting array_ref will have the same rank as this array_ref. */
   template <class... Args,
       class = enable_if_same_rank<Args...>,
       class = enable_if_ranges<Args...>>
-  auto operator() (Args... ranges) const {
-    auto new_shape = shape_(ranges...);
-    auto new_mins = internal::mins_of_ranges(
-        std::make_tuple(ranges...), shape_.dims(), internal::make_index_sequence<rank()>());
-    auto old_min_offset = shape_(new_mins);
-    pointer base = internal::pointer_add(base_, old_min_offset);
-    return make_array_ref(base, new_shape);
+  auto operator() (Args... args) const {
+    return internal::make_array_ref_at(base_, shape_, args...);
   }
 
   /** Call a function with a reference to each value in this array_ref. The
@@ -1929,29 +1937,19 @@ class array {
       class = enable_if_indices<Args...>>
   const_reference operator() (Args... indices) const { return base_[shape_(indices...)]; }
 
-  /** Create an `array_ref` from this array from a series of crops and slices `ranges`.
+  /** Create an `array_ref` from this array from a series of crops and slices `args`.
    * The resulting `array_ref` will have the same rank as this array. */
   template <class... Args,
       class = enable_if_same_rank<Args...>,
       class = enable_if_ranges<Args...>>
-  auto operator() (Args... ranges) {
-    auto new_shape = shape_(ranges...);
-    auto new_mins = internal::mins_of_ranges(
-        std::make_tuple(ranges...), shape_.dims(), internal::make_index_sequence<rank()>());
-    auto old_min_offset = shape_(new_mins);
-    pointer base = internal::pointer_add(base_, old_min_offset);
-    return make_array_ref(base, new_shape);
+  auto operator() (Args... args) {
+    return internal::make_array_ref_at(base_, shape_, args...);
   }
   template <class... Args,
       class = enable_if_same_rank<Args...>,
       class = enable_if_ranges<Args...>>
-  auto operator() (Args... ranges) const {
-    auto new_shape = shape_(ranges...);
-    auto new_mins = internal::mins_of_ranges(
-        std::make_tuple(ranges...), shape_.dims(), internal::make_index_sequence<rank()>());
-    auto old_min_offset = shape_(new_mins);
-    const_pointer base = internal::pointer_add(base_, old_min_offset);
-    return make_array_ref(base, new_shape);
+  auto operator() (Args... args) const {
+    return internal::make_array_ref_at(base_, shape_, args...);
   }
 
   /** Call a function with a reference to each value in this array. The order in
