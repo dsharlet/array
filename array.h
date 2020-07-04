@@ -89,11 +89,11 @@ NDARRAY_INLINE constexpr index_t reconcile(index_t value) {
   return is_known(Value) ? Value : value;
 }
 
-template <index_t A, index_t B>
-using enable_if_compatible =
-    typename std::enable_if<is_unknown(A) || is_unknown(B) || A == B>::type;
-
 constexpr bool is_unknown(index_t a, index_t b) { return is_unknown(a) || is_unknown(b); }
+
+template <index_t A, index_t B>
+using enable_if_compatible = typename std::enable_if<is_unknown(A, B) || A == B>::type;
+
 constexpr index_t add(index_t a, index_t b) { return is_unknown(a, b) ? UNK : a + b; }
 constexpr index_t sub(index_t a, index_t b) { return is_unknown(a, b) ? UNK : a - b; }
 constexpr index_t mul(index_t a, index_t b) { return is_unknown(a, b) ? UNK : a * b; }
