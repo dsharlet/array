@@ -41,8 +41,9 @@ using matrix_ref = array_ref<T, matrix_shape<Rows, Cols>>;
 // reduction loop is innermost.
 template <typename TAB, typename TC, index_t Rows, index_t Cols>
 __attribute__((noinline))
-void multiply_reduce_cols(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-                          const matrix_ref<TC, Rows, Cols>& c) {
+void multiply_reduce_cols(
+    const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
+    const matrix_ref<TC, Rows, Cols>& c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
       c(i, j) = 0;
@@ -53,13 +54,31 @@ void multiply_reduce_cols(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
   }
 }
 
+// Similar to the above, but written in plain C. The timing of this version
+// indicates the performance overhead (if any) of the array helpers.
+template <typename TAB, typename TC>
+__attribute__((noinline))
+void multiply_reduce_cols_native(
+    const TAB* a, const TAB* b, TC* c, int M, int K, int N) {
+  for (int i = 0; i < M; i++) {
+    for (int j = 0; j < N; j++) {
+      TC sum = 0;
+      for (int k = 0; k < K; k++) {
+        sum += a[i * K + k] * b[k * N + j];
+      }
+      c[i * N + j] = sum;
+    }
+  }
+}
+
 // This implementation moves the reduction loop between the rows and columns
 // loops. This avoids the locality problem for the loads from b. This also is
 // an easier loop to vectorize (it does not vectorize a reduction variable).
 template <typename TAB, typename TC, index_t Rows, index_t Cols>
 __attribute__((noinline))
-void multiply_reduce_rows(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-                          const matrix_ref<TC, Rows, Cols>& c) {
+void multiply_reduce_rows(
+    const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
+    const matrix_ref<TC, Rows, Cols>& c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
       c(i, j) = 0;
@@ -77,8 +96,9 @@ void multiply_reduce_rows(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
 // for the tiled implementation below.
 template <typename TAB, typename TC, index_t Rows, index_t Cols>
 __attribute__((always_inline))
-void multiply_reduce_matrices(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-                              const matrix_ref<TC, Rows, Cols>& c) {
+void multiply_reduce_matrices(
+    const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
+    const matrix_ref<TC, Rows, Cols>& c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
       c(i, j) = 0;
@@ -102,8 +122,9 @@ void multiply_reduce_matrices(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b
 // of my machine.
 template <typename TAB, typename TC>
 __attribute__((noinline))
-void multiply_reduce_tiles(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-                           const matrix_ref<TC>& c) {
+void multiply_reduce_tiles(
+    const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
+    const matrix_ref<TC>& c) {
   // Adjust this depending on the target architecture. For AVX2,
   // vectors are 256-bit.
   constexpr index_t vector_size = 32 / sizeof(TC);
@@ -163,6 +184,10 @@ void multiply_reduce_tiles(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
   }
 }
 
+float relative_error(float a, float b) {
+  return std::abs(a - b) / std::max(a, b);
+}
+
 int main(int, const char**) {
   // Define two input matrices.
   constexpr index_t M = 24;
@@ -186,6 +211,12 @@ int main(int, const char**) {
   });
   std::cout << "reduce_cols time: " << reduce_cols_time * 1e3 << " ms" << std::endl;
 
+  matrix<float> c_reduce_cols_native({M, N});
+  double reduce_cols_native_time = benchmark([&]() {
+    multiply_reduce_cols_native(a.data(), b.data(), c_reduce_cols_native.data(), M, K, N);
+  });
+  std::cout << "reduce_cols_native time: " << reduce_cols_native_time * 1e3 << " ms" << std::endl;
+
   matrix<float> c_reduce_rows({M, N});
   double reduce_rows_time = benchmark([&]() {
     multiply_reduce_rows(a.ref(), b.ref(), c_reduce_rows.ref());
@@ -199,16 +230,22 @@ int main(int, const char**) {
   std::cout << "reduce_tiles time: " << reduce_tiles_time * 1e3 << " ms" << std::endl;
 
   // Verify the results from all methods are equal.
-  const float epsilon = 1e-4f;
+  const float tolerance = 1e-4f;
   for (index_t i = 0; i < M; i++) {
     for (index_t j = 0; j < N; j++) {
-      if (std::abs(c_reduce_rows(i, j) - c_reduce_cols(i, j)) > epsilon) {
+      if (relative_error(c_reduce_cols_native(i, j), c_reduce_cols(i, j)) > tolerance) {
+        std::cout
+          << "c_reduce_cols_native(" << i << ", " << j << ") = " << c_reduce_cols_native(i, j)
+          << " != c_reduce_cols(" << i << ", " << j << ") = " << c_reduce_cols(i, j) << std::endl;
+        return -1;
+      }
+      if (relative_error(c_reduce_rows(i, j), c_reduce_cols(i, j)) > tolerance) {
         std::cout
           << "c_reduce_rows(" << i << ", " << j << ") = " << c_reduce_rows(i, j)
           << " != c_reduce_cols(" << i << ", " << j << ") = " << c_reduce_cols(i, j) << std::endl;
         return -1;
       }
-      if (std::abs(c_reduce_tiles(i, j) - c_reduce_cols(i, j)) > epsilon) {
+      if (relative_error(c_reduce_tiles(i, j), c_reduce_cols(i, j)) > tolerance) {
         std::cout
           << "c_reduce_tiles(" << i << ", " << j << ") = " << c_reduce_tiles(i, j)
           << " != c_reduce_cols(" << i << ", " << j << ") = " << c_reduce_cols(i, j) << std::endl;
