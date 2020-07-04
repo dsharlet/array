@@ -116,8 +116,36 @@ void multiply_reduce_matrices(
 // This implementation of matrix multiplication splits the loops over
 // the output matrix into chunks, and reorders the small loops
 // innermost to form tiles. This implementation should allow the compiler
-// to keep all of the accumulators for the output in registers.
-// For the matrix size benchmarked in main, this runs in ~0.44ms.
+// to keep all of the accumulators for the output in registers. This
+// generates an inner loop that looks like:
+//
+// LBB14_7:
+//   vmovaps %ymm12, %ymm13
+//   vmovaps %ymm11, %ymm14
+//   vbroadcastss    (%r9,%rax,4), %ymm15
+//   vmovups -64(%r11,%rcx,4), %ymm12
+//   vmovups -32(%r11,%rcx,4), %ymm11
+//   vmovups (%r11,%rcx,4), %ymm0
+//   vfmadd231ps     %ymm15, %ymm12, %ymm10
+//   vfmadd231ps     %ymm15, %ymm11, %ymm9
+//   vfmadd231ps     %ymm15, %ymm0, %ymm8
+//   vbroadcastss    (%r8,%rax,4), %ymm15
+//   vfmadd231ps     %ymm15, %ymm12, %ymm7
+//   vfmadd231ps     %ymm15, %ymm11, %ymm6
+//   vfmadd231ps     %ymm15, %ymm0, %ymm5
+//   vbroadcastss    (%rdx,%rax,4), %ymm15
+//   vfmadd231ps     %ymm15, %ymm12, %ymm4
+//   vfmadd231ps     %ymm15, %ymm11, %ymm3
+//   vfmadd231ps     %ymm15, %ymm0, %ymm2
+//   vbroadcastss    (%r15,%rax,4), %ymm15
+//   vfmadd213ps     %ymm13, %ymm15, %ymm12
+//   vfmadd213ps     %ymm14, %ymm15, %ymm11
+//   vfmadd231ps     %ymm15, %ymm0, %ymm1
+//   incq    %rax
+//   addq    %rsi, %rcx
+//   cmpq    %rax, %rbx
+//   jne     LBB14_7
+//
 // This appears to achieve ~70% of the peak theoretical throughput
 // of my machine.
 template <typename TAB, typename TC>
