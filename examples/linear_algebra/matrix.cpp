@@ -173,15 +173,15 @@ void multiply_reduce_tiles(
 #elif 0
       // TODO: This should work, but it's slow, probably due to potential
       // aliasing that we can't fix due to https://bugs.llvm.org/show_bug.cgi?id=45863
-#if 0
+#  if 0
       fill(c_tile, static_cast<TC>(0));
-#else
+#  else
       for (index_t i : c_tile.i()) {
         for (index_t j : c_tile.j()) {
           c_tile(i, j) = 0;
         }
       }
-#endif
+#  endif
       for (index_t k : a.j()) {
         for (index_t i : c_tile.i()) {
           for (index_t j : c_tile.j()) {
@@ -199,18 +199,18 @@ void multiply_reduce_tiles(
           }
         }
       }
-#if 0
+#  if 0
       // TODO: This should work, but it's slow, it appears to
       // blow up the nice in-register accumulation of the loop
       // above.
       copy(accumulator, c_tile);
-#else
+#  else
       for (index_t i : c_tile.i()) {
         for (index_t j : c_tile.j()) {
           c_tile(i, j) = accumulator(i, j);
         }
       }
-#endif
+#  endif
 #endif
     }
   }

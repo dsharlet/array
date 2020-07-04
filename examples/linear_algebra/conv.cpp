@@ -109,17 +109,17 @@ void conv_tiled(const Input& input, const Filter& filter, const Output& output) 
           // TODO: This scalarizes for some unknown reason.
           T buffer[tile_x * tile_co] = { 0 };
           auto accumulator = make_array_ref(buffer, make_compact(output_tile.shape()));
-#if 1
-#if 0
+#  if 1
+#    if 0
           fill(accumulator, static_cast<T>(0));
-#else
+#    else
           for (index_t x : xo) {
             for (index_t co : coo) {
               accumulator(co, x, y, n) = 0;
             }
           }
-#endif
-#endif
+#    endif
+#  endif
           for (index_t ci : filter.dim<3>()) {
             for (index_t dy : filter.dim<2>()) {
               for (index_t dx : filter.dim<1>()) {
@@ -131,15 +131,15 @@ void conv_tiled(const Input& input, const Filter& filter, const Output& output) 
               }
             }
           }
-#if 0
+#  if 0
           copy(accumulator, output_tile);
-#else
+#  else
           for (index_t x : xo) {
             for (index_t co : coo) {
               output(co, x, y, n) = accumulator(co, x, y, n);
             }
           }
-#endif
+#  endif
 #endif
         }
       }
