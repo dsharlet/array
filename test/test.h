@@ -127,12 +127,6 @@ bool roughly_equal(T a, T b, double epsilon = 1e-6) {
     << "\n" << #a << "=" << a            \
     << "\n" << #b << "=" << b << " "
 
-#define ASSERT_REQ(a, b, epsilon)      \
-  ASSERT(roughly_equal(a, b, epsilon)) \
-    << "\n" << #a << "=" << a           \
-    << "\n" << #b << "=" << b           \
-    << "\nepsilon=" << epsilon << " "
-
 template <typename T, typename IndexType, size_t... Is>
 T pattern_impl(const IndexType& indices, const IndexType& offset, std::index_sequence<Is...>) {
   static const index_t pattern_basis[] = { 10000, 100, 10, 7, 5, 3 };
