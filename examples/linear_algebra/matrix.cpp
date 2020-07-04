@@ -138,7 +138,7 @@ void multiply_reduce_tiles(const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
       }
 #else
       TC buffer[tile_rows * tile_cols] = { 0.0f };
-      matrix_ref<TC, tile_rows, tile_cols> accumulator(buffer, make_compact(c_tile.shape()));
+      auto accumulator = make_array_ref(buffer, make_compact(c_tile.shape()));
       for (index_t k : a.j()) {
         for (index_t i : c_tile.i()) {
           for (index_t j : c_tile.j()) {
