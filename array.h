@@ -2287,6 +2287,102 @@ auto make_compact_move(array<T, Shape, Alloc>&& src, const Alloc& alloc = Alloc(
   return make_move(src, make_compact(src.shape()), alloc);
 }
 
+/** Copy the contents of the `src` array or array_ref to the `dst` array or
+ * array_ref, calling a function `unary_op` on the src values to produce the
+ * values to store in dst. The range of the shape of `dst` will be transformed,
+ * and must be in bounds of `src`. */
+template <class TSrc, class TDst, class ShapeSrc, class ShapeDst, class UnaryOp,
+    class = internal::enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
+void transform(
+    const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDst, ShapeDst>& dst, UnaryOp op) {
+  if (dst.shape().empty()) {
+    return;
+  }
+  if (!src.shape().is_in_range(dst.shape().min()) ||
+      !src.shape().is_in_range(dst.shape().max())) {
+    NDARRAY_THROW_OUT_OF_RANGE("dst indices out of range of src");
+  }
+
+  copy_shape_traits<ShapeSrc, ShapeDst>::for_each_value(
+      src.shape(), src.base(), dst.shape(), dst.base(), [op](const TSrc& src_i, TDst& dst_i) {
+    dst_i = op(src_i);
+  });
+}
+template <class TSrc, class TDst, class ShapeSrc, class ShapeDst, class AllocDst, class UnaryOp,
+    class = internal::enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
+void transform(
+    const array_ref<TSrc, ShapeSrc>& src, array<TDst, ShapeDst, AllocDst>& dst, UnaryOp op) {
+  transform(src, dst.ref(), op);
+}
+template <class TSrc, class TDst, class ShapeSrc, class ShapeDst, class AllocSrc, class UnaryOp,
+    class = internal::enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
+void transform(
+    const array<TSrc, ShapeSrc, AllocSrc>& src, const array_ref<TDst, ShapeDst>& dst, UnaryOp op) {
+  transform(src.cref(), dst, op);
+}
+template <class TSrc, class TDst, class ShapeSrc, class ShapeDst, class AllocSrc, class AllocDst,
+    class UnaryOp, class = internal::enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
+void transform(
+    const array<TSrc, ShapeSrc, AllocSrc>& src, array<TDst, ShapeDst, AllocDst>& dst, UnaryOp op) {
+  transform(src.cref(), dst.ref(), op);
+}
+
+/** Make a copy of the `src` array or array_ref with a new shape `shape`. */
+template <
+    class T, class ShapeSrc, class ShapeDst, class UnaryOp,
+    class Alloc = std::allocator<decltype(std::declval<UnaryOp>()(std::declval<T>()))>,
+    class = internal::enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
+auto make_transform(
+    const array_ref<T, ShapeSrc>& src, const ShapeDst& shape, UnaryOp op,
+    const Alloc& alloc = Alloc()) {
+  array<typename std::allocator_traits<Alloc>::value_type, ShapeDst, Alloc> dst(shape, alloc);
+  transform(src, dst, op);
+  return dst;
+}
+template <
+    class T, class ShapeSrc, class ShapeDst, class AllocSrc, class UnaryOp,
+    class AllocDst = std::allocator<decltype(std::declval<UnaryOp>()(std::declval<T>()))>,
+    class = internal::enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
+auto make_transform(
+    const array<T, ShapeSrc, AllocSrc>& src, const ShapeDst& shape, UnaryOp op,
+    const AllocDst& alloc = AllocDst()) {
+  return make_transform(src.cref(), shape, op, alloc);
+}
+
+/** Make a copy of the `src` array or array_ref with a dense shape of the same
+ * rank as `src`. */
+template <
+    class T, class ShapeSrc, class UnaryOp,
+    class Alloc = std::allocator<decltype(std::declval<UnaryOp>()(std::declval<T>()))>>
+auto make_dense_transform(
+    const array_ref<T, ShapeSrc>& src, UnaryOp op, const Alloc& alloc = Alloc()) {
+  return make_transform(src, make_dense(src.shape()), op, alloc);
+}
+template <
+    class T, class ShapeSrc, class AllocSrc, class UnaryOp,
+    class AllocDst = std::allocator<decltype(std::declval<UnaryOp>()(std::declval<T>()))>>
+auto make_dense_transform(
+    const array<T, ShapeSrc, AllocSrc>& src, UnaryOp op, const AllocDst& alloc = AllocDst()) {
+  return make_dense_transform(src.cref(), op, alloc);
+}
+
+/** Make a copy of the `src` array or array_ref with a compact version of `src`s
+ * shape. */
+template <
+    class T, class Shape, class UnaryOp,
+    class Alloc = std::allocator<decltype(std::declval<UnaryOp>()(std::declval<T>()))>>
+auto make_compact_transform(
+    const array_ref<T, Shape>& src, UnaryOp op, const Alloc& alloc = Alloc()) {
+  return make_transform(src, make_compact(src.shape()), op, alloc);
+}
+template <
+    class T, class Shape, class AllocSrc, class UnaryOp,
+    class AllocDst = std::allocator<decltype(std::declval<UnaryOp>()(std::declval<T>()))>>
+auto make_compact_transform(
+    const array<T, Shape, AllocSrc>& src, UnaryOp op, const AllocDst& alloc = AllocDst()) {
+  return make_compact_transform(src.cref(), op, alloc);
+}
+
 /** Fill `dst` array or array_ref by copy-assigning `value`. */
 template <class T, class Shape>
 void fill(const array_ref<T, Shape>& dst, const T& value) {
