@@ -81,22 +81,15 @@ TEST(shape_2d_negative_stride) {
 
 TEST(make_dense_shape_1d) {
   dense_shape<1> s(10);
-  dense_dim<> x = s.template dim<0>();
-  ASSERT_EQ(x.min(), 0);
-  ASSERT_EQ(x.extent(), 10);
-  ASSERT_EQ(x.stride(), 1);
+  assert_dim_eq(s.x(), dense_dim<>(0, 10));
 }
 
 TEST(make_dense_shape_2d) {
   dense_shape<2> s(10, 5);
-  dense_dim<> x = s.template dim<0>();
-  dim<> y = s.template dim<1>();
-  ASSERT_EQ(x.min(), 0);
-  ASSERT_EQ(x.extent(), 10);
-  ASSERT_EQ(x.stride(), 1);
-  ASSERT_EQ(y.min(), 0);
-  ASSERT_EQ(y.extent(), 5);
-  ASSERT_EQ(y.stride(), 10);
+  auto x = s.x();
+  auto y = s.y();
+  assert_dim_eq(x, dense_dim<>(0, 10));
+  assert_dim_eq(y, dim<>(0, 5, 10));
 
   ASSERT_EQ(s.width(), x.extent());
   ASSERT_EQ(s.height(), y.extent());
@@ -106,18 +99,12 @@ TEST(make_dense_shape_2d) {
 
 TEST(make_dense_shape_3d) {
   dense_shape<3> s(10, 5, 20);
-  dense_dim<> x = s.template dim<0>();
-  dim<> y = s.template dim<1>();
-  dim<> z = s.template dim<2>();
-  ASSERT_EQ(x.min(), 0);
-  ASSERT_EQ(x.extent(), 10);
-  ASSERT_EQ(x.stride(), 1);
-  ASSERT_EQ(y.min(), 0);
-  ASSERT_EQ(y.extent(), 5);
-  ASSERT_EQ(y.stride(), 10);
-  ASSERT_EQ(z.min(), 0);
-  ASSERT_EQ(z.extent(), 20);
-  ASSERT_EQ(z.stride(), 50);
+  auto x = s.x();
+  auto y = s.y();
+  auto z = s.z();
+  assert_dim_eq(x, dense_dim<>(0, 10));
+  assert_dim_eq(y, dim<>(0, 5, 10));
+  assert_dim_eq(z, dim<>(0, 20, 50));
 
   ASSERT_EQ(s.width(), x.extent());
   ASSERT_EQ(s.height(), y.extent());
@@ -368,9 +355,7 @@ TEST(shape_conversion) {
   dense_dim<> x_dense(0, 10);
   dim<> x = x_dense;
 
-  ASSERT_EQ(x.min(), 0);
-  ASSERT_EQ(x.extent(), 10);
-  ASSERT_EQ(x.stride(), 1);
+  assert_dim_eq(x, dim<>(0, 10, 1));
 
   dense_shape<2> static_dense({0, 10}, {1, 5});
   shape_of_rank<2> dense = static_dense;
@@ -480,8 +465,10 @@ void test_number_theory(const Shape& s) {
   for_each_index(s, [&](const typename Shape::index_type& i) {
     addresses[static_cast<size_t>(s(i) - s.flat_min())] += 1;
   });
-  bool is_compact = std::all_of(addresses.begin(), addresses.end(), [](int c) { return c >= 1; });
-  bool is_one_to_one = std::all_of(addresses.begin(), addresses.end(), [](int c) { return c <= 1; });
+  bool is_compact =
+      std::all_of(addresses.begin(), addresses.end(), [](int c) { return c >= 1; });
+  bool is_one_to_one =
+      std::all_of(addresses.begin(), addresses.end(), [](int c) { return c <= 1; });
 
   ASSERT_EQ(s.is_compact(), is_compact);
   ASSERT_EQ(s.is_one_to_one(), is_one_to_one);

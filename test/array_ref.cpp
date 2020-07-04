@@ -143,18 +143,6 @@ TEST(array_ref_conversion) {
   ASSERT_EQ(overload_shape_const(dense_null_ref), dense);
 }
 
-template <
-    index_t MinA, index_t ExtentA, index_t StrideA,
-    index_t MinB, index_t ExtentB, index_t StrideB>
-void assert_dim_eq(const dim<MinA, ExtentA, StrideA>& a, const dim<MinB, ExtentB, StrideB>& b) {
-  static_assert(MinA == MinB, "");
-  static_assert(ExtentA == ExtentB, "");
-  static_assert(StrideA == StrideB, "");
-  ASSERT_EQ(a.min(), b.min());
-  ASSERT_EQ(a.extent(), b.extent());
-  ASSERT_EQ(a.stride(), b.stride());
-}
-
 TEST(array_ref_crop_slice) {
   array<int, shape<dim<0, UNK, 1>, dim<>>> a({8, 9});
   fill_pattern(a);

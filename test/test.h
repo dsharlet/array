@@ -170,6 +170,19 @@ void check_pattern(const array<T, Shape, Alloc>& a, const typename Shape::index_
   check_pattern(a.ref(), offset);
 }
 
+// Check that two dims are equal, including the compile-time constants.
+template <
+    index_t MinA, index_t ExtentA, index_t StrideA,
+    index_t MinB, index_t ExtentB, index_t StrideB>
+void assert_dim_eq(const dim<MinA, ExtentA, StrideA>& a, const dim<MinB, ExtentB, StrideB>& b) {
+  static_assert(MinA == MinB, "");
+  static_assert(ExtentA == ExtentB, "");
+  static_assert(StrideA == StrideB, "");
+  ASSERT_EQ(a.min(), b.min());
+  ASSERT_EQ(a.extent(), b.extent());
+  ASSERT_EQ(a.stride(), b.stride());
+}
+
 // Benchmark a call.
 template <typename F>
 double benchmark(F op) {
