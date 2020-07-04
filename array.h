@@ -774,7 +774,7 @@ class shape {
 
  private:
   // TODO: This should use std::is_constructible<std::tuple<Dims...>, std::tuple<OtherDims...>>
-  // but it is broken on some compilers.
+  // but it is broken on some compilers (https://github.com/dsharlet/array/issues/20).
   template <class... OtherDims>
   using enable_if_dims_compatible = typename std::enable_if<sizeof...(OtherDims) == rank()>::type;
 
@@ -1006,6 +1006,9 @@ auto reorder(const Shape& shape) {
 
 namespace internal {
 
+template <class Fn, class... Ts>
+using enable_if_callable = decltype(std::declval<Fn>()(std::declval<Ts>()...));
+
 template<size_t D, class Dims, class Fn, class... Indices,
     std::enable_if_t<(D == 0), int> = 0>
 void for_each_index_in_order(const Dims& dims, Fn&& fn, const std::tuple<Indices...>& indices) {
@@ -1163,7 +1166,8 @@ auto intersect(const ShapeA& a, const ShapeB& b) {
  * These functions are typically used to implement shape_traits and
  * copy_shape_traits objects. Use for_each_index, array_ref<>::for_each_value,
  * or array<>::for_each_value instead. */
-template<class Shape, class Fn>
+template<class Shape, class Fn,
+    class = internal::enable_if_callable<Fn, typename Shape::index_type>>
 void for_each_index_in_order(const Shape& shape, Fn &&fn) {
   internal::for_each_index_in_order<Shape::rank() - 1>(shape.dims(), fn, std::tuple<>());
 }
@@ -1414,7 +1418,8 @@ class copy_shape_traits {
  * calls `fn` with a list of arguments corresponding to each dim.
  * `for_each_index` calls `fn` with a Shape::index_type object describing the
  * indices. */
-template <class Shape, class Fn>
+template <class Shape, class Fn,
+    class = internal::enable_if_callable<Fn, typename Shape::index_type>>
 void for_each_index(const Shape& s, Fn&& fn) {
   shape_traits<Shape>::for_each_index(s, fn);
 }
