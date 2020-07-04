@@ -17,6 +17,10 @@ where:
 * `minN` are the mins in each dimension. The min is the value of the first in-range index in this dimension (the max is `minN + extentN - 1`).
 * `strideN` are the distances in the flat offsets between elements in each dimension.
 
+Arrays efficiently support advanced manipulations like cropping, slicing, and splitting loops, all while preserving compile-time constant parameters when possible.
+Although it is a heavily templated library, most features do not have significant code size or compile time implications, and incorrect usage generates informative and helpful error messages.
+Typically, an issue will result in only one error message, located at the site of the problem in user code.
+
 ## Usage
 
 ### Shapes
@@ -103,7 +107,7 @@ The order will vary depending on the properties of the shape.
 
 In the previous examples, no array parameters are compile time constants, so all of these accesses and loops expand to a `flat_offset` expression where the mins, extents, and strides are runtime variables.
 This can prevent the compiler from generating efficient code.
-For example, the compiler may be able to auto-vectorize these loops, but if the stride of the vectorized dimension is a runtime variable, the compiler will have to generate gathers and scatters instead of vector load and store instructions, even if the stride is one.
+For example, the compiler may be able to auto-vectorize these loops, but if the stride of the dimension accessed by the vectorized loop is a runtime variable, the compiler will have to generate gathers and scatters instead of vector load and store instructions, even if the stride is one at runtime.
 
 To avoid this, we need to make array parameters compile time constants.
 However, while making array parameters compile time constants helps the compiler generate efficient code, it also makes the program less flexible.
