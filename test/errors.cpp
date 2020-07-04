@@ -16,7 +16,6 @@
 
 // These tests should each generate one error, with errors.cpp as the
 // location of the error.
-// TODO: Automate checking this.
 
 namespace nda {
 
