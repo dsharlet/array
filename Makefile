@@ -22,4 +22,4 @@ clean:
 
 test: bin/test
 	bin/test $(FILTER)
-	@! $(CXX) -I. -c test/errors.cpp -std=c++14 -Wall 2>&1 | grep "error:" | grep array.h
+	@! $(CXX) -I. -c test/errors.cpp -std=c++14 -Wall -ferror-limit=0 2>&1 | grep "error:" | grep array.h

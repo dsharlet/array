@@ -199,11 +199,15 @@ class range {
 
   /** Two range objects are considered equal if their mins and extents
    * are equal. */
-  template <index_t OtherMin, index_t OtherExtent>
+  template <index_t OtherMin, index_t OtherExtent,
+      class = internal::enable_if_compatible<Min, OtherMin>,
+      class = internal::enable_if_compatible<Extent, OtherExtent>>
   bool operator==(const range<OtherMin, OtherExtent>& other) const {
     return min() == other.min() && extent() == other.extent();
   }
-  template <index_t OtherMin, index_t OtherExtent>
+  template <index_t OtherMin, index_t OtherExtent,
+      class = internal::enable_if_compatible<Min, OtherMin>,
+      class = internal::enable_if_compatible<Extent, OtherExtent>>
   bool operator!=(const range<OtherMin, OtherExtent>& other) const {
     return !operator==(other);
   }
@@ -367,8 +371,7 @@ class dim : public range<Min_, Extent_> {
       class = internal::enable_if_compatible<Extent, CopyExtent>,
       class = internal::enable_if_compatible<Stride, CopyStride>>
   dim(const dim<CopyMin, CopyExtent, CopyStride>& other)
-      : dim(other.min(), other.extent(), other.stride()) {
-  }
+      : dim(other.min(), other.extent(), other.stride()) {}
 
   dim& operator=(const dim&) = default;
   dim& operator=(dim&&) = default;
@@ -391,6 +394,9 @@ class dim : public range<Min_, Extent_> {
   using base_range::min;
   using base_range::max;
   using base_range::extent;
+  using base_range::begin;
+  using base_range::end;
+  using base_range::is_in_range;
 
   /** Distance in flat indices between neighboring elements in this dim. */
   NDARRAY_INLINE index_t stride() const { return internal::reconcile<Stride>(stride_); }
@@ -407,11 +413,17 @@ class dim : public range<Min_, Extent_> {
 
   /** Two dim objects are considered equal if their mins, extents, and strides
    * are equal. */
-  template <index_t OtherMin, index_t OtherExtent, index_t OtherStride>
+  template <index_t OtherMin, index_t OtherExtent, index_t OtherStride,
+      class = internal::enable_if_compatible<Min, OtherMin>,
+      class = internal::enable_if_compatible<Extent, OtherExtent>,
+      class = internal::enable_if_compatible<Stride, OtherStride>>
   bool operator==(const dim<OtherMin, OtherExtent, OtherStride>& other) const {
     return min() == other.min() && extent() == other.extent() && stride() == other.stride();
   }
-  template <index_t OtherMin, index_t OtherExtent, index_t OtherStride>
+  template <index_t OtherMin, index_t OtherExtent, index_t OtherStride,
+      class = internal::enable_if_compatible<Min, OtherMin>,
+      class = internal::enable_if_compatible<Extent, OtherExtent>,
+      class = internal::enable_if_compatible<Stride, OtherStride>>
   bool operator!=(const dim<OtherMin, OtherExtent, OtherStride>& other) const {
     return !operator==(other);
   }
@@ -754,7 +766,7 @@ class shape;
 /** Helper function to make a tuple from a variadic list of dims. */
 template <class... Dims>
 auto make_shape(Dims... dims) {
-  return shape<Dims...>(std::forward<Dims>(dims)...);
+  return shape<Dims...>(dims...);
 }
 
 template <class... Dims>

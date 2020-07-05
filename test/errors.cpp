@@ -23,7 +23,23 @@ shape_of_rank<2> s;
 dense_array_ref<int, 2> ref;
 dense_array<int, 3> a;
 
-// TODO: This builds, why?
+void range_range_bad_copy_construct() {
+  fixed_range<3> x;
+  range<0, 2> y(x);
+}
+
+void range_bad_assign() {
+  fixed_range<3> x;
+  x = range<0, 2>();
+}
+
+void range_bad_equality() {
+  fixed_range<3> x;
+  range<0, 2> y;
+  x == y;
+}
+
+// TODO: This builds due to https://github.com/dsharlet/array/issues/21
 //void dim_dim_bad_copy_construct() {
 //  dim<0, 1, 2> strided;
 //  dense_dim<> x2(strided);
@@ -32,6 +48,12 @@ dense_array<int, 3> a;
 void dim_bad_assign() {
   dense_dim<> x;
   x = dim<0, 1, 2>();
+}
+
+void dim_bad_equality() {
+  dense_dim<> x;
+  dim<0, 1, 2> y;
+  x == y;
 }
 
 void shape_dim_bad_index() {
