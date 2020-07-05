@@ -55,7 +55,17 @@ std::ostream& operator<<(std::ostream& s, const std::tuple<Ts...>& t) {
 
 template <index_t Min, index_t Extent, index_t Stride>
 std::ostream& operator<<(std::ostream& s, const dim<Min, Extent, Stride>& d) {
-  s << "<" << d.min() << ", " << d.extent() << ", " << d.stride() << ">";
+  s << "dim<";
+  if (internal::is_known(Stride)) {
+    ostream_comma_separated_list(s, Min, Extent, Stride);
+  } else if (internal::is_known(Extent)) {
+    ostream_comma_separated_list(s, Min, Extent);
+  } else if (internal::is_known(Min)) {
+    s << Min;
+  }
+  s << ">(";
+  ostream_comma_separated_list(s, d.min(), d.extent(), d.stride());
+  s << ")";
   return s;
 }
 
@@ -101,12 +111,6 @@ public:
     return *this;
   }
 };
-
-// Check if a and b are within epsilon of eachother, after normalization.
-template <typename T>
-bool roughly_equal(T a, T b, double epsilon = 1e-6) {
-  return std::abs(a - b) < epsilon * std::max(std::max(std::abs(a), std::abs(b)), static_cast<T>(1));
-}
 
 // Make a new test object. The body of the test should follow this
 // macro, e.g. TEST(equality) { ASSERT(1 == 1); }
@@ -172,9 +176,7 @@ void assert_dim_eq(const dim<MinA, ExtentA, StrideA>& a, const dim<MinB, ExtentB
   static_assert(MinA == MinB, "");
   static_assert(ExtentA == ExtentB, "");
   static_assert(StrideA == StrideB, "");
-  ASSERT_EQ(a.min(), b.min());
-  ASSERT_EQ(a.extent(), b.extent());
-  ASSERT_EQ(a.stride(), b.stride());
+  ASSERT_EQ(a, b);
 }
 
 // Benchmark a call.

@@ -1621,7 +1621,7 @@ class array_ref {
    * be considered equal, they must have the same shape, and all elements
    * addressable by the shape must also be equal. */
   bool operator!=(const array_ref& other) const {
-    if (shape_.min() != other.shape_.min() || shape_.extent() != other.shape_.extent()) {
+    if (shape_ == other .shape_) {
       return true;
     }
 
@@ -2318,6 +2318,35 @@ void generate(const array_ref<T, Shape>& dst, Generator g) {
 template <class T, class Shape, class Alloc, class Generator>
 void generate(array<T, Shape, Alloc>& dst, Generator g) {
   generate(dst.ref(), g);
+}
+
+/** Check if two array or array_refs have equal contents. */
+template <class TA, class ShapeA, class TB, class ShapeB>
+bool equal(const array_ref<TA, ShapeA>& a, const array_ref<TB, ShapeB>& b) {
+  if (a.shape().min() != b.shape().min() || a.shape().extent() != b.shape().extent()) {
+    return false;
+  }
+
+  bool result = true;
+  copy_shape_traits<ShapeA, ShapeB>::for_each_value(
+      a.shape(), a.base(), b.shape(), b.base(), [&](const TA& a, const TB& b) {
+    if (a != b) {
+      result = false;
+    }
+  });
+  return result;
+}
+template <class TA, class ShapeA, class TB, class ShapeB, class AllocB>
+bool equal(const array_ref<TA, ShapeA>& a, const array<TB, ShapeB, AllocB>& b) {
+  return equal(a, b.ref());
+}
+template <class TA, class ShapeA, class AllocA, class TB, class ShapeB>
+bool equal(const array<TA, ShapeA, AllocA>& a, const array_ref<TB, ShapeB>& b) {
+  return equal(a.ref(), b);
+}
+template <class TA, class ShapeA, class AllocA, class TB, class ShapeB, class AllocB>
+bool equal(const array<TA, ShapeA, AllocA>& a, const array<TB, ShapeB, AllocB>& b) {
+  return equal(a.ref(), b.ref());
 }
 
 /** Convert the shape of the array or array_ref `a` to be a new shape

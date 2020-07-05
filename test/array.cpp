@@ -94,27 +94,27 @@ TEST(array_assign) {
 
   array_of_rank<int, 3> b = array_of_rank<int, 3>({4, 5, 6});
   fill_pattern(b);
-  ASSERT(a == b);
+  ASSERT(equal(a, b));
 
   array_of_rank<int, 3> c;
   c = array_of_rank<int, 3>({4, 5, 6});
   fill_pattern(c);
-  ASSERT(a == c);
+  ASSERT(equal(a, c));
 
   c = array_of_rank<int, 3>({4, 5, 6});
-  ASSERT(a != c);
+  ASSERT(!equal(a, c));
   fill_pattern(c);
-  ASSERT(a == c);
+  ASSERT(equal(a, c));
 
   c = array_of_rank<int, 3>({7, 5, 6});
-  ASSERT(a != c);
+  ASSERT(!equal(a, c));
 
   {
     array_of_rank<int, 3> d({4, 5, 6});
     fill_pattern(d);
     c = d;
   }
-  ASSERT(a == c);
+  ASSERT(equal(a, c));
 }
 
 TEST(array_fill_assign) {
@@ -192,12 +192,12 @@ TEST(array_equality) {
   array_of_rank<int, 3> c({dim<>(0, 4, 2), 5, 6});
   fill_pattern(c);
 
-  ASSERT(a == b);
-  ASSERT(a == c);
+  ASSERT(equal(a, b));
+  ASSERT(equal(a, c));
 
   a(1, 2, 3) = 5;
-  ASSERT(a != b);
-  ASSERT(a != c);
+  ASSERT(!equal(a, b));
+  ASSERT(!equal(a, c));
 }
 
 TEST(array_copy) {
