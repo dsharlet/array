@@ -15,6 +15,8 @@
 #ifndef NDARRAY_TEST_TEST_H
 #define NDARRAY_TEST_TEST_H
 
+#include "array.h"
+
 #include <cstdlib>
 #include <cmath>
 #include <chrono>
@@ -22,8 +24,6 @@
 #include <functional>
 #include <limits>
 #include <iostream>
-
-#include "array.h"
 
 namespace nda {
 

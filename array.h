@@ -21,7 +21,6 @@
 
 #include <array>
 #include <cassert>
-#include <functional>
 #include <limits>
 #include <memory>
 #include <tuple>
