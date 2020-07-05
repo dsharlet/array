@@ -2454,7 +2454,7 @@ class auto_allocator {
 };
 
 /** Allocator satisfying the std::allocator interface that is a wrapper
- * around another allocator `BaseAlloc` that skips default construction.
+ * around another allocator `BaseAlloc`, and skips default construction.
  * Using this allocator can be dangerous. It is only safe to use when
  * `BaseAlloc::value_type` is a trivial type. */
 template <class BaseAlloc>
@@ -2481,6 +2481,8 @@ class uninitialized_allocator : public BaseAlloc {
     return std::allocator_traits<BaseAlloc>::deallocate(*this, p, n);
   }
 
+  // TODO: Consider adding an enable_if to this to disable it for
+  // non-trivial value_types.
   template <class... Args>
   void construct(value_type* ptr, Args&&... args) {
     // Skip default construction.
