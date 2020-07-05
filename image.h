@@ -26,9 +26,9 @@ namespace nda {
  * channels of the image, typically it will have extent 3 or 4, with red, green,
  * and blue mapped to indices in this dimension. */
 using image_shape = shape<dim<>, dim<>, dim<>>;
-template <typename T>
-using image = array<T, image_shape>;
-template <typename T>
+template <class T, class Alloc = std::allocator<T>>
+using image = array<T, image_shape, Alloc>;
+template <class T>
 using image_ref = array_ref<T, image_shape>;
 
 /** A 'chunky' image is an array with 3 dimensions x, y, c, where c is dense,
@@ -39,14 +39,14 @@ using image_ref = array_ref<T, image_shape>;
 template <index_t Channels = UNK, index_t ChannelStride = Channels>
 using chunky_image_shape =
   shape<strided_dim<ChannelStride>, dim<>, dense_dim<0, Channels>>;
-template <typename T, index_t Channels = UNK, index_t ChannelStride = Channels>
-using chunky_image = array<T, chunky_image_shape<Channels, ChannelStride>>;
-template <typename T, index_t Channels = UNK, index_t ChannelStride = Channels>
+template <class T, index_t Channels = UNK, index_t ChannelStride = Channels, class Alloc = std::allocator<T>>
+using chunky_image = array<T, chunky_image_shape<Channels, ChannelStride>, Alloc>;
+template <class T, index_t Channels = UNK, index_t ChannelStride = Channels>
 using chunky_image_ref = array_ref<T, chunky_image_shape<Channels, ChannelStride>>;
 
 /** Calls `fn` for each index in an image shape `s`. c is the innermost
  * dimension of the loop nest. */
-template <typename Shape, typename Fn>
+template <class Shape, class Fn>
 void for_each_image_index(const Shape& s, Fn&& fn) {
   // Images should always be iterated with c as the innermost loop. Even when
   // the image is planar, the number of channels is generally small, and many
@@ -66,12 +66,12 @@ class shape_traits<chunky_image_shape<Channels, ChannelStride>> {
  public:
   typedef chunky_image_shape<Channels, ChannelStride> shape_type;
 
-  template <typename Fn>
+  template <class Fn>
   static void for_each_index(const shape_type& s, Fn&& fn) {
     for_each_image_index(s, fn);
   }
 
-  template <typename Fn, typename... T>
+  template <class Fn, class... T>
   static void for_each_value(const shape_type& s, Fn&& fn, T... base) {
     for_each_image_index(s, [=, &fn](const typename shape_type::index_type& i) {
       index_t offset = s(i);
@@ -85,14 +85,14 @@ class shape_traits<chunky_image_shape<Channels>> {
  public:
   typedef chunky_image_shape<Channels> shape_type;
 
-  template <typename Fn>
+  template <class Fn>
   static void for_each_index(const shape_type& s, Fn&& fn) {
     for_each_image_index(s, fn);
   }
 
   // When Channels == ChannelStride, we can implement for_each_value by fusing
   // the x and c dimensions.
-  template <typename Fn, typename... T>
+  template <class Fn, class... T>
   static void for_each_value(const shape_type& s, Fn&& fn, T... base) {
     dense_shape<2> opt_s({s.x().min() * Channels, s.x().extent() * Channels}, s.y());
     for_each_value_in_order(opt_s, fn, base...);
@@ -104,9 +104,9 @@ class shape_traits<chunky_image_shape<Channels>> {
  * SIMD vectorization. Note that this shape also supports 'line-chunky' storage
  * orders. */
 using planar_image_shape = shape<dense_dim<>, dim<>, dim<>>;
-template <typename T>
-using planar_image = array<T, planar_image_shape>;
-template <typename T>
+template <class T, class Alloc = std::allocator<T>>
+using planar_image = array<T, planar_image_shape, Alloc>;
+template <class T>
 using planar_image_ref = array_ref<T, planar_image_shape>;
 
 enum class crop_origin {
@@ -119,7 +119,7 @@ enum class crop_origin {
 
 /** Crop an image shape `s` to the indices [`x0`, `x1`) x [`y0`, `y1`). The origin of
  * the new shape is determined by `origin`. */
-template <typename Shape>
+template <class Shape>
 Shape crop_image_shape(Shape s, index_t x0, index_t y0, index_t x1, index_t y1,
                        crop_origin origin = crop_origin::crop) {
   s.x().set_extent(x1 - x0);
@@ -140,7 +140,7 @@ Shape crop_image_shape(Shape s, index_t x0, index_t y0, index_t x1, index_t y1,
 /** Crop the `im` image or image ref to the range [`x0`, `x1`) x [`y0`, `y1`). The
  * result is a ref of the input image. The origin of the result is determined by
  * `origin`. */
-template <typename T, typename Shape>
+template <class T, class Shape>
 array_ref<T, Shape> crop(const array_ref<T, Shape>& im,
                          index_t x0, index_t y0, index_t x1, index_t y1,
                          crop_origin origin = crop_origin::crop) {
@@ -156,13 +156,13 @@ array_ref<T, Shape> crop(const array_ref<T, Shape>& im,
   }
   return array_ref<T, Shape>(base, cropped_shape);
 }
-template <typename T, typename Shape>
+template <class T, class Shape>
 array_ref<const T, Shape> crop(const array<T, Shape>& im,
                                index_t x0, index_t y0, index_t x1, index_t y1,
                                crop_origin origin = crop_origin::crop) {
   return crop(im.ref(), x0, y0, x1, y1, origin);
 }
-template <typename T, typename Shape>
+template <class T, class Shape>
 array_ref<T, Shape> crop(array<T, Shape>& im,
                          index_t x0, index_t y0, index_t x1, index_t y1,
                          crop_origin origin = crop_origin::crop) {
@@ -171,16 +171,16 @@ array_ref<T, Shape> crop(array<T, Shape>& im,
 
 /** Get a 2-dimensional ref of the `Channel` channel of the `im` image or image
  * ref. */
-template <typename T, typename Shape>
+template <class T, class Shape>
 auto slice_channel(const array_ref<T, Shape>& im, index_t channel) {
   return im(im.x(), im.y(), channel);
 }
-template <typename T, typename Shape>
-auto slice_channel(const array<T, Shape>& im, index_t channel) {
+template <class T, class Shape, class Alloc>
+auto slice_channel(const array<T, Shape, Alloc>& im, index_t channel) {
   return slice_channel(im.ref(), channel);
 }
-template <typename T, typename Shape>
-auto slice_channel(array<T, Shape>& im, index_t channel) {
+template <class T, class Shape, class Alloc>
+auto slice_channel(array<T, Shape, Alloc>& im, index_t channel) {
   return slice_channel(im.ref(), channel);
 }
 

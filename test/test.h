@@ -29,23 +29,23 @@ namespace nda {
 
 inline void ostream_comma_separated_list(std::ostream&) {}
 
-template <typename T>
+template <class T>
 void ostream_comma_separated_list(std::ostream& s, T item) {
   s << item;
 }
 
-template <typename T, typename... Ts>
+template <class T, class... Ts>
 void ostream_comma_separated_list(std::ostream& s, T item, Ts... items) {
   s << item << ", ";
   ostream_comma_separated_list(s, items...);
 }
 
-template <typename... Ts, size_t... Is>
+template <class... Ts, size_t... Is>
 void ostream_tuple(std::ostream& s, const std::tuple<Ts...>& t, std::index_sequence<Is...>) {
   ostream_comma_separated_list(s, std::get<Is>(t)...);
 }
 
-template <typename... Ts>
+template <class... Ts>
 std::ostream& operator<<(std::ostream& s, const std::tuple<Ts...>& t) {
   s << "{";
   ostream_tuple(s, t, std::make_index_sequence<sizeof...(Ts)>());
@@ -69,7 +69,7 @@ std::ostream& operator<<(std::ostream& s, const dim<Min, Extent, Stride>& d) {
   return s;
 }
 
-template <typename... Dims>
+template <class... Dims>
 std::ostream& operator<<(std::ostream& s, const shape<Dims...>& sh) {
   return s << sh.dims();
 }
@@ -103,7 +103,7 @@ public:
     }
   }
 
-  template <typename T>
+  template <class T>
   assert_stream& operator<<(const T& x) {
     if (fail_) {
       msg_ << x;
@@ -131,7 +131,7 @@ public:
     << "\n" << #a << "=" << a            \
     << "\n" << #b << "=" << b << " "
 
-template <typename T, typename IndexType, size_t... Is>
+template <class T, class IndexType, size_t... Is>
 T pattern_impl(const IndexType& indices, const IndexType& offset, std::index_sequence<Is...>) {
   static const index_t pattern_basis[] = { 10000, 100, 10, 7, 5, 3 };
   return static_cast<T>(internal::sum((std::get<Is>(indices) + std::get<Is>(offset)) * pattern_basis[Is]...));
@@ -139,31 +139,31 @@ T pattern_impl(const IndexType& indices, const IndexType& offset, std::index_seq
 
 // Generate a pattern from multi-dimensional indices that is generally
 // suitable for detecting bugs in array operations.
-template <typename T, typename IndexType>
+template <class T, class IndexType>
 T pattern(const IndexType& indices, const IndexType& offset = IndexType()) {
   return pattern_impl<T>(indices, offset, std::make_index_sequence<std::tuple_size<IndexType>::value>());
 }
 
 // Fill an array with the pattern.
-template <typename T, typename Shape>
+template <class T, class Shape>
 void fill_pattern(const array_ref<T, Shape>& a) {
   for_each_index(a.shape(), [&](const typename Shape::index_type& i) {
     a(i) = pattern<T>(i);
   });
 }
-template <typename T, typename Shape>
+template <class T, class Shape>
 void fill_pattern(array<T, Shape>& a) {
   fill_pattern(a.ref());
 }
 
 // Check an array matches the pattern.
-template <typename T, typename Shape>
+template <class T, class Shape>
 void check_pattern(const array_ref<T, Shape>& a, const typename Shape::index_type& offset = typename Shape::index_type()) {
   for_each_index(a.shape(), [&](const typename Shape::index_type& i) {
     ASSERT_EQ(a(i), pattern<T>(i, offset)) << "i=" << i << ", offset=" << offset;
   });
 }
-template <typename T, typename Shape, typename Alloc>
+template <class T, class Shape, class Alloc>
 void check_pattern(const array<T, Shape, Alloc>& a, const typename Shape::index_type& offset = typename Shape::index_type()) {
   check_pattern(a.ref(), offset);
 }
@@ -180,7 +180,7 @@ void assert_dim_eq(const dim<MinA, ExtentA, StrideA>& a, const dim<MinB, ExtentB
 }
 
 // Benchmark a call.
-template <typename F>
+template <class F>
 double benchmark(F op) {
   op();
 
@@ -206,11 +206,11 @@ double benchmark(F op) {
 }
 
 // Tricks the compiler into not stripping away dead objects.
-template <typename T>
+template <class T>
 __attribute__((noinline)) void assert_used(const T&) {}
 
 // Tricks the compiler into not constant folding the result of x.
-template <typename T>
+template <class T>
 __attribute__((noinline)) T not_constant(T x) { return x; }
 
 }  // namespace nda
