@@ -32,7 +32,7 @@ TEST(sort) {
 
     auto compare = [](int a, int b) { return a < b; };
     std::sort(std_sorted.begin(), std_sorted.end(), compare);
-    internal::sort(sorted.begin(), sorted.end(), compare);
+    internal::bubble_sort(sorted.begin(), sorted.end(), compare);
 
     for (size_t i = 0; i < unordered.size(); i++) {
       ASSERT_EQ(std_sorted[i], sorted[i]);

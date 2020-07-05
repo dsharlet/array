@@ -1247,7 +1247,7 @@ inline dim<> fuse(const dim<>& inner, const dim<>& outer) {
 // and extra complexity here is costly in code size/compile time.
 // This is a rare job for bubble sort!
 template <class Iterator, class Compare>
-void sort(Iterator begin, Iterator end, Compare&& comp) {
+void bubble_sort(Iterator begin, Iterator end, Compare&& comp) {
   for (Iterator i = begin; i != end; ++i) {
     for (Iterator j = i; j != end; ++j) {
       if (comp(*j, *i)) {
@@ -1264,7 +1264,7 @@ shape_of_rank<Shape::rank()> dynamic_optimize_shape(const Shape& shape) {
   auto dims = internal::tuple_to_array<dim<>>(shape.dims());
 
   // Sort the dims by stride.
-  sort(dims.begin(), dims.end(), [](const dim<>& l, const dim<>& r) {
+  bubble_sort(dims.begin(), dims.end(), [](const dim<>& l, const dim<>& r) {
     return l.stride() < r.stride();
   });
 
@@ -1311,7 +1311,7 @@ auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDst& dst) {
   }
 
   // Sort the dims by the dst stride.
-  sort(dims.begin(), dims.end(), [](const copy_dims& l, const copy_dims& r) {
+  bubble_sort(dims.begin(), dims.end(), [](const copy_dims& l, const copy_dims& r) {
     return l.dst.stride() < r.dst.stride();
   });
 
