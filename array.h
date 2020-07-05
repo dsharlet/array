@@ -2432,13 +2432,13 @@ class auto_allocator {
   auto_allocator& operator=(const auto_allocator&) { return *this; }
   auto_allocator& operator=(auto_allocator&&) { return *this; }
 
-  T* allocate(size_t n) {
+  value_type* allocate(size_t n) {
     if (allocated) NDARRAY_THROW_BAD_ALLOC();
     if (n > N) NDARRAY_THROW_BAD_ALLOC();
     allocated = true;
-    return reinterpret_cast<T*>(&buffer[0]);
+    return reinterpret_cast<value_type*>(&buffer[0]);
   }
-  void deallocate(T*, size_t) noexcept {
+  void deallocate(value_type*, size_t) noexcept {
     allocated = false;
   }
 
@@ -2450,6 +2450,43 @@ class auto_allocator {
   template <class U, size_t U_N>
   friend bool operator!=(const auto_allocator<T, N>& a, const auto_allocator<U, U_N>& b) {
     return &a.buffer[0] != &b.buffer[0];
+  }
+};
+
+/** Allocator satisfying the std::allocator interface that is a wrapper
+ * around another allocator `BaseAlloc` that skips default construction.
+ * Using this allocator can be dangerous. It is only safe to use when
+ * `BaseAlloc::value_type` is a trivial type. */
+template <class BaseAlloc>
+class uninitialized_allocator : public BaseAlloc {
+ public:
+  using value_type =
+      typename std::allocator_traits<BaseAlloc>::value_type;
+
+  using propagate_on_container_copy_assignment =
+      typename std::allocator_traits<BaseAlloc>::propagate_on_container_copy_assignment;
+  using propagate_on_container_move_assignment =
+      typename std::allocator_traits<BaseAlloc>::propagate_on_container_move_assignment;
+  using propagate_on_container_swap =
+      typename std::allocator_traits<BaseAlloc>::propagate_on_container_swap;
+  static uninitialized_allocator select_on_container_copy_construction(
+      const uninitialized_allocator& alloc) {
+    return std::allocator_traits<BaseAlloc>::select_on_container_copy_construction(alloc);
+  }
+
+  value_type* allocate(size_t n) {
+    return std::allocator_traits<BaseAlloc>::allocate(*this, n);
+  }
+  void deallocate(value_type* p, size_t n) noexcept {
+    return std::allocator_traits<BaseAlloc>::deallocate(*this, p, n);
+  }
+
+  template <class... Args>
+  void construct(value_type* ptr, Args&&... args) {
+    // Skip default construction.
+    if (sizeof...(Args) > 0) {
+      std::allocator_traits<BaseAlloc>::construct(*this, ptr, std::forward<Args>(args)...);
+    }
   }
 };
 

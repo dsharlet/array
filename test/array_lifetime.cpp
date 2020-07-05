@@ -396,4 +396,11 @@ TEST(array_lifetime_leaks) {
   test_lifetime_leaks<auto_alloc>();
 }
 
+TEST(array_lifetime_uninitialized) {
+  lifetime_counter::reset();
+  using uninitializer = uninitialized_allocator<std::allocator<lifetime_counter>>;
+  array_of_rank<lifetime_counter, 3, uninitializer> uninit({100, 100, 100});
+  ASSERT_EQ(lifetime_counter::constructs(), 0);
+}
+
 }  // namespace nda
