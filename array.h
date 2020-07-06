@@ -136,10 +136,12 @@ class range {
   /** Construct a new range object. If the class template parameters `Min`
    * or `Extent` are not `UNK`, these runtime values must match the
    * compile-time values. */
-  range(index_t min = Min, index_t extent = Extent) {
+  range(index_t min, index_t extent) {
     set_min(min);
     set_extent(extent);
   }
+  range(index_t min) : range(min, internal::is_known(Extent) ? Extent : 1) {}
+  range() : range(internal::is_known(Min) ? Min : 0) {}
   range(const range&) = default;
   range(range&&) = default;
   /** Copy another range object, possibly with different compile-time template
@@ -357,8 +359,8 @@ class dim : public range<Min_, Extent_> {
   dim(index_t min, index_t extent, index_t stride = Stride) : base_range(min, extent) {
     set_stride(stride);
   }
-  dim(index_t extent) : dim(0, extent) {}
-  dim() : dim(Min, Extent, Stride) {}
+  dim(index_t extent) : dim(internal::is_known(Min) ? Min : 0, extent) {}
+  dim() : dim(internal::is_known(Extent) ? Extent : 0) {}
   dim(const base_range& range, index_t stride = Stride)
       : dim(range.min(), range.extent(), stride) {}
   dim(const dim&) = default;
@@ -661,22 +663,6 @@ index_t find_stride(index_t extent, const AllDims& all_dims, index_sequence<Is..
       filter_stride(1, extent, all_dims), candidate_stride<Is>(extent, all_dims)...);
 }
 
-inline void resolve_unknown_extents() {}
-
-template <class Dim0, class... Dims>
-void resolve_unknown_extents(Dim0& dim0, Dims&... dims) {
-  if (is_unknown(dim0.extent())) {
-    dim0.set_extent(0);
-  }
-  resolve_unknown_extents(dims...);
-}
-
-template <class Dims, size_t... Is>
-void resolve_unknown_extents(Dims& dims, index_sequence<Is...>) {
-  resolve_unknown_extents(std::get<Is>(dims)...);
-}
-
-
 template <class AllDims>
 void resolve_unknown_strides(AllDims& all_dims) {}
 
@@ -692,13 +678,6 @@ void resolve_unknown_strides(AllDims& all_dims, Dim0& dim0, Dims&... dims) {
 template <class Dims, size_t... Is>
 void resolve_unknown_strides(Dims& dims, index_sequence<Is...>) {
   resolve_unknown_strides(dims, std::get<Is>(dims)...);
-}
-
-template <class Dims>
-void resolve_unknowns(Dims& dims) {
-  constexpr size_t rank = std::tuple_size<Dims>::value;
-  resolve_unknown_extents(dims, make_index_sequence<rank>());
-  resolve_unknown_strides(dims, make_index_sequence<rank>());
 }
 
 template <class Dim>
@@ -855,10 +834,12 @@ class shape {
     return *this;
   }
 
-  /* When constructing arrays, unknown extents are set to 0, and unknown
-   * strides are set to the currently largest known stride. This is done in
-   * innermost-to-outermost order. */
-  void resolve() { internal::resolve_unknowns(dims_); }
+  /** Replace strides with automatically determined values. The automatic stride
+   * is the smallest possible value that does not cause the dim to intersect any
+   * other dims. This is done in innermost to outermost order. */
+  void resolve() {
+    internal::resolve_unknown_strides(dims_, internal::make_index_sequence<rank()>());
+  }
 
   /** Check if all values of the shape are known. */
   bool is_known() const {
