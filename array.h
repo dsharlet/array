@@ -680,14 +680,9 @@ void resolve_unknown_strides(Dims& dims, index_sequence<Is...>) {
   resolve_unknown_strides(dims, std::get<Is>(dims)...);
 }
 
-template <class Dim>
-bool is_known(const Dim& dim) {
-  return is_known(dim.min()) && is_known(dim.extent()) && is_known(dim.stride());
-}
-
 template<class Dims, size_t... Is>
-bool all_known(const Dims& dims, index_sequence<Is...>) {
-  return all(is_known(std::get<Is>(dims))...);
+bool is_resolved(const Dims& dims, index_sequence<Is...>) {
+  return all(!is_unknown(std::get<Is>(dims).stride())...);
 }
 
 // A helper to transform an array to a tuple.
@@ -843,7 +838,7 @@ class shape {
 
   /** Check if all values of the shape are known. */
   bool is_resolved() const {
-    return internal::all_known(dims_, internal::make_index_sequence<rank()>());
+    return internal::is_resolved(dims_, internal::make_index_sequence<rank()>());
   }
 
   /** Returns true if the indices or ranges `args` are in range of this shape. */
