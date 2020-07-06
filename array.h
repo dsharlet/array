@@ -865,13 +865,11 @@ class shape {
     return internal::all_known(dims_, internal::make_index_sequence<rank()>());
   }
 
-  /** Returns true if the index `indices` are in range of this shape. */
-  bool is_in_range(const index_type& indices) const {
-    return internal::is_in_range(dims_, indices, internal::make_index_sequence<rank()>());
+  /** Returns true if the indices or ranges `args` are in range of this shape. */
+  template <class... Args, class = enable_if_same_rank<Args...>>
+  bool is_in_range(const std::tuple<Args...>& args) const {
+    return internal::is_in_range(dims_, args, internal::make_index_sequence<rank()>());
   }
-  // This supports both indices and ranges. It appears not to be possible
-  // to have two overloads differentiated by enable_if_indices and
-  // enable_if_ranges.
   template <class... Args, class = enable_if_same_rank<Args...>>
   bool is_in_range(Args... args) const {
     return internal::is_in_range(
@@ -885,26 +883,25 @@ class shape {
   index_t operator[] (const index_type& indices) const {
     return internal::flat_offset_tuple(dims_, indices, internal::make_index_sequence<rank()>());
   }
-  template <class... Args,
-      class = enable_if_same_rank<Args...>,
-      class = enable_if_indices<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_indices<Args...>>
   index_t operator() (Args... indices) const {
     return internal::flat_offset_pack<0>(dims_, indices...);
   }
 
   /** Create a new shape using the specified crops and slices in `args`.
    * The resulting shape will have the sliced dimensions removed. */
-  template <class... Args,
-      class = enable_if_same_rank<Args...>,
-      class = enable_if_ranges<Args...>>
-  auto operator() (Args... args) const {
-    auto ranges_tuple = std::make_tuple(args...);
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  auto operator() (const std::tuple<Args...>& args) const {
     auto new_dims =
-        internal::ranges_with_strides(ranges_tuple, dims_, internal::make_index_sequence<rank()>());
+        internal::ranges_with_strides(args, dims_, internal::make_index_sequence<rank()>());
     auto new_dims_no_slices =
-        internal::skip_slices(new_dims, ranges_tuple, internal::make_index_sequence<rank()>());
+        internal::skip_slices(new_dims, args, internal::make_index_sequence<rank()>());
     return make_shape_from_tuple(new_dims_no_slices);
   }
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  auto operator[] (const std::tuple<Args...>& args) const { return operator()(args); }
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  auto operator() (Args... args) const { return operator()(std::make_tuple(args...)); }
 
   /** Get a specific dim of this shape. */
   template <size_t D, class = enable_if_dim<D>>
@@ -1467,10 +1464,10 @@ array_ref<T, Shape> make_array_ref(T* base, const Shape& shape) {
 namespace internal {
 
 template <class T, class Shape, class... Args>
-auto make_array_ref_at(T base, const Shape& shape, Args... args) {
-  auto new_shape = shape(args...);
-  auto new_mins = mins_of_ranges(
-      std::make_tuple(args...), shape.dims(), make_index_sequence<sizeof...(Args)>());
+auto make_array_ref_at(T base, const Shape& shape, const std::tuple<Args...>& args) {
+  auto new_shape = shape(args);
+  auto new_mins =
+      mins_of_ranges(args, shape.dims(), make_index_sequence<sizeof...(Args)>());
   auto old_min_offset = shape(new_mins);
   return make_array_ref(internal::pointer_add(base, old_min_offset), new_shape);
 }
@@ -1548,18 +1545,22 @@ class array_ref {
   /** Get a reference to the element at the given indices. */
   reference operator() (const index_type& indices) const { return base_[shape_(indices)]; }
   reference operator[] (const index_type& indices) const { return base_[shape_(indices)]; }
-  template <class... Args,
-      class = enable_if_same_rank<Args...>,
-      class = enable_if_indices<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_indices<Args...>>
   reference operator() (Args... indices) const { return base_[shape_(indices...)]; }
 
   /** Create an array_ref from this array_ref using a series of crops and slices `args`.
    * The resulting array_ref will have the same rank as this array_ref. */
-  template <class... Args,
-      class = enable_if_same_rank<Args...>,
-      class = enable_if_ranges<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  auto operator() (const std::tuple<Args...>& args) const {
+    return internal::make_array_ref_at(base_, shape_, args);
+  }
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  auto operator[] (const std::tuple<Args...>& args) const {
+    return internal::make_array_ref_at(base_, shape_, args);
+  }
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
   auto operator() (Args... args) const {
-    return internal::make_array_ref_at(base_, shape_, args...);
+    return internal::make_array_ref_at(base_, shape_, std::make_tuple(args...));
   }
 
   /** Call a function with a reference to each value in this array_ref. The
@@ -1956,28 +1957,36 @@ class array {
   reference operator[] (const index_type& indices) { return base_[shape_(indices)]; }
   const_reference operator() (const index_type& indices) const { return base_[shape_(indices)]; }
   const_reference operator[] (const index_type& indices) const { return base_[shape_(indices)]; }
-  template <class... Args,
-      class = enable_if_same_rank<Args...>,
-      class = enable_if_indices<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_indices<Args...>>
   reference operator() (Args... indices) { return base_[shape_(indices...)]; }
-  template <class... Args,
-      class = enable_if_same_rank<Args...>,
-      class = enable_if_indices<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_indices<Args...>>
   const_reference operator() (Args... indices) const { return base_[shape_(indices...)]; }
 
   /** Create an `array_ref` from this array from a series of crops and slices `args`.
    * The resulting `array_ref` will have the same rank as this array. */
-  template <class... Args,
-      class = enable_if_same_rank<Args...>,
-      class = enable_if_ranges<Args...>>
-  auto operator() (Args... args) {
-    return internal::make_array_ref_at(base_, shape_, args...);
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  auto operator() (const std::tuple<Args...>& args) {
+    return internal::make_array_ref_at(base_, shape_, args);
   }
-  template <class... Args,
-      class = enable_if_same_rank<Args...>,
-      class = enable_if_ranges<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  auto operator[] (const std::tuple<Args...>& args) {
+    return internal::make_array_ref_at(base_, shape_, args);
+  }
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  auto operator() (Args... args) {
+    return internal::make_array_ref_at(base_, shape_, std::make_tuple(args...));
+  }
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  auto operator() (const std::tuple<Args...>& args) const {
+    return internal::make_array_ref_at(base_, shape_, args);
+  }
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  auto operator[] (const std::tuple<Args...>& args) const {
+    return internal::make_array_ref_at(base_, shape_, args);
+  }
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
   auto operator() (Args... args) const {
-    return internal::make_array_ref_at(base_, shape_, args...);
+    return internal::make_array_ref_at(base_, shape_, std::make_tuple(args...));
   }
 
   /** Call a function with a reference to each value in this array. The order in
