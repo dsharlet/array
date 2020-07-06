@@ -1580,7 +1580,7 @@ class array_ref {
    * be considered equal, they must have the same shape, and all elements
    * addressable by the shape must also be equal. */
   bool operator!=(const array_ref& other) const {
-    if (shape_ == other .shape_) {
+    if (shape_ != other.shape_) {
       return true;
     }
 

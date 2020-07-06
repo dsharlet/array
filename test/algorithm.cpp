@@ -18,12 +18,13 @@
 namespace nda {
 
 TEST(algorithm_equal) {
-  dense_array<int, 3> a1({10, 20, 30});
+  dense_array<int, 3> a1({10, 20, {0, 30, 205}});
   generate(a1, rand);
-  dense_array<int, 3> a2(a1);
-  dense_array<int, 3> b(a1);
+  dense_array<int, 3> a2 = make_compact_copy(a1);
+  dense_array<int, 3> b(a2);
   fill(b, 0);
 
+  ASSERT(a1 != a2);
   ASSERT(equal(a1, a2));
   ASSERT(!equal(a1, b));
 }

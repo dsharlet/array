@@ -94,27 +94,27 @@ TEST(array_assign) {
 
   array_of_rank<int, 3> b = array_of_rank<int, 3>({4, 5, 6});
   fill_pattern(b);
-  ASSERT(equal(a, b));
+  ASSERT(a == b);
 
   array_of_rank<int, 3> c;
   c = array_of_rank<int, 3>({4, 5, 6});
   fill_pattern(c);
-  ASSERT(equal(a, c));
+  ASSERT(a == c);
 
   c = array_of_rank<int, 3>({4, 5, 6});
-  ASSERT(!equal(a, c));
+  ASSERT(a != c);
   fill_pattern(c);
-  ASSERT(equal(a, c));
+  ASSERT(a == c);
 
   c = array_of_rank<int, 3>({7, 5, 6});
-  ASSERT(!equal(a, c));
+  ASSERT(a != c);
 
   {
     array_of_rank<int, 3> d({4, 5, 6});
     fill_pattern(d);
     c = d;
   }
-  ASSERT(equal(a, c));
+  ASSERT(a == c);
 }
 
 TEST(array_fill_assign) {
@@ -189,15 +189,19 @@ TEST(array_equality) {
   fill_pattern(a);
   array_of_rank<int, 3> b({4, 5, 6});
   fill_pattern(b);
-  // A sparse array with a different stride than the above should still be equal to the above.
   array_of_rank<int, 3> c({dim<>(0, 4, 2), 5, 6});
   fill_pattern(c);
 
-  ASSERT(equal(a, b));
+  ASSERT(a == b);
+
+  // Arrays with different strides are not equal by operator!=,
+  // but equal ignores strides.
+  ASSERT(a != c);
   ASSERT(equal(a, c));
 
   a(1, 2, 3) = 5;
-  ASSERT(!equal(a, b));
+  ASSERT(a != b);
+  ASSERT(a != c);
   ASSERT(!equal(a, c));
 }
 
