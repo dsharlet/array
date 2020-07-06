@@ -54,14 +54,14 @@ chunky_image_ref<const Magick::Quantum, 4> cref(const Magick::Image& img) {
   return {base, {width, height, 4}};
 }
 
-template <typename T>
+template <class T>
 planar_image<T> magick_to_array(const Magick::Image& img) {
   // We can tell make_dense_copy the value_type of the array we want by giving
   // it an allocator for that type.
   return make_dense_copy(cref(img), std::allocator<T>());
 }
 
-template <typename T, typename Shape>
+template <class T, class Shape>
 Magick::Image array_to_magick(const array_ref<T, Shape>& img) {
   Magick::Image result(Magick::Geometry(img.width(), img.height()), Magick::Color());
   copy(img, ref(result));

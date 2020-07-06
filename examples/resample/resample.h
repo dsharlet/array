@@ -171,7 +171,7 @@ inline kernel_array build_kernels(
 
 // Resize the y dimension of an input array 'in' to a destination array 'out',
 // using kernels(y) to produce out(., y, .).
-template <typename TIn, typename TOut>
+template <class TIn, class TOut>
 void resample_y(const TIn& in, const TOut& out, const kernel_array& kernels) {
   for (nda::index_t y : out.y()) {
     const nda::dense_array<float, 1>& kernel_y = kernels(y);
@@ -189,7 +189,7 @@ void resample_y(const TIn& in, const TOut& out, const kernel_array& kernels) {
   }
 }
 
-template <typename TIn, typename TOut>
+template <class TIn, class TOut>
 void transpose(const TIn& in, const TOut& out) {
   for (nda::index_t c : out.c()) {
     for (nda::index_t y : out.y()) {
@@ -215,7 +215,7 @@ nda::dim<Min, Extent> without_stride(const nda::dim<Min, Extent, Stride>& d) {
 
 /** Resample an array `in` to produce an array `out`, using an interpolation `kernel`.
  * Input coordinates (x, y) map to output coordinates (x * rate_x, y * rate_y). */
-template <typename TIn, typename TOut, typename ShapeIn, typename ShapeOut>
+template <class TIn, class TOut, class ShapeIn, class ShapeOut>
 void resample(const nda::array_ref<TIn, ShapeIn>& in, const nda::array_ref<TOut, ShapeOut>& out,
               const rational<nda::index_t>& rate_x, const rational<nda::index_t>& rate_y,
               continuous_kernel kernel) {
