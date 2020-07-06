@@ -2433,9 +2433,9 @@ class auto_allocator {
   auto_allocator() : allocated(false) {}
   template <class U, size_t U_N> constexpr
   auto_allocator(const auto_allocator<U, U_N>&) noexcept : allocated(false) {}
-  // TODO: Most of these constructors/assignment operators are hacks,
-  // because the C++ STL I'm using seems to not be respecting the
-  // propagate typedefs or the 'select_on_...' function above.
+  // These constructors/assignment operators are workarounds for a C++
+  // STL implementation not respecting the propagate typedefs or the
+  // 'select_on_...' function. (https://github.com/dsharlet/array/issues/7)
   auto_allocator(const auto_allocator&) noexcept : allocated(false) {}
   auto_allocator(auto_allocator&&) noexcept : allocated(false) {}
   auto_allocator& operator=(const auto_allocator&) { return *this; }
