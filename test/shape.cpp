@@ -75,6 +75,7 @@ TEST(shape_2d_negative_stride) {
   ASSERT_EQ(s.flat_max(), flat_max);
 
   shape_of_rank<3> s2(10, 5, {0, 3, -1});
+  s2.resolve();
   ASSERT_EQ(s2.x().stride(), 3);
   ASSERT_EQ(s2.y().stride(), 30);
 }
@@ -86,6 +87,7 @@ TEST(make_dense_shape_1d) {
 
 TEST(make_dense_shape_2d) {
   dense_shape<2> s(10, 5);
+  s.resolve();
   auto x = s.x();
   auto y = s.y();
   assert_dim_eq(x, dense_dim<>(0, 10));
@@ -99,6 +101,7 @@ TEST(make_dense_shape_2d) {
 
 TEST(make_dense_shape_3d) {
   dense_shape<3> s(10, 5, 20);
+  s.resolve();
   auto x = s.x();
   auto y = s.y();
   auto z = s.z();
@@ -126,6 +129,8 @@ void test_all_unknown_strides() {
   }
   shape_of_rank<rank> s_all_unknown(internal::array_to_tuple(a));
   shape_of_rank<rank> s_all_unknown_resolved(internal::array_to_tuple(b));
+  s_all_unknown.resolve();
+  s_all_unknown_resolved.resolve();
   ASSERT_EQ(s_all_unknown, s_all_unknown_resolved);
 }
 
@@ -148,6 +153,7 @@ void test_one_dense_stride() {
       }
     }
     shape_of_rank<rank> s_one_dense(internal::array_to_tuple(a));
+    s_one_dense.resolve();
     ASSERT_EQ(s_one_dense.size(), factorial(rank));
     ASSERT_EQ(s_one_dense.dim(known).stride(), 1);
     ASSERT(s_one_dense.is_compact());
@@ -162,7 +168,8 @@ void test_auto_strides() {
 }
 
 template <size_t Rank>
-void check_resolved_strides(const shape_of_rank<Rank>& shape, const std::vector<index_t>& strides) {
+void check_resolved_strides(shape_of_rank<Rank> shape, const std::vector<index_t>& strides) {
+  shape.resolve();
   for (size_t i = 0; i < strides.size(); i++) {
     ASSERT_EQ(shape.dim(i).stride(), strides[i]);
   }
@@ -239,6 +246,7 @@ TEST(for_all_indices_1d) {
 
 TEST(for_all_indices_2d) {
   dense_shape<2> s(10, 4);
+  s.resolve();
   int expected_flat_offset = 0;
   for_all_indices(s, [&](int x, int y) {
     ASSERT_EQ(s(x, y), expected_flat_offset);
@@ -250,6 +258,7 @@ TEST(for_all_indices_2d) {
 
 TEST(for_all_indices_3d) {
   dense_shape<3> s(3, 5, 8);
+  s.resolve();
   int expected_flat_offset = 0;
   for_all_indices(s, [&](int x, int y, int z) {
     ASSERT_EQ(s(x, y, z), expected_flat_offset);
@@ -281,6 +290,7 @@ TEST(for_each_index_1d) {
 
 TEST(for_each_index_2d) {
   dense_shape<2> s(10, 4);
+  s.resolve();
   int expected_flat_offset = 0;
   for_each_index(s, [&](std::tuple<int, int> x) {
     ASSERT_EQ(s(x), expected_flat_offset);
@@ -292,6 +302,7 @@ TEST(for_each_index_2d) {
 
 TEST(for_each_index_3d) {
   dense_shape<3> s(3, 5, 8);
+  s.resolve();
   int expected_flat_offset = 0;
   for_each_index(s, [&](std::tuple<int, int, int> x) {
     ASSERT_EQ(s(x), expected_flat_offset);
@@ -381,6 +392,7 @@ TEST(shape_transpose) {
   ASSERT_EQ(transposed.template dim<2>().extent(), 3);
 
   shape<dim<>, dim<>, dense_dim<>> interleaved(3, 5, 4);
+  interleaved.resolve();
   ASSERT(interleaved.is_compact());
   int expected_flat_offset = 0;
   for_all_indices(reorder<2, 0, 1>(interleaved), [&](int c, int x, int y) {
@@ -409,10 +421,11 @@ TEST(shape_optimize) {
   ASSERT_EQ(internal::dynamic_optimize_shape(d), d_optimized);
 
   shape_of_rank<10> e(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+  e.resolve();
   shape_of_rank<10> e2 = reorder<9, 5, 3, 7, 2, 8, 4, 6, 0, 1>(e);
   dim<> e_optimized_dim(0, 1, 3628800);
   shape_of_rank<10> e_optimized(
-    3628800,
+    {0, 3628800, 1},
     e_optimized_dim, e_optimized_dim, e_optimized_dim,
     e_optimized_dim, e_optimized_dim, e_optimized_dim,
     e_optimized_dim, e_optimized_dim, e_optimized_dim);
@@ -421,10 +434,12 @@ TEST(shape_optimize) {
 
   shape_of_rank<2> f({0, 2}, {1, 2});
   shape_of_rank<2> f_optimized({2, 4, 1}, {0, 1, 4});
+  f.resolve();
   ASSERT_EQ(internal::dynamic_optimize_shape(f), f_optimized);
 
   shape_of_rank<2> g({1, 2}, {1, 2});
   shape_of_rank<2> g_optimized({3, 4, 1}, {0, 1, 4});
+  g.resolve();
   ASSERT_EQ(internal::dynamic_optimize_shape(g), g_optimized);
 }
 
@@ -442,25 +457,10 @@ TEST(shape_make_compact) {
   ASSERT_EQ(make_compact(s3), s3_compact);
 }
 
-TEST(shape_intersect) {
-  shape<> s0;
-  shape<dim<>> s1({1, 9});
-  shape<dim<0, UNK>, dim<>> s2({0, 12}, {-10, 100});
-  shape<dense_dim<-1, 5>, dim<>, dim<>> s3({-1, 5}, {10, 20}, {-100, 1000});
-  shape<dense_dim<0, 3>, dim<>, dim<>, dim<>> s4({0, 3}, {20, 40}, {-100, 1000}, {0, 1});
-
-  shape<> s0_s1;
-  shape<dim<>> s1_s2({1, 9});
-  shape<dim<0, UNK>, dim<>> s2_s3({0, 4}, {10, 20});
-  shape<dim<0, 3>, dim<>, dim<>> s3_s4({0, 3}, {20, 10}, {-100, 1000});
-  ASSERT_EQ(intersect(s0, s1), s0_s1);
-  ASSERT_EQ(intersect(s1, s2), s1_s2);
-  ASSERT_EQ(intersect(s2, s3), s2_s3);
-  ASSERT_EQ(intersect(s3, s4), s3_s4);
-}
-
 template <typename Shape>
-void test_number_theory(const Shape& s) {
+void test_number_theory(Shape s) {
+  s.resolve();
+
   std::vector<int> addresses(static_cast<size_t>(s.flat_extent()), 0);
   for_each_index(s, [&](const typename Shape::index_type& i) {
     addresses[static_cast<size_t>(s(i) - s.flat_min())] += 1;

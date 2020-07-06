@@ -822,11 +822,11 @@ class shape {
    * innermost-to-outermost order. */
   // TODO: Don't resolve unknowns upon shape construction, do it only when
   // constructing arrays (and not array_refs).
-  shape() { resolve(); }
+  shape() {}
   // TODO: This is a bit messy, but necessary to avoid ambiguous default
   // constructors when Dims is empty.
   template <size_t N = sizeof...(Dims), class = typename std::enable_if<(N > 0)>::type>
-  shape(const Dims&... dims) : dims_(dims...) { resolve(); }
+  shape(const Dims&... dims) : dims_(dims...) {}
   shape(const shape&) = default;
   shape(shape&&) = default;
 
@@ -834,15 +834,15 @@ class shape {
   // We cannot have an std::tuple<Dims...> constructor because it will be
   // ambiguous with the Dims... constructor for 1D shapes.
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
-  shape(const std::tuple<OtherDims...>& dims) : dims_(dims) { resolve(); }
+  shape(const std::tuple<OtherDims...>& dims) : dims_(dims) {}
   /** Construct a shape from a different type of `dims`. */
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
-  shape(OtherDims... dims) : dims_(dims...) { resolve(); }
+  shape(OtherDims... dims) : dims_(dims...) {}
 
   /** Construct this shape from a different type of shape. `conversion` must
    * be convertible to this shape. */
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
-  shape(const shape<OtherDims...>& conversion) : dims_(conversion.dims()) { resolve(); }
+  shape(const shape<OtherDims...>& conversion) : dims_(conversion.dims()) {}
 
   shape& operator=(const shape&) = default;
   shape& operator=(shape&&) = default;
@@ -1112,20 +1112,19 @@ bool is_shape_compatible(const shape<DimsDst...>&, const ShapeSrc& src, index_se
 }
 
 template <class DimA, class DimB>
-auto intersect_dims(const DimA& a, const DimB& b) {
+auto clamp_dims(const DimA& a, const DimB& b) {
   constexpr index_t Min = max(DimA::Min, DimB::Min);
   constexpr index_t Max = min(DimA::Max, DimB::Max);
   constexpr index_t Extent = add(sub(Max, Min), 1);
-  constexpr index_t Stride = DimA::Stride == DimB::Stride ? DimA::Stride : UNK;
   index_t min = std::max(a.min(), b.min());
   index_t max = std::min(a.max(), b.max());
   index_t extent = max - min + 1;
-  return dim<Min, Extent, Stride>(min, extent);
+  return dim<Min, Extent, DimA::Stride>(min, extent, a.stride());
 }
 
 template <class DimsA, class DimsB, size_t... Is>
-auto intersect(const DimsA& a, const DimsB& b, index_sequence<Is...>) {
-  return make_shape(intersect_dims(std::get<Is>(a), std::get<Is>(b))...);
+auto clamp(const DimsA& a, const DimsB& b, index_sequence<Is...>) {
+  return make_shape(clamp_dims(std::get<Is>(a), std::get<Is>(b))...);
 }
 
 }  // namespace internal
@@ -1168,14 +1167,6 @@ bool is_compatible(const ShapeSrc& src) {
   static_assert(ShapeSrc::rank() == ShapeDst::rank(), "shapes must have the same rank.");
   return internal::is_shape_compatible(
       ShapeDst(), src, internal::make_index_sequence<ShapeSrc::rank()>());
-}
-
-/** Compute the intersection of two shapes `a` and `b`. The intersection is the
- * shape containing the indices in bounds of both `a` and `b`. */
-template <class ShapeA, class ShapeB>
-auto intersect(const ShapeA& a, const ShapeB& b) {
-  constexpr size_t rank = ShapeA::rank() < ShapeB::rank() ? ShapeA::rank() : ShapeB::rank();
-  return internal::intersect(a.dims(), b.dims(), internal::make_index_sequence<rank>());
 }
 
 /** Iterate over all indices in the shape, calling a function `fn` for each set
@@ -2028,7 +2019,8 @@ class array {
 
   /** Reallocate the array, and move the intersection of the old and new shapes
    * to the new array. */
-  void reshape(const Shape& new_shape) {
+  void reshape(Shape new_shape) {
+    new_shape.resolve();
     if (shape_ == new_shape) {
       return;
     }
@@ -2037,9 +2029,12 @@ class array {
     array new_array(new_shape);
 
     // Move the common elements to the new array.
-    Shape intersection = intersect(shape_, new_array.shape());
+    Shape intersection =
+        internal::clamp(new_shape.dims(), shape_.dims(), std::make_index_sequence<rank()>());
+    pointer intersection_base =
+        internal::pointer_add(new_array.base(), new_shape(intersection.min()));
     copy_shape_traits_type::for_each_value(
-        shape_, base_, intersection, new_array.base(), [](T& src, T& dst) {
+        shape_, base_, intersection, intersection_base, [](T& src, T& dst) {
       dst = std::move(src);
     });
 

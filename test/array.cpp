@@ -156,6 +156,7 @@ TEST(array_fill_assign) {
 
 TEST(sparse_array) {
   auto sparse_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10));
+  sparse_shape.resolve();
   ASSERT(sparse_shape.flat_extent() > sparse_shape.size());
 
   array<int, shape<dim<>, dim<>>> sparse(sparse_shape);
@@ -342,12 +343,32 @@ TEST(array_for_each_value) {
   }
 }
 
-TEST(array_reshape) {
-  array_of_rank<int, 3> a({{-1, 10}, {-2, 10}, {-3, 10}});
+TEST(array_reshape_1d) {
+  shape_of_rank<1> s({{-1, 9}});
+  array_of_rank<int, 1> a(s);
   fill_pattern(a);
+
+  a.reshape({{-3, 12}});
+  check_pattern(a(s.x()));
+  ASSERT_EQ(a.shape().flat_extent(), 12);
+
+  a.reshape({5});
+  check_pattern(a);
+  ASSERT_EQ(a.shape().flat_extent(), 5);
+}
+
+TEST(array_reshape_3d) {
+  shape_of_rank<3> s({{-1, 10}, {-2, 10}, {-3, 10}});
+  array_of_rank<int, 3> a(s);
+  fill_pattern(a);
+
+  a.reshape({{-2, 12}, {-3, 13}, {-4, 14}});
+  check_pattern(a(s.x(), s.y(), s.z()));
+  ASSERT_EQ(a.shape().flat_extent(), 12 * 13 * 14);
+
   a.reshape({5, 5, 5});
   check_pattern(a);
-  ASSERT_EQ(a.shape().flat_extent(), 125);
+  ASSERT_EQ(a.shape().flat_extent(), 5 * 5 * 5);
 }
 
 TEST(array_negative_strides) {

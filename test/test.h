@@ -133,7 +133,7 @@ public:
 
 template <class T, class IndexType, size_t... Is>
 T pattern_impl(const IndexType& indices, const IndexType& offset, std::index_sequence<Is...>) {
-  static const index_t pattern_basis[] = { 10000, 100, 10, 7, 5, 3 };
+  static const index_t pattern_basis[] = { 1, 30, 1000, 10000, 1000000 };
   return static_cast<T>(internal::sum((std::get<Is>(indices) + std::get<Is>(offset)) * pattern_basis[Is]...));
 }
 
