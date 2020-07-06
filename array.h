@@ -507,7 +507,6 @@ template <size_t D, class Dims>
 index_t flat_offset_pack(const Dims& dims) {
   return 0;
 }
-
 template <size_t D, class Dims, class... Indices>
 index_t flat_offset_pack(const Dims& dims, index_t i0, Indices... indices) {
   return std::get<D>(dims).flat_offset(i0) + flat_offset_pack<D + 1>(dims, indices...);
@@ -528,17 +527,17 @@ index_t flat_max(const Dims& dims, index_sequence<Is...>) {
       std::max(static_cast<index_t>(0), std::get<Is>(dims).stride())...);
 }
 
+// Make dims with the range of the first parameter and the stride
+// of the second parameter.
 template <index_t DimMin, index_t DimExtent, index_t DimStride>
 auto range_with_stride(index_t x, const dim<DimMin, DimExtent, DimStride>& d) {
   return dim<UNK, 1, DimStride>(x, 1, d.stride());
 }
-
 template <index_t CropMin, index_t CropExtent, index_t DimMin, index_t DimExtent, index_t Stride>
 auto range_with_stride(
     const range<CropMin, CropExtent>& x, const dim<DimMin, DimExtent, Stride>& d) {
   return dim<CropMin, CropExtent, Stride>(x.min(), x.extent(), d.stride());
 }
-
 template <index_t Min, index_t Extent, index_t Stride>
 auto range_with_stride(const decltype(_)&, const dim<Min, Extent, Stride>& d) {
   return d;
@@ -551,14 +550,9 @@ auto ranges_with_strides(const Ranges& ranges, const Dims& dims, index_sequence<
 
 // Make a tuple of dims corresponding to elements in ranges that are not slices.
 template <class Dim>
-std::tuple<> skip_slices_impl(const Dim& dim, index_t) {
-  return std::tuple<>();
-}
-
+std::tuple<> skip_slices_impl(const Dim& dim, index_t) { return std::tuple<>(); }
 template <class Dim>
-std::tuple<Dim> skip_slices_impl(const Dim& dim, const range<>&) {
-  return std::tuple<Dim>(dim);
-}
+std::tuple<Dim> skip_slices_impl(const Dim& dim, const range<>&) { return std::tuple<Dim>(dim); }
 
 template <class Dims, class Ranges, size_t... Is>
 auto skip_slices(const Dims& dims, const Ranges& ranges, index_sequence<Is...>) {
@@ -571,21 +565,13 @@ bool is_in_range(const Dims& dims, const Indices& indices, index_sequence<Is...>
   return all(std::get<Is>(dims).is_in_range(std::get<Is>(indices))...);
 }
 
-// We want to be able to call mins on a mixed tuple of int/index_t, range, and dim.
+// Get the mins of a series of ranges.
 template <class Dim>
-index_t min_of_range(index_t x, const Dim&) {
-  return x;
-}
-
+index_t min_of_range(index_t x, const Dim&) { return x; }
 template <index_t Min, index_t Extent, class Dim>
-index_t min_of_range(const range<Min, Extent>& x, const Dim&) {
-  return x.min();
-}
-
+index_t min_of_range(const range<Min, Extent>& x, const Dim&) { return x.min(); }
 template <class Dim>
-index_t min_of_range(const decltype(_)&, const Dim& dim) {
-  return dim.min();
-}
+index_t min_of_range(const decltype(_)&, const Dim& dim) { return dim.min(); }
 
 template <class Ranges, class Dims, size_t... Is>
 auto mins_of_ranges(const Ranges& ranges, const Dims& dims, index_sequence<Is...>) {
@@ -612,11 +598,16 @@ auto maxs(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
   return std::make_tuple(std::get<Is>(dims).max()...);
 }
 
+// The following series of functions implements the algorithm
+// for automatically determining what unknown strides should be.
+
+// A proposed stride is "OK" w.r.t. `dim` if the proposed
+// stride does not intersect the dim.
 template <class Dim>
-bool is_dim_ok(index_t stride, index_t extent, const Dim& dim) {
+bool is_stride_ok(index_t stride, index_t extent, const Dim& dim) {
   if (is_unknown(dim.stride())) {
-    // If the dimension has an unknown stride, it's OK, we're resolving the
-    // current dim first.
+    // If the dimension has an unknown stride, it's OK, we're
+    // resolving the current dim first.
     return true;
   }
   if (dim.extent() * abs(dim.stride()) <= stride) {
@@ -632,40 +623,43 @@ bool is_dim_ok(index_t stride, index_t extent, const Dim& dim) {
 }
 
 template <class AllDims, size_t... Is>
-bool is_dim_ok(index_t stride, index_t extent, const AllDims& all_dims, index_sequence<Is...>) {
-  return all(is_dim_ok(stride, extent, std::get<Is>(all_dims))...);
+bool is_stride_ok(index_t stride, index_t extent, const AllDims& all_dims, index_sequence<Is...>) {
+  return all(is_stride_ok(stride, extent, std::get<Is>(all_dims))...);
 }
 
+// Replace strides that are not OK with values that cannot be the
+// smallest stride.
 template <class AllDims>
 index_t filter_stride(index_t stride, index_t extent, const AllDims& all_dims) {
   constexpr size_t rank = std::tuple_size<AllDims>::value;
-  if (is_dim_ok(stride, extent, all_dims, make_index_sequence<rank>())) {
+  if (is_stride_ok(stride, extent, all_dims, make_index_sequence<rank>())) {
     return stride;
   } else {
     return std::numeric_limits<index_t>::max();
   }
 }
 
-template <size_t D, class AllDims>
-index_t candidate_stride(index_t extent, const AllDims& all_dims) {
-  index_t stride_d = std::get<D>(all_dims).stride();
-  if (is_unknown(stride_d)) {
+// The candidate stride for some other dimension is the minimum stride it
+// could have without intersecting this dim.
+template <class Dim>
+index_t candidate_stride(const Dim& dim) {
+  if (is_unknown(dim.stride())) {
     return std::numeric_limits<index_t>::max();
   }
-  index_t stride =
-      std::max(static_cast<index_t>(1), abs(stride_d) * std::get<D>(all_dims).extent());
-  return filter_stride(stride, extent, all_dims);
+  return std::max(static_cast<index_t>(1), abs(dim.stride()) * dim.extent());
 }
 
+// Find the best stride (the smallest) out of all possible candidate strides.
 template <class AllDims, size_t... Is>
 index_t find_stride(index_t extent, const AllDims& all_dims, index_sequence<Is...>) {
   return variadic_min(
-      filter_stride(1, extent, all_dims), candidate_stride<Is>(extent, all_dims)...);
+      filter_stride(1, extent, all_dims),
+      filter_stride(candidate_stride(std::get<Is>(all_dims)), extent, all_dims)...);
 }
 
+// Set the unknown stride for each dimension, starting with the first dimension.
 template <class AllDims>
 void resolve_unknown_strides(AllDims& all_dims) {}
-
 template <class AllDims, class Dim0, class... Dims>
 void resolve_unknown_strides(AllDims& all_dims, Dim0& dim0, Dims&... dims) {
   if (is_unknown(dim0.stride())) {
@@ -2006,7 +2000,7 @@ class array {
 
     // Move the common elements to the new array.
     Shape intersection =
-        internal::clamp(new_shape.dims(), shape_.dims(), std::make_index_sequence<rank()>());
+        internal::clamp(new_shape.dims(), shape_.dims(), internal::make_index_sequence<rank()>());
     pointer intersection_base =
         internal::pointer_add(new_array.base(), new_shape(intersection.min()));
     copy_shape_traits_type::for_each_value(
