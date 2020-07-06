@@ -21,6 +21,8 @@
 #include <cmath>
 #include <functional>
 
+namespace nda {
+
 /** A reconstruction kernel is a continuous function. */
 using continuous_kernel = std::function<float(float)>;
 
@@ -108,28 +110,28 @@ namespace internal {
 
 // An array of kernels is not just a 2D array, because each kernel may
 // have different bounds.
-using kernel_array = nda::dense_array<nda::dense_array<float, 1>, 1>;
+using kernel_array = dense_array<dense_array<float, 1>, 1>;
 
 // Build kernels for each index in a dim 'out' to sample from a dim 'in'.
 // The kernels are guaranteed not to read out of bounds of 'in'.
 inline kernel_array build_kernels(
-    nda::range<> in, nda::range<> out, const rational<nda::index_t>& rate,
+    range<> in, range<> out, const rational<index_t>& rate,
     continuous_kernel kernel) {
   // The constant 1/2 as a rational.
-  const rational<nda::index_t> half = rational<nda::index_t>(1, 2);
+  const rational<index_t> half = rational<index_t>(1, 2);
 
   // We need to compute a kernel for each output position.
   kernel_array kernels(out);
 
   // Define a buffer to produce each kernel in.
-  nda::dense_array<float, 1> buffer(in);
+  dense_array<float, 1> buffer(in);
 
   // When downsampling, stretch the kernel to perform low pass filtering.
   // TODO: Move this, so it's possible to specify kernels that include
   // low pass filtering, e.g. trapezoid kernels.
   float kernel_scale = std::min(to_float(rate), 1.0f);
 
-  for (nda::index_t x : out) {
+  for (index_t x : out) {
     // Compute the fractional position of the input corresponding to
     // this output.
     const float in_x = to_float((x + half) / rate - half);
@@ -140,10 +142,10 @@ inline kernel_array build_kernels(
     // TODO: This might produce incorrect results if a kernel has zeros mixed
     // in with non-zeros before the "end" (though such kernels probably aren't
     // very good).
-    nda::index_t min = in.max();
-    nda::index_t max = in.min();
+    index_t min = in.max();
+    index_t max = in.min();
     float sum = 0.0f;
-    for (nda::index_t rx : in) {
+    for (index_t rx : in) {
       float k_rx = kernel((rx - in_x) * kernel_scale);
       buffer(rx) = k_rx;
       if (k_rx != 0.0f) {
@@ -154,11 +156,11 @@ inline kernel_array build_kernels(
     }
 
     // Crop and normalize the kernel.
-    nda::index_t extent = max - min + 1;
+    index_t extent = max - min + 1;
     assert(extent > 0);
     assert(sum > 0.0f);
-    nda::dense_array<float, 1> kernel_x({{min, extent}});
-    for (nda::index_t rx : kernel_x.x()) {
+    dense_array<float, 1> kernel_x({{min, extent}});
+    for (index_t rx : kernel_x.x()) {
       kernel_x(rx) = buffer(rx) / sum;
     }
 
@@ -173,15 +175,15 @@ inline kernel_array build_kernels(
 // using kernels(y) to produce out(., y, .).
 template <class TIn, class TOut>
 void resample_y(const TIn& in, const TOut& out, const kernel_array& kernels) {
-  for (nda::index_t y : out.y()) {
-    const nda::dense_array<float, 1>& kernel_y = kernels(y);
-    for (nda::index_t c : out.c()) {
-      for (nda::index_t x : out.x()) {
+  for (index_t y : out.y()) {
+    const dense_array<float, 1>& kernel_y = kernels(y);
+    for (index_t c : out.c()) {
+      for (index_t x : out.x()) {
         out(x, y, c) = 0.0f;
       }
-      for (nda::index_t ry : kernel_y.x()) {
+      for (index_t ry : kernel_y.x()) {
         float kernel_y_ry = kernel_y(ry);
-        for (nda::index_t x : out.x()) {
+        for (index_t x : out.x()) {
           out(x, y, c) += in(x, ry, c) * kernel_y_ry;
         }
       }
@@ -191,9 +193,9 @@ void resample_y(const TIn& in, const TOut& out, const kernel_array& kernels) {
 
 template <class TIn, class TOut>
 void transpose(const TIn& in, const TOut& out) {
-  for (nda::index_t c : out.c()) {
-    for (nda::index_t y : out.y()) {
-      for (nda::index_t x : out.x()) {
+  for (index_t c : out.c()) {
+    for (index_t y : out.y()) {
+      for (index_t x : out.x()) {
         out(x, y, c) = in(y, x, c);
       }
     }
@@ -203,21 +205,21 @@ void transpose(const TIn& in, const TOut& out) {
 }  // namespace internal
 
 // TODO: Get rid of these ugly helpers. Shapes shouldn't preserve strides in some usages.
-template <nda::index_t NewStride, nda::index_t Min, nda::index_t Extent, nda::index_t Stride>
-nda::dim<Min, Extent, NewStride> with_stride(const nda::dim<Min, Extent, Stride>& d) {
-  return nda::dim<Min, Extent, NewStride>(d.min(), d.extent(), NewStride);
+template <index_t NewStride, index_t Min, index_t Extent, index_t Stride>
+dim<Min, Extent, NewStride> with_stride(const dim<Min, Extent, Stride>& d) {
+  return dim<Min, Extent, NewStride>(d.min(), d.extent(), NewStride);
 }
 
-template <nda::index_t Min, nda::index_t Extent, nda::index_t Stride>
-nda::dim<Min, Extent> without_stride(const nda::dim<Min, Extent, Stride>& d) {
-  return nda::dim<Min, Extent>(d.min(), d.extent());
+template <index_t Min, index_t Extent, index_t Stride>
+dim<Min, Extent> without_stride(const dim<Min, Extent, Stride>& d) {
+  return dim<Min, Extent>(d.min(), d.extent());
 }
 
 /** Resample an array `in` to produce an array `out`, using an interpolation `kernel`.
  * Input coordinates (x, y) map to output coordinates (x * rate_x, y * rate_y). */
 template <class TIn, class TOut, class ShapeIn, class ShapeOut>
-void resample(const nda::array_ref<TIn, ShapeIn>& in, const nda::array_ref<TOut, ShapeOut>& out,
-              const rational<nda::index_t>& rate_x, const rational<nda::index_t>& rate_y,
+void resample(const array_ref<TIn, ShapeIn>& in, const array_ref<TOut, ShapeOut>& out,
+              const rational<index_t>& rate_x, const rational<index_t>& rate_y,
               continuous_kernel kernel) {
   // Make the kernels we need at each output x and y coordinate in the output.
   internal::kernel_array kernels_x =
@@ -226,25 +228,27 @@ void resample(const nda::array_ref<TIn, ShapeIn>& in, const nda::array_ref<TOut,
       internal::build_kernels(in.y(), out.y(), rate_y, kernel);
 
   // Split the image into horizontal strips.
-  constexpr nda::index_t StripSize = 64;
-  for (auto yo : nda::split<StripSize>(out.y())) {
+  constexpr index_t StripSize = 64;
+  for (auto yo : split<StripSize>(out.y())) {
     auto out_y = out(out.x(), yo, out.c());
 
     // Resample the input in y, to an intermediate buffer.
-    auto strip = nda::make_array<TOut>(make_shape(in.x(), without_stride(out_y.y()), without_stride(out_y.c())));
+    auto strip = make_array<TOut>(make_shape(in.x(), without_stride(out_y.y()), without_stride(out_y.c())));
     internal::resample_y(in, strip.ref(), kernels_y);
 
     // Transpose the intermediate.
-    auto strip_tr = nda::make_array<TOut>(make_shape(with_stride<1>(out_y.y()), without_stride(in.x()), without_stride(out_y.c())));
+    auto strip_tr = make_array<TOut>(make_shape(with_stride<1>(out_y.y()), without_stride(in.x()), without_stride(out_y.c())));
     internal::transpose(strip.cref(), strip_tr.ref());
 
     // Resample the intermediate in x.
-    auto out_tr = nda::make_array<TOut>(make_shape(with_stride<1>(out_y.y()), without_stride(out_y.x()), without_stride(out_y.c())));
+    auto out_tr = make_array<TOut>(make_shape(with_stride<1>(out_y.y()), without_stride(out_y.x()), without_stride(out_y.c())));
     internal::resample_y(strip_tr.cref(), out_tr.ref(), kernels_x);
 
     // Transpose the intermediate to the output.
     internal::transpose(out_tr.cref(), out_y);
   }
 }
+
+}  // namespace nda
 
 #endif  // NDARRAY_RESAMPLE_H
