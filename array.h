@@ -1097,6 +1097,14 @@ auto clamp(const DimsA& a, const DimsB& b, index_sequence<Is...>) {
   return make_shape(clamp_dims(std::get<Is>(a), std::get<Is>(b))...);
 }
 
+template <class ShapeDst, class ShapeSrc>
+using enable_if_shapes_compatible =
+    typename std::enable_if<std::is_constructible<ShapeDst, ShapeSrc>::value>::type;
+
+template <class ShapeDst, class ShapeSrc>
+using enable_if_shapes_copy_compatible =
+    typename std::enable_if<ShapeDst::rank() == ShapeSrc::rank()>::type;
+
 }  // namespace internal
 
 /** Make a shape with an equivalent domain of indices, with dense strides. */
@@ -1129,12 +1137,9 @@ using dense_shape = decltype(internal::make_default_dense_shape<Rank>());
 
 /** Test if a shape `src` can be assigned to a shape of type `ShapeDst` without
  * error. */
-// Unfortunately, this is backwards from std::is_convertible. But the other way
-// around doesn't work without forcing the caller to specify ShapeSrc when it
-// should be inferred.
-template <class ShapeDst, class ShapeSrc>
+template <class ShapeDst, class ShapeSrc,
+    class = internal::enable_if_shapes_compatible<ShapeSrc, ShapeDst>>
 bool is_compatible(const ShapeSrc& src) {
-  static_assert(ShapeSrc::rank() == ShapeDst::rank(), "shapes must have the same rank.");
   return internal::is_shape_compatible(
       ShapeDst(), src, internal::make_index_sequence<ShapeSrc::rank()>());
 }
@@ -1179,14 +1184,6 @@ void for_each_value_in_order(
 }
 
 namespace internal {
-
-template <class ShapeDst, class ShapeSrc>
-using enable_if_shapes_compatible =
-    typename std::enable_if<std::is_constructible<ShapeDst, ShapeSrc>::value>::type;
-
-template <class ShapeDst, class ShapeSrc>
-using enable_if_shapes_copy_compatible =
-    typename std::enable_if<ShapeDst::rank() == ShapeSrc::rank()>::type;
 
 inline bool can_fuse(const dim<>& inner, const dim<>& outer) {
   return inner.stride() * inner.extent() == outer.stride();

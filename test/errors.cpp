@@ -88,6 +88,10 @@ void shape_operator_eq_different_rank() {
   s == s2;
 }
 
+void is_compatible_different_dims() {
+  is_compatible<shape_of_rank<3>>(s);
+}
+
 void for_each_index_indices() {
   for_each_index(s, [](int x, int y) {});
 }
