@@ -842,7 +842,7 @@ class shape {
   }
 
   /** Check if all values of the shape are known. */
-  bool is_known() const {
+  bool is_resolved() const {
     return internal::all_known(dims_, internal::make_index_sequence<rank()>());
   }
 
@@ -1621,7 +1621,7 @@ class array_ref {
   /** Change the shape of the array to `new_shape`, and move the base pointer by
    * `offset`. */
   void set_shape(const Shape& new_shape, index_t offset = 0) {
-    assert(new_shape.is_known());
+    assert(new_shape.is_resolved());
     assert(new_shape.is_subset_of(shape_, -offset));
     shape_ = new_shape;
     base_ = internal::pointer_add(base_, offset);
@@ -2026,7 +2026,7 @@ class array {
    * by `offset`. This function is disabled for non-trivial types. */
   void set_shape(const Shape& new_shape, index_t offset = 0) {
     static_assert(std::is_trivial<value_type>::value, "set_shape is broken with non-trivial types.");
-    assert(new_shape.is_known());
+    assert(new_shape.is_resolved());
     assert(new_shape.is_subset_of(shape_, -offset));
     shape_ = new_shape;
     base_ = internal::pointer_add(base_, offset);
