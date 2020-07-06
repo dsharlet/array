@@ -2049,7 +2049,7 @@ class array {
   /** Change the shape of the array to `new_shape`, and move the base pointer
    * by `offset`. This function is disabled for non-trivial types. */
   void set_shape(const Shape& new_shape, index_t offset = 0) {
-    static_assert(std::is_trivial<value_type>::value, "");
+    static_assert(std::is_trivial<value_type>::value, "set_shape is broken with non-trivial types.");
     assert(new_shape.is_known());
     assert(new_shape.is_subset_of(shape_, -offset));
     shape_ = new_shape;
