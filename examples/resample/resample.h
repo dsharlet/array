@@ -202,8 +202,6 @@ void transpose(const TIn& in, const TOut& out) {
   }
 }
 
-}  // namespace internal
-
 // TODO: Get rid of these ugly helpers. Shapes shouldn't preserve strides in some usages.
 template <index_t NewStride, index_t Min, index_t Extent, index_t Stride>
 dim<Min, Extent, NewStride> with_stride(const dim<Min, Extent, Stride>& d) {
@@ -214,6 +212,18 @@ template <index_t Min, index_t Extent, index_t Stride>
 dim<Min, Extent> without_stride(const dim<Min, Extent, Stride>& d) {
   return dim<Min, Extent>(d.min(), d.extent());
 }
+
+template <class X, class Y, class C>
+auto make_temp_image_shape(X x, Y y, C c) {
+  return make_shape(with_stride<1>(x), without_stride(y), without_stride(c));
+}
+
+template <class T, class X, class Y, class C>
+auto make_temp_image(X x, Y y, C c) {
+  return make_array<T>(make_temp_image_shape(x, y, c));
+}
+
+}  // namespace internal
 
 /** Resample an array `in` to produce an array `out`, using an interpolation `kernel`.
  * Input coordinates (x, y) map to output coordinates (x * rate_x, y * rate_y). */
@@ -233,15 +243,15 @@ void resample(const array_ref<TIn, ShapeIn>& in, const array_ref<TOut, ShapeOut>
     auto out_y = out(out.x(), yo, out.c());
 
     // Resample the input in y, to an intermediate buffer.
-    auto strip = make_array<TOut>(make_shape(in.x(), without_stride(out_y.y()), without_stride(out_y.c())));
+    auto strip = internal::make_temp_image<TOut>(in.x(), out_y.y(), out_y.c());
     internal::resample_y(in, strip.ref(), kernels_y);
 
     // Transpose the intermediate.
-    auto strip_tr = make_array<TOut>(make_shape(with_stride<1>(out_y.y()), without_stride(in.x()), without_stride(out_y.c())));
+    auto strip_tr = internal::make_temp_image<TOut>(out_y.y(), in.x(), out_y.c());
     internal::transpose(strip.cref(), strip_tr.ref());
 
     // Resample the intermediate in x.
-    auto out_tr = make_array<TOut>(make_shape(with_stride<1>(out_y.y()), without_stride(out_y.x()), without_stride(out_y.c())));
+    auto out_tr = internal::make_temp_image<TOut>(out_y.y(), out_y.x(), out_y.c());
     internal::resample_y(strip_tr.cref(), out_tr.ref(), kernels_x);
 
     // Transpose the intermediate to the output.
