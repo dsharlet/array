@@ -2046,10 +2046,10 @@ class array {
     *this = std::move(new_array);
   }
 
-  /** <b>This function is unsafe and should not be used
-   * (https://github.com/dsharlet/array/issues/19).</b> Change the shape
-   * of the array to `new_shape`, and move the base pointer by `offset`. */
+  /** Change the shape of the array to `new_shape`, and move the base pointer
+   * by `offset`. This function is disabled for non-trivial types. */
   void set_shape(const Shape& new_shape, index_t offset = 0) {
+    static_assert(std::is_trivial<value_type>::value, "");
     assert(new_shape.is_known());
     assert(new_shape.is_subset_of(shape_, -offset));
     shape_ = new_shape;

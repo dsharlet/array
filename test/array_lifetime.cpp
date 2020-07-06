@@ -284,42 +284,6 @@ TEST(array_reshape_lifetime) {
 }
 
 template <typename Alloc>
-void test_set_shape_lifetime() {
-  lifetime_array<Alloc> default_init(lifetime_shape);
-  {
-    lifetime_counter::reset();
-    // No-op test case.
-    default_init.set_shape(lifetime_shape);
-    ASSERT_EQ(lifetime_counter::constructs(), 0);
-    ASSERT_EQ(lifetime_counter::moves(), 0);
-    ASSERT_EQ(lifetime_counter::destructs, 0);
-  }
-  {
-    lifetime_counter::reset();
-    default_init.set_shape(lifetime_subshape);
-    ASSERT_EQ(lifetime_counter::constructs(), 0);
-    ASSERT_EQ(lifetime_counter::moves(), 0);
-    // TODO: set_shape is unsafe (https://github.com/dsharlet/array/issues/19)
-    //ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size() - lifetime_subshape.size());
-  }
-  // TODO: This should technically be safe, but is not supported yet.
-  //{
-  //  lifetime_counter::reset();
-  //  default_init.set_shape(lifetime_shape);
-  //  ASSERT_EQ(lifetime_counter::constructs(), lifetime_shape.size() - lifetime_subshape.size());
-  //  ASSERT_EQ(lifetime_counter::moves(), 0);
-  //  ASSERT_EQ(lifetime_counter::destructs, 0);
-  //}
-}
-
-TEST(array_set_shape_lifetime) {
-  test_set_shape_lifetime<std_alloc>();
-  test_set_shape_lifetime<custom_alloc>();
-  test_set_shape_lifetime<auto_alloc>();
-}
-
-
-template <typename Alloc>
 void test_swap_lifetime(bool alloc_movable = true) {
   lifetime_array<Alloc> a(lifetime_shape);
   lifetime_array<Alloc> b({static_cast<index_t>(lifetime_shape.size()), 1});
