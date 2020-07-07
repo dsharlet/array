@@ -2011,7 +2011,7 @@ class array {
   /** Change the shape of the array to `new_shape`, and move the base pointer
    * by `offset`. This function is disabled for non-trivial types. */
   void set_shape(const Shape& new_shape, index_t offset = 0) {
-    static_assert(std::is_trivial<value_type>::value, "set_shape is broken with non-trivial types.");
+    static_assert(std::is_trivial<value_type>::value, "set_shape is broken for non-trivial types.");
     assert(new_shape.is_resolved());
     assert(new_shape.is_subset_of(shape_, -offset));
     shape_ = new_shape;
@@ -2462,6 +2462,17 @@ class uninitialized_allocator : public BaseAlloc {
     }
   }
 };
+
+/** Allocator equivalent to `std::allocator<T>` that does not default
+ * construct values. */
+template <class T, class = typename std::enable_if<std::is_trivial<T>::value>::type>
+using uninitialized_std_allocator = uninitialized_allocator<std::allocator<T>>;
+
+/** Allocator equivalent to `auto_allocator<T, N, Alignment>` that
+ * does not default construct values. */
+template <class T, size_t N, size_t Alignment = sizeof(T),
+    class = typename std::enable_if<std::is_trivial<T>::value>::type>
+using uninitialized_auto_allocator = uninitialized_allocator<auto_allocator<T, N, Alignment>>;
 
 }  // namespace nda
 
