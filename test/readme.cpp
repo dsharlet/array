@@ -90,7 +90,7 @@ TEST(readme) {
 
   // Define a compile-time dense 3 dimensional shape.
   using my_dense_3d_shape_type = shape<
-      dim</*Min=*/UNK, /*Extent=*/UNK, /*Stride=*/1>,
+      dim</*Min=*/dynamic, /*Extent=*/dynamic, /*Stride=*/1>,
       dim<>,
       dim<>>;
   array<char, my_dense_3d_shape_type> my_dense_array({16, 3, 3});

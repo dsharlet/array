@@ -71,7 +71,7 @@ void shape_shape_too_many_dims() {
 
 // TODO: This builds due to https://github.com/dsharlet/array/issues/20
 //void shape_shape_incompatible() {
-//  shape<dim<UNK, UNK, 4>> s2;
+//  shape<dim<dynamic, dynamic, 4>> s2;
 //  shape<dense_dim<>> s3(s2);
 //}
 

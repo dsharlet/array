@@ -25,15 +25,15 @@ using namespace nda;
 // to make the second dimension the dense dim. This shape has the
 // option of making the size of the matrix compile-time constant via
 // the template parameters.
-template <index_t Rows = UNK, index_t Cols = UNK>
-using matrix_shape = shape<dim<UNK, Rows>, dense_dim<UNK, Cols>>;
+template <index_t Rows = dynamic, index_t Cols = dynamic>
+using matrix_shape = shape<dim<dynamic, Rows>, dense_dim<dynamic, Cols>>;
 
 // A matrix or matrix_ref is an array or array_ref with Shape =
 // matrix_shape.
-template <typename T, index_t Rows = UNK, index_t Cols = UNK,
+template <typename T, index_t Rows = dynamic, index_t Cols = dynamic,
           typename Alloc = std::allocator<T>>
 using matrix = array<T, matrix_shape<Rows, Cols>, Alloc>;
-template <typename T, index_t Rows = UNK, index_t Cols = UNK>
+template <typename T, index_t Rows = dynamic, index_t Cols = dynamic>
 using matrix_ref = array_ref<T, matrix_shape<Rows, Cols>>;
 
 // A textbook implementation of matrix multiplication. This is very simple,

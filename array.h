@@ -62,20 +62,22 @@ using index_t = int;
 using index_t = std::ptrdiff_t;
 #endif
 
-/** This value indicates a compile-time constant stride is unknown, and to use
- * the corresponding runtime value instead. */
+/** This value indicates a compile-time constant stride is an unknown value,
+ * and to use the corresponding runtime value instead. */
 // It would be better to use a more unreasonable value that would never be
-// used in practice. Fortunately, this does not affect correctness, only
-// performance, and it is hard to imagine a use case for this where
-// performance matters.
-constexpr index_t UNK = -9;
+// used in practice, or find a better way to express this pattern.
+// (https://github.com/dsharlet/array/issues/9).
+constexpr index_t dynamic = -9;
+
+// Old name for `dynamic`.
+constexpr index_t UNK = dynamic;
 
 namespace internal {
 
 NDARRAY_INLINE index_t abs(index_t a) { return a >= 0 ? a : -a; }
 
-NDARRAY_INLINE constexpr index_t is_known(index_t x) { return x != UNK; }
-NDARRAY_INLINE constexpr index_t is_unknown(index_t x) { return x == UNK; }
+NDARRAY_INLINE constexpr index_t is_static(index_t x) { return x != dynamic; }
+NDARRAY_INLINE constexpr index_t is_dynamic(index_t x) { return x == dynamic; }
 
 // Given a compile-time static value, reconcile a compile-time static value and
 // runtime value.
@@ -85,19 +87,24 @@ NDARRAY_INLINE constexpr index_t reconcile(index_t value) {
   // the innermost loops, so when asserts are on, this ruins performance. It
   // is also a less helpful place to catch errors, because the context of the
   // bug is lost here.
-  return is_known(Value) ? Value : value;
+  return is_static(Value) ? Value : value;
 }
 
-constexpr bool is_unknown(index_t a, index_t b) { return is_unknown(a) || is_unknown(b); }
+constexpr bool is_dynamic(index_t a, index_t b) { return is_dynamic(a) || is_dynamic(b); }
 
 template <index_t A, index_t B>
-using enable_if_compatible = typename std::enable_if<is_unknown(A, B) || A == B>::type;
+using enable_if_compatible = typename std::enable_if<is_dynamic(A, B) || A == B>::type;
 
-constexpr index_t add(index_t a, index_t b) { return is_unknown(a, b) ? UNK : a + b; }
-constexpr index_t sub(index_t a, index_t b) { return is_unknown(a, b) ? UNK : a - b; }
-constexpr index_t mul(index_t a, index_t b) { return is_unknown(a, b) ? UNK : a * b; }
-constexpr index_t min(index_t a, index_t b) { return is_unknown(a, b) ? UNK : (a < b ? a : b); }
-constexpr index_t max(index_t a, index_t b) { return is_unknown(a, b) ? UNK : (a > b ? a : b); }
+// Math for (possibly) static values.
+constexpr index_t static_add(index_t a, index_t b) { return is_dynamic(a, b) ? dynamic : a + b; }
+constexpr index_t static_sub(index_t a, index_t b) { return is_dynamic(a, b) ? dynamic : a - b; }
+constexpr index_t static_mul(index_t a, index_t b) { return is_dynamic(a, b) ? dynamic : a * b; }
+constexpr index_t static_min(index_t a, index_t b) {
+  return is_dynamic(a, b) ? dynamic : (a < b ? a : b);
+}
+constexpr index_t static_max(index_t a, index_t b) {
+  return is_dynamic(a, b) ? dynamic : (a > b ? a : b);
+}
 
 }  // namespace internal
 
@@ -122,7 +129,7 @@ class index_iterator {
  * compile time constants for the `min` and `extent` of the range. These
  * parameters Values not in the range [min, min + extent) are considered to be
  * out of bounds. */
-template <index_t Min_ = UNK, index_t Extent_ = UNK>
+template <index_t Min_ = dynamic, index_t Extent_ = dynamic>
 class range {
  protected:
   index_t min_;
@@ -131,17 +138,18 @@ class range {
  public:
   static constexpr index_t Min = Min_;
   static constexpr index_t Extent = Extent_;
-  static constexpr index_t Max = internal::sub(internal::add(Min, Extent), 1);
+  static constexpr index_t Max =
+      internal::static_sub(internal::static_add(Min, Extent), 1);
 
   /** Construct a new range object. If the class template parameters `Min`
-   * or `Extent` are not `UNK`, these runtime values must match the
+   * or `Extent` are not `dynamic`, these runtime values must match the
    * compile-time values. */
   range(index_t min, index_t extent) {
     set_min(min);
     set_extent(extent);
   }
-  range(index_t min) : range(min, internal::is_known(Extent) ? Extent : 1) {}
-  range() : range(internal::is_known(Min) ? Min : 0) {}
+  range(index_t min) : range(min, internal::is_static(Extent) ? Extent : 1) {}
+  range() : range(internal::is_static(Min) ? Min : 0) {}
   range(const range&) = default;
   range(range&&) = default;
   /** Copy another range object, possibly with different compile-time template
@@ -167,7 +175,7 @@ class range {
   /** Index of the first element in this range. */
   NDARRAY_INLINE index_t min() const { return internal::reconcile<Min>(min_); }
   NDARRAY_INLINE void set_min(index_t min) {
-    if (internal::is_unknown(Min)) {
+    if (internal::is_dynamic(Min)) {
       min_ = min;
     } else {
       assert(min == Min);
@@ -176,7 +184,7 @@ class range {
   /** Number of elements in this range. */
   NDARRAY_INLINE index_t extent() const { return internal::reconcile<Extent>(extent_); }
   NDARRAY_INLINE void set_extent(index_t extent) {
-    if (internal::is_unknown(Extent)) {
+    if (internal::is_dynamic(Extent)) {
       extent_ = extent;
     } else {
       assert(extent == Extent);
@@ -214,16 +222,16 @@ class range {
   }
 };
 
-/** Specialization of `range` where the min is unknown. */
+/** Specialization of `range` where the min is dynamic. */
 template <index_t Extent>
-using fixed_range = range<UNK, Extent>;
+using fixed_range = range<dynamic, Extent>;
 
 /** Make a range from a half-open interval [`begin`, `end`). */
 inline range<> interval(index_t begin, index_t end) {
   return range<>(begin, end - begin);
 }
 
-/** A `range` that means the entire dimension. */
+/** Placeholder object that represents a range that indicates a whole dimension. */
 const range<0, -1> _;
 
 /** Overloads of `std::begin` and `std::end` */
@@ -246,7 +254,7 @@ index_t clamp(index_t x, const Dim& d) {
 namespace internal {
 
 // An iterator for a range of ranges.
-template <index_t InnerExtent = UNK>
+template <index_t InnerExtent = dynamic>
 class split_iterator {
   fixed_range<InnerExtent> i;
   index_t outer_max;
@@ -261,7 +269,7 @@ class split_iterator {
   fixed_range<InnerExtent> operator *() const { return i; }
 
   split_iterator& operator++() {
-    if (is_known(InnerExtent)) {
+    if (is_static(InnerExtent)) {
       // When the extent of the inner split is a compile-time constant,
       // we can't shrink the out of bounds range. Instead, shift the min,
       // assuming the outer dimension is bigger than the inner extent.
@@ -300,7 +308,7 @@ class iterator_range {
   T end() const { return end_; }
 };
 
-template <index_t InnerExtent = UNK>
+template <index_t InnerExtent = dynamic>
 using split_iterator_range = iterator_range<split_iterator<InnerExtent>>;
 
 }  // namespace internal
@@ -339,7 +347,7 @@ internal::split_iterator_range<> split(const range<Min, Extent>& r, index_t inne
  * out of bounds. */
 // TODO: Consider adding helper class constant<Value> to use for the members of
 // dim. (https://github.com/dsharlet/array/issues/1)
-template <index_t Min_ = UNK, index_t Extent_ = UNK, index_t Stride_ = UNK>
+template <index_t Min_ = dynamic, index_t Extent_ = dynamic, index_t Stride_ = dynamic>
 class dim : public range<Min_, Extent_> {
  protected:
   index_t stride_;
@@ -354,13 +362,13 @@ class dim : public range<Min_, Extent_> {
   static constexpr index_t Stride = Stride_;
 
   /** Construct a new dim object. If the class template parameters `Min`,
-   * `Extent`, or `Stride` are not `UNK`, these runtime values must match the
+   * `Extent`, or `Stride` are not `dynamic`, these runtime values must match the
    * compile-time values. */
   dim(index_t min, index_t extent, index_t stride = Stride) : base_range(min, extent) {
     set_stride(stride);
   }
-  dim(index_t extent) : dim(internal::is_known(Min) ? Min : 0, extent) {}
-  dim() : dim(internal::is_known(Extent) ? Extent : 0) {}
+  dim(index_t extent) : dim(internal::is_static(Min) ? Min : 0, extent) {}
+  dim() : dim(internal::is_static(Extent) ? Extent : 0) {}
   dim(const base_range& range, index_t stride = Stride)
       : dim(range.min(), range.extent(), stride) {}
   dim(const dim&) = default;
@@ -402,7 +410,7 @@ class dim : public range<Min_, Extent_> {
   /** Distance in flat indices between neighboring elements in this dim. */
   NDARRAY_INLINE index_t stride() const { return internal::reconcile<Stride>(stride_); }
   NDARRAY_INLINE void set_stride(index_t stride) {
-    if (internal::is_unknown(Stride)) {
+    if (internal::is_dynamic(Stride)) {
       stride_ = stride;
     } else {
       assert(stride == Stride);
@@ -431,22 +439,22 @@ class dim : public range<Min_, Extent_> {
 };
 
 /** Specialization of `dim` where the min is not specified at compile time. */
-template <index_t Extent, index_t Stride = UNK>
-using fixed_dim = dim<UNK, Extent, Stride>;
+template <index_t Extent, index_t Stride = dynamic>
+using fixed_dim = dim<dynamic, Extent, Stride>;
 
 /** Specialization of `dim` where the compile-time stride parameter is known
  * to be one. */
-template <index_t Min = UNK, index_t Extent = UNK>
+template <index_t Min = dynamic, index_t Extent = dynamic>
 using dense_dim = dim<Min, Extent, 1>;
 
 /** Specialization of `dim` where only the stride parameter is specified at
  * compile time. */
 template <index_t Stride>
-using strided_dim = dim<UNK, UNK, Stride>;
+using strided_dim = dim<dynamic, dynamic, Stride>;
 
 /** Specialization of `dim` where the compile-time stride parameter is known
  * to be zero. */
-template <index_t Min = UNK, index_t Extent = UNK>
+template <index_t Min = dynamic, index_t Extent = dynamic>
 using broadcast_dim = dim<Min, Extent, 0>;
 
 namespace internal {
@@ -531,7 +539,7 @@ index_t flat_max(const Dims& dims, index_sequence<Is...>) {
 // of the second parameter.
 template <index_t DimMin, index_t DimExtent, index_t DimStride>
 auto range_with_stride(index_t x, const dim<DimMin, DimExtent, DimStride>& d) {
-  return dim<UNK, 1, DimStride>(x, 1, d.stride());
+  return dim<dynamic, 1, DimStride>(x, 1, d.stride());
 }
 template <index_t CropMin, index_t CropExtent, index_t DimMin, index_t DimExtent, index_t Stride>
 auto range_with_stride(
@@ -598,15 +606,15 @@ auto maxs(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
   return std::make_tuple(std::get<Is>(dims).max()...);
 }
 
-// The following series of functions implements the algorithm
-// for automatically determining what unknown strides should be.
+// The following series of functions implements the algorithm for
+// automatically determining what unknown dynamic strides should be.
 
 // A proposed stride is "OK" w.r.t. `dim` if the proposed
 // stride does not intersect the dim.
 template <class Dim>
 bool is_stride_ok(index_t stride, index_t extent, const Dim& dim) {
-  if (is_unknown(dim.stride())) {
-    // If the dimension has an unknown stride, it's OK, we're
+  if (is_dynamic(dim.stride())) {
+    // If the dimension has an unknown dynamic stride, it's OK, we're
     // resolving the current dim first.
     return true;
   }
@@ -643,7 +651,7 @@ index_t filter_stride(index_t stride, index_t extent, const AllDims& all_dims) {
 // could have without intersecting this dim.
 template <class Dim>
 index_t candidate_stride(const Dim& dim) {
-  if (is_unknown(dim.stride())) {
+  if (is_dynamic(dim.stride())) {
     return std::numeric_limits<index_t>::max();
   }
   return std::max(static_cast<index_t>(1), abs(dim.stride()) * dim.extent());
@@ -657,12 +665,12 @@ index_t find_stride(index_t extent, const AllDims& all_dims, index_sequence<Is..
       filter_stride(candidate_stride(std::get<Is>(all_dims)), extent, all_dims)...);
 }
 
-// Set the unknown stride for each dimension, starting with the first dimension.
+// Replace unknown dynamic strides for each dimension, starting with the first dimension.
 template <class AllDims>
 void resolve_unknown_strides(AllDims& all_dims) {}
 template <class AllDims, class Dim0, class... Dims>
 void resolve_unknown_strides(AllDims& all_dims, Dim0& dim0, Dims&... dims) {
-  if (is_unknown(dim0.stride())) {
+  if (is_dynamic(dim0.stride())) {
     constexpr size_t rank = std::tuple_size<AllDims>::value;
     dim0.set_stride(find_stride(dim0.extent(), all_dims, make_index_sequence<rank>()));
   }
@@ -676,7 +684,7 @@ void resolve_unknown_strides(Dims& dims, index_sequence<Is...>) {
 
 template<class Dims, size_t... Is>
 bool is_resolved(const Dims& dims, index_sequence<Is...>) {
-  return all(!is_unknown(std::get<Is>(dims).stride())...);
+  return all(!is_dynamic(std::get<Is>(dims).stride())...);
 }
 
 // A helper to transform an array to a tuple.
@@ -785,11 +793,6 @@ class shape {
   using enable_if_dim = typename std::enable_if<Dim < rank()>::type;
 
  public:
-  /** When constructing shapes, unknown extents are set to 0, and unknown
-   * strides are set to the currently largest known stride. This is done in
-   * innermost-to-outermost order. */
-  // TODO: Don't resolve unknowns upon shape construction, do it only when
-  // constructing arrays (and not array_refs).
   shape() {}
   // TODO: This is a bit messy, but necessary to avoid ambiguous default
   // constructors when Dims is empty.
@@ -1071,9 +1074,9 @@ Shape without_strides(const Shape& s, index_sequence<Is...>) {
 template <index_t Min, index_t Extent, index_t Stride, class DimSrc>
 bool is_dim_compatible(const dim<Min, Extent, Stride>&, const DimSrc& src) {
   return
-    (is_unknown(Min) || src.min() == Min) &&
-    (is_unknown(Extent) || src.extent() == Extent) &&
-    (is_unknown(Stride) || src.stride() == Stride);
+    (is_dynamic(Min) || src.min() == Min) &&
+    (is_dynamic(Extent) || src.extent() == Extent) &&
+    (is_dynamic(Stride) || src.stride() == Stride);
 }
 
 template <class... DimsDst, class ShapeSrc, size_t... Is>
@@ -1083,9 +1086,9 @@ bool is_shape_compatible(const shape<DimsDst...>&, const ShapeSrc& src, index_se
 
 template <class DimA, class DimB>
 auto clamp_dims(const DimA& a, const DimB& b) {
-  constexpr index_t Min = max(DimA::Min, DimB::Min);
-  constexpr index_t Max = min(DimA::Max, DimB::Max);
-  constexpr index_t Extent = add(sub(Max, Min), 1);
+  constexpr index_t Min = static_max(DimA::Min, DimB::Min);
+  constexpr index_t Max = static_min(DimA::Max, DimB::Max);
+  constexpr index_t Extent = static_add(static_sub(Max, Min), 1);
   index_t min = std::max(a.min(), b.min());
   index_t max = std::min(a.max(), b.max());
   index_t extent = max - min + 1;
@@ -1738,9 +1741,8 @@ class array {
    * default are empty, but a Shape with non-zero compile-time constants for all
    * extents will be non-empty.
    *
-   * When constructing arrays, unknown extents are set to 0, and unknown
-   * strides are set to the currently largest known stride. This is done in
-   * innermost-to-outermost order. */
+   * When constructing arrays, unknown strides are set to the currently largest
+   * known stride. This is done in innermost-to-outermost order. */
   array() : array(Shape()) {}
   explicit array(const Alloc& alloc) : array(Shape(), alloc) {}
   /** Construct an array with a particular `shape`, allocated by `alloc`. All

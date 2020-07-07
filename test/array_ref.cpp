@@ -144,7 +144,7 @@ TEST(array_ref_conversion) {
 }
 
 TEST(array_ref_crop_slice) {
-  array<int, shape<dim<0, UNK, 1>, dim<>>> a({8, 9});
+  array<int, shape<dense_dim<0>, dim<>>> a({8, 9});
   fill_pattern(a);
 
   auto a_slice1 = a(3, _);

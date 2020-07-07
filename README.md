@@ -26,7 +26,7 @@ Typically, an issue will result in only one error message, located at the site o
 ### Shapes
 
 The basic types provided by the library are:
-* `dim<Min, Extent, Stride>`, a description of a single dimension. The template parameters specify a compile-time constant min, extent, or stride, or are `UNK` (the default, meaning unknown) and are specified at runtime.
+* `dim<Min, Extent, Stride>`, a description of a single dimension. The template parameters specify a compile-time constant min, extent, or stride, or are `dynamic` (meaning unknown) and are specified at runtime.
 * `shape<Dim0, Dim1, ...>`, a description of multiple dimensions. `Dim0` is referred to as the innermost dimension.
 * `array<T, Shape, Allocator>`, a container following the conventions of `std::vector` where possible. This container manages the allocation of a buffer associated with a `Shape`.
 * `array_ref<T, Shape>`, a wrapper for addressing existing memory with a shape `Shape`.
@@ -117,7 +117,7 @@ Which parameters should be made into compile time constants will vary depending 
 A common case is to make the innermost dimension have stride 1:
 ```c++
   using my_dense_3d_shape_type = shape<
-      dim</*Min=*/UNK, /*Extent=*/UNK, /*Stride=*/1>,
+      dim</*Min=*/dynamic, /*Extent=*/dynamic, /*Stride=*/1>,
       dim<>,
       dim<>>;
   array<char, my_dense_3d_shape_type> my_dense_array({16, 3, 3});

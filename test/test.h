@@ -56,11 +56,11 @@ std::ostream& operator<<(std::ostream& s, const std::tuple<Ts...>& t) {
 template <index_t Min, index_t Extent, index_t Stride>
 std::ostream& operator<<(std::ostream& s, const dim<Min, Extent, Stride>& d) {
   s << "dim<";
-  if (internal::is_known(Stride)) {
+  if (internal::is_static(Stride)) {
     ostream_comma_separated_list(s, Min, Extent, Stride);
-  } else if (internal::is_known(Extent)) {
+  } else if (internal::is_static(Extent)) {
     ostream_comma_separated_list(s, Min, Extent);
-  } else if (internal::is_known(Min)) {
+  } else if (internal::is_static(Min)) {
     s << Min;
   }
   s << ">(";
