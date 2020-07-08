@@ -22,14 +22,14 @@ using namespace nda;
 
 template <typename Input, typename Filter, typename Output>
 void conv_naive(const Input& input, const Filter& filter, const Output& output) {
-  for (index_t n : output.dim<3>()) {
-    for (index_t y : output.dim<2>()) {
-      for (index_t x : output.dim<1>()) {
-        for (index_t co : output.dim<0>()) {
+  for (index_t n : output.template dim<3>()) {
+    for (index_t y : output.template dim<2>()) {
+      for (index_t x : output.template dim<1>()) {
+        for (index_t co : output.template dim<0>()) {
           output(co, x, y, n) = 0;
-          for (index_t ci : filter.dim<3>()) {
-            for (index_t dy : filter.dim<2>()) {
-              for (index_t dx : filter.dim<1>()) {
+          for (index_t ci : filter.template dim<3>()) {
+            for (index_t dy : filter.template dim<2>()) {
+              for (index_t dx : filter.template dim<1>()) {
                 output(co, x, y, n) += filter(co, dx, dy, ci) * input(ci, x + dx, y + dy, n);
               }
             }
@@ -45,22 +45,22 @@ __attribute__((always_inline))
 void conv(const Input& input, const Filter& filter, const Output& output) {
   typedef typename Output::value_type T;
 
-  for (index_t n : output.dim<3>()) {
-    for (index_t y : output.dim<2>()) {
+  for (index_t n : output.template dim<3>()) {
+    for (index_t y : output.template dim<2>()) {
 #if 1
       fill(output(_, _, y, n), static_cast<T>(0));
 #else
-      for (index_t x : output.dim<1>()) {
-        for (index_t co : output.dim<0>()) {
+      for (index_t x : output.template dim<1>()) {
+        for (index_t co : output.template dim<0>()) {
           output(co, x, y, n) = 0;
         }
       }
 #endif
-      for (index_t ci : filter.dim<3>()) {
-        for (index_t dy : filter.dim<2>()) {
-          for (index_t dx : filter.dim<1>()) {
-            for (index_t x : output.dim<1>()) {
-              for (index_t co : output.dim<0>()) {
+      for (index_t ci : filter.template dim<3>()) {
+        for (index_t dy : filter.template dim<2>()) {
+          for (index_t dx : filter.template dim<1>()) {
+            for (index_t x : output.template dim<1>()) {
+              for (index_t co : output.template dim<0>()) {
                 output(co, x, y, n) += filter(co, dx, dy, ci) * input(ci, x + dx, y + dy, n);
               }
             }
@@ -84,11 +84,11 @@ void conv_tiled(const Input& input, const Filter& filter, const Output& output) 
   constexpr index_t tile_x = 4;
   constexpr index_t tile_co = vector_size * 2;
 
-  for (index_t n : output.dim<3>()) {
-    for (index_t y : output.dim<2>()) {
-      for (auto xo : split<tile_x>(output.dim<1>())) {
-        for (auto coo : split<tile_co>(output.dim<0>())) {
-          // Don't slice the y, n dims by making them a range here.
+  for (index_t n : output.template dim<3>()) {
+    for (index_t y : output.template dim<2>()) {
+      for (auto xo : split<tile_x>(output.template dim<1>())) {
+        for (auto coo : split<tile_co>(output.template dim<0>())) {
+          // Don't slice the y, n.template dims by making them a range here.
           auto output_tile = output(coo, xo, fixed_range<1>(y), fixed_range<1>(n));
 #if 1
           // TODO: This is slow, probably due to potential aliasing that
@@ -120,9 +120,9 @@ void conv_tiled(const Input& input, const Filter& filter, const Output& output) 
           }
 #    endif
 #  endif
-          for (index_t ci : filter.dim<3>()) {
-            for (index_t dy : filter.dim<2>()) {
-              for (index_t dx : filter.dim<1>()) {
+          for (index_t ci : filter.template dim<3>()) {
+            for (index_t dy : filter.template dim<2>()) {
+              for (index_t dx : filter.template dim<1>()) {
                 for (index_t x : xo) {
                   for (index_t co : coo) {
                     accumulator(co, x, y, n) += filter(co, dx, dy, ci) * input(ci, x + dx, y + dy, n);
