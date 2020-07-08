@@ -17,6 +17,7 @@
 
 #include <random>
 #include <iostream>
+#include <functional>
 
 using namespace nda;
 
