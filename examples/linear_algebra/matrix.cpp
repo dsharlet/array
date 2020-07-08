@@ -39,11 +39,11 @@ using matrix_ref = array_ref<T, matrix_shape<Rows, Cols>>;
 // A textbook implementation of matrix multiplication. This is very simple,
 // but it is slow, primarily because of poor locality of the loads of b. The
 // reduction loop is innermost.
-template <typename TAB, typename TC, index_t Rows, index_t Cols>
+template <typename TAB, typename TC>
 __attribute__((noinline))
 void multiply_reduce_cols(
     const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-    const matrix_ref<TC, Rows, Cols>& c) {
+    const matrix_ref<TC>& c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
       c(i, j) = 0;
@@ -58,7 +58,7 @@ void multiply_reduce_cols(
 // indicates the performance overhead (if any) of the array helpers.
 template <typename TAB, typename TC>
 __attribute__((noinline))
-void multiply_reduce_cols_native(
+void multiply_ref(
     const TAB* a, const TAB* b, TC* c, int M, int K, int N) {
   for (int i = 0; i < M; i++) {
     for (int j = 0; j < N; j++) {
@@ -74,11 +74,11 @@ void multiply_reduce_cols_native(
 // This implementation moves the reduction loop between the rows and columns
 // loops. This avoids the locality problem for the loads from b. This also is
 // an easier loop to vectorize (it does not vectorize a reduction variable).
-template <typename TAB, typename TC, index_t Rows, index_t Cols>
+template <typename TAB, typename TC>
 __attribute__((noinline))
 void multiply_reduce_rows(
     const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-    const matrix_ref<TC, Rows, Cols>& c) {
+    const matrix_ref<TC>& c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
       c(i, j) = 0;
@@ -118,39 +118,9 @@ void multiply_reduce_matrices(
 // innermost to form tiles. This implementation should allow the compiler
 // to keep all of the accumulators for the output in registers. This
 // generates an inner loop that looks like:
-//
-// LBB14_7:
-//   vmovaps %ymm12, %ymm13
-//   vmovaps %ymm11, %ymm14
-//   vbroadcastss    (%r9,%rax,4), %ymm15
-//   vmovups -64(%r11,%rcx,4), %ymm12
-//   vmovups -32(%r11,%rcx,4), %ymm11
-//   vmovups (%r11,%rcx,4), %ymm0
-//   vfmadd231ps     %ymm15, %ymm12, %ymm10
-//   vfmadd231ps     %ymm15, %ymm11, %ymm9
-//   vfmadd231ps     %ymm15, %ymm0, %ymm8
-//   vbroadcastss    (%r8,%rax,4), %ymm15
-//   vfmadd231ps     %ymm15, %ymm12, %ymm7
-//   vfmadd231ps     %ymm15, %ymm11, %ymm6
-//   vfmadd231ps     %ymm15, %ymm0, %ymm5
-//   vbroadcastss    (%rdx,%rax,4), %ymm15
-//   vfmadd231ps     %ymm15, %ymm12, %ymm4
-//   vfmadd231ps     %ymm15, %ymm11, %ymm3
-//   vfmadd231ps     %ymm15, %ymm0, %ymm2
-//   vbroadcastss    (%r15,%rax,4), %ymm15
-//   vfmadd213ps     %ymm13, %ymm15, %ymm12
-//   vfmadd213ps     %ymm14, %ymm15, %ymm11
-//   vfmadd231ps     %ymm15, %ymm0, %ymm1
-//   incq    %rax
-//   addq    %rsi, %rcx
-//   cmpq    %rax, %rbx
-//   jne     LBB14_7
-//
-// This appears to achieve ~70% of the peak theoretical throughput
-// of my machine.
 template <typename TAB, typename TC>
 __attribute__((noinline))
-void multiply_reduce_tiles(
+void multiply_reduce_tiles_a(
     const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
     const matrix_ref<TC>& c) {
   // Adjust this depending on the target architecture. For AVX2,
@@ -166,22 +136,30 @@ void multiply_reduce_tiles(
     for (auto jo : split<tile_cols>(c.j())) {
       // Make a reference to this tile of the output.
       auto c_tile = c(io, jo);
-#if 0
-      // TODO: This should work, but it's slow, probably due to potential
-      // aliasing that we can't fix due to https://bugs.llvm.org/show_bug.cgi?id=45863
       multiply_reduce_matrices(a, b, c_tile);
-#elif 0
-      // TODO: This should work, but it's slow, probably due to potential
-      // aliasing that we can't fix due to https://bugs.llvm.org/show_bug.cgi?id=45863
-#  if 0
+    }
+  }
+}
+
+template <typename TAB, typename TC>
+__attribute__((noinline))
+void multiply_reduce_tiles_b(
+    const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
+    const matrix_ref<TC>& c) {
+  // Adjust this depending on the target architecture. For AVX2,
+  // vectors are 256-bit.
+  constexpr index_t vector_size = 32 / sizeof(TC);
+
+  // We want the tiles to be as big as possible without spilling any
+  // of the accumulator registers to the stack.
+  constexpr index_t tile_rows = 4;
+  constexpr index_t tile_cols = vector_size * 3;
+
+  for (auto io : split<tile_rows>(c.i())) {
+    for (auto jo : split<tile_cols>(c.j())) {
+      // Make a reference to this tile of the output.
+      auto c_tile = c(io, jo);
       fill(c_tile, static_cast<TC>(0));
-#  else
-      for (index_t i : c_tile.i()) {
-        for (index_t j : c_tile.j()) {
-          c_tile(i, j) = 0;
-        }
-      }
-#  endif
       for (index_t k : a.j()) {
         for (index_t i : c_tile.i()) {
           for (index_t j : c_tile.j()) {
@@ -189,7 +167,126 @@ void multiply_reduce_tiles(
           }
         }
       }
-#else
+    }
+  }
+}
+
+template <typename TAB, typename TC>
+__attribute__((noinline))
+void multiply_reduce_tiles_c(
+    const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
+    const matrix_ref<TC>& c) {
+  // Adjust this depending on the target architecture. For AVX2,
+  // vectors are 256-bit.
+  constexpr index_t vector_size = 32 / sizeof(TC);
+
+  // We want the tiles to be as big as possible without spilling any
+  // of the accumulator registers to the stack.
+  constexpr index_t tile_rows = 4;
+  constexpr index_t tile_cols = vector_size * 3;
+
+  for (auto io : split<tile_rows>(c.i())) {
+    for (auto jo : split<tile_cols>(c.j())) {
+      // Make a reference to this tile of the output.
+      auto c_tile = c(io, jo);
+      for (index_t i : c_tile.i()) {
+        for (index_t j : c_tile.j()) {
+          c_tile(i, j) = 0;
+        }
+      }
+      for (index_t k : a.j()) {
+        for (index_t i : c_tile.i()) {
+          for (index_t j : c_tile.j()) {
+            c_tile(i, j) += a(i, k) * b(k, j);
+          }
+        }
+      }
+    }
+  }
+}
+
+template <typename TAB, typename TC>
+__attribute__((noinline))
+void multiply_reduce_tiles_d(
+    const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
+    const matrix_ref<TC>& c) {
+  // Adjust this depending on the target architecture. For AVX2,
+  // vectors are 256-bit.
+  constexpr index_t vector_size = 32 / sizeof(TC);
+
+  // We want the tiles to be as big as possible without spilling any
+  // of the accumulator registers to the stack.
+  constexpr index_t tile_rows = 4;
+  constexpr index_t tile_cols = vector_size * 3;
+
+  for (auto io : split<tile_rows>(c.i())) {
+    for (auto jo : split<tile_cols>(c.j())) {
+      // Make a reference to this tile of the output.
+      auto c_tile = c(io, jo);
+      auto accumulator = make_array<TC>(make_compact(c_tile.shape()));
+      for (index_t k : a.j()) {
+        for (index_t i : c_tile.i()) {
+          for (index_t j : c_tile.j()) {
+            accumulator(i, j) += a(i, k) * b(k, j);
+          }
+        }
+      }
+      copy(accumulator, c_tile);
+    }
+  }
+}
+
+template <typename TAB, typename TC>
+__attribute__((noinline))
+void multiply_reduce_tiles_e(
+    const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
+    const matrix_ref<TC>& c) {
+  // Adjust this depending on the target architecture. For AVX2,
+  // vectors are 256-bit.
+  constexpr index_t vector_size = 32 / sizeof(TC);
+
+  // We want the tiles to be as big as possible without spilling any
+  // of the accumulator registers to the stack.
+  constexpr index_t tile_rows = 4;
+  constexpr index_t tile_cols = vector_size * 3;
+
+  for (auto io : split<tile_rows>(c.i())) {
+    for (auto jo : split<tile_cols>(c.j())) {
+      // Make a reference to this tile of the output.
+      auto c_tile = c(io, jo);
+      TC buffer[tile_rows * tile_cols];
+      auto accumulator = make_array_ref(buffer, make_compact(c_tile.shape()));
+      fill(accumulator, static_cast<TC>(0));
+      for (index_t k : a.j()) {
+        for (index_t i : c_tile.i()) {
+          for (index_t j : c_tile.j()) {
+            accumulator(i, j) += a(i, k) * b(k, j);
+          }
+        }
+      }
+      copy(accumulator, c_tile);
+    }
+  }
+}
+
+template <typename TAB, typename TC>
+__attribute__((noinline))
+void multiply_reduce_tiles_f(
+    const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
+    const matrix_ref<TC>& c) {
+  // Adjust this depending on the target architecture. For AVX2,
+  // vectors are 256-bit.
+  constexpr index_t vector_size = 32 / sizeof(TC);
+
+  // We want the tiles to be as big as possible without spilling any
+  // of the accumulator registers to the stack.
+  constexpr index_t tile_rows = 4;
+  constexpr index_t tile_cols = vector_size * 3;
+
+  for (auto io : split<tile_rows>(c.i())) {
+    for (auto jo : split<tile_cols>(c.j())) {
+      // Make a reference to this tile of the output.
+      auto c_tile = c(io, jo);
       TC buffer[tile_rows * tile_cols] = { 0 };
       auto accumulator = make_array_ref(buffer, make_compact(c_tile.shape()));
       for (index_t k : a.j()) {
@@ -199,22 +296,15 @@ void multiply_reduce_tiles(
           }
         }
       }
-#  if 0
-      // TODO: This should work, but it's slow, it appears to
-      // blow up the nice in-register accumulation of the loop
-      // above.
-      copy(accumulator, c_tile);
-#  else
       for (index_t i : c_tile.i()) {
         for (index_t j : c_tile.j()) {
           c_tile(i, j) = accumulator(i, j);
         }
       }
-#  endif
-#endif
     }
   }
 }
+
 
 float relative_error(float a, float b) {
   return std::abs(a - b) / std::max(a, b);
@@ -236,52 +326,46 @@ int main(int, const char**) {
   generate(a, [&]() { return uniform(rng); });
   generate(b, [&]() { return uniform(rng); });
 
-  // Compute the result using all matrix multiply methods.
-  matrix<float> c_reduce_cols({M, N});
-  double reduce_cols_time = benchmark([&]() {
-    multiply_reduce_cols(a.ref(), b.ref(), c_reduce_cols.ref());
-  });
-  std::cout << "reduce_cols time: " << reduce_cols_time * 1e3 << " ms" << std::endl;
 
-  matrix<float> c_reduce_cols_native({M, N});
-  double reduce_cols_native_time = benchmark([&]() {
-    multiply_reduce_cols_native(a.data(), b.data(), c_reduce_cols_native.data(), M, K, N);
+  matrix<float> c_ref({M, N});
+  double ref_time = benchmark([&]() {
+    multiply_ref(a.data(), b.data(), c_ref.data(), M, K, N);
   });
-  std::cout << "reduce_cols_native time: " << reduce_cols_native_time * 1e3 << " ms" << std::endl;
+  std::cout << "ref time: " << ref_time * 1e3 << " ms" << std::endl;
 
-  matrix<float> c_reduce_rows({M, N});
-  double reduce_rows_time = benchmark([&]() {
-    multiply_reduce_rows(a.ref(), b.ref(), c_reduce_rows.ref());
-  });
-  std::cout << "reduce_rows time: " << reduce_rows_time * 1e3 << " ms" << std::endl;
+  using function_type = std::function<void(const matrix_ref<float>&, const matrix_ref<float>&, const matrix_ref<float>&)>;
+  struct Test {
+    const char* name;
+    function_type fn;
+  };
+  Test tests[] = {
+    { "multiply_reduce_cols", multiply_reduce_cols<float, float> },
+    { "multiply_reduce_rows", multiply_reduce_rows<float, float> },
+    { "multiply_reduce_tiles_a", multiply_reduce_tiles_a<float, float> },
+    { "multiply_reduce_tiles_b", multiply_reduce_tiles_b<float, float> },
+    { "multiply_reduce_tiles_c", multiply_reduce_tiles_c<float, float> },
+    { "multiply_reduce_tiles_d", multiply_reduce_tiles_d<float, float> },
+    { "multiply_reduce_tiles_e", multiply_reduce_tiles_e<float, float> },
+    { "multiply_reduce_tiles_f", multiply_reduce_tiles_f<float, float> },
+  };
 
-  matrix<float> c_reduce_tiles({M, N});
-  double reduce_tiles_time = benchmark([&]() {
-    multiply_reduce_tiles(a.ref(), b.ref(), c_reduce_tiles.ref());
-  });
-  std::cout << "reduce_tiles time: " << reduce_tiles_time * 1e3 << " ms" << std::endl;
+  for (Test i : tests) {
+    matrix<float> c({M, N});
+    double time = benchmark([&]() {
+      i.fn(a.ref(), b.ref(), c.ref());
+    });
+    std::cout << i.name << " time: " << time * 1e3 << " ms" << std::endl;
 
-  // Verify the results from all methods are equal.
-  const float tolerance = 1e-4f;
-  for (index_t i = 0; i < M; i++) {
-    for (index_t j = 0; j < N; j++) {
-      if (relative_error(c_reduce_cols_native(i, j), c_reduce_cols(i, j)) > tolerance) {
-        std::cout
-          << "c_reduce_cols_native(" << i << ", " << j << ") = " << c_reduce_cols_native(i, j)
-          << " != c_reduce_cols(" << i << ", " << j << ") = " << c_reduce_cols(i, j) << std::endl;
-        return -1;
-      }
-      if (relative_error(c_reduce_rows(i, j), c_reduce_cols(i, j)) > tolerance) {
-        std::cout
-          << "c_reduce_rows(" << i << ", " << j << ") = " << c_reduce_rows(i, j)
-          << " != c_reduce_cols(" << i << ", " << j << ") = " << c_reduce_cols(i, j) << std::endl;
-        return -1;
-      }
-      if (relative_error(c_reduce_tiles(i, j), c_reduce_cols(i, j)) > tolerance) {
-        std::cout
-          << "c_reduce_tiles(" << i << ", " << j << ") = " << c_reduce_tiles(i, j)
-          << " != c_reduce_cols(" << i << ", " << j << ") = " << c_reduce_cols(i, j) << std::endl;
-        return -1;
+    // Verify the results from all methods are equal.
+    const float tolerance = 1e-4f;
+    for (index_t i = 0; i < M; i++) {
+      for (index_t j = 0; j < N; j++) {
+        if (relative_error(c(i, j), c_ref(i, j)) > tolerance) {
+          std::cout
+            << "c(" << i << ", " << j << ") = " << c(i, j)
+            << " != c_ref(" << i << ", " << j << ") = " << c_ref(i, j) << std::endl;
+          return -1;
+        }
       }
     }
   }
