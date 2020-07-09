@@ -1171,18 +1171,9 @@ bool is_compatible(const ShapeSrc& src) {
       ShapeDst(), src, internal::make_index_sequence<ShapeSrc::rank()>());
 }
 
-/** Test if a shape `src` can be assigned to a shape of type `ShapeDst` without
- * error. */
-template <class ShapeDst, class ShapeSrc,
-    class = internal::enable_if_shapes_explicitly_compatible<ShapeSrc, ShapeDst>>
-bool is_explicitly_compatible(const ShapeSrc& src) {
-  return internal::is_shape_compatible(
-      ShapeDst(), src, internal::make_index_sequence<ShapeSrc::rank()>());
-}
-
-/** Convert a shape 'u' to shape type 'T'. This explicit conversion allows
- * converting a low rank shape to a higher ranked shape, where new dimensions
- * have min 0 and extent 1. */
+/** Convert a shape `u` to shape type `ShapeDst`. This explicit conversion
+ * allows converting a low rank shape to a higher ranked shape, where new
+ * dimensions have min 0 and extent 1. */
 // TODO: Consider enabling this kind of conversion implicitly. It is hard to
 // do without constructor overload ambiguity problems, and I'm also not sure
 // it's a good idea.
@@ -1191,6 +1182,15 @@ template <class ShapeDst, class ShapeSrc,
 ShapeDst convert_shape(const ShapeSrc& src) {
   return internal::convert_dims<typename ShapeDst::dims_type>(
       src.dims(), std::make_index_sequence<ShapeDst::rank()>());
+}
+
+/** Test if a shape `src` can be explicitly converted to a shape of type
+ * `ShapeDst` using `convert_shape` without error. */
+template <class ShapeDst, class ShapeSrc,
+    class = internal::enable_if_shapes_explicitly_compatible<ShapeSrc, ShapeDst>>
+bool is_explicitly_compatible(const ShapeSrc& src) {
+  return internal::is_shape_compatible(
+      ShapeDst(), src, internal::make_index_sequence<ShapeSrc::rank()>());
 }
 
 /** Iterate over all indices in the shape, calling a function `fn` for each set
@@ -2266,8 +2266,8 @@ void move(array<T, Shape, Alloc>&& src, array<T, Shape, Alloc>& dst) { dst = std
  * elements of `src` are moved to the result. */
 template <class T, class ShapeSrc, class ShapeDst, class Alloc = std::allocator<T>,
     class = internal::enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
-auto make_move(const array_ref<T, ShapeSrc>& src, const ShapeDst& shape,
-               const Alloc& alloc = Alloc()) {
+auto make_move(
+    const array_ref<T, ShapeSrc>& src, const ShapeDst& shape, const Alloc& alloc = Alloc()) {
   array<typename std::allocator_traits<Alloc>::value_type, ShapeDst, Alloc> dst(shape, alloc);
   move(src, dst);
   return dst;
