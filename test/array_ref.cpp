@@ -100,7 +100,7 @@ int overload_shape(const dense_array_ref<int, 3>&) { return dense; }
 int overload_shape_const(const array_ref_of_rank<const int, 3>&) { return general; }
 int overload_shape_const(const dense_array_ref<const int, 3>&) { return dense; }
 
-TEST(array_ref_conversion) {
+TEST(array_ref_implicit_conversion) {
   array_ref_of_rank<int, 3> null_ref(nullptr, {10, 20, 30});
   array_of_rank<int, 3> non_ref({5, 10, 20});
   dense_array<int, 3> dense_non_ref({5, 10, 20});
@@ -141,6 +141,24 @@ TEST(array_ref_conversion) {
   ASSERT_EQ(overload_shape(dense_null_ref), dense);
   ASSERT_EQ(overload_shape_const(null_ref), general);
   ASSERT_EQ(overload_shape_const(dense_null_ref), dense);
+}
+
+TEST(array_ref_explicit_conversion) {
+  array_ref_of_rank<int, 3> null_ref(nullptr, {10, 20, 30});
+  array_of_rank<int, 3> non_ref({5, 10, 20});
+  dense_array<int, 3> dense_non_ref({5, 10, 20});
+
+  auto null_ref_embedded = convert_shape<shape_of_rank<4>>(null_ref);
+  ASSERT_EQ(null_ref_embedded.rank(), 4);
+  ASSERT_EQ(null_ref_embedded.w().min(), 0);
+  ASSERT_EQ(null_ref_embedded.w().extent(), 1);
+
+  auto dense_null_ref_embedded = convert_shape<dense_shape<5>>(non_ref);
+  ASSERT_EQ(dense_null_ref_embedded.rank(), 5);
+  ASSERT_EQ(dense_null_ref_embedded.w().min(), 0);
+  ASSERT_EQ(dense_null_ref_embedded.w().extent(), 1);
+  ASSERT_EQ(dense_null_ref_embedded.template dim<4>().min(), 0);
+  ASSERT_EQ(dense_null_ref_embedded.template dim<4>().extent(), 1);
 }
 
 TEST(array_ref_crop_slice) {

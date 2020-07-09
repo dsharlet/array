@@ -733,6 +733,23 @@ struct all_of_type<T, Arg, Args...> {
       std::is_constructible<T, Arg>::value && all_of_type<T, Args...>::value;
 };
 
+template <size_t I, class T, class... Us,
+    std::enable_if_t<(I < sizeof...(Us)), int> = 0>
+auto convert_dim(const std::tuple<Us...>& u) {
+  return std::get<I>(u);
+}
+template <size_t I, class T, class... Us,
+    std::enable_if_t<(I >= sizeof...(Us)), int> = 0>
+auto convert_dim(const std::tuple<Us...>& u) {
+  // For dims beyond the rank of U, make a dimension of type T_I with extent 1.
+  return decltype(std::get<I>(std::declval<T>()))(1);
+}
+
+template <class T, class U, size_t... Is>
+T convert_dims(const U& u, std::index_sequence<Is...>) {
+  return std::make_tuple(convert_dim<Is, T>(u)...);
+}
+
 }  // namespace internal
 
 template <class... Dims>
@@ -768,6 +785,9 @@ class shape {
 
   /** The type of an index for this shape. */
   using index_type = typename internal::tuple_of_n<index_t, rank()>::type;
+
+  /** The type of the dims tuple of this shape. */
+  using dims_type = std::tuple<Dims...>;
 
   using size_type = size_t;
 
@@ -1105,8 +1125,12 @@ using enable_if_shapes_compatible =
     typename std::enable_if<std::is_constructible<ShapeDst, ShapeSrc>::value>::type;
 
 template <class ShapeDst, class ShapeSrc>
+using enable_if_shapes_explicitly_compatible =
+    typename std::enable_if<(ShapeSrc::rank() <= ShapeSrc::rank())>::type;
+
+template <class ShapeDst, class ShapeSrc>
 using enable_if_shapes_copy_compatible =
-    typename std::enable_if<ShapeDst::rank() == ShapeSrc::rank()>::type;
+    typename std::enable_if<(ShapeDst::rank() == ShapeSrc::rank())>::type;
 
 }  // namespace internal
 
@@ -1145,6 +1169,28 @@ template <class ShapeDst, class ShapeSrc,
 bool is_compatible(const ShapeSrc& src) {
   return internal::is_shape_compatible(
       ShapeDst(), src, internal::make_index_sequence<ShapeSrc::rank()>());
+}
+
+/** Test if a shape `src` can be assigned to a shape of type `ShapeDst` without
+ * error. */
+template <class ShapeDst, class ShapeSrc,
+    class = internal::enable_if_shapes_explicitly_compatible<ShapeSrc, ShapeDst>>
+bool is_explicitly_compatible(const ShapeSrc& src) {
+  return internal::is_shape_compatible(
+      ShapeDst(), src, internal::make_index_sequence<ShapeSrc::rank()>());
+}
+
+/** Convert a shape 'u' to shape type 'T'. This explicit conversion allows
+ * converting a low rank shape to a higher ranked shape, where new dimensions
+ * have min 0 and extent 1. */
+// TODO: Consider enabling this kind of conversion implicitly. It is hard to
+// do without constructor overload ambiguity problems, and I'm also not sure
+// it's a good idea.
+template <class ShapeDst, class ShapeSrc,
+    class = internal::enable_if_shapes_explicitly_compatible<ShapeDst, ShapeSrc>>
+ShapeDst convert_shape(const ShapeSrc& src) {
+  return internal::convert_dims<typename ShapeDst::dims_type>(
+      src.dims(), std::make_index_sequence<ShapeDst::rank()>());
 }
 
 /** Iterate over all indices in the shape, calling a function `fn` for each set
@@ -2326,7 +2372,7 @@ bool equal(const array<TA, ShapeA, AllocA>& a, const array<TB, ShapeB, AllocB>& 
  * `new_shape`. */
 template <class NewShape, class T, class OldShape>
 array_ref<T, NewShape> convert_shape(const array_ref<T, OldShape>& a) {
-  return array_ref<T, NewShape>(a.base(), a.shape());
+  return array_ref<T, NewShape>(a.base(), convert_shape<NewShape>(a.shape()));
 }
 template <class NewShape, class T, class OldShape, class Allocator>
 array_ref<T, NewShape> convert_shape(array<T, OldShape, Allocator>& a) {
