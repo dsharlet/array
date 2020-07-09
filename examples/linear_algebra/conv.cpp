@@ -47,15 +47,7 @@ void conv(const Input& input, const Filter& filter, const Output& output) {
 
   for (index_t n : output.template dim<3>()) {
     for (index_t y : output.template dim<2>()) {
-#if 1
       fill(output(_, _, y, n), static_cast<T>(0));
-#else
-      for (index_t x : output.template dim<1>()) {
-        for (index_t co : output.template dim<0>()) {
-          output(co, x, y, n) = 0;
-        }
-      }
-#endif
       for (index_t ci : filter.template dim<3>()) {
         for (index_t dy : filter.template dim<2>()) {
           for (index_t dx : filter.template dim<1>()) {
@@ -82,7 +74,7 @@ void conv_tiled(const Input& input, const Filter& filter, const Output& output) 
   // We want the tiles to be as big as possible without spilling any
   // of the accumulator registers to the stack.
   constexpr index_t tile_x = 4;
-  constexpr index_t tile_co = vector_size * 2;
+  constexpr index_t tile_co = vector_size * 3;
 
   for (index_t n : output.template dim<3>()) {
     for (index_t y : output.template dim<2>()) {
@@ -90,57 +82,10 @@ void conv_tiled(const Input& input, const Filter& filter, const Output& output) 
         for (auto coo : split<tile_co>(output.template dim<0>())) {
           // Don't slice the y, n.template dims by making them a range here.
           auto output_tile = output(coo, xo, fixed_range<1>(y), fixed_range<1>(n));
-#if 1
+
           // TODO: This is slow, probably due to potential aliasing that
           // we can't fix due to https://bugs.llvm.org/show_bug.cgi?id=45863
           conv(input, filter, output_tile);
-#elif 0
-          // TODO: This is slow, probably due to potential aliasing that
-          // we can't fix due to https://bugs.llvm.org/show_bug.cgi?id=45863
-          T buffer[tile_x * tile_co] = { 0 };
-          auto accumulator = make_array_ref(buffer, make_compact(output_tile.shape()));
-          conv(input, filter, accumulator);
-          for (index_t x : xo) {
-            for (index_t co : coo) {
-              output(co, x, y, n) = accumulator(co, x, y, n);
-            }
-          }
-#else
-          // TODO: This scalarizes for some unknown reason.
-          T buffer[tile_x * tile_co] = { 0 };
-          auto accumulator = make_array_ref(buffer, make_compact(output_tile.shape()));
-#  if 1
-#    if 0
-          fill(accumulator, static_cast<T>(0));
-#    else
-          for (index_t x : xo) {
-            for (index_t co : coo) {
-              accumulator(co, x, y, n) = 0;
-            }
-          }
-#    endif
-#  endif
-          for (index_t ci : filter.template dim<3>()) {
-            for (index_t dy : filter.template dim<2>()) {
-              for (index_t dx : filter.template dim<1>()) {
-                for (index_t x : xo) {
-                  for (index_t co : coo) {
-                    accumulator(co, x, y, n) += filter(co, dx, dy, ci) * input(ci, x + dx, y + dy, n);
-                  }
-                }
-              }
-            }
-          }
-#  if 0
-          copy(accumulator, output_tile);
-#  else
-          for (index_t x : xo) {
-            for (index_t co : coo) {
-              output(co, x, y, n) = accumulator(co, x, y, n);
-            }
-          }
-#  endif
-#endif
         }
       }
     }

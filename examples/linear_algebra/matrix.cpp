@@ -39,11 +39,11 @@ using matrix_ref = array_ref<T, matrix_shape<Rows, Cols>>;
 // A textbook implementation of matrix multiplication. This is very simple,
 // but it is slow, primarily because of poor locality of the loads of b. The
 // reduction loop is innermost.
-template <typename TAB, typename TC, index_t Rows, index_t Cols>
+template <typename TAB, typename TC>
 __attribute__((noinline))
 void multiply_reduce_cols(
     const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-    const matrix_ref<TC, Rows, Cols>& c) {
+    const matrix_ref<TC>& c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
       c(i, j) = 0;
@@ -58,7 +58,7 @@ void multiply_reduce_cols(
 // indicates the performance overhead (if any) of the array helpers.
 template <typename TAB, typename TC>
 __attribute__((noinline))
-void multiply_reduce_cols_native(
+void multiply_ref(
     const TAB* a, const TAB* b, TC* c, int M, int K, int N) {
   for (int i = 0; i < M; i++) {
     for (int j = 0; j < N; j++) {
@@ -74,38 +74,16 @@ void multiply_reduce_cols_native(
 // This implementation moves the reduction loop between the rows and columns
 // loops. This avoids the locality problem for the loads from b. This also is
 // an easier loop to vectorize (it does not vectorize a reduction variable).
-template <typename TAB, typename TC, index_t Rows, index_t Cols>
+template <typename TAB, typename TC>
 __attribute__((noinline))
 void multiply_reduce_rows(
     const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-    const matrix_ref<TC, Rows, Cols>& c) {
+    const matrix_ref<TC>& c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
       c(i, j) = 0;
     }
     for (index_t k : a.j()) {
-      for (index_t j : c.j()) {
-        c(i, j) += a(i, k) * b(k, j);
-      }
-    }
-  }
-}
-
-// This implementation reorders the reduction loop innermost. This vectorizes
-// well, but has poor locality. However, this will be a useful helper function
-// for the tiled implementation below.
-template <typename TAB, typename TC, index_t Rows, index_t Cols>
-__attribute__((always_inline))
-void multiply_reduce_matrices(
-    const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-    const matrix_ref<TC, Rows, Cols>& c) {
-  for (index_t i : c.i()) {
-    for (index_t j : c.j()) {
-      c(i, j) = 0;
-    }
-  }
-  for (index_t k : a.j()) {
-    for (index_t i : c.i()) {
       for (index_t j : c.j()) {
         c(i, j) += a(i, k) * b(k, j);
       }
@@ -162,36 +140,18 @@ void multiply_reduce_tiles(
   constexpr index_t tile_rows = 4;
   constexpr index_t tile_cols = vector_size * 3;
 
+  // Unfortunately, this code is fairly sensitive. See this file in
+  // the 'matrix-repros' branch for a variety of alternative.
   for (auto io : split<tile_rows>(c.i())) {
     for (auto jo : split<tile_cols>(c.j())) {
       // Make a reference to this tile of the output.
       auto c_tile = c(io, jo);
-#if 0
-      // TODO: This should work, but it's slow, probably due to potential
-      // aliasing that we can't fix due to https://bugs.llvm.org/show_bug.cgi?id=45863
-      multiply_reduce_matrices(a, b, c_tile);
-#elif 0
-      // TODO: This should work, but it's slow, probably due to potential
-      // aliasing that we can't fix due to https://bugs.llvm.org/show_bug.cgi?id=45863
-#  if 0
-      fill(c_tile, static_cast<TC>(0));
-#  else
-      for (index_t i : c_tile.i()) {
-        for (index_t j : c_tile.j()) {
-          c_tile(i, j) = 0;
-        }
-      }
-#  endif
-      for (index_t k : a.j()) {
-        for (index_t i : c_tile.i()) {
-          for (index_t j : c_tile.j()) {
-            c_tile(i, j) += a(i, k) * b(k, j);
-          }
-        }
-      }
-#else
+
+      // Define an accumulator buffer.
       TC buffer[tile_rows * tile_cols] = { 0 };
       auto accumulator = make_array_ref(buffer, make_compact(c_tile.shape()));
+
+      // Perform the matrix multiplication for this tile.
       for (index_t k : a.j()) {
         for (index_t i : c_tile.i()) {
           for (index_t j : c_tile.j()) {
@@ -199,19 +159,13 @@ void multiply_reduce_tiles(
           }
         }
       }
-#  if 0
-      // TODO: This should work, but it's slow, it appears to
-      // blow up the nice in-register accumulation of the loop
-      // above.
-      copy(accumulator, c_tile);
-#  else
+
+      // Copy the accumulators to the output.
       for (index_t i : c_tile.i()) {
         for (index_t j : c_tile.j()) {
           c_tile(i, j) = accumulator(i, j);
         }
       }
-#  endif
-#endif
     }
   }
 }
@@ -236,52 +190,39 @@ int main(int, const char**) {
   generate(a, [&]() { return uniform(rng); });
   generate(b, [&]() { return uniform(rng); });
 
-  // Compute the result using all matrix multiply methods.
-  matrix<float> c_reduce_cols({M, N});
-  double reduce_cols_time = benchmark([&]() {
-    multiply_reduce_cols(a.ref(), b.ref(), c_reduce_cols.ref());
+  matrix<float> c_ref({M, N});
+  double ref_time = benchmark([&]() {
+    multiply_ref(a.data(), b.data(), c_ref.data(), M, K, N);
   });
-  std::cout << "reduce_cols time: " << reduce_cols_time * 1e3 << " ms" << std::endl;
+  std::cout << "reference time: " << ref_time * 1e3 << " ms" << std::endl;
 
-  matrix<float> c_reduce_cols_native({M, N});
-  double reduce_cols_native_time = benchmark([&]() {
-    multiply_reduce_cols_native(a.data(), b.data(), c_reduce_cols_native.data(), M, K, N);
-  });
-  std::cout << "reduce_cols_native time: " << reduce_cols_native_time * 1e3 << " ms" << std::endl;
+  struct version {
+    const char* name;
+    std::function<void(const matrix_ref<const float>&, const matrix_ref<const float>&, const matrix_ref<float>&)> fn;
+  };
+  version versions[] = {
+    { "reduce_cols", multiply_reduce_cols<const float, float> },
+    { "reduce_rows", multiply_reduce_rows<const float, float> },
+    { "reduce_tiles", multiply_reduce_tiles<const float, float> },
+  };
+  for (auto i : versions) {
+    // Compute the result using all matrix multiply methods.
+    matrix<float> c({M, N});
+    double time = benchmark([&]() {
+      i.fn(a.cref(), b.cref(), c.ref());
+    });
+    std::cout << i.name << " time: " << time * 1e3 << " ms" << std::endl;
 
-  matrix<float> c_reduce_rows({M, N});
-  double reduce_rows_time = benchmark([&]() {
-    multiply_reduce_rows(a.ref(), b.ref(), c_reduce_rows.ref());
-  });
-  std::cout << "reduce_rows time: " << reduce_rows_time * 1e3 << " ms" << std::endl;
-
-  matrix<float> c_reduce_tiles({M, N});
-  double reduce_tiles_time = benchmark([&]() {
-    multiply_reduce_tiles(a.ref(), b.ref(), c_reduce_tiles.ref());
-  });
-  std::cout << "reduce_tiles time: " << reduce_tiles_time * 1e3 << " ms" << std::endl;
-
-  // Verify the results from all methods are equal.
-  const float tolerance = 1e-4f;
-  for (index_t i = 0; i < M; i++) {
-    for (index_t j = 0; j < N; j++) {
-      if (relative_error(c_reduce_cols_native(i, j), c_reduce_cols(i, j)) > tolerance) {
-        std::cout
-          << "c_reduce_cols_native(" << i << ", " << j << ") = " << c_reduce_cols_native(i, j)
-          << " != c_reduce_cols(" << i << ", " << j << ") = " << c_reduce_cols(i, j) << std::endl;
-        return -1;
-      }
-      if (relative_error(c_reduce_rows(i, j), c_reduce_cols(i, j)) > tolerance) {
-        std::cout
-          << "c_reduce_rows(" << i << ", " << j << ") = " << c_reduce_rows(i, j)
-          << " != c_reduce_cols(" << i << ", " << j << ") = " << c_reduce_cols(i, j) << std::endl;
-        return -1;
-      }
-      if (relative_error(c_reduce_tiles(i, j), c_reduce_cols(i, j)) > tolerance) {
-        std::cout
-          << "c_reduce_tiles(" << i << ", " << j << ") = " << c_reduce_tiles(i, j)
-          << " != c_reduce_cols(" << i << ", " << j << ") = " << c_reduce_cols(i, j) << std::endl;
-        return -1;
+    // Verify the results from all methods are equal.
+    const float tolerance = 1e-4f;
+    for (index_t i = 0; i < M; i++) {
+      for (index_t j = 0; j < N; j++) {
+        if (relative_error(c_ref(i, j), c(i, j)) > tolerance) {
+          std::cout
+            << "c_ref(" << i << ", " << j << ") = " << c_ref(i, j)
+            << " != c(" << i << ", " << j << ") = " << c(i, j) << std::endl;
+          return -1;
+        }
       }
     }
   }
