@@ -382,6 +382,10 @@ TEST(shape_conversion) {
 
   shape_of_rank<2> sparse({0, 10, 2}, {1, 5, 20});
   ASSERT(!is_compatible<dense_shape<2>>(sparse));
+
+  dense_shape<3> uprank = convert_shape<dense_shape<3>>(dense);
+  ASSERT_EQ(uprank.z().min(), 0);
+  ASSERT_EQ(uprank.z().extent(), 1);
 }
 
 TEST(shape_transpose) {
