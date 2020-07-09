@@ -92,9 +92,6 @@ void multiply_reduce_rows(
   }
 }
 
-// This implementation reorders the reduction loop innermost. This vectorizes
-// well, but has poor locality. However, this will be a useful helper function
-// for the tiled implementation below.
 template <typename TAB, typename TC, index_t Rows, index_t Cols>
 __attribute__((always_inline))
 void multiply_reduce_matrices(
@@ -133,6 +130,8 @@ void multiply_reduce_tiles_a(
   constexpr index_t tile_rows = 4;
   constexpr index_t tile_cols = vector_size * 3;
 
+  // Unfortunately, this code is fairly sensitive. See this file in
+  // the 'matrix-repros' branch for a variety of alternative.
   for (auto io : split<tile_rows>(c.i())) {
     for (auto jo : split<tile_cols>(c.j())) {
       // Make a reference to this tile of the output.
@@ -188,7 +187,6 @@ void multiply_reduce_tiles_c(
 
   for (auto io : split<tile_rows>(c.i())) {
     for (auto jo : split<tile_cols>(c.j())) {
-      // Make a reference to this tile of the output.
       auto c_tile = c(io, jo);
       for (index_t i : c_tile.i()) {
         for (index_t j : c_tile.j()) {
@@ -222,7 +220,6 @@ void multiply_reduce_tiles_d(
 
   for (auto io : split<tile_rows>(c.i())) {
     for (auto jo : split<tile_cols>(c.j())) {
-      // Make a reference to this tile of the output.
       auto c_tile = c(io, jo);
       auto accumulator = make_array<TC>(make_compact(c_tile.shape()));
       for (index_t k : a.j()) {
@@ -253,7 +250,6 @@ void multiply_reduce_tiles_e(
 
   for (auto io : split<tile_rows>(c.i())) {
     for (auto jo : split<tile_cols>(c.j())) {
-      // Make a reference to this tile of the output.
       auto c_tile = c(io, jo);
       TC buffer[tile_rows * tile_cols];
       auto accumulator = make_array_ref(buffer, make_compact(c_tile.shape()));
@@ -286,7 +282,6 @@ void multiply_reduce_tiles_f(
 
   for (auto io : split<tile_rows>(c.i())) {
     for (auto jo : split<tile_cols>(c.j())) {
-      // Make a reference to this tile of the output.
       auto c_tile = c(io, jo);
       TC buffer[tile_rows * tile_cols] = { 0 };
       auto accumulator = make_array_ref(buffer, make_compact(c_tile.shape()));
@@ -305,7 +300,6 @@ void multiply_reduce_tiles_f(
     }
   }
 }
-
 
 float relative_error(float a, float b) {
   return std::abs(a - b) / std::max(a, b);
@@ -327,33 +321,33 @@ int main(int, const char**) {
   generate(a, [&]() { return uniform(rng); });
   generate(b, [&]() { return uniform(rng); });
 
-
   matrix<float> c_ref({M, N});
   double ref_time = benchmark([&]() {
     multiply_ref(a.data(), b.data(), c_ref.data(), M, K, N);
   });
-  std::cout << "ref time: " << ref_time * 1e3 << " ms" << std::endl;
 
-  using function_type = std::function<void(const matrix_ref<float>&, const matrix_ref<float>&, const matrix_ref<float>&)>;
-  struct Test {
+  std::cout << "reference time: " << ref_time * 1e3 << " ms" << std::endl;
+
+  struct version {
     const char* name;
-    function_type fn;
+    std::function<void(const matrix_ref<const float>&, const matrix_ref<const float>&, const matrix_ref<float>&)> fn;
   };
-  Test tests[] = {
-    { "multiply_reduce_cols", multiply_reduce_cols<float, float> },
-    { "multiply_reduce_rows", multiply_reduce_rows<float, float> },
-    { "multiply_reduce_tiles_a", multiply_reduce_tiles_a<float, float> },
-    { "multiply_reduce_tiles_b", multiply_reduce_tiles_b<float, float> },
-    { "multiply_reduce_tiles_c", multiply_reduce_tiles_c<float, float> },
-    { "multiply_reduce_tiles_d", multiply_reduce_tiles_d<float, float> },
-    { "multiply_reduce_tiles_e", multiply_reduce_tiles_e<float, float> },
-    { "multiply_reduce_tiles_f", multiply_reduce_tiles_f<float, float> },
+  version versions[] = {
+    { "multiply_reduce_cols", multiply_reduce_cols<const float, float> },
+    { "multiply_reduce_rows", multiply_reduce_rows<const float, float> },
+    { "multiply_reduce_tiles_a", multiply_reduce_tiles_a<const float, float> },
+    { "multiply_reduce_tiles_b", multiply_reduce_tiles_b<const float, float> },
+    { "multiply_reduce_tiles_c", multiply_reduce_tiles_c<const float, float> },
+    { "multiply_reduce_tiles_d", multiply_reduce_tiles_d<const float, float> },
+    { "multiply_reduce_tiles_e", multiply_reduce_tiles_e<const float, float> },
+    { "multiply_reduce_tiles_f", multiply_reduce_tiles_f<const float, float> },
   };
 
-  for (Test i : tests) {
+  for (auto i : versions) {
+    // Compute the result using all matrix multiply methods.
     matrix<float> c({M, N});
     double time = benchmark([&]() {
-      i.fn(a.ref(), b.ref(), c.ref());
+      i.fn(a.cref(), b.cref(), c.ref());
     });
     std::cout << i.name << " time: " << time * 1e3 << " ms" << std::endl;
 
@@ -361,10 +355,10 @@ int main(int, const char**) {
     const float tolerance = 1e-4f;
     for (index_t i = 0; i < M; i++) {
       for (index_t j = 0; j < N; j++) {
-        if (relative_error(c(i, j), c_ref(i, j)) > tolerance) {
+        if (relative_error(c_ref(i, j), c(i, j)) > tolerance) {
           std::cout
-            << "c(" << i << ", " << j << ") = " << c(i, j)
-            << " != c_ref(" << i << ", " << j << ") = " << c_ref(i, j) << std::endl;
+            << "c_ref(" << i << ", " << j << ") = " << c_ref(i, j)
+            << " != c(" << i << ", " << j << ") = " << c(i, j) << std::endl;
           return -1;
         }
       }

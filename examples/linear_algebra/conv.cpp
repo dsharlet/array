@@ -82,7 +82,7 @@ void conv_tiled(const Input& input, const Filter& filter, const Output& output) 
   // We want the tiles to be as big as possible without spilling any
   // of the accumulator registers to the stack.
   constexpr index_t tile_x = 4;
-  constexpr index_t tile_co = vector_size * 2;
+  constexpr index_t tile_co = vector_size * 3;
 
   for (index_t n : output.template dim<3>()) {
     for (index_t y : output.template dim<2>()) {
