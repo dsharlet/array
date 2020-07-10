@@ -2368,8 +2368,8 @@ bool equal(const array<TA, ShapeA, AllocA>& a, const array<TB, ShapeB, AllocB>& 
   return equal(a.ref(), b.ref());
 }
 
-/** Convert the shape of the array or array_ref `a` to be a new shape
- * `new_shape`. */
+/** Convert the shape of the array or array_ref `a` to a new type of shape
+ * `NewShape`. The new shape is constructed from `a.shape()`. */
 template <class NewShape, class T, class OldShape>
 array_ref<T, NewShape> convert_shape(const array_ref<T, OldShape>& a) {
   return array_ref<T, NewShape>(a.base(), convert_shape<NewShape>(a.shape()));
