@@ -512,11 +512,11 @@ index_t flat_offset_tuple(const Dims& dims, const Indices& indices, index_sequen
 }
 
 template <size_t D, class Dims>
-index_t flat_offset_pack(const Dims& dims) {
+NDARRAY_INLINE index_t flat_offset_pack(const Dims& dims) {
   return 0;
 }
 template <size_t D, class Dims, class... Indices>
-index_t flat_offset_pack(const Dims& dims, index_t i0, Indices... indices) {
+NDARRAY_INLINE index_t flat_offset_pack(const Dims& dims, index_t i0, Indices... indices) {
   return std::get<D>(dims).flat_offset(i0) + flat_offset_pack<D + 1>(dims, indices...);
 }
 
