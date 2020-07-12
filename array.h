@@ -1206,7 +1206,8 @@ template<class Shape, class Fn,
 void for_each_index_in_order(const Shape& shape, Fn &&fn) {
   internal::for_each_index_in_order<Shape::rank() - 1>(shape.dims(), fn, std::tuple<>());
 }
-template<class Shape, class Ptr, class Fn>
+template<class Shape, class Ptr, class Fn,
+    class = internal::enable_if_callable<Fn, typename std::remove_pointer<Ptr>::type&>>
 void for_each_value_in_order(const Shape& shape, Ptr base, Fn &&fn) {
   using index_type = typename Shape::index_type;
   // TODO: This is losing compile-time constant extents and strides info
@@ -1218,7 +1219,9 @@ void for_each_value_in_order(const Shape& shape, Ptr base, Fn &&fn) {
 /** Similar to for_each_value_in_order, but iterates over two arrays
  * simultaneously. `shape` defines the loop nest, while `shape_a` and `shape_b`
  * define the memory layout of `base_a` and `base_b`. */
-template<class Shape, class ShapeA, class PtrA, class ShapeB, class PtrB, class Fn>
+template<class Shape, class ShapeA, class PtrA, class ShapeB, class PtrB, class Fn,
+    class = internal::enable_if_callable<Fn,
+        typename std::remove_pointer<PtrA>::type&, typename std::remove_pointer<PtrB>::type&>>
 void for_each_value_in_order(
     const Shape& shape, const ShapeA& shape_a, PtrA base_a, const ShapeB& shape_b, PtrB base_b,
     Fn &&fn) {
@@ -1572,7 +1575,7 @@ class array_ref {
 
   /** Call a function with a reference to each value in this array_ref. The
    * order in which `fn` is called is undefined. */
-  template <class Fn>
+  template <class Fn, class = internal::enable_if_callable<Fn, value_type&>>
   void for_each_value(Fn&& fn) const {
     shape_traits_type::for_each_value(shape_, base_, fn);
   }
@@ -1997,11 +2000,11 @@ class array {
 
   /** Call a function with a reference to each value in this array. The order in
    * which `fn` is called is undefined. */
-  template <class Fn>
+  template <class Fn, class = internal::enable_if_callable<Fn, value_type&>>
   void for_each_value(Fn&& fn) {
     shape_traits_type::for_each_value(shape_, base_, fn);
   }
-  template <class Fn>
+  template <class Fn, class = internal::enable_if_callable<Fn, const value_type&>>
   void for_each_value(Fn&& fn) const {
     shape_traits_type::for_each_value(shape_, base_, fn);
   }
@@ -2330,11 +2333,13 @@ void fill(array<T, Shape, Alloc>& dst, const T& value) {
 /** Fill `dst` array or array_ref with the result of calling a generator
  * `g`. The order in which `g` is called is the same as
  * `shape_traits<Shape>::for_each_value`. */
-template <class T, class Shape, class Generator>
+template <class T, class Shape, class Generator,
+    class = internal::enable_if_callable<Generator>>
 void generate(const array_ref<T, Shape>& dst, Generator g) {
   dst.for_each_value([g](T& i) { i = g(); });
 }
-template <class T, class Shape, class Alloc, class Generator>
+template <class T, class Shape, class Alloc, class Generator,
+    class = internal::enable_if_callable<Generator>>
 void generate(array<T, Shape, Alloc>& dst, Generator g) {
   generate(dst.ref(), g);
 }
