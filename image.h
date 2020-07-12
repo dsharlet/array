@@ -71,11 +71,10 @@ class shape_traits<chunky_image_shape<Channels, ChannelStride>> {
     for_each_image_index(s, fn);
   }
 
-  template <class Fn, class... T>
-  static void for_each_value(const shape_type& s, Fn&& fn, T... base) {
+  template <class Ptr, class Fn>
+  static void for_each_value(const shape_type& s, Ptr base, Fn&& fn) {
     for_each_image_index(s, [=, &fn](const typename shape_type::index_type& i) {
-      index_t offset = s(i);
-      fn(base[offset]...);
+      fn(base[s(i)]);
     });
   }
 };
@@ -92,10 +91,10 @@ class shape_traits<chunky_image_shape<Channels>> {
 
   // When Channels == ChannelStride, we can implement for_each_value by fusing
   // the x and c dimensions.
-  template <class Fn, class... T>
-  static void for_each_value(const shape_type& s, Fn&& fn, T... base) {
+  template <class Ptr, class Fn>
+  static void for_each_value(const shape_type& s, Ptr base, Fn&& fn) {
     dense_shape<2> opt_s({s.x().min() * Channels, s.x().extent() * Channels}, s.y());
-    for_each_value_in_order(opt_s, fn, base...);
+    for_each_value_in_order(opt_s, base, fn);
   }
 };
 
