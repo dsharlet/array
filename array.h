@@ -468,7 +468,6 @@ template <class Fn, class Args, size_t... Is>
 NDARRAY_INLINE auto apply(Fn&& fn, const Args& args, index_sequence<Is...>) {
   return fn(std::get<Is>(args)...);
 }
-
 template <class Fn, class... Args>
 NDARRAY_INLINE auto apply(Fn&& fn, const std::tuple<Args...>& args) {
   return apply(fn, args, make_index_sequence<sizeof...(Args)>());
@@ -774,11 +773,12 @@ shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
  * 'outermost' dimension. */
 template <class... Dims>
 class shape {
-  std::tuple<Dims...> dims_;
-
  public:
+  /** The type of the dims tuple of this shape. */
+  using dims_type = std::tuple<Dims...>;
+
   /** Number of dims in this shape. */
-  static constexpr size_t rank() { return std::tuple_size<std::tuple<Dims...>>::value; }
+  static constexpr size_t rank() { return std::tuple_size<dims_type>::value; }
 
   /** A shape is scalar if it is rank 0. */
   static constexpr bool is_scalar() { return rank() == 0; }
@@ -786,19 +786,18 @@ class shape {
   /** The type of an index for this shape. */
   using index_type = typename internal::tuple_of_n<index_t, rank()>::type;
 
-  /** The type of the dims tuple of this shape. */
-  using dims_type = std::tuple<Dims...>;
-
   using size_type = size_t;
 
  private:
-  // TODO: This should use std::is_constructible<std::tuple<Dims...>, std::tuple<OtherDims...>>
+  dims_type dims_;
+
+  // TODO: This should use std::is_constructible<dims_type, std::tuple<OtherDims...>>
   // but it is broken on some compilers (https://github.com/dsharlet/array/issues/20).
   template <class... OtherDims>
   using enable_if_dims_compatible = typename std::enable_if<sizeof...(OtherDims) == rank()>::type;
 
   template <class... Args>
-  using enable_if_same_rank = typename std::enable_if<sizeof...(Args) == rank()>::type;
+  using enable_if_same_rank = typename std::enable_if<(sizeof...(Args) == rank())>::type;
 
   template <class... Args>
   using enable_if_indices =
@@ -810,7 +809,7 @@ class shape {
       !internal::all_of_type<index_t, Args...>::value>::type;
 
   template <size_t Dim>
-  using enable_if_dim = typename std::enable_if<Dim < rank()>::type;
+  using enable_if_dim = typename std::enable_if<(Dim < rank())>::type;
 
  public:
   shape() {}
@@ -822,7 +821,7 @@ class shape {
   shape(shape&&) = default;
 
   /** Construct a shape from a tuple of `dims` of another type. */
-  // We cannot have an std::tuple<Dims...> constructor because it will be
+  // We cannot have an dims_type constructor because it will be
   // ambiguous with the Dims... constructor for 1D shapes.
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
   shape(const std::tuple<OtherDims...>& dims) : dims_(dims) {}
@@ -909,8 +908,8 @@ class shape {
   }
 
   /** Get a tuple of all of the dims of this shape. */
-  std::tuple<Dims...>& dims() { return dims_; }
-  const std::tuple<Dims...>& dims() const { return dims_; }
+  dims_type& dims() { return dims_; }
+  const dims_type& dims() const { return dims_; }
 
   /** Get an index pointing to the min or max index in each dimension of this
    * shape. */
