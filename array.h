@@ -791,10 +791,11 @@ class shape {
  private:
   dims_type dims_;
 
-  // TODO: This should use std::is_constructible<dims_type, std::tuple<OtherDims...>>
-  // but it is broken on some compilers (https://github.com/dsharlet/array/issues/20).
+  // This uses std::is_assignable because std::is_constructible is broken
+  // on some C++ STLs (https://github.com/dsharlet/array/issues/20).
   template <class... OtherDims>
-  using enable_if_dims_compatible = typename std::enable_if<sizeof...(OtherDims) == rank()>::type;
+  using enable_if_dims_compatible = typename std::enable_if<
+      std::is_assignable<dims_type, std::tuple<OtherDims...>>::value>::type;
 
   template <class... Args>
   using enable_if_same_rank = typename std::enable_if<(sizeof...(Args) == rank())>::type;

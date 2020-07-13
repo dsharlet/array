@@ -70,11 +70,10 @@ void shape_shape_too_many_dims() {
   shape<dim<>> s2(0, 1);
 }
 
-// TODO: This builds due to https://github.com/dsharlet/array/issues/20
-//void shape_shape_incompatible() {
-//  shape<dim<dynamic, dynamic, 4>> s2;
-//  shape<dense_dim<>> s3(s2);
-//}
+void shape_shape_incompatible() {
+  shape<dim<1, 2, 3>> s2;
+  shape<dim<4, 5, 6>> s3(s2);
+}
 
 void shape_at_too_many_indices() {
   s(0, 1, 2);
