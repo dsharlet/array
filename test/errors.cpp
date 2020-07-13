@@ -22,6 +22,7 @@ namespace nda {
 shape_of_rank<2> s;
 dense_array_ref<int, 2> ref;
 dense_array<int, 3> a;
+const dense_array<int, 3> const_a;
 
 void range_range_bad_copy_construct() {
   fixed_range<3> x;
@@ -104,6 +105,13 @@ void array_ref_at_too_few_indices() {
   ref(0);
 }
 
+void array_ref_for_each_value_bad_type() {
+  ref.for_each_value([&](float& i) { i = 0; });
+}
+
+void array_ref_for_each_value_too_many_args() {
+  ref.for_each_value([&](int i, int j) { });
+}
 
 void array_at_too_many_indices() {
   a(0, 1, 2, 3);
@@ -111,6 +119,10 @@ void array_at_too_many_indices() {
 
 void array_at_too_few_indices() {
   a(0, 1);
+}
+
+void array_for_each_value_non_const() {
+  const_a.for_each_value([&](int& i) { i = 0; });
 }
 
 
