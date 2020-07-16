@@ -1494,6 +1494,7 @@ class array_ref {
   /** Type of elements referenced in this array_ref. */
   using value_type = T;
   using reference = value_type&;
+  using const_reference = const value_type&;
   using pointer = value_type*;
   /** Type of the shape of this array_ref. */
   using shape_type = Shape;
@@ -1640,7 +1641,7 @@ class array_ref {
     // (https://github.com/dsharlet/array/issues/4).
     bool result = false;
     copy_shape_traits<Shape, Shape>::for_each_value(
-        shape_, base_, other.shape_, other.base_, [&](const value_type& a, const value_type& b) {
+        shape_, base_, other.shape_, other.base_, [&](const_reference a, const_reference b) {
       if (a != b) {
         result = true;
       }
@@ -1753,7 +1754,7 @@ class array {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
     copy_shape_traits_type::for_each_value(
-        other.shape(), other.base(), shape_, base_, [&](const value_type& src, value_type& dst) {
+        other.shape(), other.base(), shape_, base_, [&](const_reference src, reference dst) {
       alloc_traits::construct(alloc_, &dst, src);
     });
   }
@@ -1761,7 +1762,7 @@ class array {
     assert(base_ || shape_.empty());
     assert(shape_ == other.shape());
     copy_shape_traits_type::for_each_value(
-        other.shape(), other.base(), shape_, base_, [&](value_type& src, value_type& dst) {
+        other.shape(), other.base(), shape_, base_, [&](reference src, reference dst) {
       alloc_traits::construct(alloc_, &dst, std::move(src));
     });
   }
