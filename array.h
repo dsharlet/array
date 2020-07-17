@@ -753,6 +753,23 @@ constexpr index_t factorial(index_t x) {
   return x == 1 ? 1 : x * factorial(x - 1);
 }
 
+template <size_t Dim, class Index,
+    std::enable_if_t<(Dim + 1 == std::tuple_size<Index>::value), int> = 0>
+void increment(Index& index, const Index& min, const Index& max) {
+  ++std::get<Dim>(index);
+}
+
+template <size_t Dim, class Index,
+    std::enable_if_t<(Dim + 1 < std::tuple_size<Index>::value), int> = 0>
+void increment(Index& index, const Index& min, const Index& max) {
+  index_t& i = std::get<Dim>(index);
+  ++i;
+  if (i > std::get<Dim>(max)) {
+    i = std::get<Dim>(min);
+    increment<Dim + 1>(index, min, max);
+  }
+}
+
 // The errors that result from not satisfying this check are probably hell,
 // but it would be pretty tricky to check that all of [0, Rank) is in `Is...`
 template <size_t Rank, size_t... Is>
@@ -775,6 +792,32 @@ shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
   return shape<Dims...>(dims);
 }
 
+template <class Index>
+class shape_iterator {
+  Index i_;
+  Index min_;
+  Index max_;
+
+ public:
+  shape_iterator(const Index& i, const Index& min, const Index& max)
+      : i_(i), min_(min), max_(max) {}
+
+  NDARRAY_INLINE bool operator==(const shape_iterator& r) const { return i_ == r.i_; }
+  NDARRAY_INLINE bool operator!=(const shape_iterator& r) const { return i_ != r.i_; }
+
+  NDARRAY_INLINE Index operator *() const { return i_; }
+
+  NDARRAY_INLINE shape_iterator operator++(int) {
+    Index next = i_;
+    internal::increment<0>(next, min_, max_);
+    return shape_iterator(next, min_, max_);
+  }
+  NDARRAY_INLINE shape_iterator& operator++() {
+    internal::increment<0>(i_, min_, max_);
+    return *this;
+  }
+};
+
 /** A list of `dim` objects describing a multi-dimensional space of indices.
  * The `rank` of a shape refers to the number of dimensions in the shape.
  * Shapes map multiple dim objects to offsets by adding each mapping dim to
@@ -795,6 +838,8 @@ class shape {
 
   /** The type of an index for this shape. */
   using index_type = typename internal::tuple_of_n<index_t, rank()>::type;
+
+  using iterator = shape_iterator<index_type>;
 
   using size_type = size_t;
 
@@ -1006,6 +1051,13 @@ class shape {
    * cols}, get the extent of those dimensions. */
   index_t rows() const { return i().extent(); }
   index_t columns() const { return j().extent(); }
+
+  iterator begin() const { return iterator(min(), min(), max()); }
+  iterator end() const {
+    iterator result(max(), min(), max());
+    ++result;
+    return result;
+  }
 
   /** A shape is equal to another shape if the dim objects of
    * each dimension from both shapes are equal. */

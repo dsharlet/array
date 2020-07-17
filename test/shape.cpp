@@ -336,6 +336,55 @@ TEST(for_each_index_3d_reorderd) {
   ASSERT_EQ(expected_flat_offset, 120);
 }
 
+
+#if 0
+// TODO: How to implement iterator for this?
+TEST(shape_iterator_scalar) {
+  shape<> s;
+  int count = 0;
+  for (std::tuple<> i : s) {
+    count++;
+  }
+  ASSERT_EQ(count, 1);
+}
+#endif
+
+TEST(shape_iterator_1d) {
+  dense_shape<1> s(20);
+  int expected_flat_offset = 0;
+  for (std::tuple<int> x : s) {
+    ASSERT_EQ(s(x), expected_flat_offset);
+    expected_flat_offset++;
+  }
+  // Ensure the shape_iterator loop above actually ran.
+  ASSERT_EQ(expected_flat_offset, 20);
+}
+
+TEST(shape_iterator_2d) {
+  dense_shape<2> s(10, 4);
+  s.resolve();
+  int expected_flat_offset = 0;
+  for (std::tuple<int, int> x : s) {
+    ASSERT_EQ(s(x), expected_flat_offset);
+    expected_flat_offset++;
+  }
+  // Ensure the shape_iterator loop above actually ran.
+  ASSERT_EQ(expected_flat_offset, 40);
+}
+
+TEST(shape_iterator_3d) {
+  dense_shape<3> s(3, 5, 8);
+  s.resolve();
+  int expected_flat_offset = 0;
+  for (std::tuple<int, int, int> x : s) {
+    ASSERT_EQ(s(x), expected_flat_offset);
+    expected_flat_offset++;
+  }
+  // Ensure the shape_iterator loop above actually ran.
+  ASSERT_EQ(expected_flat_offset, 120);
+}
+
+
 TEST(dim_is_in_range) {
   dim<> x(2, 5);
 
