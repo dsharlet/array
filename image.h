@@ -22,27 +22,16 @@
 
 namespace nda {
 
+class image_shape_tag : public shape_tag {};
+
 /** A generic image is any 3D array with dimensions x, y, c. c represents the
  * channels of the image, typically it will have extent 3 or 4, with red, green,
  * and blue mapped to indices in this dimension. */
-using image_shape = shape<dim<>, dim<>, dim<>>;
+using image_shape = shape<dim<>, dim<>, dim<>, image_shape_tag>;
 template <class T, class Alloc = std::allocator<T>>
 using image = array<T, image_shape, Alloc>;
 template <class T>
 using image_ref = array_ref<T, image_shape>;
-
-/** A 'chunky' image is an array with 3 dimensions x, y, c, where c is dense,
- * and the dimension with the next stride is x. The stride in x may be larger
- * than the number of channels, to allow for padding pixels to a convenient
- * alignment. This is a common image storage format used by many programs
- * working with images. */
-template <index_t Channels = dynamic, index_t ChannelStride = Channels>
-using chunky_image_shape =
-  shape<strided_dim<ChannelStride>, dim<>, dense_dim<0, Channels>>;
-template <class T, index_t Channels = dynamic, index_t ChannelStride = Channels, class Alloc = std::allocator<T>>
-using chunky_image = array<T, chunky_image_shape<Channels, ChannelStride>, Alloc>;
-template <class T, index_t Channels = dynamic, index_t ChannelStride = Channels>
-using chunky_image_ref = array_ref<T, chunky_image_shape<Channels, ChannelStride>>;
 
 /** Calls `fn` for each index in an image shape `s`. c is the innermost
  * dimension of the loop nest. */
@@ -61,10 +50,41 @@ void for_each_image_index(const Shape& s, Fn&& fn) {
   }
 }
 
+template<>
+class shape_traits<image_shape> {
+ public:
+  using shape_type = image_shape;
+
+  template <class Fn>
+  static void for_each_index(const shape_type& s, Fn&& fn) {
+    for_each_image_index(s, fn);
+  }
+
+  template <class Ptr, class Fn>
+  static void for_each_value(const shape_type& s, Ptr base, Fn&& fn) {
+    for_each_image_index(s, [=, &fn](const typename shape_type::index_type& i) {
+      fn(base[s(i)]);
+    });
+  }
+};
+
+/** A 'chunky' image is an array with 3 dimensions x, y, c, where c is dense,
+ * and the dimension with the next stride is x. The stride in x may be larger
+ * than the number of channels, to allow for padding pixels to a convenient
+ * alignment. This is a common image storage format used by many programs
+ * working with images. */
+template <index_t Channels = dynamic, index_t ChannelStride = Channels>
+using chunky_image_shape =
+  shape<strided_dim<ChannelStride>, dim<>, dense_dim<0, Channels>, image_shape_tag>;
+template <class T, index_t Channels = dynamic, index_t ChannelStride = Channels, class Alloc = std::allocator<T>>
+using chunky_image = array<T, chunky_image_shape<Channels, ChannelStride>, Alloc>;
+template <class T, index_t Channels = dynamic, index_t ChannelStride = Channels>
+using chunky_image_ref = array_ref<T, chunky_image_shape<Channels, ChannelStride>>;
+
 template <index_t Channels, index_t ChannelStride>
 class shape_traits<chunky_image_shape<Channels, ChannelStride>> {
  public:
-  typedef chunky_image_shape<Channels, ChannelStride> shape_type;
+  using shape_type = chunky_image_shape<Channels, ChannelStride>;
 
   template <class Fn>
   static void for_each_index(const shape_type& s, Fn&& fn) {
@@ -82,7 +102,7 @@ class shape_traits<chunky_image_shape<Channels, ChannelStride>> {
 template <index_t Channels>
 class shape_traits<chunky_image_shape<Channels>> {
  public:
-  typedef chunky_image_shape<Channels> shape_type;
+  using shape_type = chunky_image_shape<Channels>;
 
   template <class Fn>
   static void for_each_index(const shape_type& s, Fn&& fn) {
@@ -102,11 +122,29 @@ class shape_traits<chunky_image_shape<Channels>> {
  * format is less common, but more convenient for optimization, particularly
  * SIMD vectorization. Note that this shape also supports 'line-chunky' storage
  * orders. */
-using planar_image_shape = shape<dense_dim<>, dim<>, dim<>>;
+using planar_image_shape = shape<dense_dim<>, dim<>, dim<>, image_shape_tag>;
 template <class T, class Alloc = std::allocator<T>>
 using planar_image = array<T, planar_image_shape, Alloc>;
 template <class T>
 using planar_image_ref = array_ref<T, planar_image_shape>;
+
+template<>
+class shape_traits<planar_image_shape> {
+ public:
+  using shape_type = planar_image_shape;
+
+  template <class Fn>
+  static void for_each_index(const shape_type& s, Fn&& fn) {
+    for_each_image_index(s, fn);
+  }
+
+  template <class Ptr, class Fn>
+  static void for_each_value(const shape_type& s, Ptr base, Fn&& fn) {
+    for_each_image_index(s, [=, &fn](const typename shape_type::index_type& i) {
+      fn(base[s(i)]);
+    });
+  }
+};
 
 enum class crop_origin {
   /** The result of the crop has min 0, 0. */

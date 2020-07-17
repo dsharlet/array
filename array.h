@@ -457,6 +457,9 @@ using strided_dim = dim<dynamic, dynamic, Stride>;
 template <index_t Min = dynamic, index_t Extent = dynamic>
 using broadcast_dim = dim<Min, Extent, 0>;
 
+/** Base class for shape tags. */
+class shape_tag {};
+
 namespace internal {
 
 using std::index_sequence;
@@ -749,6 +752,22 @@ T convert_dims(const U& u, std::index_sequence<Is...>) {
   return std::make_tuple(convert_dim<Is, T>(u)...);
 }
 
+// Make a tuple of dims corresponding to elements in ranges that are not slices.
+inline std::tuple<> skip_tags_impl(const shape_tag&) { return std::tuple<>(); }
+template <class Dim>
+std::tuple<Dim> skip_tags_impl(const Dim& dim) { return std::tuple<Dim>(dim); }
+
+template <class Dims, size_t... Is>
+auto skip_tags(const Dims& dims, index_sequence<Is...>) {
+  return std::tuple_cat(skip_tags_impl(std::get<Is>(dims))...);
+}
+
+template <class... Dims>
+struct filter_tags {
+  using type = decltype(skip_tags(std::declval<std::tuple<Dims...>>(),
+      make_index_sequence<sizeof...(Dims)>()));
+};
+
 constexpr index_t factorial(index_t x) {
   return x == 1 ? 1 : x * factorial(x - 1);
 }
@@ -785,7 +804,7 @@ template <class... Dims>
 class shape {
  public:
   /** The type of the dims tuple of this shape. */
-  using dims_type = std::tuple<Dims...>;
+  using dims_type = typename internal::filter_tags<Dims...>::type;
 
   /** Number of dims in this shape. */
   static constexpr size_t rank() { return std::tuple_size<dims_type>::value; }
@@ -825,8 +844,6 @@ class shape {
   shape() {}
   // TODO: This is a bit messy, but necessary to avoid ambiguous default
   // constructors when Dims is empty.
-  template <size_t N = sizeof...(Dims), class = typename std::enable_if<(N > 0)>::type>
-  shape(const Dims&... dims) : dims_(dims...) {}
   shape(const shape&) = default;
   shape(shape&&) = default;
 
@@ -837,7 +854,7 @@ class shape {
   shape(const std::tuple<OtherDims...>& dims) : dims_(dims) {}
   /** Construct a shape from a different type of `dims`. */
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
-  shape(OtherDims... dims) : dims_(dims...) {}
+  shape(const OtherDims&... dims) : dims_(dims...) {}
 
   /** Construct this shape from a different type of shape. `conversion` must
    * be convertible to this shape. */
