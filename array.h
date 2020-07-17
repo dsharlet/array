@@ -1138,12 +1138,12 @@ constexpr size_t index_of() {
 
 // Perform the inverse of a shuffle with indices Is...
 template <size_t... Is, class T, size_t... Js>
-auto inverse_shuffle(const T& t, index_sequence<Js...>) {
+auto unshuffle(const T& t, index_sequence<Js...>) {
   return std::make_tuple(std::get<index_of<Js, Is...>()>(t)...);
 }
 template <size_t... Is, class... Ts>
-auto inverse_shuffle(const std::tuple<Ts...>& t) {
-  return inverse_shuffle<Is...>(t, make_index_sequence<sizeof...(Is)>());
+auto unshuffle(const std::tuple<Ts...>& t) {
+  return unshuffle<Is...>(t, make_index_sequence<sizeof...(Is)>());
 }
 
 template <class ShapeDst, class ShapeSrc>

@@ -27,7 +27,7 @@ TEST(shuffle_1_of_3) {
   ASSERT_EQ(shuffled1, std::make_tuple(1));
   ASSERT_EQ(shuffled2, std::make_tuple(2));
 
-  // Does inverse_shuffle for this make sense?
+  // Does unshuffle for this make sense?
 }
 
 TEST(shuffle_2_of_3) {
@@ -45,7 +45,7 @@ TEST(shuffle_2_of_3) {
   ASSERT_EQ(shuffled02, std::make_tuple(0, 2));
   ASSERT_EQ(shuffled20, std::make_tuple(2, 0));
 
-  // Does inverse_shuffle for this make sense?
+  // Does unshuffle for this make sense?
 }
 
 TEST(shuffle_3_of_3) {
@@ -63,12 +63,12 @@ TEST(shuffle_3_of_3) {
   ASSERT_EQ(shuffled201, std::make_tuple(2, 0, 1));
   ASSERT_EQ(shuffled210, std::make_tuple(2, 1, 0));
 
-  auto t0 = inverse_shuffle<0, 1, 2>(shuffled012);
-  auto t1 = inverse_shuffle<0, 2, 1>(shuffled021);
-  auto t2 = inverse_shuffle<1, 0, 2>(shuffled102);
-  auto t3 = inverse_shuffle<1, 2, 0>(shuffled120);
-  auto t4 = inverse_shuffle<2, 0, 1>(shuffled201);
-  auto t5 = inverse_shuffle<2, 1, 0>(shuffled210);
+  auto t0 = unshuffle<0, 1, 2>(shuffled012);
+  auto t1 = unshuffle<0, 2, 1>(shuffled021);
+  auto t2 = unshuffle<1, 0, 2>(shuffled102);
+  auto t3 = unshuffle<1, 2, 0>(shuffled120);
+  auto t4 = unshuffle<2, 0, 1>(shuffled201);
+  auto t5 = unshuffle<2, 1, 0>(shuffled210);
   ASSERT_EQ(t0, t);
   ASSERT_EQ(t1, t);
   ASSERT_EQ(t2, t);
