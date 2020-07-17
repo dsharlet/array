@@ -1119,6 +1119,33 @@ auto clamp(const DimsA& a, const DimsB& b, index_sequence<Is...>) {
   return make_shape(clamp_dims(std::get<Is>(a), std::get<Is>(b))...);
 }
 
+// Shuffle a tuple with indices Is...
+template <size_t... Is, class T>
+auto shuffle(const T& t) {
+  return std::make_tuple(std::get<Is>(t)...);
+}
+
+// Return where the index I appears in Is...
+template <size_t I>
+constexpr size_t index_of() {
+  // Assume indices not found are identity.
+  return 0;
+}
+template <size_t I, size_t I0, size_t... Is>
+constexpr size_t index_of() {
+  return I == I0 ? 0 : 1 + index_of<I, Is...>();
+}
+
+// Perform the inverse of a shuffle with indices Is...
+template <size_t... Is, class T, size_t... Js>
+auto inverse_shuffle(const T& t, index_sequence<Js...>) {
+  return std::make_tuple(std::get<index_of<Js, Is...>()>(t)...);
+}
+template <size_t... Is, class... Ts>
+auto inverse_shuffle(const std::tuple<Ts...>& t) {
+  return inverse_shuffle<Is...>(t, make_index_sequence<sizeof...(Is)>());
+}
+
 template <class ShapeDst, class ShapeSrc>
 using enable_if_shapes_compatible =
     typename std::enable_if<std::is_constructible<ShapeDst, ShapeSrc>::value>::type;
@@ -1454,7 +1481,8 @@ void for_each_index(const Shape& s, Fn&& fn) {
 }
 template <class Shape, class Fn>
 void for_all_indices(const Shape& s, Fn&& fn) {
-  shape_traits<Shape>::for_each_index(s, [&](const typename Shape::index_type&i) {
+  using index_type = typename Shape::index_type;
+  for_each_index(s, [&](const index_type&i) {
     internal::apply(fn, i);
   });
 }
