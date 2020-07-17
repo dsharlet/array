@@ -85,6 +85,21 @@ TEST(readme) {
   // 0, 1, 1
   // 1, 1, 1
 
+  // This shows the iteration order of for_all_indices with
+  // a permutation.
+  for_all_indices<2, 0, 1>(my_shape, [](int x, int y, int z) {
+    std::cout << x << ", " << y << ", " << z << std::endl;
+  });
+  // Output:
+  // 0, 0, 0
+  // 0, 0, 1
+  // 1, 0, 0
+  // 1, 0, 1
+  // 0, 1, 0
+  // 0, 1, 1
+  // 1, 1, 0
+  // 1, 1, 1
+
   index_t y = 0;
   index_t z = 0;
 

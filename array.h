@@ -474,15 +474,15 @@ NDARRAY_INLINE auto apply(Fn&& fn, const std::tuple<Args...>& args) {
 }
 
 // Some variadic reduction helpers.
-NDARRAY_INLINE index_t sum() { return 0; }
+NDARRAY_INLINE constexpr index_t sum() { return 0; }
 template <class... Rest>
-NDARRAY_INLINE index_t sum(index_t first, Rest... rest) {
+NDARRAY_INLINE constexpr index_t sum(index_t first, Rest... rest) {
   return first + sum(rest...);
 }
 
-NDARRAY_INLINE index_t product() { return 1; }
+NDARRAY_INLINE constexpr index_t product() { return 1; }
 template <class... Rest>
-NDARRAY_INLINE index_t product(index_t first, Rest... rest) {
+NDARRAY_INLINE constexpr index_t product(index_t first, Rest... rest) {
   return first * product(rest...);
 }
 
@@ -749,6 +749,16 @@ T convert_dims(const U& u, std::index_sequence<Is...>) {
   return std::make_tuple(convert_dim<Is, T>(u)...);
 }
 
+constexpr index_t factorial(index_t x) {
+  return x == 1 ? 1 : x * factorial(x - 1);
+}
+
+// The errors that result from not satisfying this check are probably hell,
+// but it would be pretty tricky to check that all of [0, Rank) is in `Is...`
+template <size_t Rank, size_t... Is>
+using enable_if_permutation =
+    typename std::enable_if<product((Is + 2)...) == factorial(Rank + 1)>::type;
+
 }  // namespace internal
 
 template <class... Dims>
@@ -1005,14 +1015,18 @@ class shape {
   bool operator!=(const shape<OtherDims...>& other) const { return dims_ != other.dims(); }
 };
 
-/** Create a new shape using a list of DimIndices to use as the dimensions of
+/** Create a new shape using a list of `DimIndices...` to use as the dimensions of
+ * the shape. `DimIndices...` must be a permutation. */
+template <size_t... DimIndices, class Shape,
+    class = internal::enable_if_permutation<Shape::rank(), DimIndices...>>
+auto reorder(const Shape& shape) {
+  return make_shape(shape.template dim<DimIndices>()...);
+}
+
+/** Create a new shape using a list of `DimIndices...` to use as the dimensions of
  * the shape. */
 template <size_t... DimIndices, class Shape>
 auto select_dims(const Shape& shape) {
-  return make_shape(shape.template dim<DimIndices>()...);
-}
-template <size_t... DimIndices, class Shape>
-auto reorder(const Shape& shape) {
   return make_shape(shape.template dim<DimIndices>()...);
 }
 
@@ -1474,16 +1488,43 @@ class copy_shape_traits {
  * calls `fn` with a list of arguments corresponding to each dim.
  * `for_each_index` calls `fn` with a Shape::index_type object describing the
  * indices. */
-template <class Shape, class Fn,
-    class = internal::enable_if_callable<Fn, typename Shape::index_type>>
+template <size_t... NoReorder, class Shape, class Fn,
+    class = internal::enable_if_callable<Fn, typename Shape::index_type>,
+    std::enable_if_t<(sizeof...(NoReorder) == 0), int> = 0>
 void for_each_index(const Shape& s, Fn&& fn) {
   shape_traits<Shape>::for_each_index(s, fn);
 }
-template <class Shape, class Fn>
+template <size_t... NoReorder, class Shape, class Fn,
+    std::enable_if_t<(sizeof...(NoReorder) == 0), int> = 0>
 void for_all_indices(const Shape& s, Fn&& fn) {
   using index_type = typename Shape::index_type;
   for_each_index(s, [&](const index_type&i) {
     internal::apply(fn, i);
+  });
+}
+
+/** Iterate over all indices in the shape, calling a function `fn` for each set
+ * of indices. The order of the loops is defined by the permutation `Reorder...`.
+ * `for_all_indices` calls `fn` with a list of arguments corresponding to each
+ * dim. `for_each_index` calls `fn` with a Shape::index_type object describing
+ * the indices. */
+template <size_t... Reorder, class Shape, class Fn,
+    class = internal::enable_if_callable<Fn, typename Shape::index_type>,
+    class = internal::enable_if_permutation<Shape::rank(), Reorder...>,
+    std::enable_if_t<(sizeof...(Reorder) != 0), int> = 0>
+void for_each_index(const Shape& s, Fn&& fn) {
+  using index_type = typename Shape::index_type;
+  for_each_index_in_order(reorder<Reorder...>(s), [&](const index_type& i) {
+    fn(internal::unshuffle<Reorder...>(i));
+  });
+}
+template <size_t... Reorder, class Shape, class Fn,
+    class = internal::enable_if_permutation<Shape::rank(), Reorder...>,
+    std::enable_if_t<(sizeof...(Reorder) != 0), int> = 0>
+void for_all_indices(const Shape& s, Fn&& fn) {
+  using index_type = typename Shape::index_type;
+  for_each_index_in_order(reorder<Reorder...>(s), [&](const index_type&i) {
+    internal::apply(fn, internal::unshuffle<Reorder...>(i));
   });
 }
 

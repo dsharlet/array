@@ -103,6 +103,22 @@ The default implementation of `shape_traits<Shape>::for_each_index` iterates ove
 The default implementation of `shape_traits<Shape>::for_each_value` iterates over a dynamically optimized shape.
 The order will vary depending on the properties of the shape.
 
+There are overloads of `for_each_value` and `for_each_index` accepting a permutation to indicate the loop order. In this example, the permutation `<2, 0, 1>` iterates over the `z` dimension first, then `x`, then `y`.
+```c++
+  for_all_indices<2, 0, 1>(my_shape, [](int x, int y, int z) {
+    std::cout << x << ", " << y << ", " << z << std::endl;
+  });
+  // Output:
+  // 0, 0, 0
+  // 0, 0, 1
+  // 1, 0, 0
+  // 1, 0, 1
+  // 0, 1, 0
+  // 0, 1, 1
+  // 1, 1, 0
+  // 1, 1, 1
+```
+
 ### Compile-time constant shapes
 
 In the previous examples, no array parameters are compile time constants, so all of these accesses and loops expand to a `flat_offset` expression where the mins, extents, and strides are runtime variables.
