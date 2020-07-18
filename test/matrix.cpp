@@ -34,7 +34,7 @@ TEST(matrix_slice) {
   }
 }
 
-TEST(auto_small_matrix) {
+TEST(small_matrix) {
   using matrix4x3i = small_matrix<int, 4, 3>;
 
   matrix4x3i auto_array;
