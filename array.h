@@ -1086,6 +1086,16 @@ void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
   }
 }
 
+template <typename TSrc, typename TDst>
+NDARRAY_INLINE void move_assign(TSrc& src, TDst& dst) {
+  dst = std::move(src);
+}
+
+template <typename TSrc, typename TDst>
+NDARRAY_INLINE void copy_assign(const TSrc& src, TDst& dst) {
+  dst = src;
+}
+
 template <size_t Rank, size_t... Is>
 auto make_default_dense_shape() {
   return make_shape_from_tuple(std::tuple_cat(
@@ -2122,9 +2132,7 @@ class array {
     pointer intersection_base =
         internal::pointer_add(new_array.base(), new_shape(intersection.min()));
     copy_shape_traits_type::for_each_value(
-        shape_, base_, intersection, intersection_base, [](T& src, T& dst) {
-      dst = std::move(src);
-    });
+        shape_, base_, intersection, intersection_base, internal::move_assign<T, T>);
 
     *this = std::move(new_array);
   }
@@ -2236,9 +2244,7 @@ void copy(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDst, ShapeDst>&
   }
 
   copy_shape_traits<ShapeSrc, ShapeDst>::for_each_value(
-      src.shape(), src.base(), dst.shape(), dst.base(), [](const TSrc& src_i, TDst& dst_i) {
-    dst_i = src_i;
-  });
+      src.shape(), src.base(), dst.shape(), dst.base(), internal::copy_assign<TSrc, TDst>);
 }
 template <class TSrc, class TDst, class ShapeSrc, class ShapeDst, class AllocDst,
     class = internal::enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
@@ -2313,9 +2319,7 @@ void move(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDst, ShapeDst>&
   }
 
   copy_shape_traits<ShapeSrc, ShapeDst>::for_each_value(
-      src.shape(), src.base(), dst.shape(), dst.base(), [](TSrc& src_i, TDst& dst_i) {
-    dst_i = std::move(src_i);
-  });
+      src.shape(), src.base(), dst.shape(), dst.base(), internal::move_assign<TSrc, TDst>);
 }
 template <class TSrc, class TDst, class ShapeSrc, class ShapeDst, class AllocDst,
     class = internal::enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
