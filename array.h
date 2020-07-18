@@ -1892,7 +1892,8 @@ class array {
    * the allocator of this and the other array are non-equal, each element is
    * move-constructed into a new allocation. */
   array(array&& other) : array(std::move(other), Alloc()) {}
-  array(array&& other, const Alloc& alloc) : array(alloc) {
+  array(array&& other, const Alloc& alloc)
+      : alloc_(alloc), buffer_(nullptr), buffer_size_(0), base_(nullptr) {
     if (alloc_ != other.get_allocator()) {
       shape_ = other.shape_;
       allocate();
