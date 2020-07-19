@@ -23,11 +23,11 @@ using namespace nda;
 // A textbook implementation of matrix multiplication. This is very simple,
 // but it is slow, primarily because of poor locality of the loads of b. The
 // reduction loop is innermost.
-template <typename TAB, typename TC>
+template <typename T>
 __attribute__((noinline))
 void multiply_reduce_cols(
-    const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-    const matrix_ref<TC>& c) {
+    const_matrix_ref<T> a, const_matrix_ref<T> b,
+    matrix_ref<T> c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
       c(i, j) = 0;
@@ -58,11 +58,11 @@ void multiply_ref(
 // This implementation moves the reduction loop between the rows and columns
 // loops. This avoids the locality problem for the loads from b. This also is
 // an easier loop to vectorize (it does not vectorize a reduction variable).
-template <typename TAB, typename TC>
+template <typename T>
 __attribute__((noinline))
 void multiply_reduce_rows(
-    const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-    const matrix_ref<TC>& c) {
+    const_matrix_ref<T> a, const_matrix_ref<T> b,
+    matrix_ref<T> c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
       c(i, j) = 0;
@@ -110,14 +110,14 @@ void multiply_reduce_rows(
 //
 // This appears to achieve ~70% of the peak theoretical throughput
 // of my machine.
-template <typename TAB, typename TC>
+template <typename T>
 __attribute__((noinline))
 void multiply_reduce_tiles(
-    const matrix_ref<TAB>& a, const matrix_ref<TAB>& b,
-    const matrix_ref<TC>& c) {
+    const_matrix_ref<T> a, const_matrix_ref<T> b,
+    matrix_ref<T> c) {
   // Adjust this depending on the target architecture. For AVX2,
   // vectors are 256-bit.
-  constexpr index_t vector_size = 32 / sizeof(TC);
+  constexpr index_t vector_size = 32 / sizeof(T);
 
   // We want the tiles to be as big as possible without spilling any
   // of the accumulator registers to the stack.
@@ -132,7 +132,7 @@ void multiply_reduce_tiles(
       auto c_tile = c(io, jo);
 
       // Define an accumulator buffer.
-      TC buffer[tile_rows * tile_cols] = { 0 };
+      T buffer[tile_rows * tile_cols] = { 0 };
       auto accumulator = make_array_ref(buffer, make_compact(c_tile.shape()));
 
       // Perform the matrix multiplication for this tile.
@@ -182,12 +182,12 @@ int main(int, const char**) {
 
   struct version {
     const char* name;
-    std::function<void(const matrix_ref<const float>&, const matrix_ref<const float>&, const matrix_ref<float>&)> fn;
+    std::function<void(const_matrix_ref<float>, const_matrix_ref<float>, matrix_ref<float>)> fn;
   };
   version versions[] = {
-    { "reduce_cols", multiply_reduce_cols<const float, float> },
-    { "reduce_rows", multiply_reduce_rows<const float, float> },
-    { "reduce_tiles", multiply_reduce_tiles<const float, float> },
+    { "reduce_cols", multiply_reduce_cols<float> },
+    { "reduce_rows", multiply_reduce_rows<float> },
+    { "reduce_tiles", multiply_reduce_tiles<float> },
   };
   for (auto i : versions) {
     // Compute the result using all matrix multiply methods.

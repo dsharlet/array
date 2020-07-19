@@ -228,8 +228,8 @@ auto make_temp_image(X x, Y y, C c) {
 /** Resample an array `in` to produce an array `out`, using an interpolation `kernel`.
  * Input coordinates (x, y) map to output coordinates (x * rate_x, y * rate_y). */
 template <class TIn, class TOut, class ShapeIn, class ShapeOut>
-void resample(const array_ref<TIn, ShapeIn>& in, const array_ref<TOut, ShapeOut>& out,
-              const rational<index_t>& rate_x, const rational<index_t>& rate_y,
+void resample(array_ref<TIn, ShapeIn> in, array_ref<TOut, ShapeOut> out,
+              rational<index_t> rate_x, rational<index_t> rate_y,
               continuous_kernel kernel) {
   // Make the kernels we need at each output x and y coordinate in the output.
   internal::kernel_array kernels_x =

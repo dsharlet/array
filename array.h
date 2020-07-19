@@ -1543,6 +1543,9 @@ class array_ref;
 template <class T, class Shape, class Alloc>
 class array;
 
+template <class T, class Shape>
+using const_array_ref = array_ref<const T, Shape>;
+
 /** Make a new array with shape `shape`, allocated using `alloc`. */
 template <class T, class Shape>
 array_ref<T, Shape> make_array_ref(T* base, const Shape& shape) {
@@ -1730,10 +1733,10 @@ class array_ref {
   bool operator==(const array_ref& other) const { return !operator!=(other); }
 
   const array_ref<T, Shape>& ref() const { return *this; }
-  const array_ref<const T, Shape> cref() const { return array_ref<const T, Shape>(base_, shape_); }
+  const const_array_ref<T, Shape> cref() const { return const_array_ref<T, Shape>(base_, shape_); }
 
-  /** Allow conversion from array_ref<T> to array_ref<const T>. */
-  operator array_ref<const T, Shape>() const { return cref(); }
+  /** Allow conversion from array_ref<T> to const_array_ref<T>. */
+  operator const_array_ref<T, Shape>() const { return cref(); }
 
   /** Change the shape of the array to `new_shape`, and move the base pointer by
    * `offset`. */
@@ -1748,11 +1751,15 @@ class array_ref {
 /** array_ref with an arbitrary shape of the compile-time constant `Rank`. */
 template <class T, size_t Rank>
 using array_ref_of_rank = array_ref<T, shape_of_rank<Rank>>;
+template <class T, size_t Rank>
+using const_array_ref_of_rank = array_ref_of_rank<const T, Rank>;
 
 /** array_ref with a `dense_dim` innermost dimension, and an arbitrary shape
  * otherwise, of the compile-time constant `Rank`. */
 template <class T, size_t Rank>
 using dense_array_ref = array_ref<T, dense_shape<Rank>>;
+template <class T, size_t Rank>
+using const_dense_array_ref = dense_array_ref<const T, Rank>;
 
 /** A multi-dimensional array container that owns an allocation of memory. This
  * container is designed to mirror the semantics of std::vector where possible.
@@ -2198,10 +2205,10 @@ class array {
 
   /** Make an array_ref referring to the data in this array. */
   array_ref<T, Shape> ref() { return array_ref<T, Shape>(base_, shape_); }
-  array_ref<const T, Shape> cref() const { return array_ref<const T, Shape>(base_, shape_); }
-  array_ref<const T, Shape> ref() const { return cref(); }
+  const_array_ref<T, Shape> cref() const { return const_array_ref<T, Shape>(base_, shape_); }
+  const_array_ref<T, Shape> ref() const { return cref(); }
   operator array_ref<T, Shape>() { return ref(); }
-  operator array_ref<const T, Shape>() const { return cref(); }
+  operator const_array_ref<T, Shape>() const { return cref(); }
 };
 
 /** An array type with an arbitrary shape of rank `Rank`. */
@@ -2458,7 +2465,7 @@ array_ref<T, NewShape> convert_shape(array<T, OldShape, Allocator>& a) {
   return convert_shape<NewShape>(a.ref());
 }
 template <class NewShape, class T, class OldShape, class Allocator>
-array_ref<const T, NewShape> convert_shape(const array<T, OldShape, Allocator>& a) {
+const_array_ref<T, NewShape> convert_shape(const array<T, OldShape, Allocator>& a) {
   return convert_shape<NewShape>(a.cref());
 }
 
@@ -2476,7 +2483,7 @@ array_ref<U, Shape> reinterpret(array<T, Shape, Alloc>& a) {
 }
 template <class U, class T, class Shape, class Alloc,
     class = typename std::enable_if<sizeof(T) == sizeof(U)>::type>
-array_ref<const U, Shape> reinterpret(const array<T, Shape, Alloc>& a) {
+const_array_ref<U, Shape> reinterpret(const array<T, Shape, Alloc>& a) {
   return reinterpret<const U>(a.cref());
 }
 
@@ -2494,7 +2501,7 @@ array_ref<T, NewShape> reinterpret_shape(
   return reinterpret_shape(a.ref(), new_shape, offset);
 }
 template <class NewShape, class T, class OldShape, class Allocator>
-array_ref<const T, NewShape> reinterpret_shape(
+const_array_ref<T, NewShape> reinterpret_shape(
     const array<T, OldShape, Allocator>& a, const NewShape& new_shape, index_t offset = 0) {
   return reinterpret_shape(a.cref(), new_shape, offset);
 }

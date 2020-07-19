@@ -30,6 +30,8 @@ template <class T, class Alloc = std::allocator<T>>
 using image = array<T, image_shape, Alloc>;
 template <class T>
 using image_ref = array_ref<T, image_shape>;
+template <class T>
+using const_image_ref = image_ref<const T>;
 
 /** A 'chunky' image is an array with 3 dimensions x, y, c, where c is dense,
  * and the dimension with the next stride is x. The stride in x may be larger
@@ -39,10 +41,14 @@ using image_ref = array_ref<T, image_shape>;
 template <index_t Channels = dynamic, index_t ChannelStride = Channels>
 using chunky_image_shape =
   shape<strided_dim<ChannelStride>, dim<>, dense_dim<0, Channels>>;
-template <class T, index_t Channels = dynamic, index_t ChannelStride = Channels, class Alloc = std::allocator<T>>
+template <
+    class T, index_t Channels = dynamic, index_t ChannelStride = Channels,
+    class Alloc = std::allocator<T>>
 using chunky_image = array<T, chunky_image_shape<Channels, ChannelStride>, Alloc>;
 template <class T, index_t Channels = dynamic, index_t ChannelStride = Channels>
 using chunky_image_ref = array_ref<T, chunky_image_shape<Channels, ChannelStride>>;
+template <class T, index_t Channels = dynamic, index_t ChannelStride = Channels>
+using const_chunky_image_ref = chunky_image_ref<const T, Channels, ChannelStride>;
 
 /** Calls `fn` for each index in an image shape `s`. c is the innermost
  * dimension of the loop nest. */
@@ -107,6 +113,8 @@ template <class T, class Alloc = std::allocator<T>>
 using planar_image = array<T, planar_image_shape, Alloc>;
 template <class T>
 using planar_image_ref = array_ref<T, planar_image_shape>;
+template <class T>
+using const_planar_image_ref = planar_image_ref<const T>;
 
 enum class crop_origin {
   /** The result of the crop has min 0, 0. */
