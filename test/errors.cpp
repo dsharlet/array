@@ -98,10 +98,18 @@ void for_each_index_indices() {
 }
 
 void for_all_indices_too_many_indices() {
-  for_all_indices<0>(s, [](int, int) {});
+  for_all_indices(s, [](int, int, int) {});
 }
 
 void for_all_indices_too_few_indices() {
+  for_all_indices(s, [](int) {});
+}
+
+void for_all_indices_permute_too_many_indices() {
+  for_all_indices<0>(s, [](int, int) {});
+}
+
+void for_all_indices_permute_too_few_indices() {
   for_all_indices<0, 1>(s, [](int) {});
 }
 

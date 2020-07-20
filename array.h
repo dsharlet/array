@@ -465,13 +465,20 @@ using std::make_index_sequence;
 // Call `fn` with the elements of tuple `args` unwrapped from the tuple.
 // TODO: When we assume C++17, this can be replaced by std::apply.
 template <class Fn, class Args, size_t... Is>
-NDARRAY_INLINE auto apply(Fn&& fn, const Args& args, index_sequence<Is...>) {
+NDARRAY_INLINE auto apply(Fn&& fn, const Args& args, index_sequence<Is...>)
+    -> decltype(fn(std::get<Is>(args)...)) {
   return fn(std::get<Is>(args)...);
 }
 template <class Fn, class... Args>
-NDARRAY_INLINE auto apply(Fn&& fn, const std::tuple<Args...>& args) {
+NDARRAY_INLINE auto apply(Fn&& fn, const std::tuple<Args...>& args)
+    -> decltype(apply(fn, args, make_index_sequence<sizeof...(Args)>())) {
   return apply(fn, args, make_index_sequence<sizeof...(Args)>());
 }
+
+template <class Fn, class... Args>
+using enable_if_callable = decltype(std::declval<Fn>()(std::declval<Args>()...));
+template <class Fn, class Args>
+using enable_if_applicable = decltype(apply(std::declval<Fn>(), std::declval<Args>()));
 
 // Some variadic reduction helpers.
 NDARRAY_INLINE constexpr index_t sum() { return 0; }
@@ -1028,9 +1035,6 @@ auto select_dims(const Shape& shape) {
 
 namespace internal {
 
-template <class Fn, class... Ts>
-using enable_if_callable = decltype(std::declval<Fn>()(std::declval<Ts>()...));
-
 template<size_t D, class Dims, class Fn, class... Indices,
     std::enable_if_t<(D == 0), int> = 0>
 void for_each_index_in_order(const Dims& dims, Fn&& fn, const std::tuple<Indices...>& indices) {
@@ -1512,6 +1516,7 @@ void for_each_index(const Shape& s, Fn&& fn) {
   shape_traits<Shape>::for_each_index(s, fn);
 }
 template <size_t... NoReorder, class Shape, class Fn,
+    class = internal::enable_if_applicable<Fn, typename Shape::index_type>,
     std::enable_if_t<(sizeof...(NoReorder) == 0), int> = 0>
 void for_all_indices(const Shape& s, Fn&& fn) {
   using index_type = typename Shape::index_type;
