@@ -486,10 +486,16 @@ NDARRAY_INLINE constexpr index_t product(index_t first, Rest... rest) {
   return first * product(rest...);
 }
 
-NDARRAY_INLINE index_t variadic_min() { return std::numeric_limits<index_t>::max(); }
+NDARRAY_INLINE constexpr index_t variadic_min() { return std::numeric_limits<index_t>::max(); }
 template <class... Rest>
-NDARRAY_INLINE index_t variadic_min(index_t first, Rest... rest) {
+NDARRAY_INLINE constexpr index_t variadic_min(index_t first, Rest... rest) {
   return std::min(first, variadic_min(rest...));
+}
+
+NDARRAY_INLINE constexpr index_t variadic_max() { return std::numeric_limits<index_t>::min(); }
+template <class... Rest>
+NDARRAY_INLINE constexpr index_t variadic_max(index_t first, Rest... rest) {
+  return std::max(first, variadic_max(rest...));
 }
 
 // Computes the product of the extents of the dims.
@@ -749,16 +755,6 @@ T convert_dims(const U& u, std::index_sequence<Is...>) {
   return std::make_tuple(convert_dim<Is, T>(u)...);
 }
 
-constexpr index_t factorial(index_t x) {
-  return x == 1 ? 1 : x * factorial(x - 1);
-}
-
-// The errors that result from not satisfying this check are probably hell,
-// but it would be pretty tricky to check that all of [0, Rank) is in `Is...`
-template <size_t Rank, size_t... Is>
-using enable_if_permutation =
-    typename std::enable_if<product((Is + 2)...) == factorial(Rank + 1)>::type;
-
 }  // namespace internal
 
 template <class... Dims>
@@ -774,6 +770,10 @@ template <class... Dims>
 shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
   return shape<Dims...>(dims);
 }
+
+/** Type of an index for an array of rank `Rank`. */
+template <size_t Rank>
+using index_of_rank = typename internal::tuple_of_n<index_t, Rank>::type;
 
 /** A list of `dim` objects describing a multi-dimensional space of indices.
  * The `rank` of a shape refers to the number of dimensions in the shape.
@@ -794,7 +794,7 @@ class shape {
   static constexpr bool is_scalar() { return rank() == 0; }
 
   /** The type of an index for this shape. */
-  using index_type = typename internal::tuple_of_n<index_t, rank()>::type;
+  using index_type = index_of_rank<rank()>;
 
   using size_type = size_t;
 
@@ -1016,15 +1016,11 @@ class shape {
 };
 
 /** Create a new shape using a list of `DimIndices...` to use as the dimensions of
- * the shape. `DimIndices...` must be a permutation. */
-template <size_t... DimIndices, class Shape,
-    class = internal::enable_if_permutation<Shape::rank(), DimIndices...>>
+ * the shape. */
+template <size_t... DimIndices, class Shape>
 auto reorder(const Shape& shape) {
   return make_shape(shape.template dim<DimIndices>()...);
 }
-
-/** Create a new shape using a list of `DimIndices...` to use as the dimensions of
- * the shape. */
 template <size_t... DimIndices, class Shape>
 auto select_dims(const Shape& shape) {
   return make_shape(shape.template dim<DimIndices>()...);
@@ -1153,21 +1149,32 @@ auto shuffle(const T& t) {
 template <size_t I>
 constexpr size_t index_of() {
   // Assume indices not found are identity.
-  return 0;
+  return 10000;
 }
 template <size_t I, size_t I0, size_t... Is>
 constexpr size_t index_of() {
   return I == I0 ? 0 : 1 + index_of<I, Is...>();
 }
 
+// Similar to std::get, but returns a one-element tuple if I is
+// in bounds, or an empty tuple if not.
+template <size_t I, class T, std::enable_if_t<(I < std::tuple_size<T>::value), int> = 0>
+NDARRAY_INLINE auto get_tuple(const T& t) {
+  return std::make_tuple(std::get<I>(t));
+}
+template <size_t I, class T, std::enable_if_t<(I >= std::tuple_size<T>::value), int> = 0>
+NDARRAY_INLINE auto get_tuple(const T& t) {
+  return std::make_tuple();
+}
+
 // Perform the inverse of a shuffle with indices Is...
 template <size_t... Is, class T, size_t... Js>
 auto unshuffle(const T& t, index_sequence<Js...>) {
-  return std::make_tuple(std::get<index_of<Js, Is...>()>(t)...);
+  return std::tuple_cat(get_tuple<index_of<Js, Is...>()>(t)...);
 }
 template <size_t... Is, class... Ts>
 auto unshuffle(const std::tuple<Ts...>& t) {
-  return unshuffle<Is...>(t, make_index_sequence<sizeof...(Is)>());
+  return unshuffle<Is...>(t, make_index_sequence<variadic_max(Is...) + 1>());
 }
 
 template <class ShapeDst, class ShapeSrc>
@@ -1519,20 +1526,19 @@ void for_all_indices(const Shape& s, Fn&& fn) {
  * dim. `for_each_index` calls `fn` with a Shape::index_type object describing
  * the indices. */
 template <size_t... Reorder, class Shape, class Fn,
-    class = internal::enable_if_callable<Fn, typename Shape::index_type>,
-    class = internal::enable_if_permutation<Shape::rank(), Reorder...>,
+    class = internal::enable_if_callable<Fn, index_of_rank<sizeof...(Reorder)>>,
     std::enable_if_t<(sizeof...(Reorder) != 0), int> = 0>
 void for_each_index(const Shape& s, Fn&& fn) {
-  using index_type = typename Shape::index_type;
+  using index_type = index_of_rank<sizeof...(Reorder)>;
   for_each_index_in_order(reorder<Reorder...>(s), [&](const index_type& i) {
     fn(internal::unshuffle<Reorder...>(i));
   });
 }
 template <size_t... Reorder, class Shape, class Fn,
-    class = internal::enable_if_permutation<Shape::rank(), Reorder...>,
+    class = internal::enable_if_callable<Fn, decltype(Reorder)...>,
     std::enable_if_t<(sizeof...(Reorder) != 0), int> = 0>
 void for_all_indices(const Shape& s, Fn&& fn) {
-  using index_type = typename Shape::index_type;
+  using index_type = index_of_rank<sizeof...(Reorder)>;
   for_each_index_in_order(reorder<Reorder...>(s), [&](const index_type&i) {
     internal::apply(fn, internal::unshuffle<Reorder...>(i));
   });
@@ -1657,7 +1663,7 @@ class array_ref {
 
   /** Call a function with a reference to each value in this array_ref. The
    * order in which `fn` is called is undefined. */
-  template <class Fn, class = internal::enable_if_callable<Fn, value_type&>>
+  template <class Fn, class = internal::enable_if_callable<Fn, reference>>
   void for_each_value(Fn&& fn) const {
     shape_traits_type::for_each_value(shape_, base_, fn);
   }
@@ -2087,11 +2093,11 @@ class array {
 
   /** Call a function with a reference to each value in this array. The order in
    * which `fn` is called is undefined. */
-  template <class Fn, class = internal::enable_if_callable<Fn, value_type&>>
+  template <class Fn, class = internal::enable_if_callable<Fn, reference>>
   void for_each_value(Fn&& fn) {
     shape_traits_type::for_each_value(shape_, base_, fn);
   }
-  template <class Fn, class = internal::enable_if_callable<Fn, const value_type&>>
+  template <class Fn, class = internal::enable_if_callable<Fn, const_reference>>
   void for_each_value(Fn&& fn) const {
     shape_traits_type::for_each_value(shape_, base_, fn);
   }
@@ -2589,7 +2595,7 @@ class uninitialized_allocator : public BaseAlloc {
   // TODO: Consider adding an enable_if to this to disable it for
   // non-trivial value_types.
   template <class... Args>
-  void construct(value_type* ptr, Args&&... args) {
+  NDARRAY_INLINE void construct(value_type* ptr, Args&&... args) {
     // Skip default construction.
     if (sizeof...(Args) > 0) {
       std::allocator_traits<BaseAlloc>::construct(*this, ptr, std::forward<Args>(args)...);

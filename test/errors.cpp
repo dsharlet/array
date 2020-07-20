@@ -97,12 +97,12 @@ void for_each_index_indices() {
   for_each_index(s, [](int x, int y) {});
 }
 
-void for_all_indices_not_permutation1() {
-  for_all_indices<1>(s, [](int, int) {});
+void for_all_indices_too_many_indices() {
+  for_all_indices<0>(s, [](int, int) {});
 }
 
-void for_all_indices_not_permutation2() {
-  for_all_indices<1, 1>(s, [](int, int) {});
+void for_all_indices_too_few_indices() {
+  for_all_indices<0, 1>(s, [](int) {});
 }
 
 void array_ref_at_too_many_indices() {

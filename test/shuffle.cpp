@@ -27,25 +27,41 @@ TEST(shuffle_1_of_3) {
   ASSERT_EQ(shuffled1, std::make_tuple(1));
   ASSERT_EQ(shuffled2, std::make_tuple(2));
 
-  // Does unshuffle for this make sense?
+  auto t0 = unshuffle<0>(shuffled0);
+  auto t1 = unshuffle<1>(shuffled1);
+  auto t2 = unshuffle<2>(shuffled2);
+  ASSERT_EQ(t0, shuffled0);
+  ASSERT_EQ(t1, shuffled1);
+  ASSERT_EQ(t2, shuffled2);
 }
 
 TEST(shuffle_2_of_3) {
   auto t = std::make_tuple(0, 1, 2);
   auto shuffled01 = shuffle<0, 1>(t);
+  auto shuffled02 = shuffle<0, 2>(t);
   auto shuffled10 = shuffle<1, 0>(t);
   auto shuffled12 = shuffle<1, 2>(t);
-  auto shuffled21 = shuffle<2, 1>(t);
-  auto shuffled02 = shuffle<0, 2>(t);
   auto shuffled20 = shuffle<2, 0>(t);
+  auto shuffled21 = shuffle<2, 1>(t);
   ASSERT_EQ(shuffled01, std::make_tuple(0, 1));
+  ASSERT_EQ(shuffled02, std::make_tuple(0, 2));
   ASSERT_EQ(shuffled10, std::make_tuple(1, 0));
   ASSERT_EQ(shuffled12, std::make_tuple(1, 2));
-  ASSERT_EQ(shuffled21, std::make_tuple(2, 1));
-  ASSERT_EQ(shuffled02, std::make_tuple(0, 2));
   ASSERT_EQ(shuffled20, std::make_tuple(2, 0));
+  ASSERT_EQ(shuffled21, std::make_tuple(2, 1));
 
-  // Does unshuffle for this make sense?
+  auto t0 = unshuffle<0, 1>(shuffled01);
+  auto t1 = unshuffle<0, 2>(shuffled02);
+  auto t2 = unshuffle<1, 0>(shuffled10);
+  auto t3 = unshuffle<1, 2>(shuffled12);
+  auto t4 = unshuffle<2, 0>(shuffled20);
+  auto t5 = unshuffle<2, 1>(shuffled21);
+  ASSERT_EQ(t0, std::make_tuple(0, 1));
+  ASSERT_EQ(t1, std::make_tuple(0, 2));
+  ASSERT_EQ(t2, std::make_tuple(0, 1));
+  ASSERT_EQ(t3, std::make_tuple(1, 2));
+  ASSERT_EQ(t4, std::make_tuple(0, 2));
+  ASSERT_EQ(t5, std::make_tuple(1, 2));
 }
 
 TEST(shuffle_3_of_3) {
