@@ -144,7 +144,7 @@ Shape crop_image_shape(Shape s, index_t x0, index_t y0, index_t x1, index_t y1,
   return s;
 }
 
-/** Crop the `im` image or image ref to the range [`x0`, `x1`) x [`y0`, `y1`). The
+/** Crop the `im` image or image ref to the interval [`x0`, `x1`) x [`y0`, `y1`). The
  * result is a ref of the input image. The origin of the result is determined by
  * `origin`. */
 template <class T, class Shape>

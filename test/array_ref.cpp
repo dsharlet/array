@@ -177,33 +177,33 @@ TEST(array_ref_crop_slice) {
   assert_dim_eq(a_slice2.x(), a.x());
   //check_pattern(a_slice2);
 
-  auto a_crop1_slice2 = a(range<4, 3>(), 5);
+  auto a_crop1_slice2 = a(interval<4, 3>(), 5);
   static_assert(a_crop1_slice2.rank() == 1, "");
   assert_dim_eq(a_crop1_slice2.x(), dense_dim<4, 3>());
   //check_pattern(a_crop1_slice2);
 
-  auto a_slice1_crop2 = a(6, range<4, 3>());
+  auto a_slice1_crop2 = a(6, interval<4, 3>());
   static_assert(a_slice1_crop2.rank() == 1, "");
   assert_dim_eq(a_slice1_crop2.x(), dim<4, 3>(4, 3, a.y().stride()));
   //check_pattern(a_slice1_crop2);
 
-  auto a_crop1_crop2 = a(range<>(2, 6), range<3, 4>());
+  auto a_crop1_crop2 = a(interval<>(2, 6), interval<3, 4>());
   static_assert(a_crop1_crop2.rank() == 2, "");
   assert_dim_eq(a_crop1_crop2.x(), dense_dim<>(2, 6));
   assert_dim_eq(a_crop1_crop2.y(), dim<3, 4>(3, 4, a.y().stride()));
   check_pattern(a_crop1_crop2);
 
-  auto a_all1_crop2 = a(_, range<3, 4>());
+  auto a_all1_crop2 = a(_, interval<3, 4>());
   static_assert(a_all1_crop2.rank() == 2, "");
   assert_dim_eq(a_all1_crop2.x(), a.x());
   assert_dim_eq(a_all1_crop2.y(), dim<3, 4>(3, 4, a.y().stride()));
   check_pattern(a_all1_crop2);
 
-  auto a_intervals = a(interval(2, 6), fixed_range<5>(3));
-  static_assert(a_intervals.rank() == 2, "");
-  assert_dim_eq(a_intervals.x(), dense_dim<>(2, 4));
-  assert_dim_eq(a_intervals.y(), fixed_dim<5>(3, 5, a.y().stride()));
-  check_pattern(a_intervals);
+  auto a_temp_names = a(range(2, 6), fixed_interval<5>(3));
+  static_assert(a_temp_names.rank() == 2, "");
+  assert_dim_eq(a_temp_names.x(), dense_dim<>(2, 4));
+  assert_dim_eq(a_temp_names.y(), fixed_dim<5>(3, 5, a.y().stride()));
+  check_pattern(a_temp_names);
 }
 
 }  // namespace nda

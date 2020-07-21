@@ -26,17 +26,17 @@ const dense_array<int, 3> const_a;
 
 void range_range_bad_copy_construct() {
   fixed_range<3> x;
-  range<0, 2> y(x);
+  interval<0, 2> y(x);
 }
 
 void range_bad_assign() {
   fixed_range<3> x;
-  x = range<0, 2>();
+  x = interval<0, 2>();
 }
 
 void range_bad_equality() {
   fixed_range<3> x;
-  range<0, 2> y;
+  interval<0, 2> y;
   x == y;
 }
 

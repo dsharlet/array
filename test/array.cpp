@@ -227,7 +227,7 @@ TEST(array_copy) {
 
 #ifndef NDARRAY_NO_EXCEPTIONS
   try {
-    // The destination wants indices out of range of the source.
+    // The destination wants indices out of interval of the source.
     array_of_rank<int, 3> f({5, 5, 6});
     copy(a, f);
     ASSERT(false);
@@ -262,7 +262,7 @@ TEST(array_move) {
 
 #ifndef NDARRAY_NO_EXCEPTIONS
   try {
-    // The destination wants indices out of range of the source.
+    // The destination wants indices out of interval of the source.
     array_of_rank<int, 3> f({5, 5, 6});
     move(a, f);
     ASSERT(false);

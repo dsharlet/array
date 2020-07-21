@@ -80,8 +80,8 @@ void conv_tiled(const Input& input, const Filter& filter, const Output& output) 
     for (index_t y : output.template dim<2>()) {
       for (auto xo : split<tile_x>(output.template dim<1>())) {
         for (auto coo : split<tile_co>(output.template dim<0>())) {
-          // Don't slice the y, n.template dims by making them a range here.
-          auto output_tile = output(coo, xo, fixed_range<1>(y), fixed_range<1>(n));
+          // Don't slice the y, n.template dims by making them a interval here.
+          auto output_tile = output(coo, xo, r<1>(y), r<1>(n));
 
           // TODO: This is slow, probably due to potential aliasing that
           // we can't fix due to https://bugs.llvm.org/show_bug.cgi?id=45863

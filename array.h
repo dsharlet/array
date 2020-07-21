@@ -129,22 +129,22 @@ class index_iterator {
   NDARRAY_INLINE index_iterator& operator++() { ++i_; return *this; }
 };
 
-/** Describes a range of indices. The template parameters enable providing
- * compile time constants for the `min` and `extent` of the range. The values
- * in the range `[min, min + extent)` are considered in bounds.
+/** Describes a half-open interval of indices. The template parameters enable
+ * providing compile time constants for the `min` and `extent` of the interval.
+ * The values in the interval `[min, min + extent)` are considered in bounds.
  *
- * `range<> a` is said to be 'compatible with' another `range<Min, Extent> b` if
+ * `interval<> a` is said to be 'compatible with' another `interval<Min, Extent> b` if
  * `a.min()` is compatible with `Min` and `a.extent()` is compatible with `Extent`.
  *
  * For example:
- * - `range<>` is a range with runtime-valued `min` and `extent`.
- * - `range<0>` is a range with compile-time constant `min` of 0, and
+ * - `interval<>` is an interval with runtime-valued `min` and `extent`.
+ * - `interval<0>` is an interval with compile-time constant `min` of 0, and
  *   runtime-valued `extent`.
- * - `range<dynamic, 8>` is a range with compile-time constant `extent of 8
+ * - `interval<dynamic, 8>` is an interval with compile-time constant `extent of 8
  *   and runtime-valued `min`.
- * - `range<2, 3>` is a fully compile-time constant range of indices 2, 3, 4. */
+ * - `interval<2, 3>` is a fully compile-time constant interval of indices 2, 3, 4. */
 template <index_t Min_ = dynamic, index_t Extent_ = dynamic>
-class range {
+class interval {
  protected:
   index_t min_;
   index_t extent_;
@@ -155,42 +155,42 @@ class range {
   static constexpr index_t Max =
       internal::static_sub(internal::static_add(Min, Extent), 1);
 
-  /** Construct a new range object. If the `min` or `extent` is specified in
+  /** Construct a new interval object. If the `min` or `extent` is specified in
    * the constructor, it must have a value compatible with `Min` or `Extent`,
    * respectively.
    *
    * The default values if not specified in the constructor are:
    * - The default `min` is `Min` if `Min` is static, or 0 if not.
    * - The default `extent` is `Extent` if `Extent` is static, or 1 if not. */
-  range(index_t min, index_t extent) {
+  interval(index_t min, index_t extent) {
     set_min(min);
     set_extent(extent);
   }
-  range(index_t min) : range(min, internal::is_static(Extent) ? Extent : 1) {}
-  range() : range(internal::is_static(Min) ? Min : 0) {}
+  interval(index_t min) : interval(min, internal::is_static(Extent) ? Extent : 1) {}
+  interval() : interval(internal::is_static(Min) ? Min : 0) {}
 
-  range(const range&) = default;
-  range(range&&) = default;
-  range& operator=(const range&) = default;
-  range& operator=(range&&) = default;
+  interval(const interval&) = default;
+  interval(interval&&) = default;
+  interval& operator=(const interval&) = default;
+  interval& operator=(interval&&) = default;
 
-  /** Copy construction or assignment of another range object, possibly
+  /** Copy construction or assignment of another interval object, possibly
    * with different compile-time template parameters. `other.min()` and
    * `other.extent()` must be compatible with `Min` and `Extent`, respectively. */
   template <index_t CopyMin, index_t CopyExtent,
       class = internal::enable_if_compatible<Min, CopyMin>,
       class = internal::enable_if_compatible<Extent, CopyExtent>>
-  range(const range<CopyMin, CopyExtent>& other) : range(other.min(), other.extent()) {}
+  interval(const interval<CopyMin, CopyExtent>& other) : interval(other.min(), other.extent()) {}
   template <index_t CopyMin, index_t CopyExtent,
       class = internal::enable_if_compatible<Min, CopyMin>,
       class = internal::enable_if_compatible<Extent, CopyExtent>>
-  range& operator=(const range<CopyMin, CopyExtent>& other) {
+  interval& operator=(const interval<CopyMin, CopyExtent>& other) {
     set_min(other.min());
     set_extent(other.extent());
     return *this;
   }
 
-  /** Get or set the first index in this range. */
+  /** Get or set the first index in this interval. */
   NDARRAY_INLINE index_t min() const { return internal::reconcile<Min>(min_); }
   NDARRAY_INLINE void set_min(index_t min) {
     if (internal::is_dynamic(Min)) {
@@ -199,7 +199,7 @@ class range {
       assert(min == Min);
     }
   }
-  /** Get or set the number of indices in this range. */
+  /** Get or set the number of indices in this interval. */
   NDARRAY_INLINE index_t extent() const { return internal::reconcile<Extent>(extent_); }
   NDARRAY_INLINE void set_extent(index_t extent) {
     if (internal::is_dynamic(Extent)) {
@@ -208,60 +208,73 @@ class range {
       assert(extent == Extent);
     }
   }
-  /** Get or set the last index in this range. */
+  /** Get or set the last index in this interval. */
   NDARRAY_INLINE index_t max() const { return min() + extent() - 1; }
   NDARRAY_INLINE void set_max(index_t max) { set_extent(max - min() + 1); }
 
-  /** Returns true if `at` is within the range `[min(), max()]`. */
+  /** Returns true if `at` is within the interval `[min(), max()]`. */
   NDARRAY_INLINE bool is_in_range(index_t at) const { return min() <= at && at <= max(); }
-  /** Returns true if `at.min()` and `at.max()` are both within the range
+  /** Returns true if `at.min()` and `at.max()` are both within the interval
    * `[min(), max()]`. */
   template <index_t OtherMin, index_t OtherExtent>
-  NDARRAY_INLINE bool is_in_range(const range<OtherMin, OtherExtent>& at) const {
+  NDARRAY_INLINE bool is_in_range(const interval<OtherMin, OtherExtent>& at) const {
     return min() <= at.min() && at.max() <= max();
   }
 
-  /** Make an iterator referring to the first index in this range. */
+  /** Make an iterator referring to the first index in this interval. */
   index_iterator begin() const { return index_iterator(min()); }
-  /** Make an iterator referring to one past the last index in this range. */
+  /** Make an iterator referring to one past the last index in this interval. */
   index_iterator end() const { return index_iterator(max() + 1); }
 
-  /** Two range objects are considered equal if they contain the
+  /** Two interval objects are considered equal if they contain the
    * same indices. */
   template <index_t OtherMin, index_t OtherExtent,
       class = internal::enable_if_compatible<Min, OtherMin>,
       class = internal::enable_if_compatible<Extent, OtherExtent>>
-  bool operator==(const range<OtherMin, OtherExtent>& other) const {
+  bool operator==(const interval<OtherMin, OtherExtent>& other) const {
     return min() == other.min() && extent() == other.extent();
   }
   template <index_t OtherMin, index_t OtherExtent,
       class = internal::enable_if_compatible<Min, OtherMin>,
       class = internal::enable_if_compatible<Extent, OtherExtent>>
-  bool operator!=(const range<OtherMin, OtherExtent>& other) const {
+  bool operator!=(const interval<OtherMin, OtherExtent>& other) const {
     return !operator==(other);
   }
 };
 
-/** Alias of `range<>` where the min is dynamic. */
+/** An alias of `interval` with a fixed extent and dynamic min. */
 template <index_t Extent>
-using fixed_range = range<dynamic, Extent>;
+using fixed_interval = interval<dynamic, Extent>;
 
-/** Make a range from a half-open interval [`begin`, `end`). */
-inline range<> interval(index_t begin, index_t end) {
-  return range<>(begin, end - begin);
+/** Make an interval from a half-open range `[begin, end)`. */
+inline interval<> range(index_t begin, index_t end) {
+  return interval<>(begin, end - begin);
+}
+inline interval<> r(index_t begin, index_t end) {
+  return interval<>(begin, end - begin);
 }
 
-/** Placeholder object representing a range that indicates a the dimension
+/** Make an interval from a half-open range `[begin, begin + Extent)`. */
+template <index_t Extent>
+fixed_interval<Extent> range(index_t begin) {
+  return fixed_interval<Extent>(begin);
+}
+template <index_t Extent>
+fixed_interval<Extent> r(index_t begin) {
+  return fixed_interval<Extent>(begin);
+}
+
+/** Placeholder object representing an interval that indicates a the dimension
  * when used in an indexing expression. */
-const range<0, -1> _;
+const interval<0, -1> all, _;
 
-/** Overloads of `std::begin` and `std::end` for a range. */
+/** Overloads of `std::begin` and `std::end` for an interval. */
 template <index_t Min, index_t Extent>
-index_iterator begin(const range<Min, Extent>& d) { return d.begin(); }
+index_iterator begin(const interval<Min, Extent>& d) { return d.begin(); }
 template <index_t Min, index_t Extent>
-index_iterator end(const range<Min, Extent>& d) { return d.end(); }
+index_iterator end(const interval<Min, Extent>& d) { return d.end(); }
 
-/** Clamp `x` to the range [min, max]. */
+/** Clamp `x` to the interval [min, max]. */
 inline index_t clamp(index_t x, index_t min, index_t max) {
   return std::min(std::max(x, min), max);
 }
@@ -275,25 +288,25 @@ index_t clamp(index_t x, const Range& r) {
 
 namespace internal {
 
-// An iterator for a range of ranges.
+// An iterator for a range of intervals.
 template <index_t InnerExtent = dynamic>
 class split_iterator {
-  fixed_range<InnerExtent> i;
+  fixed_interval<InnerExtent> i;
   index_t outer_max;
 
  public:
-  split_iterator(const fixed_range<InnerExtent>& i, index_t outer_max)
+  split_iterator(const fixed_interval<InnerExtent>& i, index_t outer_max)
       : i(i), outer_max(outer_max) {}
 
   bool operator==(const split_iterator& r) const { return i.min() == r.i.min(); }
   bool operator!=(const split_iterator& r) const { return i.min() != r.i.min(); }
 
-  fixed_range<InnerExtent> operator *() const { return i; }
+  fixed_interval<InnerExtent> operator *() const { return i; }
 
   split_iterator& operator++() {
     if (is_static(InnerExtent)) {
       // When the extent of the inner split is a compile-time constant,
-      // we can't shrink the out of bounds range. Instead, shift the min,
+      // we can't shrink the out of bounds interval. Instead, shift the min,
       // assuming the outer dimension is bigger than the inner extent.
       i.set_min(i.min() + InnerExtent);
       // Only shift the min when this straddles the end of the buffer,
@@ -335,36 +348,36 @@ using split_iterator_range = iterator_range<split_iterator<InnerExtent>>;
 
 }  // namespace internal
 
-/** Split a range `r` into an iteratable range of ranges by a compile-time
- * constant `InnerExtent`. If `InnerExtent` does not divide `r.extent()`,
- * the last range will be shifted to overlap with the second-to-last iteration,
- * to preserve the compile-time constant extent, which implies `r.extent()`
+/** Split an interval `v` into an iteratable range of intervals by a compile-time
+ * constant `InnerExtent`. If `InnerExtent` does not divide `v.extent()`,
+ * the last interval will be shifted to overlap with the second-to-last iteration,
+ * to preserve the compile-time constant extent, which implies `v.extent()`
  * must be larger `InnerExtent`.
  *
- * For example, `split<5>(range<>(0, 12))` produces the ranges `[0, 5)`,
- * `[5, 10)`, `[7, 12)`. Note the last two ranges overlap. */
+ * For example, `split<5>(interval<>(0, 12))` produces the intervals `[0, 5)`,
+ * `[5, 10)`, `[7, 12)`. Note the last two intervals overlap. */
 template <index_t InnerExtent, index_t Min, index_t Extent>
-internal::split_iterator_range<InnerExtent> split(const range<Min, Extent>& r) {
-  assert(r.extent() >= InnerExtent);
+internal::split_iterator_range<InnerExtent> split(const interval<Min, Extent>& v) {
+  assert(v.extent() >= InnerExtent);
   return {
-      {fixed_range<InnerExtent>(r.min()), r.max()},
-      {fixed_range<InnerExtent>(r.max() + 1), r.max()}};
+      {fixed_interval<InnerExtent>(v.min()), v.max()},
+      {fixed_interval<InnerExtent>(v.max() + 1), v.max()}};
 }
 
-/** Split a range `r` into an iterable range of ranges by `inner_extent`. If
- * `inner_extent` does not divide `r.extent()`, the last iteration will be
- * clamped to the outer range.
+/** Split an interval `v` into an iterable interval of intervals by `inner_extent`. If
+ * `inner_extent` does not divide `v.extent()`, the last iteration will be
+ * clamped to the outer interval.
  *
- * For example, `split(range<>(0, 12), 5)` produces the ranges `[0, 5)`,
+ * For example, `split(interval<>(0, 12), 5)` produces the intervals `[0, 5)`,
  * `[5, 10)`, `[10, 12)`. */
 // TODO: This probably doesn't need to be templated, but it might help
 // avoid some conversion messes. dim<Min, Extent> probably can't implicitly
-// convert to range<>.
+// convert to interval<>.
 template <index_t Min, index_t Extent>
-internal::split_iterator_range<> split(const range<Min, Extent>& r, index_t inner_extent) {
+internal::split_iterator_range<> split(const interval<Min, Extent>& v, index_t inner_extent) {
   return {
-      {range<>(r.min(), inner_extent), r.max()},
-      {range<>(r.max() + 1, inner_extent), r.max()}};
+      {interval<>(v.min(), inner_extent), v.max()},
+      {interval<>(v.max() + 1, inner_extent), v.max()}};
 }
 
 /** Describes one dimension of an array. The template parameters enable
@@ -373,17 +386,17 @@ internal::split_iterator_range<> split(const range<Min, Extent>& r, index_t inne
  *
  * These parameters define a mapping from the indices of the dimension to
  * offsets: `offset(x) = (x - min)*stride`. The extent does not affect the
- * mapping directly. Values not in the range `[min, min + extent)` are considered
+ * mapping directly. Values not in the interval `[min, min + extent)` are considered
  * to be out of bounds. */
 // TODO: Consider adding helper class constant<Value> to use for the members of
 // dim. (https://github.com/dsharlet/array/issues/1)
 template <index_t Min_ = dynamic, index_t Extent_ = dynamic, index_t Stride_ = dynamic>
-class dim : public range<Min_, Extent_> {
+class dim : public interval<Min_, Extent_> {
  protected:
   index_t stride_;
 
  public:
-  using base_range = range<Min_, Extent_>;
+  using base_range = interval<Min_, Extent_>;
 
   using base_range::Min;
   using base_range::Extent;
@@ -405,8 +418,8 @@ class dim : public range<Min_, Extent_> {
   dim(index_t extent) : dim(internal::is_static(Min) ? Min : 0, extent) {}
   dim() : dim(internal::is_static(Extent) ? Extent : 0) {}
 
-  dim(const base_range& range, index_t stride = Stride)
-      : dim(range.min(), range.extent(), stride) {}
+  dim(const base_range& interval, index_t stride = Stride)
+      : dim(interval.min(), interval.extent(), stride) {}
   dim(const dim&) = default;
   dim(dim&&) = default;
   dim& operator=(const dim&) = default;
@@ -584,7 +597,7 @@ index_t flat_max(const Dims& dims, index_sequence<Is...>) {
       std::max(static_cast<index_t>(0), std::get<Is>(dims).stride())...);
 }
 
-// Make dims with the range of the first parameter and the stride
+// Make dims with the interval of the first parameter and the stride
 // of the second parameter.
 template <index_t DimMin, index_t DimExtent, index_t DimStride>
 auto range_with_stride(index_t x, const dim<DimMin, DimExtent, DimStride>& d) {
@@ -592,7 +605,7 @@ auto range_with_stride(index_t x, const dim<DimMin, DimExtent, DimStride>& d) {
 }
 template <index_t CropMin, index_t CropExtent, index_t DimMin, index_t DimExtent, index_t Stride>
 auto range_with_stride(
-    const range<CropMin, CropExtent>& x, const dim<DimMin, DimExtent, Stride>& d) {
+    const interval<CropMin, CropExtent>& x, const dim<DimMin, DimExtent, Stride>& d) {
   return dim<CropMin, CropExtent, Stride>(x.min(), x.extent(), d.stride());
 }
 template <index_t Min, index_t Extent, index_t Stride>
@@ -601,38 +614,38 @@ auto range_with_stride(const decltype(_)&, const dim<Min, Extent, Stride>& d) {
 }
 
 template <class Ranges, class Dims, size_t... Is>
-auto ranges_with_strides(const Ranges& ranges, const Dims& dims, index_sequence<Is...>) {
-  return std::make_tuple(range_with_stride(std::get<Is>(ranges), std::get<Is>(dims))...);
+auto ranges_with_strides(const Ranges& intervals, const Dims& dims, index_sequence<Is...>) {
+  return std::make_tuple(range_with_stride(std::get<Is>(intervals), std::get<Is>(dims))...);
 }
 
-// Make a tuple of dims corresponding to elements in ranges that are not slices.
+// Make a tuple of dims corresponding to elements in intervals that are not slices.
 template <class Dim>
 std::tuple<> skip_slices_impl(const Dim& dim, index_t) { return std::tuple<>(); }
 template <class Dim>
-std::tuple<Dim> skip_slices_impl(const Dim& dim, const range<>&) { return std::tuple<Dim>(dim); }
+std::tuple<Dim> skip_slices_impl(const Dim& dim, const interval<>&) { return std::tuple<Dim>(dim); }
 
 template <class Dims, class Ranges, size_t... Is>
-auto skip_slices(const Dims& dims, const Ranges& ranges, index_sequence<Is...>) {
-  return std::tuple_cat(skip_slices_impl(std::get<Is>(dims), std::get<Is>(ranges))...);
+auto skip_slices(const Dims& dims, const Ranges& intervals, index_sequence<Is...>) {
+  return std::tuple_cat(skip_slices_impl(std::get<Is>(dims), std::get<Is>(intervals))...);
 }
 
-// Checks if all indices are in range of each corresponding dim.
+// Checks if all indices are in interval of each corresponding dim.
 template <class Dims, class Indices, size_t... Is>
 bool is_in_range(const Dims& dims, const Indices& indices, index_sequence<Is...>) {
   return all(std::get<Is>(dims).is_in_range(std::get<Is>(indices))...);
 }
 
-// Get the mins of a series of ranges.
+// Get the mins of a series of intervals.
 template <class Dim>
 index_t min_of_range(index_t x, const Dim&) { return x; }
 template <index_t Min, index_t Extent, class Dim>
-index_t min_of_range(const range<Min, Extent>& x, const Dim&) { return x.min(); }
+index_t min_of_range(const interval<Min, Extent>& x, const Dim&) { return x.min(); }
 template <class Dim>
 index_t min_of_range(const decltype(_)&, const Dim& dim) { return dim.min(); }
 
 template <class Ranges, class Dims, size_t... Is>
-auto mins_of_ranges(const Ranges& ranges, const Dims& dims, index_sequence<Is...>) {
-  return std::make_tuple(min_of_range(std::get<Is>(ranges), std::get<Is>(dims))...);
+auto mins_of_ranges(const Ranges& intervals, const Dims& dims, index_sequence<Is...>) {
+  return std::make_tuple(min_of_range(std::get<Is>(intervals), std::get<Is>(dims))...);
 }
 
 template <class... Dims, size_t... Is>
@@ -857,7 +870,7 @@ class shape {
 
   template <class... Args>
   using enable_if_ranges = typename std::enable_if<
-      internal::all_of_type<range<>, Args...>::value &&
+      internal::all_of_type<interval<>, Args...>::value &&
       !internal::all_of_type<index_t, Args...>::value>::type;
 
   template <size_t Dim>
@@ -906,7 +919,7 @@ class shape {
     return internal::is_resolved(dims_, internal::make_index_sequence<rank()>());
   }
 
-  /** Returns `true` if the indices or ranges `args` are in range of this shape. */
+  /** Returns `true` if the indices or intervals `args` are in interval of this shape. */
   template <class... Args, class = enable_if_same_rank<Args...>>
   bool is_in_range(const std::tuple<Args...>& args) const {
     return internal::is_in_range(dims_, args, internal::make_index_sequence<rank()>());
@@ -929,11 +942,9 @@ class shape {
     return internal::flat_offset_pack<0>(dims_, indices...);
   }
 
-  /** Create a new shape from this shape using a indices or ranges `args`.
+  /** Create a new shape from this shape using a indices or intervals `args`.
    * Dimensions corresponding to indices in `args` are sliced, i.e. the result
-   * will not have this dimension. The rest of the dimensions are cropped.
-   * `_` is a placeholder value indicating the dimension should be preserved
-   * as-is. */
+   * will not have this dimension. The rest of the dimensions are cropped. */
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
   auto operator() (const std::tuple<Args...>& args) const {
     auto new_dims =
@@ -975,7 +986,7 @@ class shape {
   }
 
   /** Compute the min, max, or extent of the flat offsets of this shape.
-   * This is the extent of the valid range of values returned by `operator()`
+   * This is the extent of the valid interval of values returned by `operator()`
    * or `operator[]`. */
   index_t flat_min() const {
     return internal::flat_min(dims_, internal::make_index_sequence<rank()>());
@@ -1660,7 +1671,7 @@ class array_ref {
 
   template <class... Args>
   using enable_if_ranges = typename std::enable_if<
-      internal::all_of_type<range<>, Args...>::value &&
+      internal::all_of_type<interval<>, Args...>::value &&
       !internal::all_of_type<index_t, Args...>::value>::type;
 
   template <size_t Dim>
@@ -1698,11 +1709,10 @@ class array_ref {
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_indices<Args...>>
   reference operator() (Args... indices) const { return base_[shape_(indices...)]; }
 
-  /** Create an `array_ref` from this array_ref using a indices or ranges
+  /** Create an `array_ref` from this array_ref using a indices or intervals
    * `args`. Dimensions corresponding to indices in `args` are sliced, i.e.
    * the result will not have this dimension. The rest of the dimensions are
-   * cropped. `_` is a placeholder value indicating the dimension should be
-   * preserved as-is. */
+   * cropped. */
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
   auto operator() (const std::tuple<Args...>& args) const {
     return internal::make_array_ref_at(base_, shape_, args);
@@ -1864,7 +1874,7 @@ class array {
 
   template <class... Args>
   using enable_if_ranges = typename std::enable_if<
-      internal::all_of_type<range<>, Args...>::value &&
+      internal::all_of_type<interval<>, Args...>::value &&
       !internal::all_of_type<index_t, Args...>::value>::type;
 
   template <size_t Dim>
@@ -2126,10 +2136,9 @@ class array {
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_indices<Args...>>
   const_reference operator() (Args... indices) const { return base_[shape_(indices...)]; }
 
-  /** Create an `array_ref` from this array using a indices or ranges `args`.
+  /** Create an `array_ref` from this array using a indices or intervals `args`.
    * Dimensions corresponding to indices in `args` are sliced, i.e. the result
-   * will not have this dimension. The rest of the dimensions are cropped. `_`
-   * is a placeholder value indicating the dimension should be preserved as-is. */
+   * will not have this dimension. The rest of the dimensions are cropped. */
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
   auto operator() (const std::tuple<Args...>& args) {
     return internal::make_array_ref_at(base_, shape_, args);
@@ -2312,7 +2321,7 @@ void swap(array<T, Shape, Alloc>& a, array<T, Shape, Alloc>& b) {
 }
 
 /** Copy the contents of the `src` array or array_ref to the `dst` array or
- * array_ref. The range of the shape of `dst` will be copied, and must be in
+ * array_ref. The interval of the shape of `dst` will be copied, and must be in
  * bounds of `src`. */
 template <class TSrc, class TDst, class ShapeSrc, class ShapeDst,
     class = internal::enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
@@ -2322,7 +2331,7 @@ void copy(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDst, ShapeDst>&
   }
   if (!src.shape().is_in_range(dst.shape().min()) ||
       !src.shape().is_in_range(dst.shape().max())) {
-    NDARRAY_THROW_OUT_OF_RANGE("dst indices out of range of src");
+    NDARRAY_THROW_OUT_OF_RANGE("dst indices out of interval of src");
   }
 
   copy_shape_traits<ShapeSrc, ShapeDst>::for_each_value(
@@ -2387,7 +2396,7 @@ auto make_compact_copy(const array<T, Shape, AllocSrc>& src, const AllocDst& all
 }
 
 /** Move the contents from the `src` array or array_ref to the `dst` array or
- * array_ref. The range of the shape of `dst` will be moved, and must be in
+ * array_ref. The interval of the shape of `dst` will be moved, and must be in
  * bounds of `src`. */
 template <class TSrc, class TDst, class ShapeSrc, class ShapeDst,
     class = internal::enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
@@ -2397,7 +2406,7 @@ void move(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDst, ShapeDst>&
   }
   if (!src.shape().is_in_range(dst.shape().min()) ||
       !src.shape().is_in_range(dst.shape().max())) {
-    NDARRAY_THROW_OUT_OF_RANGE("dst indices out of range of src");
+    NDARRAY_THROW_OUT_OF_RANGE("dst indices out of interval of src");
   }
 
   copy_shape_traits<ShapeSrc, ShapeDst>::for_each_value(

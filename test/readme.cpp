@@ -131,8 +131,8 @@ TEST(readme) {
   array_ref_of_rank<int, 1> row4_channel2 = my_array(_, 4, 2);
 
   // Cropping
-  array_ref_of_rank<int, 3> top_left = my_array(range<>{0, 2}, range<>{0, 4}, _);
-  array_ref_of_rank<int, 2> center_channel0 = my_array(range<>{1, 2}, range<>{2, 4}, 0);
+  array_ref_of_rank<int, 3> top_left = my_array(interval<>{0, 2}, interval<>{0, 4}, _);
+  array_ref_of_rank<int, 2> center_channel0 = my_array(interval<>{1, 2}, interval<>{2, 4}, 0);
 
   assert_used(channel1);
   assert_used(row4_channel2);

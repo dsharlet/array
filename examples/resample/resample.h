@@ -115,7 +115,7 @@ using kernel_array = dense_array<dense_array<float, 1>, 1>;
 // Build kernels for each index in a dim 'out' to sample from a dim 'in'.
 // The kernels are guaranteed not to read out of bounds of 'in'.
 inline kernel_array build_kernels(
-    range<> in, range<> out, const rational<index_t>& rate,
+    interval<> in, interval<> out, const rational<index_t>& rate,
     continuous_kernel kernel) {
   // The constant 1/2 as a rational.
   const rational<index_t> half = rational<index_t>(1, 2);
