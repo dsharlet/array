@@ -264,8 +264,8 @@ fixed_interval<Extent> r(index_t begin) {
   return fixed_interval<Extent>(begin);
 }
 
-/** Placeholder object representing an interval that indicates a the dimension
- * when used in an indexing expression. */
+/** Placeholder object representing an interval that indicates keep
+ * the whole dimension when used in an indexing expression. */
 const interval<0, -1> all, _;
 
 /** Overloads of `std::begin` and `std::end` for an interval. */
