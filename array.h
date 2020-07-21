@@ -825,7 +825,8 @@ shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
 }
 
 /** Type of an index for an array of rank `Rank`. This will be
- * `std::tuple<...>` with `Rank` `index_t` values. */
+ * `std::tuple<...>` with `Rank` `index_t` values. For example,
+ * `index_of_rank<3>` is `std::tuple<index_t, index_t, index_t>`. */
 template <size_t Rank>
 using index_of_rank = typename internal::tuple_of_n<index_t, Rank>::type;
 
@@ -1073,7 +1074,11 @@ class shape {
 };
 
 /** Create a new shape using a list of `DimIndices...` to use as the
- * dimensions of the shape. */
+ * dimensions of the shape. The new shape's i'th dimension will be the
+ * j'th dimension of `shape` where j is the i'th value of `DimIndices...`.
+ *
+ * For example, `reorder<2, 0, 1>(s)` will be a shape with dimensions
+ * `s.z(), s.y(), s.x()`. */
 template <size_t... DimIndices, class Shape>
 auto reorder(const Shape& shape) {
   return make_shape(shape.template dim<DimIndices>()...);
