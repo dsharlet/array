@@ -14,7 +14,7 @@ flat_offset = (x0 - min0)*stride0 + (x1 - min1)*stride1 + ... + (xN - minN)*stri
 ```
 where:
 * `xN` are the indices in each dimension.
-* `minN` are the mins in each dimension. The min is the value of the first in-interval index in this dimension (the max is `minN + extentN - 1`).
+* `minN` are the mins in each dimension. The min is the value of the first in-range index in this dimension (the max is `minN + extentN - 1`).
 * `strideN` are the distances in the flat offsets between elements in each dimension.
 
 Arrays efficiently support advanced manipulations like cropping, slicing, and splitting loops, all while preserving compile-time constant parameters when possible.
@@ -200,20 +200,21 @@ small_matrix<float, 4, 4> my_small_matrix;
 
 Shapes and arrays can be sliced and cropped using `interval<Min, Extent>` objects, which are similar to `dim<>`s.
 They can have either a compile-time constant or runtime valued min and extent.
+`range(begin, end)` is a helper functions to construct an `interval`.
 ```c++
   // Slicing
   array_ref_of_rank<int, 2> channel1 = my_array(_, _, 1);
   array_ref_of_rank<int, 1> row4_channel2 = my_array(_, 4, 2);
 
   // Cropping
-  array_ref_of_rank<int, 3> top_left = my_array(interval<>{0, 2}, interval<>{0, 4}, _);
-  array_ref_of_rank<int, 2> center_channel0 = my_array(interval<>{1, 2}, interval<>{2, 4}, 0);
+  array_ref_of_rank<int, 3> top_left = my_array(range(0, 2), range(0, 4), _);
+  array_ref_of_rank<int, 2> center_channel0 = my_array(ragnge(1, 2), range(2, 4), 0);
 ```
-The `_` constant is a placeholder indicating the entire dimension should be preserved.
+The `_` or `all` constants are placeholders indicating the entire dimension should be preserved.
 Dimensions that are sliced are removed from the shape of the array.
 
 When iterating a `dim`, it is possible to `split` it first by either a compile-time constant or a runtime-valued split factor.
-A split `dim` produces an iterator interval that produces `interval<>` objects.
+A split `dim` produces an iterator range that produces `interval<>` objects.
 This allows easy tiling of algorithms:
 ```c++
   constexpr index_t x_split_factor = 3;

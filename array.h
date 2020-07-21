@@ -364,7 +364,7 @@ internal::split_iterator_range<InnerExtent> split(const interval<Min, Extent>& v
       {fixed_interval<InnerExtent>(v.max() + 1), v.max()}};
 }
 
-/** Split an interval `v` into an iterable interval of intervals by `inner_extent`. If
+/** Split an interval `v` into an iterable range of intervals by `inner_extent`. If
  * `inner_extent` does not divide `v.extent()`, the last iteration will be
  * clamped to the outer interval.
  *
@@ -613,8 +613,8 @@ auto range_with_stride(const decltype(_)&, const dim<Min, Extent, Stride>& d) {
   return d;
 }
 
-template <class Ranges, class Dims, size_t... Is>
-auto ranges_with_strides(const Ranges& intervals, const Dims& dims, index_sequence<Is...>) {
+template <class Intervals, class Dims, size_t... Is>
+auto intervals_with_strides(const Intervals& intervals, const Dims& dims, index_sequence<Is...>) {
   return std::make_tuple(range_with_stride(std::get<Is>(intervals), std::get<Is>(dims))...);
 }
 
@@ -624,8 +624,8 @@ std::tuple<> skip_slices_impl(const Dim& dim, index_t) { return std::tuple<>(); 
 template <class Dim>
 std::tuple<Dim> skip_slices_impl(const Dim& dim, const interval<>&) { return std::tuple<Dim>(dim); }
 
-template <class Dims, class Ranges, size_t... Is>
-auto skip_slices(const Dims& dims, const Ranges& intervals, index_sequence<Is...>) {
+template <class Dims, class Intervals, size_t... Is>
+auto skip_slices(const Dims& dims, const Intervals& intervals, index_sequence<Is...>) {
   return std::tuple_cat(skip_slices_impl(std::get<Is>(dims), std::get<Is>(intervals))...);
 }
 
@@ -643,8 +643,8 @@ index_t min_of_range(const interval<Min, Extent>& x, const Dim&) { return x.min(
 template <class Dim>
 index_t min_of_range(const decltype(_)&, const Dim& dim) { return dim.min(); }
 
-template <class Ranges, class Dims, size_t... Is>
-auto mins_of_ranges(const Ranges& intervals, const Dims& dims, index_sequence<Is...>) {
+template <class Intervals, class Dims, size_t... Is>
+auto mins_of_intervals(const Intervals& intervals, const Dims& dims, index_sequence<Is...>) {
   return std::make_tuple(min_of_range(std::get<Is>(intervals), std::get<Is>(dims))...);
 }
 
@@ -869,7 +869,7 @@ class shape {
       typename std::enable_if<internal::all_of_type<index_t, Args...>::value>::type;
 
   template <class... Args>
-  using enable_if_ranges = typename std::enable_if<
+  using enable_if_slices = typename std::enable_if<
       internal::all_of_type<interval<>, Args...>::value &&
       !internal::all_of_type<index_t, Args...>::value>::type;
 
@@ -945,17 +945,17 @@ class shape {
   /** Create a new shape from this shape using a indices or intervals `args`.
    * Dimensions corresponding to indices in `args` are sliced, i.e. the result
    * will not have this dimension. The rest of the dimensions are cropped. */
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   auto operator() (const std::tuple<Args...>& args) const {
     auto new_dims =
-        internal::ranges_with_strides(args, dims_, internal::make_index_sequence<rank()>());
+        internal::intervals_with_strides(args, dims_, internal::make_index_sequence<rank()>());
     auto new_dims_no_slices =
         internal::skip_slices(new_dims, args, internal::make_index_sequence<rank()>());
     return make_shape_from_tuple(new_dims_no_slices);
   }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   auto operator[] (const std::tuple<Args...>& args) const { return operator()(args); }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   auto operator() (Args... args) const { return operator()(std::make_tuple(args...)); }
 
   /** Get a specific dim `D` of this shape. */
@@ -1628,7 +1628,7 @@ template <class T, class Shape, class... Args>
 auto make_array_ref_at(T base, const Shape& shape, const std::tuple<Args...>& args) {
   auto new_shape = shape(args);
   auto new_mins =
-      mins_of_ranges(args, shape.dims(), make_index_sequence<sizeof...(Args)>());
+      mins_of_intervals(args, shape.dims(), make_index_sequence<sizeof...(Args)>());
   auto old_min_offset = shape(new_mins);
   return make_array_ref(internal::pointer_add(base, old_min_offset), new_shape);
 }
@@ -1670,7 +1670,7 @@ class array_ref {
       typename std::enable_if<internal::all_of_type<index_t, Args...>::value>::type;
 
   template <class... Args>
-  using enable_if_ranges = typename std::enable_if<
+  using enable_if_slices = typename std::enable_if<
       internal::all_of_type<interval<>, Args...>::value &&
       !internal::all_of_type<index_t, Args...>::value>::type;
 
@@ -1713,15 +1713,15 @@ class array_ref {
    * `args`. Dimensions corresponding to indices in `args` are sliced, i.e.
    * the result will not have this dimension. The rest of the dimensions are
    * cropped. */
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   auto operator() (const std::tuple<Args...>& args) const {
     return internal::make_array_ref_at(base_, shape_, args);
   }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   auto operator[] (const std::tuple<Args...>& args) const {
     return internal::make_array_ref_at(base_, shape_, args);
   }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   auto operator() (Args... args) const {
     return internal::make_array_ref_at(base_, shape_, std::make_tuple(args...));
   }
@@ -1873,7 +1873,7 @@ class array {
       typename std::enable_if<internal::all_of_type<index_t, Args...>::value>::type;
 
   template <class... Args>
-  using enable_if_ranges = typename std::enable_if<
+  using enable_if_slices = typename std::enable_if<
       internal::all_of_type<interval<>, Args...>::value &&
       !internal::all_of_type<index_t, Args...>::value>::type;
 
@@ -2139,27 +2139,27 @@ class array {
   /** Create an `array_ref` from this array using a indices or intervals `args`.
    * Dimensions corresponding to indices in `args` are sliced, i.e. the result
    * will not have this dimension. The rest of the dimensions are cropped. */
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   auto operator() (const std::tuple<Args...>& args) {
     return internal::make_array_ref_at(base_, shape_, args);
   }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   auto operator[] (const std::tuple<Args...>& args) {
     return internal::make_array_ref_at(base_, shape_, args);
   }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   auto operator() (Args... args) {
     return internal::make_array_ref_at(base_, shape_, std::make_tuple(args...));
   }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   auto operator() (const std::tuple<Args...>& args) const {
     return internal::make_array_ref_at(base_, shape_, args);
   }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   auto operator[] (const std::tuple<Args...>& args) const {
     return internal::make_array_ref_at(base_, shape_, args);
   }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_ranges<Args...>>
+  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   auto operator() (Args... args) const {
     return internal::make_array_ref_at(base_, shape_, std::make_tuple(args...));
   }
