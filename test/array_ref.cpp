@@ -57,6 +57,11 @@ TEST(reinterpret) {
     ASSERT_EQ(int_array(x, y, z), eight_int);
     ASSERT_EQ(float_array(x, y, z), eight);
   });
+
+  array_of_rank<int, 0> scalar_int({}, eight_int);
+  array_ref_of_rank<float, 0> scalar = reinterpret<float>(scalar_int);
+  ASSERT_EQ(scalar_int(), eight_int);
+  ASSERT_EQ(scalar(), eight);
 }
 
 TEST(array_ref_copy) {
@@ -71,6 +76,10 @@ TEST(array_ref_copy) {
     ASSERT_EQ(evens(i), i * 2);
     ASSERT_EQ(evens_copy(i), i * 2);
   }
+
+  array_ref_of_rank<int, 0> scalar(&data[5], {});
+  array_of_rank<int, 0> scalar_copy = make_compact_copy(scalar);
+  ASSERT_EQ(scalar(), scalar_copy());
 }
 
 TEST(array_ref_empty) {
@@ -78,6 +87,12 @@ TEST(array_ref_empty) {
   ASSERT(null_ref.empty());
   null_ref.set_shape({{3, 3}}, 3);
   ASSERT(null_ref.empty());
+
+  int x;
+  array_ref_of_rank<int, 0> scalar_ref(&x, {});
+  ASSERT(!scalar_ref.empty());
+  array_ref_of_rank<int, 0> null_scalar_ref(nullptr, {});
+  ASSERT(null_scalar_ref.empty());
 }
 
 template <typename Shape>

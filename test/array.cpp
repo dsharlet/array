@@ -154,6 +154,44 @@ TEST(array_fill_assign) {
   }
 }
 
+TEST(array_default_constructor_scalar) {
+  array_of_rank<int, 0> a;
+  ASSERT_EQ(a(), 0);
+}
+
+TEST(array_fill_constructor_scalar) {
+  array_of_rank<int, 0> s({}, 2);
+  ASSERT_EQ(s(), 2);
+}
+
+TEST(array_assign_scalar) {
+  array_of_rank<int, 0> a({}, 3);
+
+  array_of_rank<int, 0> b = array_of_rank<int, 0>({}, 3);
+  ASSERT(a == b);
+
+  array_of_rank<int, 0> c;
+  c = array_of_rank<int, 0>({}, 3);
+  ASSERT(a == c);
+
+  c = array_of_rank<int, 0>({}, 4);
+  ASSERT(a != c);
+  c() = 3;
+  ASSERT(a == c);
+
+  {
+    array_of_rank<int, 0> d({}, 3);
+    c = d;
+  }
+  ASSERT(a == c);
+}
+
+TEST(array_fill_assign_scalar) {
+  array_of_rank<int, 0> a;
+  a.assign({}, 3);
+  ASSERT_EQ(a(), 3);
+}
+
 TEST(sparse_array) {
   auto sparse_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10));
   sparse_shape.resolve();

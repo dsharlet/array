@@ -89,4 +89,22 @@ TEST(algorithm_move) {
   ASSERT_EQ(succeeded, 4);
 }
 
+TEST(algorithm_copy_scalar) {
+  array_of_rank<int, 0> a;
+  generate(a, rand);
+
+  array_of_rank<int, 0> b;
+  copy(a, b);
+  ASSERT(a == b);
+}
+
+TEST(algorithm_move_scalar) {
+  array_of_rank<int, 0> a;
+  generate(a, rand);
+
+  array_of_rank<int, 0> b;
+  copy(a, b);
+  ASSERT(a == b);
+}
+
 }  // namespace nda

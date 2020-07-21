@@ -1135,6 +1135,12 @@ void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
   }
 }
 
+// Scalar buffers are a special case.
+template <size_t D, class Fn, class... Ptrs>
+void for_each_value_in_order(const std::tuple<>& extent, Fn&& fn, Ptrs... ptrs) {
+  fn(*std::get<0>(ptrs)...);
+}
+
 template <typename TSrc, typename TDst>
 NDARRAY_INLINE void move_assign(TSrc& src, TDst& dst) {
   dst = std::move(src);
@@ -1239,6 +1245,9 @@ template <class ShapeDst, class ShapeSrc>
 using enable_if_shapes_copy_compatible =
     typename std::enable_if<(ShapeDst::rank() == ShapeSrc::rank())>::type;
 
+template <size_t Rank>
+using enable_if_not_scalar = typename std::enable_if<(Rank > 0)>::type;
+
 }  // namespace internal
 
 /** An arbitrary `shape` with the specified rank `Rank`. This shape is
@@ -1249,11 +1258,11 @@ using shape_of_rank =
 
 /** A `shape` where the innermost dimension is a `dense_dim`, and all other
  * dimensions are arbitrary. */
-template <size_t Rank>
+template <size_t Rank, class = internal::enable_if_not_scalar<Rank>>
 using dense_shape = decltype(internal::make_default_dense_shape<Rank>());
 
 /** Make a `dense_shape` with the same mins and extents as `s`. */
-template <class... Dims>
+template <class... Dims, class = internal::enable_if_not_scalar<sizeof...(Dims)>>
 auto make_dense(const shape<Dims...>& s) {
   constexpr size_t rank = sizeof...(Dims);
   return internal::make_dense_shape(s.dims(), internal::make_index_sequence<rank - 1>());
@@ -1831,9 +1840,9 @@ template <class T, size_t Rank>
 using const_array_ref_of_rank = array_ref_of_rank<const T, Rank>;
 
 /** array_ref with a shape `dense_shape<Rank>`. */
-template <class T, size_t Rank>
+template <class T, size_t Rank, class = internal::enable_if_not_scalar<Rank>>
 using dense_array_ref = array_ref<T, dense_shape<Rank>>;
-template <class T, size_t Rank>
+template <class T, size_t Rank, class = internal::enable_if_not_scalar<Rank>>
 using const_dense_array_ref = dense_array_ref<const T, Rank>;
 
 /** A multi-dimensional array container that owns an allocation of memory. */
@@ -2301,7 +2310,8 @@ template <class T, size_t Rank, class Alloc = std::allocator<T>>
 using array_of_rank = array<T, shape_of_rank<Rank>, Alloc>;
 
 /** An array type with a shape `dense_shape<Rank>`. */
-template <class T, size_t Rank, class Alloc = std::allocator<T>>
+template <class T, size_t Rank, class Alloc = std::allocator<T>,
+    class = internal::enable_if_not_scalar<Rank>>
 using dense_array = array<T, dense_shape<Rank>, Alloc>;
 
 /** Make a new array with shape `shape`, allocated using `alloc`. */
