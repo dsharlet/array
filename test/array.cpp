@@ -165,9 +165,9 @@ TEST(array_fill_constructor_scalar) {
 }
 
 TEST(array_assign_scalar) {
-  array_of_rank<int, 0> a({}, 3);
+  dense_array<int, 0> a({}, 3);
 
-  array_of_rank<int, 0> b = array_of_rank<int, 0>({}, 3);
+  dense_array<int, 0> b = array_of_rank<int, 0>({}, 3);
   ASSERT(a == b);
 
   array_of_rank<int, 0> c;
