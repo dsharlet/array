@@ -84,6 +84,18 @@ void shape_at_too_few_indices() {
   s(0);
 }
 
+void shape_transpose_not_permutation1() {
+  transpose<0>(s);
+}
+
+void shape_transpose_not_permutation2() {
+  transpose<0, 0>(s);
+}
+
+void shape_transpose_not_permutation3() {
+  transpose<0, 2>(s);
+}
+
 void shape_operator_eq_different_rank() {
   shape_of_rank<3> s2;
   s == s2;

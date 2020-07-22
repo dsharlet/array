@@ -34,6 +34,15 @@ TEST(matrix_slice) {
   }
 }
 
+TEST(matrix_transpose) {
+  matrix<int> m({5, 8});
+  fill_pattern(m);
+  auto mt = transpose<1, 0>(m);
+  for_all_indices(m.shape(), [&](int i, int j) {
+    ASSERT_EQ(m(i, j), mt(j, i));
+  });
+}
+
 TEST(small_matrix) {
   using matrix4x3i = small_matrix<int, 4, 3>;
 

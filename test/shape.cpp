@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "array.h"
+#include "matrix.h"
 #include "test.h"
 
 #include <algorithm>
@@ -414,21 +415,14 @@ TEST(shape_conversion) {
 
 TEST(shape_transpose) {
   dense_shape<3> s(3, 5, 8);
-  shape<dim<>, dim<>, dense_dim<>> transposed = reorder<1, 2, 0>(s);
+  shape<dim<>, dim<>, dense_dim<>> transposed = transpose<1, 2, 0>(s);
   ASSERT_EQ(transposed.template dim<0>().extent(), 5);
   ASSERT_EQ(transposed.template dim<1>().extent(), 8);
   ASSERT_EQ(transposed.template dim<2>().extent(), 3);
 
-  shape<dim<>, dim<>, dense_dim<>> interleaved(3, 5, 4);
-  interleaved.resolve();
-  ASSERT(interleaved.is_compact());
-  int expected_flat_offset = 0;
-  for_all_indices(reorder<2, 0, 1>(interleaved), [&](int c, int x, int y) {
-    ASSERT_EQ(interleaved(x, y, c), expected_flat_offset);
-    expected_flat_offset++;
-  });
-  // Ensure the for_each_index loop above actually ran.
-  ASSERT_EQ(expected_flat_offset, 60);
+  dense_shape<2> reordered = reorder<2, 0>(transposed);
+  ASSERT_EQ(reordered.template dim<0>().extent(), 3);
+  ASSERT_EQ(reordered.template dim<1>().extent(), 5);
 }
 
 TEST(shape_optimize) {
