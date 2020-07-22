@@ -2635,7 +2635,8 @@ const_array_ref<T, NewShape> reinterpret_shape(
 }
 
 /** Reinterpret the shape of the array or array_ref `a` to be transposed
- * or reordered using `transpose<>(shape<>)` or `reorder<>(shape<>)`. */
+ * or reordered using `transpose<DimIndices...>(a.shape())` or
+ * `reorder<DimIndices...>(a.shape())`. */
 template <size_t... DimIndices, class T, class OldShape,
     class = internal::enable_if_permutation<OldShape::rank(), DimIndices...>>
 auto transpose(const array_ref<T, OldShape>& a) {
