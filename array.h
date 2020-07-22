@@ -818,8 +818,8 @@ constexpr index_t factorial(index_t x) {
 // The errors that result from not satisfying this check are probably hell,
 // but it would be pretty tricky to check that all of [0, Rank) is in `Is...`
 template <size_t Rank, size_t... Is>
-using enable_if_permutation =
-    typename std::enable_if<product((Is + 2)...) == factorial(Rank + 1)>::type;
+using enable_if_permutation = typename std::enable_if<
+    sizeof...(Is) == Rank && product((Is + 2)...) == factorial(Rank + 1)>::type;
 
 }  // namespace internal
 
