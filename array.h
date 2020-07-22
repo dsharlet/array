@@ -96,7 +96,7 @@ NDARRAY_INLINE constexpr index_t reconcile(index_t value) {
 constexpr bool is_dynamic(index_t a, index_t b) { return is_dynamic(a) || is_dynamic(b); }
 
 template <index_t A, index_t B>
-using enable_if_compatible = typename std::enable_if<is_dynamic(A, B) || A == B>::type;
+using enable_if_compatible = std::enable_if_t<is_dynamic(A, B) || A == B>;
 
 // Math for (possibly) static values.
 constexpr index_t static_add(index_t a, index_t b) { return is_dynamic(a, b) ? dynamic : a + b; }
@@ -818,8 +818,8 @@ constexpr index_t factorial(index_t x) {
 // The errors that result from not satisfying this check are probably hell,
 // but it would be pretty tricky to check that all of [0, Rank) is in `Is...`
 template <size_t Rank, size_t... Is>
-using enable_if_permutation = typename std::enable_if<
-    sizeof...(Is) == Rank && product((Is + 2)...) == factorial(Rank + 1)>::type;
+using enable_if_permutation = std::enable_if_t<
+    sizeof...(Is) == Rank && product((Is + 2)...) == factorial(Rank + 1)>;
 
 }  // namespace internal
 
@@ -874,28 +874,28 @@ class shape {
   // TODO: This should use std::is_constructible<dims_type, std::tuple<OtherDims...>>
   // but it is broken on some compilers (https://github.com/dsharlet/array/issues/20).
   template <class... OtherDims>
-  using enable_if_dims_compatible = typename std::enable_if<sizeof...(OtherDims) == rank()>::type;
+  using enable_if_dims_compatible = std::enable_if_t<sizeof...(OtherDims) == rank()>;
 
   template <class... Args>
-  using enable_if_same_rank = typename std::enable_if<(sizeof...(Args) == rank())>::type;
+  using enable_if_same_rank = std::enable_if_t<(sizeof...(Args) == rank())>;
 
   template <class... Args>
   using enable_if_indices =
-      typename std::enable_if<internal::all_of_type<index_t, Args...>::value>::type;
+      std::enable_if_t<internal::all_of_type<index_t, Args...>::value>;
 
   template <class... Args>
-  using enable_if_slices = typename std::enable_if<
+  using enable_if_slices = std::enable_if_t<
       internal::all_of_type<interval<>, Args...>::value &&
-      !internal::all_of_type<index_t, Args...>::value>::type;
+      !internal::all_of_type<index_t, Args...>::value>;
 
   template <size_t Dim>
-  using enable_if_dim = typename std::enable_if<(Dim < rank())>::type;
+  using enable_if_dim = std::enable_if_t<(Dim < rank())>;
 
  public:
   shape() {}
   // TODO: This is a bit messy, but necessary to avoid ambiguous default
   // constructors when Dims is empty.
-  template <size_t N = sizeof...(Dims), class = typename std::enable_if<(N > 0)>::type>
+  template <size_t N = sizeof...(Dims), class = std::enable_if_t<(N > 0)>>
   shape(const Dims&... dims) : dims_(dims...) {}
   shape(const shape&) = default;
   shape(shape&&) = default;
@@ -1269,15 +1269,15 @@ auto unshuffle(const std::tuple<Ts...>& t) {
 
 template <class ShapeDst, class ShapeSrc>
 using enable_if_shapes_compatible =
-    typename std::enable_if<std::is_constructible<ShapeDst, ShapeSrc>::value>::type;
+    std::enable_if_t<std::is_constructible<ShapeDst, ShapeSrc>::value>;
 
 template <class ShapeDst, class ShapeSrc>
 using enable_if_shapes_explicitly_compatible =
-    typename std::enable_if<(ShapeSrc::rank() <= ShapeSrc::rank())>::type;
+    std::enable_if_t<(ShapeSrc::rank() <= ShapeSrc::rank())>;
 
 template <class ShapeDst, class ShapeSrc>
 using enable_if_shapes_copy_compatible =
-    typename std::enable_if<(ShapeDst::rank() == ShapeSrc::rank())>::type;
+    std::enable_if_t<(ShapeDst::rank() == ShapeSrc::rank())>;
 
 }  // namespace internal
 
@@ -1707,19 +1707,19 @@ class array_ref {
   using enable_if_shape_compatible = internal::enable_if_shapes_compatible<Shape, OtherShape>;
 
   template <class... Args>
-  using enable_if_same_rank = typename std::enable_if<sizeof...(Args) == rank()>::type;
+  using enable_if_same_rank = std::enable_if_t<sizeof...(Args) == rank()>;
 
   template <class... Args>
   using enable_if_indices =
-      typename std::enable_if<internal::all_of_type<index_t, Args...>::value>::type;
+      std::enable_if_t<internal::all_of_type<index_t, Args...>::value>;
 
   template <class... Args>
-  using enable_if_slices = typename std::enable_if<
+  using enable_if_slices = std::enable_if_t<
       internal::all_of_type<interval<>, Args...>::value &&
-      !internal::all_of_type<index_t, Args...>::value>::type;
+      !internal::all_of_type<index_t, Args...>::value>;
 
   template <size_t Dim>
-  using enable_if_dim = typename std::enable_if<Dim < rank()>::type;
+  using enable_if_dim = std::enable_if_t<Dim < rank()>;
 
   pointer base_;
   Shape shape_;
@@ -1910,19 +1910,19 @@ class array {
 
  private:
   template <class... Args>
-  using enable_if_same_rank = typename std::enable_if<sizeof...(Args) == rank()>::type;
+  using enable_if_same_rank = std::enable_if_t<sizeof...(Args) == rank()>;
 
   template <class... Args>
   using enable_if_indices =
-      typename std::enable_if<internal::all_of_type<index_t, Args...>::value>::type;
+      std::enable_if_t<internal::all_of_type<index_t, Args...>::value>;
 
   template <class... Args>
-  using enable_if_slices = typename std::enable_if<
+  using enable_if_slices = std::enable_if_t<
       internal::all_of_type<interval<>, Args...>::value &&
-      !internal::all_of_type<index_t, Args...>::value>::type;
+      !internal::all_of_type<index_t, Args...>::value>;
 
   template <size_t Dim>
-  using enable_if_dim = typename std::enable_if<Dim < rank()>::type;
+  using enable_if_dim = std::enable_if_t<Dim < rank()>;
 
   Alloc alloc_;
   pointer buffer_;
@@ -2600,17 +2600,17 @@ const_array_ref<T, NewShape> convert_shape(const array<T, OldShape, Allocator>& 
 /** Reinterpret the array or array_ref `a` of type `T` to have a different type
  * `U`. The size of `T` must be equal to the size of `U`. */
 template <class U, class T, class Shape,
-    class = typename std::enable_if<sizeof(T) == sizeof(U)>::type>
+    class = std::enable_if_t<sizeof(T) == sizeof(U)>>
 array_ref<U, Shape> reinterpret(const array_ref<T, Shape>& a) {
   return array_ref<U, Shape>(reinterpret_cast<U*>(a.base()), a.shape());
 }
 template <class U, class T, class Shape, class Alloc,
-    class = typename std::enable_if<sizeof(T) == sizeof(U)>::type>
+    class = std::enable_if_t<sizeof(T) == sizeof(U)>>
 array_ref<U, Shape> reinterpret(array<T, Shape, Alloc>& a) {
   return reinterpret<U>(a.ref());
 }
 template <class U, class T, class Shape, class Alloc,
-    class = typename std::enable_if<sizeof(T) == sizeof(U)>::type>
+    class = std::enable_if_t<sizeof(T) == sizeof(U)>>
 const_array_ref<U, Shape> reinterpret(const array<T, Shape, Alloc>& a) {
   return reinterpret<const U>(a.cref());
 }
@@ -2758,13 +2758,13 @@ class uninitialized_allocator : public BaseAlloc {
 
 /** Allocator equivalent to `std::allocator<T>` that does not default
  * construct values. */
-template <class T, class = typename std::enable_if<std::is_trivial<T>::value>::type>
+template <class T, class = std::enable_if_t<std::is_trivial<T>::value>>
 using uninitialized_std_allocator = uninitialized_allocator<std::allocator<T>>;
 
 /** Allocator equivalent to `auto_allocator<T, N, Alignment>` that
  * does not default construct values. */
 template <class T, size_t N, size_t Alignment = sizeof(T),
-    class = typename std::enable_if<std::is_trivial<T>::value>::type>
+    class = std::enable_if_t<std::is_trivial<T>::value>>
 using uninitialized_auto_allocator = uninitialized_allocator<auto_allocator<T, N, Alignment>>;
 
 }  // namespace nda
