@@ -136,7 +136,7 @@ class index_iterator {
  * `interval<> a` is said to be 'compatible with' another `interval<Min, Extent> b` if
  * `a.min()` is compatible with `Min` and `a.extent()` is compatible with `Extent`.
  *
- * For example:
+ * Examples:
  * - `interval<>` is an interval with runtime-valued `min` and `extent`.
  * - `interval<0>` is an interval with compile-time constant `min` of 0, and
  *   runtime-valued `extent`.
@@ -354,8 +354,10 @@ using split_iterator_range = iterator_range<split_iterator<InnerExtent>>;
  * to preserve the compile-time constant extent, which implies `v.extent()`
  * must be larger `InnerExtent`.
  *
- * For example, `split<5>(interval<>(0, 12))` produces the intervals `[0, 5)`,
- * `[5, 10)`, `[7, 12)`. Note the last two intervals overlap. */
+ * Examples:
+ * - `split<4>(interval<>(0, 8))` produces the intervals `[0, 4)`, `[4, 8)`.
+ * - `split<5>(interval<>(0, 12))` produces the intervals `[0, 5)`,
+ *   `[5, 10)`, `[7, 12)`. Note the last two intervals overlap. */
 template <index_t InnerExtent, index_t Min, index_t Extent>
 internal::split_iterator_range<InnerExtent> split(const interval<Min, Extent>& v) {
   assert(v.extent() >= InnerExtent);
@@ -368,8 +370,9 @@ internal::split_iterator_range<InnerExtent> split(const interval<Min, Extent>& v
  * `inner_extent` does not divide `v.extent()`, the last iteration will be
  * clamped to the outer interval.
  *
- * For example, `split(interval<>(0, 12), 5)` produces the intervals `[0, 5)`,
- * `[5, 10)`, `[10, 12)`. */
+ * Examples:
+ * - `split(interval<>(0, 12), 5)` produces the intervals `[0, 5)`,
+ * `  [5, 10)`, `[10, 12)`. */
 // TODO: This probably doesn't need to be templated, but it might help
 // avoid some conversion messes. dim<Min, Extent> probably can't implicitly
 // convert to interval<>.
@@ -808,6 +811,16 @@ T convert_dims(const U& u, std::index_sequence<Is...>) {
   return std::make_tuple(convert_dim<Is, T>(u)...);
 }
 
+constexpr index_t factorial(index_t x) {
+  return x == 1 ? 1 : x * factorial(x - 1);
+}
+
+// The errors that result from not satisfying this check are probably hell,
+// but it would be pretty tricky to check that all of [0, Rank) is in `Is...`
+template <size_t Rank, size_t... Is>
+using enable_if_permutation = typename std::enable_if<
+    sizeof...(Is) == Rank && product((Is + 2)...) == factorial(Rank + 1)>::type;
+
 }  // namespace internal
 
 template <class... Dims>
@@ -825,8 +838,9 @@ shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
 }
 
 /** Type of an index for an array of rank `Rank`. This will be
- * `std::tuple<...>` with `Rank` `index_t` values. For example,
- * `index_of_rank<3>` is `std::tuple<index_t, index_t, index_t>`. */
+ * `std::tuple<...>` with `Rank` `index_t` values.
+ *
+ * For example, `index_of_rank<3>` is `std::tuple<index_t, index_t, index_t>`. */
 template <size_t Rank>
 using index_of_rank = typename internal::tuple_of_n<index_t, Rank>::type;
 
@@ -906,11 +920,16 @@ class shape {
   // We cannot have an dims_type constructor because it will be
   // ambiguous with the Dims... constructor for 1D shapes.
 
-  /** Replace strides with automatically determined values. An automatic stride
-   * for a dimension is determined by taking the minimum of all possible
-   * candidate strides, which are the product of the stride and extent of all
-   * dimensions with a known stride. This is repeated for each dimension,
-   * starting with the innermost dimension. */
+  /** Replace strides with automatically determined values.
+   *
+   * An automatic stride for a dimension is determined by taking the minimum
+   * of all possible candidate strides, which are the product of the stride
+   * and extent of all dimensions with a known stride. This is repeated for
+   * each dimension, starting with the innermost dimension.
+   *
+   * Examples:
+   * - `{{0, 5}, {0, 10}}` -> `{{0, 5, 1}, {0, 10, 5}}`
+   * - `{{0, 5}, {0, 10}, {0, 3, 1}}` -> `{{0, 5, 3}, {0, 10, 15}, {0, 3, 1}}` */
   void resolve() {
     internal::resolve_unknown_strides(dims_, internal::make_index_sequence<rank()>());
   }
@@ -1077,14 +1096,20 @@ class shape {
  * dimensions of the shape. The new shape's i'th dimension will be the
  * j'th dimension of `shape` where j is the i'th value of `DimIndices...`.
  *
- * For example, `reorder<2, 0, 1>(s)` will be a shape with dimensions
- * `s.z(), s.y(), s.x()`. */
-template <size_t... DimIndices, class Shape>
-auto reorder(const Shape& shape) {
+ * `transpose` requires `DimIndices...` to be a permutation, while
+ * `reorder` accepts a list of indices that may be a subset of the
+ * dimensions.
+ *
+ * Examples:
+ * - `transpose<2, 0, 1>(s_3d) == make_shape(s.z(), s.y(), s.x())`
+ * - `reorder<1, 2>(s_4d) == make_shape(s.y(), s.z())` */
+template <size_t... DimIndices, class... Dims,
+    class = internal::enable_if_permutation<sizeof...(Dims), DimIndices...>>
+auto transpose(const shape<Dims...>& shape) {
   return make_shape(shape.template dim<DimIndices>()...);
 }
-template <size_t... DimIndices, class Shape>
-auto select_dims(const Shape& shape) {
+template <size_t... DimIndices, class... Dims>
+auto reorder(const shape<Dims...>& shape) {
   return make_shape(shape.template dim<DimIndices>()...);
 }
 
@@ -1276,7 +1301,8 @@ auto make_dense(const shape<Dims...>& s) {
 inline auto make_dense(const shape<>& s) { return s; }
 
 /** Replace the strides of `s` with minimal strides, as determined by
- * the `shape::resolve` algorithm.
+ * the `shape::resolve` algorithm. The strides of `s` are replaced with
+ * a possibly different order, even if the shape is already compact.
  *
  * The resulting shape may not have `Shape::is_compact` return `true`
  * if the shape has non-compact compile-time constant strides. */
@@ -1584,12 +1610,14 @@ class copy_shape_traits {
  * If the `LoopOrder...` permutation is empty, the order of the loops is
  * defined by `shape_traits<Shape>`, and the callable `fn` must accept
  * a `Shape::index_type` in the case of `for_each_index`, or `Shape::rank()`
- * `index_t` objects.
+ * `index_t` objects in the case of `for_all_indices`.
  *
  * If the `LoopOrder...` permutation is not empty, the order of the loops is
- * defined by this ordering, and the callable `fn` must accept an index of
- * rank of the number of `LoopOrder...` dimension indices. The first index
- * of `LoopOrder...` is the innermost dimension. */
+ * defined by this ordering. The first index of `LoopOrder...` is the innermost
+ * loop of the loop nest. The callable `fn` must accept an
+ * `index_of_rank<sizeof...(LoopOprder)>` in the case of `for_each_index<>`,
+ * or `sizeof...(LoopOrder)` `index_t` objects in the case of
+ * `for_all_indices<>`.  */
 template <size_t... LoopOrder, class Shape, class Fn,
     class = internal::enable_if_callable<Fn, typename Shape::index_type>,
     std::enable_if_t<(sizeof...(LoopOrder) == 0), int> = 0>
@@ -2604,6 +2632,37 @@ template <class NewShape, class T, class OldShape, class Allocator>
 const_array_ref<T, NewShape> reinterpret_shape(
     const array<T, OldShape, Allocator>& a, const NewShape& new_shape, index_t offset = 0) {
   return reinterpret_shape(a.cref(), new_shape, offset);
+}
+
+/** Reinterpret the shape of the array or array_ref `a` to be transposed
+ * or reordered using `transpose<DimIndices...>(a.shape())` or
+ * `reorder<DimIndices...>(a.shape())`. */
+template <size_t... DimIndices, class T, class OldShape,
+    class = internal::enable_if_permutation<OldShape::rank(), DimIndices...>>
+auto transpose(const array_ref<T, OldShape>& a) {
+  return reinterpret_shape(a, transpose<DimIndices...>(a.shape()));
+}
+template <size_t... DimIndices, class T, class OldShape, class Allocator,
+    class = internal::enable_if_permutation<OldShape::rank(), DimIndices...>>
+auto transpose(array<T, OldShape, Allocator>& a) {
+  return reinterpret_shape(a, transpose<DimIndices...>(a.shape()));
+}
+template <size_t... DimIndices, class T, class OldShape, class Allocator,
+    class = internal::enable_if_permutation<OldShape::rank(), DimIndices...>>
+auto transpose(const array<T, OldShape, Allocator>& a) {
+  return reinterpret_shape(a, transpose<DimIndices...>(a.shape()));
+}
+template <size_t... DimIndices, class T, class OldShape>
+auto reorder(const array_ref<T, OldShape>& a) {
+  return reinterpret_shape(a, reorder<DimIndices...>(a.shape()));
+}
+template <size_t... DimIndices, class T, class OldShape, class Allocator>
+auto reorder(array<T, OldShape, Allocator>& a) {
+  return reinterpret_shape(a, reorder<DimIndices...>(a.shape()));
+}
+template <size_t... DimIndices, class T, class OldShape, class Allocator>
+auto reorder(const array<T, OldShape, Allocator>& a) {
+  return reinterpret_shape(a, reorder<DimIndices...>(a.shape()));
 }
 
 /** Allocator satisfying the `std::allocator` interface which allocates memory
