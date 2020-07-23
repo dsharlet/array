@@ -1139,14 +1139,19 @@ NDARRAY_INLINE void advance(Ptr& ptr, Ptrs&... ptrs) {
   advance<D>(ptrs...);
 }
 
+template <class Fn, class... Ptrs>
+void for_each_value_in_order_inner_dense(index_t extent, Fn&& fn, Ptrs... ptrs) {
+  for (index_t i = 0; i < extent; i++) {
+    fn(*ptrs++...);
+  }
+}
+
 template <size_t D, class ExtentType, class Fn, class... Ptrs,
     std::enable_if_t<(D == 0), int> = 0>
 void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
   index_t extent_d = std::get<D>(extent);
   if (all(std::get<D>(std::get<1>(ptrs)) == 1 ...)) {
-    for (index_t i = 0; i < extent_d; i++) {
-      fn(*std::get<0>(ptrs)++...);
-    }
+    for_each_value_in_order_inner_dense(extent_d, fn, std::get<0>(ptrs)...);
   } else {
     for (index_t i = 0; i < extent_d; i++) {
       fn(*std::get<0>(ptrs)...);
