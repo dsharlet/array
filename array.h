@@ -566,7 +566,7 @@ index_t product(const Tuple& t, index_sequence<Is...>) {
 
 // Returns true if all of bools are true.
 template <class... Bools>
-bool all(Bools... bools) {
+constexpr bool all(Bools... bools) {
   return sum((bools ? 0 : 1)...) == 0;
 }
 
@@ -819,7 +819,7 @@ constexpr index_t factorial(index_t x) {
 // but it would be pretty tricky to check that all of [0, Rank) is in `Is...`
 template <size_t Rank, size_t... Is>
 using enable_if_permutation = std::enable_if_t<
-    sizeof...(Is) == Rank && product((Is + 2)...) == factorial(Rank + 1)>;
+    sizeof...(Is) == Rank && all(Is < Rank...) && product((Is + 2)...) == factorial(Rank + 1)>;
 
 }  // namespace internal
 
