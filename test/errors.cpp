@@ -96,6 +96,12 @@ void shape_transpose_not_permutation3() {
   transpose<0, 2>(s);
 }
 
+void shape_transpose_not_permutation4() {
+  shape_of_rank<3> s3;
+  // (4 + 2)*2*2 = 4! = 24, a tricky case for enable_if_permutation.
+  transpose<0, 0, 4>(s4);
+}
+
 void shape_operator_eq_different_rank() {
   shape_of_rank<3> s2;
   s == s2;
