@@ -46,6 +46,11 @@ void conv2d_tiled(const Input& input, const Filter& filter, const Output& output
   // Adjust this depending on the target architecture. For AVX2,
   // vectors are 256-bit.
   constexpr index_t vector_size = 32 / sizeof(T);
+
+  // The strategy used here is:
+  // - vectorize the channel dimension (assume it has stride 1)
+  // - tile x and y to get some re-use of the stencil, and to
+  //   get ILP for the accumulators.
   constexpr index_t unroll_x = 2;
   constexpr index_t unroll_y = 4;
 
@@ -128,12 +133,17 @@ void conv2d_tiled_c(
   // Adjust this depending on the target architecture. For AVX2,
   // vectors are 256-bit.
   constexpr index_t vector_size = 32 / sizeof(float);
+
+  // The strategy used here is:
+  // - vectorize the channel dimension (assume it has stride 1)
+  // - tile x and y to get some re-use of the stencil, and to
+  //   get ILP for the accumulators.
   constexpr index_t unroll_x = 2;
   constexpr index_t unroll_y = 4;
 
   for (index_t yo = 0; yo < height; yo += unroll_y) {
-    for (index_t co = 0; co < Channels; co += vector_size) {
-      for (index_t xo = 0; xo < width; xo += unroll_x) {
+    for (index_t xo = 0; xo < width; xo += unroll_x) {
+      for (index_t co = 0; co < Channels; co += vector_size) {
         float buffer[unroll_x * unroll_y * vector_size] = { 0.0f };
         for (index_t dy = 0; dy < DY; dy++) {
           for (index_t dx = 0; dx < DX; dx++) {
