@@ -78,6 +78,49 @@ void conv2d_tiled(const Input& input, const Filter& filter, const Output& output
   }
 }
 
+
+// This generates the following inner loop:
+// LBB12_6:
+//   vmovups -256(%r8,%r14), %ymm9
+//   vfmadd231ps     -384(%rdi,%r15), %ymm9, %ymm1
+//   vmovups -256(%rdi,%r15), %ymm10
+//   vfmadd231ps     %ymm10, %ymm9, %ymm2
+//   vfmadd231ps     -384(%r12,%r15), %ymm9, %ymm3
+//   vmovups -256(%r12,%r15), %ymm11
+//   vfmadd231ps     -384(%r10,%r15), %ymm9, %ymm5
+//   vfmadd231ps     %ymm11, %ymm9, %ymm4
+//   vmovups -256(%r10,%r15), %ymm12
+//   vfmadd231ps     %ymm12, %ymm9, %ymm6
+//   vfmadd231ps     -384(%r13,%r15), %ymm9, %ymm7
+//   vmovups -256(%r13,%r15), %ymm13
+//   vfmadd213ps     %ymm8, %ymm13, %ymm9
+//   vmovups -128(%r8,%r14), %ymm8
+//   vfmadd231ps     %ymm10, %ymm8, %ymm1
+//   vmovups -128(%rdi,%r15), %ymm10
+//   vfmadd231ps     %ymm11, %ymm8, %ymm3
+//   vmovups -128(%r12,%r15), %ymm11
+//   vfmadd231ps     %ymm12, %ymm8, %ymm5
+//   vmovups -128(%r10,%r15), %ymm12
+//   vfmadd231ps     %ymm13, %ymm8, %ymm7
+//   vmovups -128(%r13,%r15), %ymm13
+//   vfmadd231ps     %ymm10, %ymm8, %ymm2
+//   vfmadd231ps     %ymm11, %ymm8, %ymm4
+//   vfmadd231ps     %ymm12, %ymm8, %ymm6
+//   vfmadd213ps     %ymm9, %ymm13, %ymm8
+//   vmovups (%r8,%r14), %ymm9
+//   vfmadd231ps     %ymm10, %ymm9, %ymm1
+//   vfmadd231ps     %ymm11, %ymm9, %ymm3
+//   vfmadd231ps     %ymm12, %ymm9, %ymm5
+//   vfmadd231ps     (%rdi,%r15), %ymm9, %ymm2
+//   vfmadd231ps     (%r12,%r15), %ymm9, %ymm4
+//   vfmadd231ps     (%r10,%r15), %ymm9, %ymm6
+//   vfmadd231ps     %ymm13, %ymm9, %ymm7
+//   vfmadd231ps     (%r13,%r15), %ymm9, %ymm8
+//   addq    $384, %r14
+//   addq    %rsi, %r15
+//   cmpq    $1408, %r14
+//   jne     LBB12_6
+
 template <index_t Channels, index_t DX, index_t DY>
 void conv2d_tiled_c(
     const float* input, const float* filter, float* output,
