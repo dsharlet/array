@@ -21,7 +21,7 @@
 using namespace nda;
 
 template <typename Input, typename Filter, typename Output>
-void conv_naive(const Input& input, const Filter& filter, const Output& output) {
+void conv3d_naive(const Input& input, const Filter& filter, const Output& output) {
   for (index_t n : output.template dim<3>()) {
     for (index_t y : output.template dim<2>()) {
       for (index_t x : output.template dim<1>()) {
@@ -42,7 +42,7 @@ void conv_naive(const Input& input, const Filter& filter, const Output& output) 
 
 template <typename Input, typename Filter, typename Output>
 __attribute__((always_inline))
-void conv(const Input& input, const Filter& filter, const Output& output) {
+void conv3d(const Input& input, const Filter& filter, const Output& output) {
   typedef typename Output::value_type T;
 
   for (index_t n : output.template dim<3>()) {
@@ -64,7 +64,7 @@ void conv(const Input& input, const Filter& filter, const Output& output) {
 }
 
 template <typename Input, typename Filter, typename Output>
-void conv_tiled(const Input& input, const Filter& filter, const Output& output) {
+void conv3d_tiled(const Input& input, const Filter& filter, const Output& output) {
   typedef typename Output::value_type T;
 
   // Adjust this depending on the target architecture. For AVX2,
@@ -85,7 +85,7 @@ void conv_tiled(const Input& input, const Filter& filter, const Output& output) 
 
           // TODO: This is slow, probably due to potential aliasing that
           // we can't fix due to https://bugs.llvm.org/show_bug.cgi?id=45863
-          conv(input, filter, output_tile);
+          conv3d(input, filter, output_tile);
         }
       }
     }
@@ -120,18 +120,18 @@ int main(int, const char**) {
 
   auto naive_output = make_array<float>(tensor_shape<CO, W, H, N>());
   double naive_time = benchmark([&]() {
-    conv_naive(input.cref(), filter.cref(), naive_output.ref());
+    conv3d_naive(input.cref(), filter.cref(), naive_output.ref());
   });
   std::cout << "naive time: " << naive_time * 1e3 << " ms" << std::endl;
 
   auto tiled_output = make_array<float>(tensor_shape<CO, W, H, N>());
   double tiled_time = benchmark([&]() {
-    conv_tiled(input.cref(), filter.cref(), tiled_output.ref());
+    conv3d_tiled(input.cref(), filter.cref(), tiled_output.ref());
   });
   std::cout << "tiled time: " << tiled_time * 1e3 << " ms" << std::endl;
 
   const float epsilon = 1e-4f;
-  for_each_index(naive_output.shape(), [&](const shape_of_rank<4>::index_type& i) {
+  for_each_index(naive_output.shape(), [&](const index_of_rank<4>& i) {
     if (std::abs(naive_output(i) - tiled_output(i)) > epsilon) {
       std::cout
         << "naive_output(i) = " << naive_output(i)
