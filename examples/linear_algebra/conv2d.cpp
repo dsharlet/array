@@ -26,10 +26,8 @@ void conv2d(const Input& input, const Filter& filter, const Output& output) {
     for (index_t x : output.x()) {
       for (index_t c : output.c()) {
         output(x, y, c) = 0;
-      }
-      for (index_t dy : filter.y()) {
-        for (index_t dx : filter.x()) {
-          for (index_t c : output.c()) {
+        for (index_t dy : filter.y()) {
+          for (index_t dx : filter.x()) {
             output(x, y, c) += input(x + dx, y + dy, c) * filter(dx, dy, c);
           }
         }
@@ -62,7 +60,9 @@ void conv2d_tiled(const Input& input, const Filter& filter, const Output& output
         auto accumulator = make_array_ref(buffer, make_compact(output_tile.shape()));
         for (index_t dy : filter.y()) {
           for (index_t dx : filter.x()) {
+            #pragma unroll
             for (index_t y : accumulator.y()) {
+              #pragma unroll
               for (index_t x : accumulator.x()) {
                 for (index_t c : accumulator.c()) {
                   accumulator(x, y, c) += input(x + dx, y + dy, c) * filter(dx, dy, c);
