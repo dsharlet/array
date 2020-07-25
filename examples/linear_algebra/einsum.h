@@ -86,6 +86,34 @@ auto ein_at(const einsum_arg<Arg, Is...>& ein, const Idx& i) {
   return std::get<0>(ein)(std::get<Is>(i)...);
 }
 
+template <class T>
+T product() { return static_cast<T>(1); }
+template <class T, class... Ts>
+T product(T a, Ts... b) { return a * product<T>(b...); }
+
+template <size_t LoopRank, class... Args, class Result>
+void einsum_impl(const Result& result, const Args&... args) {
+  const auto& result_dims = std::get<0>(result).shape().dims();
+
+  // Gather the dimensions identified by the indices. gather_dims keeps the
+  // first dimension, so we want that to be the result dimension if it is
+  // present. If not, this selects one of the argument dimensions, which will
+  // have stride 0.
+  auto reduction_shape = make_shape_from_tuple(gather_dims(
+      std::make_index_sequence<LoopRank>(),
+      std::make_tuple(result_dims, std::get<1>(result)),
+      std::make_tuple(reductions(std::get<0>(args).shape().dims()), std::get<1>(args))...));
+
+  // TODO: Try to compile-time optimize reduction_shape :)
+
+  // Reinterpret the result as having a shape of the reduction dimensions.
+  auto reduction = reinterpret_shape(std::get<0>(result), reduction_shape);
+
+  for_each_index(reduction_shape, [&](const index_of_rank<LoopRank>& i) {
+    reduction(i) += product(ein_at(args, i)...);
+  });
+}
+
 }  // namespace internal
 
 template <
@@ -96,29 +124,7 @@ void einsum(
     const einsum_arg<ResultArg, ResultIs...>& result) {
   constexpr size_t LoopRank = internal::variadic_max(Arg1Is..., ResultIs...) + 1;
 
-  const auto& result_dims = std::get<0>(result).shape().dims();
-
-  // Dimensions we take from the operands are reductions, i.e. they should
-  // have stride 0.
-  const auto& arg1_dims = internal::reductions(std::get<0>(arg1).shape().dims());
-
-  // Gather the dimensions identified by the indices. gather_dims keeps the
-  // first dimension, so we want that to be the result dimension if it is
-  // present. If not, this selects one of the argument dimensions, which will
-  // have stride 0.
-  auto reduction_shape = make_shape_from_tuple(internal::gather_dims(
-      std::make_index_sequence<LoopRank>(),
-      std::make_tuple(result_dims, std::get<1>(result)),
-      std::make_tuple(arg1_dims, std::get<1>(arg1))));
-
-  // TODO: Try to compile-time optimize reduction_shape :)
-
-  // Reinterpret the result as having a shape of the reduction dimensions.
-  auto reduction = reinterpret_shape(std::get<0>(result), reduction_shape);
-
-  for_each_index(reduction_shape, [&](const index_of_rank<LoopRank>& i) {
-    reduction(i) += internal::ein_at(arg1, i);
-  });
+  internal::einsum_impl<LoopRank>(result, arg1);
 }
 
 template <
@@ -130,31 +136,7 @@ void einsum(
     const einsum_arg<ResultArg, ResultIs...>& result) {
   constexpr size_t LoopRank = internal::variadic_max(Arg1Is..., Arg2Is..., ResultIs...) + 1;
 
-  const auto& result_dims = std::get<0>(result).shape().dims();
-
-  // Dimensions we take from the operands are reductions, i.e. they should
-  // have stride 0.
-  const auto& arg1_dims = internal::reductions(std::get<0>(arg1).shape().dims());
-  const auto& arg2_dims = internal::reductions(std::get<0>(arg2).shape().dims());
-
-  // Gather the dimensions identified by the indices. gather_dims keeps the
-  // first dimension, so we want that to be the result dimension if it is
-  // present. If not, this selects one of the argument dimensions, which will
-  // have stride 0.
-  auto reduction_shape = make_shape_from_tuple(internal::gather_dims(
-      std::make_index_sequence<LoopRank>(),
-      std::make_tuple(result_dims, std::get<1>(result)),
-      std::make_tuple(arg1_dims, std::get<1>(arg1)),
-      std::make_tuple(arg2_dims, std::get<1>(arg2))));
-
-  // TODO: Try to compile-time optimize reduction_shape :)
-
-  // Reinterpret the result as having a shape of the reduction dimensions.
-  auto reduction = reinterpret_shape(std::get<0>(result), reduction_shape);
-
-  for_each_index(reduction_shape, [&](const index_of_rank<LoopRank>& i) {
-    reduction(i) += internal::ein_at(arg1, i) * internal::ein_at(arg2, i);
-  });
+  internal::einsum_impl<LoopRank>(result, arg1, arg2);
 }
 
 }  // namespace nda
