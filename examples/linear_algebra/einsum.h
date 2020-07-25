@@ -65,29 +65,59 @@ auto reconcile_dim(const std::tuple<Dims...>& dims) {
 }
 
 // Gather all of the dimensions for einsum arguments into one shape.
-template <
-    size_t Dim, size_t... Arg1Is, size_t... Arg2Is, size_t... Arg3Is,
-    class Dims1, class Dims2, class Dims3>
-auto gather_dim(
-    const einsum_arg<Dims1, Arg1Is...>& arg1,
-    const einsum_arg<Dims2, Arg2Is...>& arg2,
-    const einsum_arg<Dims3, Arg3Is...>& arg3) {
-  return reconcile_dim(std::tuple_cat(
-      get_tuple<index_of<Dim, Arg1Is...>()>(std::get<0>(arg1)),
-      get_tuple<index_of<Dim, Arg2Is...>()>(std::get<0>(arg2)),
-      get_tuple<index_of<Dim, Arg3Is...>()>(std::get<0>(arg3))));
+template <size_t Dim, size_t... Is, class Dims>
+auto gather_dim(const einsum_arg<Dims, Is...>& arg) {
+  return get_tuple<index_of<Dim, Is...>()>(std::get<0>(arg));
+}
+template <size_t Dim, class... Args>
+auto gather_dims(const Args&... args) {
+  return reconcile_dim(std::tuple_cat(gather_dim<Dim>(args)...));
 }
 template <class... Dims, size_t... Is>
 auto gather_dims(std::index_sequence<Is...>, const Dims&... dims) {
-  return std::make_tuple(gather_dim<Is>(dims...)...);
+  return std::make_tuple(gather_dims<Is>(dims...)...);
 }
 
+// Call operator() on an einsum argument, using the einsum indices as a shuffle.
 template <class Idx, class Arg, size_t... Is>
 auto ein_at(const einsum_arg<Arg, Is...>& ein, const Idx& i) {
   return std::get<0>(ein)(std::get<Is>(i)...);
 }
 
 }  // namespace internal
+
+template <
+    size_t... Arg1Is, size_t... ResultIs,
+    class Arg1, class ResultArg>
+void einsum(
+    const einsum_arg<Arg1, Arg1Is...>& arg1,
+    const einsum_arg<ResultArg, ResultIs...>& result) {
+  constexpr size_t LoopRank = internal::variadic_max(Arg1Is..., ResultIs...) + 1;
+
+  const auto& result_dims = std::get<0>(result).shape().dims();
+
+  // Dimensions we take from the operands are reductions, i.e. they should
+  // have stride 0.
+  const auto& arg1_dims = internal::reductions(std::get<0>(arg1).shape().dims());
+
+  // Gather the dimensions identified by the indices. gather_dims keeps the
+  // first dimension, so we want that to be the result dimension if it is
+  // present. If not, this selects one of the argument dimensions, which will
+  // have stride 0.
+  auto reduction_shape = make_shape_from_tuple(internal::gather_dims(
+      std::make_index_sequence<LoopRank>(),
+      std::make_tuple(result_dims, std::get<1>(result)),
+      std::make_tuple(arg1_dims, std::get<1>(arg1))));
+
+  // TODO: Try to compile-time optimize reduction_shape :)
+
+  // Reinterpret the result as having a shape of the reduction dimensions.
+  auto reduction = reinterpret_shape(std::get<0>(result), reduction_shape);
+
+  for_each_index(reduction_shape, [&](const index_of_rank<LoopRank>& i) {
+    reduction(i) += internal::ein_at(arg1, i);
+  });
+}
 
 template <
     size_t... Arg1Is, size_t... Arg2Is, size_t... ResultIs,
