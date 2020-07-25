@@ -46,8 +46,10 @@ auto reductions(const std::tuple<Dims...>& dims) {
   return reductions(dims, std::make_index_sequence<sizeof...(Dims)>());
 }
 
-// If a dim appears other than twice in gather_dims, the summation is ill-formed.
+// If a dim appears more than twice in gather_dims, the summation is ill-formed.
 // TODO: Not sure about that...
+template <class Dim1>
+auto reconcile_dim(const Dim1& dim1) { return dim1; }
 template <class Dim1, class Dim2>
 auto reconcile_dim(const Dim1& dim1, const Dim2& dim2) {
   assert(dim1.min() == dim2.min());
