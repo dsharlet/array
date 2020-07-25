@@ -86,6 +86,11 @@ auto gather_dims(std::index_sequence<Is...>, const Dims&... dims) {
   return std::make_tuple(gather_dim<Is>(dims...)...);
 }
 
+template <class Idx, class Arg, size_t... Is>
+auto ein_at(const einsum_arg<Arg, Is...>& ein, const Idx& i) {
+  return std::get<0>(ein)(std::get<Is>(i)...);
+}
+
 }  // namespace internal
 
 template <
@@ -117,11 +122,8 @@ void einsum(
   // Reinterpret the result as having a shape of the reduction dimensions.
   auto reduction = reinterpret_shape(std::get<0>(result), reduction_shape);
 
-  auto op1 = std::get<0>(arg1);
-  auto op2 = std::get<0>(arg2);
-
   for_each_index(reduction_shape, [&](const index_of_rank<LoopRank>& i) {
-    reduction(i) += op1(std::get<Arg1Is>(i)...) * op2(std::get<Arg2Is>(i)...);
+    reduction(i) += internal::ein_at(arg1, i) * internal::ein_at(arg2, i);
   });
 }
 
