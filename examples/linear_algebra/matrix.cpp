@@ -151,7 +151,8 @@ void multiply_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_
 template <class T>
 void multiply_einsum(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   fill(c, static_cast<T>(0));
-  einsum(ein<0, 2>(a), ein<2, 1>(b), ein<0, 1>(c));
+  enum { i = 0, j = 1, k = 2 };
+  einsum(ein<i, k>(a), ein<k, j>(b), ein<i, j>(c));
 }
 
 float relative_error(float a, float b) {
