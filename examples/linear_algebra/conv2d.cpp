@@ -143,6 +143,7 @@ void conv2d_tiled_c(
 
   for (index_t yo = 0; yo < height; yo += unroll_y) {
     for (index_t xo = 0; xo < width; xo += unroll_x) {
+      // TODO: Putting this outermost should be better, but it's slower.
       for (index_t co = 0; co < Channels; co += vector_size) {
         float buffer[unroll_x * unroll_y * vector_size] = { 0.0f };
         for (index_t dy = 0; dy < DY; dy++) {

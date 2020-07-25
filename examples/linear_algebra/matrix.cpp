@@ -25,9 +25,7 @@ using namespace nda;
 // reduction loop is innermost.
 template <typename T>
 __attribute__((noinline))
-void multiply_reduce_cols(
-    const_matrix_ref<T> a, const_matrix_ref<T> b,
-    matrix_ref<T> c) {
+void multiply_reduce_cols(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
       c(i, j) = 0;
@@ -42,8 +40,7 @@ void multiply_reduce_cols(
 // indicates the performance overhead (if any) of the array helpers.
 template <typename TAB, typename TC>
 __attribute__((noinline))
-void multiply_ref(
-    const TAB* a, const TAB* b, TC* c, int M, int K, int N) {
+void multiply_ref(const TAB* a, const TAB* b, TC* c, int M, int K, int N) {
   for (int i = 0; i < M; i++) {
     for (int j = 0; j < N; j++) {
       TC sum = 0;
@@ -60,9 +57,7 @@ void multiply_ref(
 // an easier loop to vectorize (it does not vectorize a reduction variable).
 template <typename T>
 __attribute__((noinline))
-void multiply_reduce_rows(
-    const_matrix_ref<T> a, const_matrix_ref<T> b,
-    matrix_ref<T> c) {
+void multiply_reduce_rows(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
       c(i, j) = 0;
@@ -112,9 +107,7 @@ void multiply_reduce_rows(
 // of my machine.
 template <typename T>
 __attribute__((noinline))
-void multiply_reduce_tiles(
-    const_matrix_ref<T> a, const_matrix_ref<T> b,
-    matrix_ref<T> c) {
+void multiply_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   // Adjust this depending on the target architecture. For AVX2,
   // vectors are 256-bit.
   constexpr index_t vector_size = 32 / sizeof(T);
