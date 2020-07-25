@@ -129,6 +129,9 @@ class index_iterator {
   NDARRAY_INLINE index_iterator& operator++() { ++i_; return *this; }
 };
 
+template <index_t Min, index_t Extent, index_t Stride>
+class dim;
+
 /** Describes a half-open interval of indices. The template parameters enable
  * providing compile time constants for the `min` and `extent` of the interval.
  * The values in the interval `[min, min + extent)` are considered in bounds.
@@ -220,6 +223,10 @@ class interval {
   NDARRAY_INLINE bool is_in_range(const interval<OtherMin, OtherExtent>& at) const {
     return min() <= at.min() && at.max() <= max();
   }
+  template <index_t OtherMin, index_t OtherExtent, index_t OtherStride>
+  NDARRAY_INLINE bool is_in_range(const dim<OtherMin, OtherExtent, OtherStride>& at) const {
+    return min() <= at.min() && at.max() <= max();
+  }
 
   /** Make an iterator referring to the first index in this interval. */
   index_iterator begin() const { return index_iterator(min()); }
@@ -286,103 +293,6 @@ index_t clamp(index_t x, const Range& r) {
   return clamp(x, r.min(), r.max());
 }
 
-namespace internal {
-
-// An iterator for a range of intervals.
-template <index_t InnerExtent = dynamic>
-class split_iterator {
-  fixed_interval<InnerExtent> i;
-  index_t outer_max;
-
- public:
-  split_iterator(const fixed_interval<InnerExtent>& i, index_t outer_max)
-      : i(i), outer_max(outer_max) {}
-
-  bool operator==(const split_iterator& r) const { return i.min() == r.i.min(); }
-  bool operator!=(const split_iterator& r) const { return i.min() != r.i.min(); }
-
-  fixed_interval<InnerExtent> operator *() const { return i; }
-
-  split_iterator& operator++() {
-    if (is_static(InnerExtent)) {
-      // When the extent of the inner split is a compile-time constant,
-      // we can't shrink the out of bounds interval. Instead, shift the min,
-      // assuming the outer dimension is bigger than the inner extent.
-      i.set_min(i.min() + InnerExtent);
-      // Only shift the min when this straddles the end of the buffer,
-      // so the iterator can advance to the end (one past the max).
-      if (i.min() <= outer_max && i.max() > outer_max) {
-        i.set_min(outer_max - InnerExtent + 1);
-      }
-    } else {
-      // When the extent of the inner split is not a compile-time constant,
-      // we can just modify the extent.
-      i.set_min(i.min() + i.extent());
-      index_t max = std::min(i.max(), outer_max);
-      i.set_extent(max - i.min() + 1);
-    }
-    return *this;
-  }
-  split_iterator operator++(int) {
-    split_iterator<InnerExtent> result(i);
-    ++result;
-    return result;
-  }
-};
-
-// TODO: Remove this when std::iterator_range is standard.
-template <class T>
-class iterator_range {
-  T begin_;
-  T end_;
-
- public:
-  iterator_range(T begin, T end) : begin_(begin), end_(end) {}
-
-  T begin() const { return begin_; }
-  T end() const { return end_; }
-};
-
-template <index_t InnerExtent = dynamic>
-using split_iterator_range = iterator_range<split_iterator<InnerExtent>>;
-
-}  // namespace internal
-
-/** Split an interval `v` into an iteratable range of intervals by a compile-time
- * constant `InnerExtent`. If `InnerExtent` does not divide `v.extent()`,
- * the last interval will be shifted to overlap with the second-to-last iteration,
- * to preserve the compile-time constant extent, which implies `v.extent()`
- * must be larger `InnerExtent`.
- *
- * Examples:
- * - `split<4>(interval<>(0, 8))` produces the intervals `[0, 4)`, `[4, 8)`.
- * - `split<5>(interval<>(0, 12))` produces the intervals `[0, 5)`,
- *   `[5, 10)`, `[7, 12)`. Note the last two intervals overlap. */
-template <index_t InnerExtent, index_t Min, index_t Extent>
-internal::split_iterator_range<InnerExtent> split(const interval<Min, Extent>& v) {
-  assert(v.extent() >= InnerExtent);
-  return {
-      {fixed_interval<InnerExtent>(v.min()), v.max()},
-      {fixed_interval<InnerExtent>(v.max() + 1), v.max()}};
-}
-
-/** Split an interval `v` into an iterable range of intervals by `inner_extent`. If
- * `inner_extent` does not divide `v.extent()`, the last iteration will be
- * clamped to the outer interval.
- *
- * Examples:
- * - `split(interval<>(0, 12), 5)` produces the intervals `[0, 5)`,
- * `  [5, 10)`, `[10, 12)`. */
-// TODO: This probably doesn't need to be templated, but it might help
-// avoid some conversion messes. dim<Min, Extent> probably can't implicitly
-// convert to interval<>.
-template <index_t Min, index_t Extent>
-internal::split_iterator_range<> split(const interval<Min, Extent>& v, index_t inner_extent) {
-  return {
-      {interval<>(v.min(), inner_extent), v.max()},
-      {interval<>(v.max() + 1, inner_extent), v.max()}};
-}
-
 /** Describes one dimension of an array. The template parameters enable
  * providing compile time constants for the `min`, `extent`, and `stride` of the
  * dim.
@@ -394,7 +304,7 @@ internal::split_iterator_range<> split(const interval<Min, Extent>& v, index_t i
 // TODO: Consider adding helper class constant<Value> to use for the members of
 // dim. (https://github.com/dsharlet/array/issues/1)
 template <index_t Min_ = dynamic, index_t Extent_ = dynamic, index_t Stride_ = dynamic>
-class dim : public interval<Min_, Extent_> {
+class dim : private interval<Min_, Extent_> {
  protected:
   index_t stride_;
 
@@ -512,6 +422,111 @@ using broadcast_dim = dim<Min, Extent, 0>;
 
 namespace internal {
 
+// An iterator for a range of intervals.
+template <index_t InnerExtent = dynamic>
+class split_iterator {
+  fixed_interval<InnerExtent> i;
+  index_t outer_max;
+
+ public:
+  split_iterator(const fixed_interval<InnerExtent>& i, index_t outer_max)
+      : i(i), outer_max(outer_max) {}
+
+  bool operator==(const split_iterator& r) const { return i.min() == r.i.min(); }
+  bool operator!=(const split_iterator& r) const { return i.min() != r.i.min(); }
+
+  fixed_interval<InnerExtent> operator *() const { return i; }
+
+  split_iterator& operator++() {
+    if (is_static(InnerExtent)) {
+      // When the extent of the inner split is a compile-time constant,
+      // we can't shrink the out of bounds interval. Instead, shift the min,
+      // assuming the outer dimension is bigger than the inner extent.
+      i.set_min(i.min() + InnerExtent);
+      // Only shift the min when this straddles the end of the buffer,
+      // so the iterator can advance to the end (one past the max).
+      if (i.min() <= outer_max && i.max() > outer_max) {
+        i.set_min(outer_max - InnerExtent + 1);
+      }
+    } else {
+      // When the extent of the inner split is not a compile-time constant,
+      // we can just modify the extent.
+      i.set_min(i.min() + i.extent());
+      index_t max = std::min(i.max(), outer_max);
+      i.set_extent(max - i.min() + 1);
+    }
+    return *this;
+  }
+  split_iterator operator++(int) {
+    split_iterator<InnerExtent> result(i);
+    ++result;
+    return result;
+  }
+};
+
+// TODO: Remove this when std::iterator_range is standard.
+template <class T>
+class iterator_range {
+  T begin_;
+  T end_;
+
+ public:
+  iterator_range(T begin, T end) : begin_(begin), end_(end) {}
+
+  T begin() const { return begin_; }
+  T end() const { return end_; }
+};
+
+template <index_t InnerExtent = dynamic>
+using split_iterator_range = iterator_range<split_iterator<InnerExtent>>;
+
+}  // namespace internal
+
+/** Split an interval `v` into an iteratable range of intervals by a compile-time
+ * constant `InnerExtent`. If `InnerExtent` does not divide `v.extent()`,
+ * the last interval will be shifted to overlap with the second-to-last iteration,
+ * to preserve the compile-time constant extent, which implies `v.extent()`
+ * must be larger `InnerExtent`.
+ *
+ * Examples:
+ * - `split<4>(interval<>(0, 8))` produces the intervals `[0, 4)`, `[4, 8)`.
+ * - `split<5>(interval<>(0, 12))` produces the intervals `[0, 5)`,
+ *   `[5, 10)`, `[7, 12)`. Note the last two intervals overlap. */
+template <index_t InnerExtent, index_t Min, index_t Extent>
+internal::split_iterator_range<InnerExtent> split(const interval<Min, Extent>& v) {
+  assert(v.extent() >= InnerExtent);
+  return {
+      {fixed_interval<InnerExtent>(v.min()), v.max()},
+      {fixed_interval<InnerExtent>(v.max() + 1), v.max()}};
+}
+template <index_t InnerExtent, index_t Min, index_t Extent, index_t Stride>
+internal::split_iterator_range<InnerExtent> split(const dim<Min, Extent, Stride>& v) {
+  return split<InnerExtent>(interval<Min, Extent>(v.min(), v.extent()));
+}
+
+/** Split an interval `v` into an iterable range of intervals by `inner_extent`. If
+ * `inner_extent` does not divide `v.extent()`, the last iteration will be
+ * clamped to the outer interval.
+ *
+ * Examples:
+ * - `split(interval<>(0, 12), 5)` produces the intervals `[0, 5)`,
+ * `  [5, 10)`, `[10, 12)`. */
+// TODO: This probably doesn't need to be templated, but it might help
+// avoid some conversion messes. dim<Min, Extent> probably can't implicitly
+// convert to interval<>.
+template <index_t Min, index_t Extent>
+internal::split_iterator_range<> split(const interval<Min, Extent>& v, index_t inner_extent) {
+  return {
+      {interval<>(v.min(), inner_extent), v.max()},
+      {interval<>(v.max() + 1, inner_extent), v.max()}};
+}
+template <index_t Min, index_t Extent, index_t Stride>
+internal::split_iterator_range<> split(const dim<Min, Extent, Stride>& v, index_t inner_extent) {
+  return split(interval<Min, Extent>(v.min(), v.extent()), inner_extent);
+}
+
+namespace internal {
+
 using std::index_sequence;
 using std::make_index_sequence;
 
@@ -569,6 +584,10 @@ template <class... Bools>
 constexpr bool all(Bools... bools) {
   return sum((bools ? 0 : 1)...) == 0;
 }
+template <class... Bools>
+constexpr bool any(Bools... bools) {
+  return sum((bools ? 1 : 0)...) != 0;
+}
 
 // Computes the sum of the offsets of a list of dims and indices.
 template <class Dims, class Indices, size_t... Is>
@@ -606,9 +625,18 @@ template <index_t DimMin, index_t DimExtent, index_t DimStride>
 auto range_with_stride(index_t x, const dim<DimMin, DimExtent, DimStride>& d) {
   return dim<dynamic, 1, DimStride>(x, 1, d.stride());
 }
-template <index_t CropMin, index_t CropExtent, index_t DimMin, index_t DimExtent, index_t Stride>
+template <
+    index_t CropMin, index_t CropExtent,
+    index_t DimMin, index_t DimExtent, index_t Stride>
 auto range_with_stride(
     const interval<CropMin, CropExtent>& x, const dim<DimMin, DimExtent, Stride>& d) {
+  return dim<CropMin, CropExtent, Stride>(x.min(), x.extent(), d.stride());
+}
+template <
+    index_t CropMin, index_t CropExtent, index_t CropStride,
+    index_t DimMin, index_t DimExtent, index_t Stride>
+auto range_with_stride(
+    const dim<CropMin, CropExtent, CropStride>& x, const dim<DimMin, DimExtent, Stride>& d) {
   return dim<CropMin, CropExtent, Stride>(x.min(), x.extent(), d.stride());
 }
 template <index_t Min, index_t Extent, index_t Stride>
@@ -623,9 +651,11 @@ auto intervals_with_strides(const Intervals& intervals, const Dims& dims, index_
 
 // Make a tuple of dims corresponding to elements in intervals that are not slices.
 template <class Dim>
-std::tuple<> skip_slices_impl(const Dim& dim, index_t) { return std::tuple<>(); }
-template <class Dim>
-std::tuple<Dim> skip_slices_impl(const Dim& dim, const interval<>&) { return std::tuple<Dim>(dim); }
+std::tuple<> skip_slices_impl(const Dim& d, index_t) { return std::tuple<>(); }
+template <class Dim, index_t Min, index_t Extent>
+std::tuple<Dim> skip_slices_impl(const Dim& d, const interval<Min, Extent>&) { return std::tuple<Dim>(d); }
+template <class Dim, index_t Min, index_t Extent, index_t Stride>
+std::tuple<Dim> skip_slices_impl(const Dim& d, const dim<Min, Extent, Stride>&) { return std::tuple<Dim>(d); }
 
 template <class Dims, class Intervals, size_t... Is>
 auto skip_slices(const Dims& dims, const Intervals& intervals, index_sequence<Is...>) {
@@ -643,6 +673,8 @@ template <class Dim>
 index_t min_of_range(index_t x, const Dim&) { return x; }
 template <index_t Min, index_t Extent, class Dim>
 index_t min_of_range(const interval<Min, Extent>& x, const Dim&) { return x.min(); }
+template <index_t Min, index_t Extent, index_t Stride, class Dim>
+index_t min_of_range(const dim<Min, Extent, Stride>& x, const Dim&) { return x.min(); }
 template <class Dim>
 index_t min_of_range(const decltype(_)&, const Dim& dim) { return dim.min(); }
 
@@ -784,17 +816,23 @@ struct tuple_of_n<T, 0> {
   using type = std::tuple<>;
 };
 
-// A helper to check if a parameter pack is entirely implicitly convertible to type T, for use with
-// std::enable_if
+// A helper to check if a parameter pack is entirely implicitly convertible to
+// any type Ts, for use with std::enable_if
 template <class T, class... Args>
-struct all_of_type : std::false_type {};
+struct all_of_any_type : std::false_type {};
 template <class T>
-struct all_of_type<T> : std::true_type {};
-template <class T, class Arg, class... Args>
-struct all_of_type<T, Arg, Args...> {
+struct all_of_any_type<T> : std::true_type {};
+template <class... Ts, class Arg, class... Args>
+struct all_of_any_type<std::tuple<Ts...>, Arg, Args...> {
   static constexpr bool value =
-      std::is_constructible<T, Arg>::value && all_of_type<T, Args...>::value;
+      any(std::is_constructible<Ts, Arg>::value...) &&
+      all_of_any_type<std::tuple<Ts...>, Args...>::value;
 };
+
+// Wrapper for checking if a parameter pack is entirely implicitly convertible
+// to one type T.
+template <class T, class... Args>
+using all_of_type = all_of_any_type<std::tuple<T>, Args...>;
 
 template <size_t I, class T, class... Us, std::enable_if_t<(I < sizeof...(Us)), int> = 0>
 auto convert_dim(const std::tuple<Us...>& u) {
@@ -885,7 +923,7 @@ class shape {
 
   template <class... Args>
   using enable_if_slices = std::enable_if_t<
-      internal::all_of_type<interval<>, Args...>::value &&
+      internal::all_of_any_type<std::tuple<interval<>, dim<>>, Args...>::value &&
       !internal::all_of_type<index_t, Args...>::value>;
 
   template <size_t Dim>
@@ -1720,7 +1758,7 @@ class array_ref {
 
   template <class... Args>
   using enable_if_slices = std::enable_if_t<
-      internal::all_of_type<interval<>, Args...>::value &&
+      internal::all_of_any_type<std::tuple<interval<>, dim<>>, Args...>::value &&
       !internal::all_of_type<index_t, Args...>::value>;
 
   template <size_t Dim>
@@ -1923,7 +1961,7 @@ class array {
 
   template <class... Args>
   using enable_if_slices = std::enable_if_t<
-      internal::all_of_type<interval<>, Args...>::value &&
+      internal::all_of_any_type<std::tuple<interval<>, dim<>>, Args...>::value &&
       !internal::all_of_type<index_t, Args...>::value>;
 
   template <size_t Dim>

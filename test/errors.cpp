@@ -25,26 +25,25 @@ dense_array<int, 3> a;
 const dense_array<int, 3> const_a;
 
 void range_range_bad_copy_construct() {
-  fixed_range<3> x;
+  fixed_interval<3> x;
   interval<0, 2> y(x);
 }
 
 void range_bad_assign() {
-  fixed_range<3> x;
+  fixed_interval<3> x;
   x = interval<0, 2>();
 }
 
 void range_bad_equality() {
-  fixed_range<3> x;
+  fixed_interval<3> x;
   interval<0, 2> y;
   x == y;
 }
 
-// TODO: This builds due to https://github.com/dsharlet/array/issues/21
-//void dim_dim_bad_copy_construct() {
-//  dim<0, 1, 2> strided;
-//  dense_dim<> x2(strided);
-//}
+void dim_dim_bad_copy_construct() {
+  dim<0, 1, 2> strided;
+  dense_dim<> x2(strided);
+}
 
 void dim_bad_assign() {
   dense_dim<> x;
