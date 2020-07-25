@@ -653,9 +653,13 @@ auto intervals_with_strides(const Intervals& intervals, const Dims& dims, index_
 template <class Dim>
 std::tuple<> skip_slices_impl(const Dim& d, index_t) { return std::tuple<>(); }
 template <class Dim, index_t Min, index_t Extent>
-std::tuple<Dim> skip_slices_impl(const Dim& d, const interval<Min, Extent>&) { return std::tuple<Dim>(d); }
+std::tuple<Dim> skip_slices_impl(const Dim& d, const interval<Min, Extent>&) {
+  return std::tuple<Dim>(d);
+}
 template <class Dim, index_t Min, index_t Extent, index_t Stride>
-std::tuple<Dim> skip_slices_impl(const Dim& d, const dim<Min, Extent, Stride>&) { return std::tuple<Dim>(d); }
+std::tuple<Dim> skip_slices_impl(const Dim& d, const dim<Min, Extent, Stride>&) {
+  return std::tuple<Dim>(d);
+}
 
 template <class Dims, class Intervals, size_t... Is>
 auto skip_slices(const Dims& dims, const Intervals& intervals, index_sequence<Is...>) {
