@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/** \file image.h
- * \brief Optional image-specific helpers and specializations.
-*/
 #ifndef NDARRAY_EINSUM_H
 #define NDARRAY_EINSUM_H
 
@@ -22,9 +19,10 @@
 
 namespace nda {
 
+/** Argument for an Einstein summation, which is an array along with
+ * a set of dimension indices. */
 template <class Arg, size_t... Is>
 using einsum_arg = std::tuple<Arg, std::index_sequence<Is...>>;
-
 template <size_t... Is, class Arg>
 einsum_arg<Arg, Is...> ein(const Arg& op) {
   return {op, std::index_sequence<Is...>()};
@@ -113,6 +111,8 @@ void einsum(
       std::make_tuple(result_dims, std::get<1>(result)),
       std::make_tuple(arg1_dims, std::get<1>(arg1)),
       std::make_tuple(arg2_dims, std::get<1>(arg2))));
+
+  // TODO: Try to compile-time optimize reduction_shape :)
 
   // Reinterpret the result as having a shape of the reduction dimensions.
   auto reduction = reinterpret_shape(std::get<0>(result), reduction_shape);
