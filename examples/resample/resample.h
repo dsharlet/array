@@ -233,9 +233,11 @@ void resample(array_ref<TIn, ShapeIn> in, array_ref<TOut, ShapeOut> out,
               continuous_kernel kernel) {
   // Make the kernels we need at each output x and y coordinate in the output.
   internal::kernel_array kernels_x =
-      internal::build_kernels(in.x(), out.x(), rate_x, kernel);
+      internal::build_kernels(
+          {in.x().min(), in.x().extent()}, {out.x().min(), out.x().extent()}, rate_x, kernel);
   internal::kernel_array kernels_y =
-      internal::build_kernels(in.y(), out.y(), rate_y, kernel);
+      internal::build_kernels(
+          {in.y().min(), in.y().extent()}, {out.y().min(), out.y().extent()}, rate_y, kernel);
 
   // Split the image into horizontal strips.
   constexpr index_t StripSize = 64;
