@@ -46,16 +46,12 @@ auto reductions(const std::tuple<Dims...>& dims) {
   return reductions(dims, std::make_index_sequence<sizeof...(Dims)>());
 }
 
-// Given a list of dimensions, assert they have all equal min and extent,
-// and return the first.
-template <class Dim>
-auto reconcile_dim(const Dim& dim) {
-  return dim;
-}
-template <class Dim1, class... Dims>
-auto reconcile_dim(const Dim1& dim1, const Dims&... dims) {
-  assert(all(dim1.min() == dims.min()...));
-  assert(all(dim1.max() == dims.max()...));
+// If a dim appears other than twice in gather_dims, the summation is ill-formed.
+// TODO: Not sure about that...
+template <class Dim1, class Dim2>
+auto reconcile_dim(const Dim1& dim1, const Dim2& dim2) {
+  assert(dim1.min() == dim2.min());
+  assert(dim1.max() == dim2.max());
   return dim1;
 }
 
@@ -95,12 +91,11 @@ auto ein_at(const einsum_arg<Arg, Is...>& ein, const Idx& i) {
 
 template <
     size_t... Arg1Is, size_t... Arg2Is, size_t... ResultIs,
-    class Arg1, class Arg2, class T, class Shape>
+    class Arg1, class Arg2, class ResultArg>
 void einsum(
     const einsum_arg<Arg1, Arg1Is...>& arg1,
     const einsum_arg<Arg2, Arg2Is...>& arg2,
-    const einsum_arg<array_ref<T, Shape>, ResultIs...>& result) {
-
+    const einsum_arg<ResultArg, ResultIs...>& result) {
   constexpr size_t LoopRank = internal::variadic_max(Arg1Is..., Arg2Is..., ResultIs...) + 1;
 
   const auto& result_dims = std::get<0>(result).shape().dims();
@@ -110,7 +105,10 @@ void einsum(
   const auto& arg1_dims = internal::reductions(std::get<0>(arg1).shape().dims());
   const auto& arg2_dims = internal::reductions(std::get<0>(arg2).shape().dims());
 
-  // Gather the dimensions identified by the indices.
+  // Gather the dimensions identified by the indices. gather_dims keeps the
+  // first dimension, so we want that to be the result dimension if it is
+  // present. If not, this selects one of the argument dimensions, which will
+  // have stride 0.
   auto reduction_shape = make_shape_from_tuple(internal::gather_dims(
       std::make_index_sequence<LoopRank>(),
       std::make_tuple(result_dims, std::get<1>(result)),
@@ -126,7 +124,6 @@ void einsum(
     reduction(i) += internal::ein_at(arg1, i) * internal::ein_at(arg2, i);
   });
 }
-
 
 }  // namespace nda
 
