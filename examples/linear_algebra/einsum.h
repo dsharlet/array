@@ -25,7 +25,7 @@ template <class Arg, size_t... Is>
 using einsum_arg = std::tuple<Arg, std::index_sequence<Is...>>;
 template <size_t... Is, class Arg>
 einsum_arg<Arg, Is...> ein(const Arg& op) {
-  return {op, std::index_sequence<Is...>()};
+  return std::make_tuple(op, std::index_sequence<Is...>());
 }
 
 namespace internal {
