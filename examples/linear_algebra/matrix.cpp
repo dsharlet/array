@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "matrix.h"
+#include "einsum.h"
 #include "benchmark.h"
 
 #include <random>
@@ -147,6 +148,12 @@ void multiply_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_
   }
 }
 
+template <class T>
+void multiply_einsum(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+  fill(c, static_cast<T>(0));
+  einsum(ein<0, 2>(a), ein<2, 1>(b), ein<0, 1>(c));
+}
+
 float relative_error(float a, float b) {
   return std::abs(a - b) / std::max(a, b);
 }
@@ -181,6 +188,7 @@ int main(int, const char**) {
     { "reduce_cols", multiply_reduce_cols<float> },
     { "reduce_rows", multiply_reduce_rows<float> },
     { "reduce_tiles", multiply_reduce_tiles<float> },
+    { "einsum", multiply_einsum<float> },
   };
   for (auto i : versions) {
     // Compute the result using all matrix multiply methods.
