@@ -173,17 +173,11 @@ void multiply_einsum_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_
   constexpr index_t tile_rows = 4;
   constexpr index_t tile_cols = vector_size * 3;
 
-  // Define an automatic storage allocator for the result of each tile.
-  uninitialized_auto_allocator<T, tile_rows*tile_cols, vector_size*sizeof(T)> tile_allocator;
-
   for (auto io : split<tile_rows>(c.i())) {
     for (auto jo : split<tile_cols>(c.j())) {
-      // Perform the matrix multiplication for this tile.
-      auto result_tile =
-          make_einsum<T, i, j>(ein<i, k>(a(io, _)), ein<k, j>(b(_, jo)), tile_allocator);
-
-      // Copy the accumulators to the output.
-      copy(result_tile, c(io, jo));
+      auto c_ijo = c(io, jo);
+      fill(c_ijo, static_cast<T>(0));
+      einsum(ein<i, k>(a), ein<k, j>(b), ein<i, j>(c_ijo));
     }
   }
 }
