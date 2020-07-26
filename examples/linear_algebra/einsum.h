@@ -113,15 +113,15 @@ void einsum_impl(const Result& result, const Args&... args) {
   const auto& result_dims = std::get<0>(result).shape().dims();
 
   // Gather the dimensions identified by the indices. gather_dims keeps the
-  // first dimension, so we want that to be the result dimension if it is
-  // present. If not, this selects one of the argument dimensions, which will
-  // have stride 0.
+  // first dimension it finds, so we want that to be the result dimension if it
+  // is present. If not, this selects one of the argument dimensions, which are
+  // given stride 0.
   auto reduction_shape = make_shape_from_tuple(gather_dims(
       std::make_index_sequence<LoopRank>(),
       std::make_tuple(result_dims, std::get<1>(result)),
       std::make_tuple(reductions(std::get<0>(args).shape().dims()), std::get<1>(args))...));
 
-  // TODO: Try to compile-time optimize reduction_shape :)
+  // TODO: Try to compile-time optimize reduction_shape? :)
 
   // Reinterpret the result as having a shape of the reduction dimensions.
   auto reduction = reinterpret_shape(std::get<0>(result), reduction_shape);
@@ -131,6 +131,7 @@ void einsum_impl(const Result& result, const Args&... args) {
   });
 }
 
+// Figure out the shape of the result of an einsum.
 template <size_t... ResultIs, class... Args>
 auto infer_einsum_result_shape(const Args&... args) {
   return make_shape_from_tuple(infer_result_dims(
@@ -160,11 +161,23 @@ auto ein(const array<T, Shape, Alloc>& op) {
   return ein<Is...>(op.cref());
 }
 
-/** Compute an Einstein summation. TODO: Comment this better. It requires
- * a lot of docs. */
+/** Compute an Einstein summation. This function allows one to specify
+ * many kinds of array transformations and reductions using Einstein
+ * notation.
+ *
+ * TODO: More documentation (a lot more).
+ *
+ * Examples:
+ * - `tr(A) = make_einsum<T>(ein<0, 0>(A))`
+ * - `dot(x, y) = make_einsum<T>(ein<0>(x), ein<0>(y))`
+ * - `A*B = make_einsum<T, 0, 1>(ein<0, 2>(A), ein<2, 1>(B))`
+ * - `A*x = make_einsum<T, 0>(ein<0, 1>(A), ein<1>(x))`
+ *
+ * where `A`, `B` are matrices (rank 2 arrays) and `x`, `y` are vectors
+ * (rank 1 arrays).
+ **/
 template <
-    size_t... Arg1Is, size_t... Arg2Is, size_t... ResultIs,
-    class Arg1, class Arg2, class ResultArg>
+    class Arg1, size_t... Arg1Is, class Arg2, size_t... Arg2Is, class ResultArg, size_t... ResultIs>
 void einsum(
     const internal::einsum_arg<Arg1, Arg1Is...>& arg1,
     const internal::einsum_arg<Arg2, Arg2Is...>& arg2,
@@ -185,13 +198,17 @@ void einsum(
 }
 // TODO: Consider supporting einsum of more than 2 operands.
 
-/** Compute an Einstein summation and return the result. The type of the
+/** Compute an Einstein summation and return the result. The `value_type` of the
  * result will be `T`, and the shape will be inferred from the shape of the
  * operands. The Einstein summation indices for the result are `ResultIs...`. */
+// TODO: Allow specifying the allocator.
+// TODO: Allow a default ResultIs... = 0, 1, 2, ... This requires also inferring
+// the rank of the result.
 template <class T, size_t... ResultIs, class... Args>
 auto make_einsum(const Args&... args) {
   auto result_shape = internal::infer_einsum_result_shape<ResultIs...>(args...);
   // TODO: use make_array<T>(shape, 0) when overload ambiguity is fixed.
+  // TODO: This would really benefit from addressing https://github.com/dsharlet/array/issues/31
   auto result = make_array<T>(make_compact(result_shape));
   einsum(args..., ein<ResultIs...>(result));
   return result;

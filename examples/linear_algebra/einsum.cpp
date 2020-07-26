@@ -33,8 +33,8 @@ int main(int, const char**) {
   constexpr index_t M = 12;
   constexpr index_t N = 8;
 
-  matrix<float, N, N> a;
-  matrix<float, M, N> b;
+  matrix<float, N, N> A;
+  matrix<float, M, N> B;
   vector<float, N> x;
   vector<float, N> y;
   vector<float, M> z;
@@ -44,29 +44,29 @@ int main(int, const char**) {
   // arrays with random data.
   std::mt19937_64 rng;
   std::uniform_real_distribution<float> uniform(0, 1);
-  generate(a, [&]() { return uniform(rng); });
-  generate(b, [&]() { return uniform(rng); });
+  generate(A, [&]() { return uniform(rng); });
+  generate(B, [&]() { return uniform(rng); });
   generate(x, [&]() { return uniform(rng); });
   generate(y, [&]() { return uniform(rng); });
 
   // trace(a)
-  float tr = make_einsum<float>(ein<i, i>(a))();
+  float tr = make_einsum<float>(ein<i, i>(A))();
   float tr_ref = 0.0f;
-  for (index_t i : a.i()) {
-    tr_ref += a(i, i);
+  for (index_t i : A.i()) {
+    tr_ref += A(i, i);
   }
   assert(relative_error(tr, tr_ref) < tolerance);
 
   // diag(a)
-  auto a_diag = make_einsum<float, i>(ein<i, i>(a));
-  for (index_t i : a.i()) {
-    assert(a_diag(i) == a(i, i));
+  auto a_diag = make_einsum<float, i>(ein<i, i>(A));
+  for (index_t i : A.i()) {
+    assert(a_diag(i) == A(i, i));
   }
 
   // dot(x, y)
   float dot = make_einsum<float>(ein<i>(x), ein<i>(y))();
   float dot_ref = 0.0f;
-  for (index_t i : a.i()) {
+  for (index_t i : A.i()) {
     dot_ref += x(i) * y(i);
   }
   assert(relative_error(dot, dot_ref) < tolerance);
@@ -79,6 +79,16 @@ int main(int, const char**) {
     for (index_t j : outer.j()) {
       assert(outer(i, j) == x(i) * z(j));
     }
+  }
+
+  // B*x
+  auto Bx = make_einsum<float, i>(ein<i, j>(B), ein<j>(x));
+  for (index_t i : Bx.i()) {
+    float Bx_i = 0.0f;
+    for (index_t j : x.i()) {
+      Bx_i += B(i, j) * x(j);
+    }
+    assert(relative_error(Bx(i), Bx_i) < tolerance);
   }
 
   return 0;
