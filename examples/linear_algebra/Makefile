@@ -13,7 +13,8 @@ bin/%: %.cpp $(ARRAY_DEPS)
 clean:
 	rm -rf obj/* bin/*
 
-test: bin/matrix bin/conv2d bin/conv3d
+test: bin/matrix bin/conv2d bin/conv3d bin/einsum
 	bin/matrix
 	bin/conv2d
 	bin/conv3d
+	bin/einsum

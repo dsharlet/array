@@ -144,15 +144,18 @@ auto infer_einsum_result_shape(const Args&... args) {
  * a set of dimension indices. `ein<i, j, ...>(a)` means the dimensions
  * `i, j, ...` of the summation index are used to address `a` during
  * Einstein summation. See `einsum` for more details. */
-template <size_t... Is, class T, class Shape>
+template <size_t... Is, class T, class Shape,
+    class = std::enable_if_t<sizeof...(Is) == Shape::rank()>>
 auto ein(const array_ref<T, Shape>& op) {
   return std::make_tuple(op, std::index_sequence<Is...>());
 }
-template <size_t... Is, class T, class Shape, class Alloc>
+template <size_t... Is, class T, class Shape, class Alloc,
+    class = std::enable_if_t<sizeof...(Is) == Shape::rank()>>
 auto ein(array<T, Shape, Alloc>& op) {
   return ein<Is...>(op.ref());
 }
-template <size_t... Is, class T, class Shape, class Alloc>
+template <size_t... Is, class T, class Shape, class Alloc,
+    class = std::enable_if_t<sizeof...(Is) == Shape::rank()>>
 auto ein(const array<T, Shape, Alloc>& op) {
   return ein<Is...>(op.cref());
 }
@@ -188,6 +191,7 @@ void einsum(
 template <class T, size_t... ResultIs, class... Args>
 auto make_einsum(const Args&... args) {
   auto result_shape = internal::infer_einsum_result_shape<ResultIs...>(args...);
+  // TODO: use make_array<T>(shape, 0) when overload ambiguity is fixed.
   auto result = make_array<T>(make_compact(result_shape));
   einsum(args..., ein<ResultIs...>(result));
   return result;
