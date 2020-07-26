@@ -34,12 +34,6 @@ void range_bad_assign() {
   x = interval<0, 2>();
 }
 
-void range_bad_equality() {
-  fixed_interval<3> x;
-  interval<0, 2> y;
-  x == y;
-}
-
 void dim_dim_bad_copy_construct() {
   dim<0, 1, 2> strided;
   dense_dim<> x2(strided);
@@ -48,12 +42,6 @@ void dim_dim_bad_copy_construct() {
 void dim_bad_assign() {
   dense_dim<> x;
   x = dim<0, 1, 2>();
-}
-
-void dim_bad_equality() {
-  dense_dim<> x;
-  dim<0, 1, 2> y;
-  x == y;
 }
 
 void shape_dim_bad_index() {

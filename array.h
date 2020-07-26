@@ -235,15 +235,11 @@ class interval {
 
   /** Two interval objects are considered equal if they contain the
    * same indices. */
-  template <index_t OtherMin, index_t OtherExtent,
-      class = internal::enable_if_compatible<Min, OtherMin>,
-      class = internal::enable_if_compatible<Extent, OtherExtent>>
+  template <index_t OtherMin, index_t OtherExtent>
   bool operator==(const interval<OtherMin, OtherExtent>& other) const {
     return min() == other.min() && extent() == other.extent();
   }
-  template <index_t OtherMin, index_t OtherExtent,
-      class = internal::enable_if_compatible<Min, OtherMin>,
-      class = internal::enable_if_compatible<Extent, OtherExtent>>
+  template <index_t OtherMin, index_t OtherExtent>
   bool operator!=(const interval<OtherMin, OtherExtent>& other) const {
     return !operator==(other);
   }
@@ -385,17 +381,11 @@ class dim : private interval<Min_, Extent_> {
 
   /** Two dim objects are considered equal if their mins, extents, and strides
    * are equal. */
-  template <index_t OtherMin, index_t OtherExtent, index_t OtherStride,
-      class = internal::enable_if_compatible<Min, OtherMin>,
-      class = internal::enable_if_compatible<Extent, OtherExtent>,
-      class = internal::enable_if_compatible<Stride, OtherStride>>
+  template <index_t OtherMin, index_t OtherExtent, index_t OtherStride>
   bool operator==(const dim<OtherMin, OtherExtent, OtherStride>& other) const {
     return min() == other.min() && extent() == other.extent() && stride() == other.stride();
   }
-  template <index_t OtherMin, index_t OtherExtent, index_t OtherStride,
-      class = internal::enable_if_compatible<Min, OtherMin>,
-      class = internal::enable_if_compatible<Extent, OtherExtent>,
-      class = internal::enable_if_compatible<Stride, OtherStride>>
+  template <index_t OtherMin, index_t OtherExtent, index_t OtherStride>
   bool operator!=(const dim<OtherMin, OtherExtent, OtherStride>& other) const {
     return !operator==(other);
   }

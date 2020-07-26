@@ -47,8 +47,10 @@ template <class Dim1>
 auto reconcile_dim(const Dim1& dim1) { return dim1; }
 template <class Dim1, class Dim2>
 auto reconcile_dim(const Dim1& dim1, const Dim2& dim2) {
-  assert(dim1.stride() != 0 || dim2.stride() != 0 || dim1.min() == dim2.min());
-  assert(dim1.stride() != 0 || dim2.stride() != 0 || dim1.max() == dim2.max());
+  // If both dims are broadcasts, the intervals should match.
+  assert(dim1.stride() != 0 || dim2.stride() != 0 || dim1 == dim2);
+  // dim2 will be accessed with dim1's bounds, so check this is possible.
+  assert(dim2.is_in_range(dim1));
   return dim1;
 }
 
