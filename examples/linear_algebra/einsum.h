@@ -166,7 +166,7 @@ auto ein(const array<T, Shape, Alloc>& op) {
  * notation. See https://en.wikipedia.org/wiki/Einstein_notation for more
  * information about the notation itself.
  *
- * This function accepts a list of arguments arg0, arg1, ... result.
+ * This function accepts a list of arguments arg0, ..., result.
  * Each argument is the result of the `ein<i, j, ...>(arg)` helper
  * function, which describes which dimensions of the summation index
  * should be used to address that argument.
@@ -204,7 +204,6 @@ void einsum(
 
   internal::einsum_impl<LoopRank>(result, arg0);
 }
-// TODO: Consider supporting einsum of more than 2 operands.
 
 /** Infer the shape of the result of `make_einsum`. */
 template <size_t... ResultIs, class... Args>
@@ -216,7 +215,8 @@ auto make_einsum_shape(const Args&... args) {
 
 /** Compute an Einstein summation and return the result. The `value_type` of the
  * result will be `T`, and the shape will be inferred from the shape of the
- * operands. The Einstein summation indices for the result are `ResultIs...`.
+ * operands. The result is initialized to 0 prior to computing the summation.
+ * The Einstein summation indices for the result are `ResultIs...`.
  *
  * Examples:
  * - `tr(A) = make_einsum<T>(ein<0, 0>(A))`
@@ -230,17 +230,31 @@ auto make_einsum_shape(const Args&... args) {
  **/
 // TODO: Add an overload with a default ResultIs... = 0, 1, 2, ... This requires
 // also inferring the rank of the result.
-// TODO: Allow specifying the allocator. This is hard to do in a way that follows
-// existing conventions without template/overload ambiguity. For now,
-// `make_einsum_shape` allows one to work around this.
-template <class T, size_t... ResultIs, class... Args>
-auto make_einsum(const Args&... args) {
-  // TODO: use make_array<T>(shape, 0) when overload ambiguity is fixed.
-  auto result = make_array<T>(make_einsum_shape<ResultIs...>(args...));
-  fill(result, static_cast<T>(0));
-  einsum(args..., ein<ResultIs...>(result));
+template <
+    class T, size_t... ResultIs, class Arg0, size_t... Arg0Is, class Arg1, size_t... Arg1Is,
+    class Alloc = std::allocator<T>>
+auto make_einsum(
+    const internal::einsum_arg<Arg0, Arg0Is...>& arg0,
+    const internal::einsum_arg<Arg1, Arg1Is...>& arg1,
+    const Alloc& alloc = Alloc()) {
+  auto result_shape = make_einsum_shape<ResultIs...>(arg0, arg1);
+  auto result = make_array<T>(result_shape, static_cast<T>(0), alloc);
+  einsum(arg0, arg1, ein<ResultIs...>(result));
   return result;
 }
+template <
+    class T, size_t... ResultIs, class Arg0, size_t... Arg0Is,
+    class Alloc = std::allocator<T>>
+auto make_einsum(
+    const internal::einsum_arg<Arg0, Arg0Is...>& arg0,
+    const Alloc& alloc = Alloc()) {
+  auto result_shape = make_einsum_shape<ResultIs...>(arg0);
+  auto result = make_array<T>(result_shape, static_cast<T>(0), alloc);
+  einsum(arg0, ein<ResultIs...>(result));
+  return result;
+}
+
+// TODO: Consider supporting einsum of more than 2 operands.
 
 }  // namespace nda
 
