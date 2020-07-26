@@ -27,6 +27,7 @@ int main(int, const char**) {
   constexpr index_t M = 12;
   constexpr index_t N = 8;
 
+  array_of_rank<float, 3> T({4, 5, 8});
   matrix<float, N, N> A;
   matrix<float, M, N> B;
   vector<float, N> x;
@@ -88,6 +89,20 @@ int main(int, const char**) {
       Bx_i += B(i, j) * x(j);
     }
     assert(relative_error(Bx(i), Bx_i) < tolerance);
+  }
+
+  // sum(T)
+  float sumT = make_einsum<float>(ein<i, j, k>(T))();
+  float sumT_ref = 0.0f;
+  T.for_each_value([&](float i) { sumT_ref += i; });
+  assert(relative_error(sumT, sumT_ref) < tolerance);
+
+  // sum of the i and k dims of T
+  auto sum_ik = make_einsum<float, j>(ein<i, j, k>(T));
+  for (index_t j : T.j()) {
+    float sum_ik_ref = 0.0f;
+    T(_, j, _).for_each_value([&](float i) { sum_ik_ref += i; });
+    assert(relative_error(sum_ik(j), sum_ik_ref) < tolerance);
   }
 
   return 0;
