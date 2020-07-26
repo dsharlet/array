@@ -166,7 +166,7 @@ auto ein(const array<T, Shape, Alloc>& op) {
  * notation. See https://en.wikipedia.org/wiki/Einstein_notation for more
  * information about the notation itself.
  *
- * This function accepts a list of arguments arg1, arg2, ... result.
+ * This function accepts a list of arguments arg0, arg1, ... result.
  * Each argument is the result of the `ein<i, j, ...>(arg)` helper
  * function, which describes which dimensions of the summation index
  * should be used to address that argument.
@@ -185,24 +185,22 @@ auto ein(const array<T, Shape, Alloc>& op) {
  * - `tr_A`, `dot_xy` are scalar (rank 0 arrays)
  **/
 template <
-    class Arg1, size_t... Arg1Is, class Arg2, size_t... Arg2Is, class ResultArg, size_t... ResultIs>
+    class Arg0, size_t... Arg0Is, class Arg1, size_t... Arg1Is, class ResultArg, size_t... ResultIs>
 void einsum(
+    const internal::einsum_arg<Arg0, Arg0Is...>& arg0,
     const internal::einsum_arg<Arg1, Arg1Is...>& arg1,
-    const internal::einsum_arg<Arg2, Arg2Is...>& arg2,
     const internal::einsum_arg<ResultArg, ResultIs...>& result) {
-  constexpr size_t LoopRank = internal::variadic_max(Arg1Is..., Arg2Is..., ResultIs...) + 1;
+  constexpr size_t LoopRank = internal::variadic_max(Arg0Is..., Arg1Is..., ResultIs...) + 1;
 
-  internal::einsum_impl<LoopRank>(result, arg1, arg2);
+  internal::einsum_impl<LoopRank>(result, arg0, arg1);
 }
-template <
-    size_t... Arg1Is, size_t... ResultIs,
-    class Arg1, class ResultArg>
+template <size_t... Arg0Is, size_t... ResultIs, class Arg0, class ResultArg>
 void einsum(
-    const internal::einsum_arg<Arg1, Arg1Is...>& arg1,
+    const internal::einsum_arg<Arg0, Arg0Is...>& arg0,
     const internal::einsum_arg<ResultArg, ResultIs...>& result) {
-  constexpr size_t LoopRank = internal::variadic_max(Arg1Is..., ResultIs...) + 1;
+  constexpr size_t LoopRank = internal::variadic_max(Arg0Is..., ResultIs...) + 1;
 
-  internal::einsum_impl<LoopRank>(result, arg1);
+  internal::einsum_impl<LoopRank>(result, arg0);
 }
 // TODO: Consider supporting einsum of more than 2 operands.
 
