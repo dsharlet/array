@@ -14,16 +14,10 @@
 
 #include "matrix.h"
 #include "einsum.h"
-#include "benchmark.h"
 
 #include <random>
-#include <iostream>
 
 using namespace nda;
-
-enum { i = 0, j = 1, k = 2 };
-
-const float tolerance = 1e-4f;
 
 float relative_error(float a, float b) {
   return std::abs(a - b) / std::max(a, b);
@@ -39,6 +33,9 @@ int main(int, const char**) {
   vector<float, N> y;
   vector<float, M> z;
 
+  // Helpful names for dimensions we use in einsums.
+  enum { i = 0, j = 1, k = 2 };
+
   // `generate` assigns each element of the array with the
   // result of the generating function. Use this to fill the
   // arrays with random data.
@@ -48,6 +45,8 @@ int main(int, const char**) {
   generate(B, [&]() { return uniform(rng); });
   generate(x, [&]() { return uniform(rng); });
   generate(y, [&]() { return uniform(rng); });
+
+  const float tolerance = 1e-6f;
 
   // trace(a)
   float tr = make_einsum<float>(ein<i, i>(A))();
