@@ -2,9 +2,9 @@ CFLAGS := $(CFLAGS) -O2 -ffast-math -fstrict-aliasing -march=native
 CXXFLAGS := $(CXXFLAGS) -std=c++14 -Wall
 LDFLAGS := $(LDFLAGS)
 
-ARRAY_DEPS := ../../array.h ../../matrix.h ../benchmark.h
+DEPS := ../../array.h ../../matrix.h ../benchmark.h einsum.h
 
-bin/%: %.cpp $(ARRAY_DEPS)
+bin/%: %.cpp $(DEPS)
 	mkdir -p $(@D)
 	$(CXX) -I../../ -I../ -o $@ $< $(CFLAGS) $(CXXFLAGS) -lstdc++ -lm
 

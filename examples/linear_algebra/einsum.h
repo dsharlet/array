@@ -22,7 +22,7 @@ namespace nda {
 namespace internal {
 
 template <class Arg, size_t... Is>
-using einsum_arg = std::tuple<Arg, std::index_sequence<Is...>>;
+using einsum_arg = std::tuple<Arg, index_sequence<Is...>>;
 
 // Make a dimension a reduction dimension (give it a constexpr stride 0).
 template <index_t Min, index_t Extent, index_t Stride>
@@ -32,12 +32,12 @@ auto reduction(const dim<Min, Extent, Stride>& d) {
 
 // Make all of the dimensions reduction dimensions.
 template <class... Dims, size_t... Is>
-auto reductions(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
+auto reductions(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
   return std::make_tuple(reduction(std::get<Is>(dims))...);
 }
 template <class... Dims>
 auto reductions(const std::tuple<Dims...>& dims) {
-  return reductions(dims, std::make_index_sequence<sizeof...(Dims)>());
+  return reductions(dims, make_index_sequence<sizeof...(Dims)>());
 }
 
 // If a dim appears more than twice in gather_dims, the summation is ill-formed.
@@ -53,12 +53,12 @@ auto reconcile_dim(const Dim1& dim1, const Dim2& dim2) {
 }
 
 template <class... Dims, size_t... Is>
-auto reconcile_dim(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
+auto reconcile_dim(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
   return reconcile_dim(std::get<Is>(dims)...);
 }
 template <class... Dims>
 auto reconcile_dim(const std::tuple<Dims...>& dims) {
-  return reconcile_dim(dims, std::make_index_sequence<sizeof...(Dims)>());
+  return reconcile_dim(dims, make_index_sequence<sizeof...(Dims)>());
 }
 
 // Gather all of the dimensions for einsum arguments into one shape.
@@ -71,18 +71,18 @@ auto gather_dims(const Args&... args) {
   return reconcile_dim(std::tuple_cat(gather_dim<Dim>(args)...));
 }
 template <class... Dims, size_t... Is>
-auto gather_dims(std::index_sequence<Is...>, const Dims&... dims) {
+auto gather_dims(index_sequence<Is...>, const Dims&... dims) {
   return std::make_tuple(gather_dims<Is>(dims...)...);
 }
 
 // Infer the dims of the result of an einsum.
 template <class... Dims, size_t... Is>
-auto infer_result_dim(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
+auto infer_result_dim(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
   return reconcile_dim(std::get<Is>(dims)...);
 }
 template <class... Dims>
 auto infer_result_dim(const std::tuple<Dims...>& dims) {
-  return reconcile_dim(dims, std::make_index_sequence<sizeof...(Dims)>());
+  return reconcile_dim(dims, make_index_sequence<sizeof...(Dims)>());
 }
 
 template <size_t Dim, class... Args>
@@ -90,7 +90,7 @@ auto infer_result_dims(const Args&... args) {
   return infer_result_dim(std::tuple_cat(gather_dim<Dim>(args)...));
 }
 template <class... Dims, size_t... Is>
-auto infer_result_dims(std::index_sequence<Is...>, const Dims&... dims) {
+auto infer_result_dims(index_sequence<Is...>, const Dims&... dims) {
   return std::make_tuple(infer_result_dims<Is>(dims...)...);
 }
 
@@ -117,7 +117,7 @@ void einsum_impl(const Result& result, const Args&... args) {
   // is present. If not, this selects one of the argument dimensions, which are
   // given stride 0.
   auto reduction_shape = make_shape_from_tuple(gather_dims(
-      std::make_index_sequence<LoopRank>(),
+      make_index_sequence<LoopRank>(),
       std::make_tuple(result_dims, std::get<1>(result)),
       std::make_tuple(reductions(std::get<0>(args).shape().dims()), std::get<1>(args))...));
 
@@ -135,7 +135,7 @@ void einsum_impl(const Result& result, const Args&... args) {
 template <size_t... ResultIs, class... Args>
 auto infer_einsum_result_shape(const Args&... args) {
   return make_shape_from_tuple(infer_result_dims(
-    std::make_index_sequence<sizeof...(ResultIs)>(),
+    make_index_sequence<sizeof...(ResultIs)>(),
     std::make_tuple(std::get<0>(args).shape().dims(), std::get<1>(args))...));
 }
 
@@ -148,7 +148,7 @@ auto infer_einsum_result_shape(const Args&... args) {
 template <size_t... Is, class T, class Shape,
     class = std::enable_if_t<sizeof...(Is) == Shape::rank()>>
 auto ein(const array_ref<T, Shape>& op) {
-  return std::make_tuple(op, std::index_sequence<Is...>());
+  return std::make_tuple(op, internal::index_sequence<Is...>());
 }
 template <size_t... Is, class T, class Shape, class Alloc,
     class = std::enable_if_t<sizeof...(Is) == Shape::rank()>>
@@ -165,16 +165,23 @@ auto ein(const array<T, Shape, Alloc>& op) {
  * many kinds of array transformations and reductions using Einstein
  * notation.
  *
- * TODO: More documentation (a lot more).
+ * This function accepts a list of arguments arg1, arg2, ... result.
+ * Each argument is the result of the `ein<i, j, ...>(arg)` helper
+ * function, which describes which dimensions of the summation index
+ * should be used to address that argument.
+ *
+ * The result of the summation is added to the result.
  *
  * Examples:
- * - `tr(A) = make_einsum<T>(ein<0, 0>(A))`
- * - `dot(x, y) = make_einsum<T>(ein<0>(x), ein<0>(y))`
- * - `A*B = make_einsum<T, 0, 1>(ein<0, 2>(A), ein<2, 1>(B))`
- * - `A*x = make_einsum<T, 0>(ein<0, 1>(A), ein<1>(x))`
+ * - `einsum(ein<0, 0>(A), ein<>(tr_A))`, the trace of A.
+ * - `einsum(ein<0>(x), ein<0>(y), ein<>(dot_xy))`, the dot product x*y.
+ * - `einsum(ein<0, 2>(A), ein<2, 1>(B), einsum<0, 1>(AB))`, the matrix product A*B
+ * - `einsum(ein<0, 1>(A), ein<1>(x), ein<0>(Ax))`, the matrix-vector product A*x
  *
- * where `A`, `B` are matrices (rank 2 arrays) and `x`, `y` are vectors
- * (rank 1 arrays).
+ * where:
+ * - `A`, `B`, `AB` are matrices (rank 2 arrays)
+ * - `x`, `y`, `Ax` are vectors (rank 1 arrays)
+ * - `tr_A`, `dot_xy` are scalar (rank 0 arrays)
  **/
 template <
     class Arg1, size_t... Arg1Is, class Arg2, size_t... Arg2Is, class ResultArg, size_t... ResultIs>
@@ -200,7 +207,18 @@ void einsum(
 
 /** Compute an Einstein summation and return the result. The `value_type` of the
  * result will be `T`, and the shape will be inferred from the shape of the
- * operands. The Einstein summation indices for the result are `ResultIs...`. */
+ * operands. The Einstein summation indices for the result are `ResultIs...`.
+ *
+ * Examples:
+ * - `tr(A) = make_einsum<T>(ein<0, 0>(A))`
+ * - `dot(x, y) = make_einsum<T>(ein<0>(x), ein<0>(y))`
+ * - `A*B = make_einsum<T, 0, 1>(ein<0, 2>(A), ein<2, 1>(B))`
+ * - `A*x = make_einsum<T, 0>(ein<0, 1>(A), ein<1>(x))`
+ *
+ * where:
+ * - `A`, `B` are matrices (rank 2 arrays)
+ * - `x`, `y` are vectors (rank 1 arrays)
+ **/
 // TODO: Allow specifying the allocator.
 // TODO: Allow a default ResultIs... = 0, 1, 2, ... This requires also inferring
 // the rank of the result.
@@ -210,6 +228,7 @@ auto make_einsum(const Args&... args) {
   // TODO: use make_array<T>(shape, 0) when overload ambiguity is fixed.
   // TODO: This would really benefit from addressing https://github.com/dsharlet/array/issues/31
   auto result = make_array<T>(make_compact(result_shape));
+  fill(result, static_cast<T>(0));
   einsum(args..., ein<ResultIs...>(result));
   return result;
 }
