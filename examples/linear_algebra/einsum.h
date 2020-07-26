@@ -247,7 +247,7 @@ auto make_einsum_impl(const Alloc& alloc, const Ops&... ops) {
  * - `x`, `y` are vectors (rank 1 arrays)
  **/
 // The only reason we can't just variadic argument this like make_einsum_impl
-// is to have the result be the last argument :(
+// is to have the allocator be the last argument :(
 // TODO: Add an overload with a default ResultIs... = 0, 1, 2, ... This requires
 // also inferring the rank of the result.
 template <class T, size_t... ResultIs, class Op0, class Alloc = std::allocator<T>,
@@ -276,4 +276,4 @@ auto make_einsum(
 
 }  // namespace nda
 
-#endif  // NDARRAY_IMAGE_H
+#endif  // NDARRAY_EINSUM_H
