@@ -21,8 +21,8 @@ namespace nda {
 
 namespace internal {
 
-template <class Arg, size_t... Is>
-using einsum_arg = std::tuple<Arg, index_sequence<Is...>>;
+template <class Op, size_t... Is>
+using einsum_op = std::tuple<Op, index_sequence<Is...>>;
 
 // Make a dimension a reduction dimension (give it a constexpr stride 0).
 template <index_t Min, index_t Extent, index_t Stride>
@@ -63,14 +63,14 @@ auto reconcile_dim(const std::tuple<Dims...>& dims) {
   return reconcile_dim(dims, make_index_sequence<sizeof...(Dims)>());
 }
 
-// Gather all of the dimensions for einsum arguments into one shape.
+// Gather all of the dimensions for einsum operands into one shape.
 template <size_t Dim, size_t... Is, class Dims>
-auto gather_dim(const einsum_arg<Dims, Is...>& arg) {
-  return get_tuple<index_of<Dim, Is...>()>(std::get<0>(arg));
+auto gather_dim(const einsum_op<Dims, Is...>& op) {
+  return get_tuple<index_of<Dim, Is...>()>(std::get<0>(op));
 }
-template <size_t Dim, class... Args>
-auto gather_dims(const Args&... args) {
-  return reconcile_dim(std::tuple_cat(gather_dim<Dim>(args)...));
+template <size_t Dim, class... Ops>
+auto gather_dims(const Ops&... ops) {
+  return reconcile_dim(std::tuple_cat(gather_dim<Dim>(ops)...));
 }
 template <class... Dims, size_t... Is>
 auto gather_dims(index_sequence<Is...>, const Dims&... dims) {
@@ -87,18 +87,18 @@ auto infer_result_dim(const std::tuple<Dims...>& dims) {
   return reconcile_dim(dims, make_index_sequence<sizeof...(Dims)>());
 }
 
-template <size_t Dim, class... Args>
-auto infer_result_dims(const Args&... args) {
-  return infer_result_dim(std::tuple_cat(gather_dim<Dim>(args)...));
+template <size_t Dim, class... Ops>
+auto infer_result_dims(const Ops&... ops) {
+  return infer_result_dim(std::tuple_cat(gather_dim<Dim>(ops)...));
 }
 template <class... Dims, size_t... Is>
 auto infer_result_dims(index_sequence<Is...>, const Dims&... dims) {
   return std::make_tuple(infer_result_dims<Is>(dims...)...);
 }
 
-// Call operator() on an einsum argument, using the einsum indices as a shuffle.
-template <class Idx, class Arg, size_t... Is>
-NDARRAY_INLINE auto ein_at(const einsum_arg<Arg, Is...>& ein, const Idx& i) {
+// Call operator() on an einsum operand, using the einsum indices as a shuffle.
+template <class Idx, class Op, size_t... Is>
+NDARRAY_INLINE auto ein_at(const einsum_op<Op, Is...>& ein, const Idx& i) {
   return std::get<0>(ein)(std::get<Is>(i)...);
 }
 
@@ -113,23 +113,23 @@ constexpr size_t max(index_sequence<Is...>) {
   return variadic_max(Is...);
 }
 
-template <class... Args, class Result>
-void einsum_impl(const Result& result, const Args&... args) {
+template <class... Ops, class Result>
+void einsum_impl(const Result& result, const Ops&... ops) {
   // Get the total number of loops we need.
   constexpr size_t LoopRank = 1 + variadic_max(
-      max(typename std::tuple_element<1, Args>::type())...,
+      max(typename std::tuple_element<1, Ops>::type())...,
       max(typename std::tuple_element<1, Result>::type()));
 
   const auto& result_dims = std::get<0>(result).shape().dims();
 
   // Gather the dimensions identified by the indices. gather_dims keeps the
   // first dimension it finds, so we want that to be the result dimension if it
-  // is present. If not, this selects one of the argument dimensions, which are
+  // is present. If not, this selects one of the operand dimensions, which are
   // given stride 0.
   auto reduction_shape = make_shape_from_tuple(gather_dims(
       make_index_sequence<LoopRank>(),
       std::make_tuple(result_dims, std::get<1>(result)),
-      std::make_tuple(reductions(std::get<0>(args).shape().dims()), std::get<1>(args))...));
+      std::make_tuple(reductions(std::get<0>(ops).shape().dims()), std::get<1>(ops))...));
 
   // TODO: Try to compile-time optimize reduction_shape? :)
 
@@ -137,21 +137,21 @@ void einsum_impl(const Result& result, const Args&... args) {
   auto reduction = reinterpret_shape(std::get<0>(result), reduction_shape);
 
   for_each_index(reduction_shape, [&](const index_of_rank<LoopRank>& i) {
-    reduction(i) += product(ein_at(args, i)...);
+    reduction(i) += product(ein_at(ops, i)...);
   });
 }
 
 // Figure out the shape of the result of an einsum.
-template <size_t... ResultIs, class... Args>
-auto infer_einsum_result_shape(const Args&... args) {
+template <size_t... ResultIs, class... Ops>
+auto infer_einsum_result_shape(const Ops&... ops) {
   return make_shape_from_tuple(infer_result_dims(
     make_index_sequence<sizeof...(ResultIs)>(),
-    std::make_tuple(std::get<0>(args).shape().dims(), std::get<1>(args))...));
+    std::make_tuple(std::get<0>(ops).shape().dims(), std::get<1>(ops))...));
 }
 
 }  // namespace internal
 
-/** Argument for an Einstein summation, which is an array along with
+/** Opument for an Einstein summation, which is an array along with
  * a set of dimension indices. `ein<i, j, ...>(a)` means the dimensions
  * `i, j, ...` of the summation index are used to address `a` during
  * Einstein summation. See `einsum` for more details. */
@@ -176,10 +176,10 @@ auto ein(const array<T, Shape, Alloc>& op) {
  * notation. See https://en.wikipedia.org/wiki/Einstein_notation for more
  * information about the notation itself.
  *
- * This function accepts a list of arguments arg0, ..., result.
- * Each argument is the result of the `ein<i, j, ...>(arg)` helper
- * function, which describes which dimensions of the summation index
- * should be used to address that argument.
+ * This function accepts a list of operands op0, ..., result. Each operand
+ * is the result of the `ein<i, j, ...>(op)` helper function, which
+ * describes which dimensions of the summation index  should be used to
+ * address that operand.
  *
  * The result of the summation is added to `result`. `result` must be
  * initialized to some useful value (typically 0) before calling this
@@ -196,28 +196,42 @@ auto ein(const array<T, Shape, Alloc>& op) {
  * - `x`, `y`, `Ax` are vectors (rank 1 arrays)
  * - `tr_A`, `dot_xy` are scalar (rank 0 arrays)
  **/
-template <
-    class Arg0, size_t... Arg0Is, class Arg1, size_t... Arg1Is, class ResultArg, size_t... ResultIs>
-void einsum(
-    const internal::einsum_arg<Arg0, Arg0Is...>& arg0,
-    const internal::einsum_arg<Arg1, Arg1Is...>& arg1,
-    const internal::einsum_arg<ResultArg, ResultIs...>& result) {
-  internal::einsum_impl(result, arg0, arg1);
+template <class Op0, class Result>
+void einsum(const Op0& op0, const Result& result) {
+  internal::einsum_impl(result, op0);
 }
-template <size_t... Arg0Is, size_t... ResultIs, class Arg0, class ResultArg>
-void einsum(
-    const internal::einsum_arg<Arg0, Arg0Is...>& arg0,
-    const internal::einsum_arg<ResultArg, ResultIs...>& result) {
-  internal::einsum_impl(result, arg0);
+template <class Op0, class Op1, class Result>
+void einsum(const Op0& op0, const Op1& op1, const Result& result) {
+  internal::einsum_impl(result, op0, op1);
+}
+template <class Op0, class Op1, class Op2, class Result>
+void einsum(const Op0& op0, const Op1& op1, const Op2& op2, const Result& result) {
+  internal::einsum_impl(result, op0, op1, op2);
+}
+template <class Op0, class Op1, class Op2, class Op3, class Result>
+void einsum(const Op0& op0, const Op1& op1, const Op2& op2, const Op3& op3, const Result& result) {
+  internal::einsum_impl(result, op0, op1, op2, op3);
 }
 
 /** Infer the shape of the result of `make_einsum`. */
-template <size_t... ResultIs, class... Args>
-auto make_einsum_shape(const Args&... args) {
-  auto result_shape = internal::infer_einsum_result_shape<ResultIs...>(args...);
+template <size_t... ResultIs, class... Ops>
+auto make_einsum_shape(const Ops&... ops) {
+  auto result_shape = internal::infer_einsum_result_shape<ResultIs...>(ops...);
   // TODO: This would really benefit from addressing https://github.com/dsharlet/array/issues/31
   return make_compact(result_shape);
 }
+
+namespace internal {
+
+template <class T, size_t... ResultIs, class Alloc, class... Ops>
+auto make_einsum_impl(const Alloc& alloc, const Ops&... ops) {
+  auto result_shape = make_einsum_shape<ResultIs...>(ops...);
+  auto result = make_array<T>(result_shape, static_cast<T>(0), alloc);
+  internal::einsum_impl(ein<ResultIs...>(result), ops...);
+  return result;
+}
+
+}  // namespace internal
 
 /** Compute an Einstein summation and return the result. The `value_type` of the
  * result will be `T`, and the shape will be inferred from the shape of the
@@ -236,31 +250,29 @@ auto make_einsum_shape(const Args&... args) {
  **/
 // TODO: Add an overload with a default ResultIs... = 0, 1, 2, ... This requires
 // also inferring the rank of the result.
-template <
-    class T, size_t... ResultIs, class Arg0, size_t... Arg0Is, class Arg1, size_t... Arg1Is,
-    class Alloc = std::allocator<T>>
-auto make_einsum(
-    const internal::einsum_arg<Arg0, Arg0Is...>& arg0,
-    const internal::einsum_arg<Arg1, Arg1Is...>& arg1,
-    const Alloc& alloc = Alloc()) {
-  auto result_shape = make_einsum_shape<ResultIs...>(arg0, arg1);
-  auto result = make_array<T>(result_shape, static_cast<T>(0), alloc);
-  internal::einsum_impl(ein<ResultIs...>(result), arg0, arg1);
-  return result;
+template <class T, size_t... ResultIs, class Op0, class Alloc = std::allocator<T>,
+    class = internal::enable_if_allocator<Alloc>>
+auto make_einsum(const Op0& op0, const Alloc& alloc = Alloc()) {
+  return internal::make_einsum_impl<T, ResultIs...>(alloc, op0);
+}
+template <class T, size_t... ResultIs, class Op0, class Op1, class Alloc = std::allocator<T>,
+    class = internal::enable_if_allocator<Alloc>>
+auto make_einsum(const Op0& op0, const Op1& op1, const Alloc& alloc = Alloc()) {
+  return internal::make_einsum_impl<T, ResultIs...>(alloc, op0, op1);
 }
 template <
-    class T, size_t... ResultIs, class Arg0, size_t... Arg0Is,
-    class Alloc = std::allocator<T>>
-auto make_einsum(
-    const internal::einsum_arg<Arg0, Arg0Is...>& arg0,
-    const Alloc& alloc = Alloc()) {
-  auto result_shape = make_einsum_shape<ResultIs...>(arg0);
-  auto result = make_array<T>(result_shape, static_cast<T>(0), alloc);
-  internal::einsum_impl(ein<ResultIs...>(result), arg0);
-  return result;
+    class T, size_t... ResultIs, class Op0, class Op1, class Op2, class Alloc = std::allocator<T>,
+    class = internal::enable_if_allocator<Alloc>>
+auto make_einsum(const Op0& op0, const Op1& op1, const Op2& op2, const Alloc& alloc = Alloc()) {
+  return internal::make_einsum_impl<T, ResultIs...>(alloc, op0, op1, op2);
 }
-
-// TODO: Consider supporting einsum of more than 2 operands.
+template <
+    class T, size_t... ResultIs, class Op0, class Op1, class Op2, class Op3,
+    class Alloc = std::allocator<T>, class = internal::enable_if_allocator<Alloc>>
+auto make_einsum(
+    const Op0& op0, const Op1& op1, const Op2& op2, const Op3& op3, const Alloc& alloc = Alloc()) {
+  return internal::make_einsum_impl<T, ResultIs...>(alloc, op0, op1, op2, op3);
+}
 
 }  // namespace nda
 
