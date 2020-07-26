@@ -1316,6 +1316,9 @@ template <class ShapeDst, class ShapeSrc>
 using enable_if_shapes_copy_compatible =
     std::enable_if_t<(ShapeDst::rank() == ShapeSrc::rank())>;
 
+template <class Alloc>
+using enable_if_allocator = decltype(std::declval<Alloc>().allocate(0));
+
 }  // namespace internal
 
 /** An arbitrary `shape` with the specified rank `Rank`. This shape is
@@ -2386,11 +2389,13 @@ template <class T, size_t Rank, class Alloc = std::allocator<T>>
 using dense_array = array<T, dense_shape<Rank>, Alloc>;
 
 /** Make a new array with shape `shape`, allocated using `alloc`. */
-template <class T, class Shape, class Alloc = std::allocator<T>>
+template <class T, class Shape, class Alloc = std::allocator<T>,
+    class = internal::enable_if_allocator<Alloc>>
 auto make_array(const Shape& shape, const Alloc& alloc = Alloc()) {
   return array<T, Shape, Alloc>(shape, alloc);
 }
-template <class T, class Shape, class Alloc = std::allocator<T>>
+template <class T, class Shape, class Alloc = std::allocator<T>,
+    class = internal::enable_if_allocator<Alloc>>
 auto make_array(const Shape& shape, const T& value, const Alloc& alloc = Alloc()) {
   return array<T, Shape, Alloc>(shape, value, alloc);
 }
