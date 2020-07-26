@@ -793,22 +793,14 @@ template <class T, size_t N, size_t... Is>
 auto array_to_tuple(const std::array<T, N>& a, index_sequence<Is...>) {
   return std::make_tuple(a[Is]...);
 }
-
 template <class T, size_t N>
 auto array_to_tuple(const std::array<T, N>& a) {
   return array_to_tuple(a, make_index_sequence<N>());
 }
 
 template<class T, size_t N>
-struct tuple_of_n {
-  using rest = typename tuple_of_n<T, N - 1>::type;
-  using type = decltype(std::tuple_cat(std::declval<std::tuple<T>>(), std::declval<rest>()));
-};
+using tuple_of_n = decltype(array_to_tuple(std::declval<std::array<T, N>>()));
 
-template<class T>
-struct tuple_of_n<T, 0> {
-  using type = std::tuple<>;
-};
 
 // A helper to check if a parameter pack is entirely implicitly convertible to
 // any type Ts, for use with std::enable_if
@@ -874,7 +866,7 @@ shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
  *
  * For example, `index_of_rank<3>` is `std::tuple<index_t, index_t, index_t>`. */
 template <size_t Rank>
-using index_of_rank = typename internal::tuple_of_n<index_t, Rank>::type;
+using index_of_rank = internal::tuple_of_n<index_t, Rank>;
 
 /** A list of `Dim` objects describing a multi-dimensional space of indices.
  * The `rank` of a shape refers to the number of dimensions in the shape.
@@ -1221,7 +1213,7 @@ NDARRAY_INLINE void copy_assign(const TSrc& src, TDst& dst) {
 template <size_t Rank, std::enable_if_t<(Rank > 0), int> = 0>
 auto make_default_dense_shape() {
   return make_shape_from_tuple(std::tuple_cat(
-      std::make_tuple(dense_dim<>()), typename tuple_of_n<dim<>, Rank - 1>::type()));
+      std::make_tuple(dense_dim<>()), tuple_of_n<dim<>, Rank - 1>()));
 }
 template <size_t Rank, std::enable_if_t<(Rank == 0), int> = 0>
 auto make_default_dense_shape() {
@@ -1325,7 +1317,7 @@ using enable_if_allocator = decltype(std::declval<Alloc>().allocate(0));
  * compatible with any other shape of the same rank. */
 template <size_t Rank>
 using shape_of_rank =
-    decltype(make_shape_from_tuple(typename internal::tuple_of_n<dim<>, Rank>::type()));
+    decltype(make_shape_from_tuple(internal::tuple_of_n<dim<>, Rank>()));
 
 /** A `shape` where the innermost dimension is a `dense_dim`, and all other
  * dimensions are arbitrary. */
