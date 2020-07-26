@@ -53,6 +53,9 @@ auto reconcile_dim(const Dim1& dim1, const Dim2& dim2) {
   assert(dim2.is_in_range(dim1));
   return dim1;
 }
+// If we have zero dims, the user skipped a dim index, so we need a dummy
+// loop.
+inline dim<0, 1, 0> reconcile_dim() { return {}; }
 
 template <class... Dims, size_t... Is>
 auto reconcile_dim(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
@@ -75,25 +78,6 @@ auto gather_dims(const Ops&... ops) {
 template <class... Dims, size_t... Is>
 auto gather_dims(index_sequence<Is...>, const Dims&... dims) {
   return std::make_tuple(gather_dims<Is>(dims...)...);
-}
-
-// Infer the dims of the result of an einsum.
-template <class... Dims, size_t... Is>
-auto infer_result_dim(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
-  return reconcile_dim(std::get<Is>(dims)...);
-}
-template <class... Dims>
-auto infer_result_dim(const std::tuple<Dims...>& dims) {
-  return reconcile_dim(dims, make_index_sequence<sizeof...(Dims)>());
-}
-
-template <size_t Dim, class... Ops>
-auto infer_result_dims(const Ops&... ops) {
-  return infer_result_dim(std::tuple_cat(gather_dim<Dim>(ops)...));
-}
-template <class... Dims, size_t... Is>
-auto infer_result_dims(index_sequence<Is...>, const Dims&... dims) {
-  return std::make_tuple(infer_result_dims<Is>(dims...)...);
 }
 
 // Call operator() on an einsum operand, using the einsum indices as a shuffle.
@@ -141,12 +125,24 @@ void einsum_impl(const Result& result, const Ops&... ops) {
   });
 }
 
+template <index_t Min, index_t Extent, index_t Stride>
+dim<Min, Extent> without_stride(const dim<Min, Extent, Stride>& d) {
+  return {d.min(), d.extent()};
+}
+
+// Infer the dims of the result of an einsum.
+template <size_t... Is, class... Dims>
+auto infer_result_dims(const Dims&... dims) {
+  return std::make_tuple(without_stride(gather_dims<Is>(dims...))...);
+}
+
 // Figure out the shape of the result of an einsum.
+// TODO: This produces a shape without any constexpr strides, this is bad
+// for performance.
 template <size_t... ResultIs, class... Ops>
 auto infer_einsum_result_shape(const Ops&... ops) {
-  return make_shape_from_tuple(infer_result_dims(
-    make_index_sequence<sizeof...(ResultIs)>(),
-    std::make_tuple(std::get<0>(ops).shape().dims(), std::get<1>(ops))...));
+  return make_shape_from_tuple(infer_result_dims<ResultIs...>(
+      std::make_tuple(std::get<0>(ops).shape().dims(), std::get<1>(ops))...));
 }
 
 }  // namespace internal

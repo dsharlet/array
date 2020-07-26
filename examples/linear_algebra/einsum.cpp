@@ -42,10 +42,12 @@ int main(int, const char**) {
   // arrays with random data.
   std::mt19937_64 rng;
   std::uniform_real_distribution<float> uniform(0, 1);
+  generate(T, [&]() { return uniform(rng); });
   generate(A, [&]() { return uniform(rng); });
   generate(B, [&]() { return uniform(rng); });
   generate(x, [&]() { return uniform(rng); });
   generate(y, [&]() { return uniform(rng); });
+  generate(z, [&]() { return uniform(rng); });
 
   const float tolerance = 1e-6f;
 
@@ -73,6 +75,7 @@ int main(int, const char**) {
 
   // x^T*z
   auto outer = make_einsum<float, i, j>(ein<i>(x), ein<j>(z));
+  assert(outer.rank() == 2);
   assert(outer.rows() == x.size());
   assert(outer.columns() == z.size());
   for (index_t i : outer.i()) {
@@ -83,6 +86,7 @@ int main(int, const char**) {
 
   // B*x
   auto Bx = make_einsum<float, i>(ein<i, j>(B), ein<j>(x));
+  assert(Bx.rank() == 1);
   assert(Bx.size() == B.rows());
   for (index_t i : Bx.i()) {
     float Bx_i = 0.0f;
@@ -100,7 +104,9 @@ int main(int, const char**) {
 
   // sum of the i and k dims of T
   auto sum_ik = make_einsum<float, j>(ein<i, j, k>(T));
-  for (index_t j : T.j()) {
+  assert(sum_ik.rank() == 1);
+  assert(sum_ik.size() == T.j().extent());
+  for (index_t j : T.i()) {
     float sum_ik_ref = 0.0f;
     T(_, j, _).for_each_value([&](float i) { sum_ik_ref += i; });
     assert(relative_error(sum_ik(j), sum_ik_ref) < tolerance);
