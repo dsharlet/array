@@ -147,7 +147,7 @@ auto infer_einsum_result_shape(const Ops&... ops) {
 
 }  // namespace internal
 
-/** Opument for an Einstein summation, which is an array along with
+/** Operand for an Einstein summation, which is an array along with
  * a set of dimension indices. `ein<i, j, ...>(a)` means the dimensions
  * `i, j, ...` of the summation index are used to address `a` during
  * Einstein summation. See `einsum` for more details. */
@@ -174,7 +174,7 @@ auto ein(const array<T, Shape, Alloc>& op) {
  *
  * This function accepts a list of operands op0, ..., result. Each operand
  * is the result of the `ein<i, j, ...>(op)` helper function, which
- * describes which dimensions of the summation index  should be used to
+ * describes which dimensions of the summation index should be used to
  * address that operand.
  *
  * The result of the summation is added to `result`. `result` must be
