@@ -83,6 +83,7 @@ int main(int, const char**) {
 
   // B*x
   auto Bx = make_einsum<float, i>(ein<i, j>(B), ein<j>(x));
+  assert(Bx.size() == B.rows());
   for (index_t i : Bx.i()) {
     float Bx_i = 0.0f;
     for (index_t j : x.i()) {
