@@ -192,6 +192,8 @@ auto ein(const array<T, Shape, Alloc>& op) {
  * - `x`, `y`, `Ax` are vectors (rank 1 arrays)
  * - `tr_A`, `dot_xy` are scalar (rank 0 arrays)
  **/
+// The only reason we can't just variadic argument this like einsum_impl
+// is to have the result be the last argument :(
 template <class Op0, class Result>
 void einsum(const Op0& op0, const Result& result) {
   internal::einsum_impl(result, op0);
@@ -244,6 +246,8 @@ auto make_einsum_impl(const Alloc& alloc, const Ops&... ops) {
  * - `A`, `B` are matrices (rank 2 arrays)
  * - `x`, `y` are vectors (rank 1 arrays)
  **/
+// The only reason we can't just variadic argument this like make_einsum_impl
+// is to have the result be the last argument :(
 // TODO: Add an overload with a default ResultIs... = 0, 1, 2, ... This requires
 // also inferring the rank of the result.
 template <class T, size_t... ResultIs, class Op0, class Alloc = std::allocator<T>,
