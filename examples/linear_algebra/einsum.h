@@ -19,16 +19,10 @@
 
 namespace nda {
 
-/** Argument for an Einstein summation, which is an array along with
- * a set of dimension indices. */
+namespace internal {
+
 template <class Arg, size_t... Is>
 using einsum_arg = std::tuple<Arg, std::index_sequence<Is...>>;
-template <size_t... Is, class Arg>
-einsum_arg<Arg, Is...> ein(const Arg& op) {
-  return std::make_tuple(op, std::index_sequence<Is...>());
-}
-
-namespace internal {
 
 // Make a dimension a reduction dimension (give it a constexpr stride 0).
 template <index_t Min, index_t Extent, index_t Stride>
@@ -52,8 +46,8 @@ template <class Dim1>
 auto reconcile_dim(const Dim1& dim1) { return dim1; }
 template <class Dim1, class Dim2>
 auto reconcile_dim(const Dim1& dim1, const Dim2& dim2) {
-  assert(dim1.min() == dim2.min());
-  assert(dim1.max() == dim2.max());
+  assert(dim1.stride() != 0 || dim2.stride() != 0 || dim1.min() == dim2.min());
+  assert(dim1.stride() != 0 || dim2.stride() != 0 || dim1.max() == dim2.max());
   return dim1;
 }
 
@@ -80,6 +74,34 @@ auto gather_dims(std::index_sequence<Is...>, const Dims&... dims) {
   return std::make_tuple(gather_dims<Is>(dims...)...);
 }
 
+template <class Dim1>
+auto infer_result_dim(const Dim1& dim1) { return dim1; }
+template <class Dim1, class Dim2>
+auto infer_result_dim(const Dim1& dim1, const Dim2& dim2) {
+  assert(dim1.min() == dim2.min());
+  assert(dim1.max() == dim2.max());
+  return dim1;
+}
+
+template <class... Dims, size_t... Is>
+auto infer_result_dim(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
+  return reconcile_dim(std::get<Is>(dims)...);
+}
+template <class... Dims>
+auto infer_result_dim(const std::tuple<Dims...>& dims) {
+  return reconcile_dim(dims, std::make_index_sequence<sizeof...(Dims)>());
+}
+
+// Infer the dims of the result of an einsum.
+template <size_t Dim, class... Args>
+auto infer_result_dims(const Args&... args) {
+  return infer_result_dim(std::tuple_cat(gather_dim<Dim>(args)...));
+}
+template <class... Dims, size_t... Is>
+auto infer_result_dims(std::index_sequence<Is...>, const Dims&... dims) {
+  return std::make_tuple(infer_result_dims<Is>(dims...)...);
+}
+
 // Call operator() on an einsum argument, using the einsum indices as a shuffle.
 template <class Idx, class Arg, size_t... Is>
 auto ein_at(const einsum_arg<Arg, Is...>& ein, const Idx& i) {
@@ -91,6 +113,9 @@ T product() { return static_cast<T>(1); }
 template <class T, class... Ts>
 T product(T a, Ts... b) { return a * product<T>(b...); }
 
+// TODO: FIgure out how to compute LoopRank from Args. It should be quite
+// doable, but all of my attempts either hit constexpr issues or
+// cause clang to hang (!!).
 template <size_t LoopRank, class... Args, class Result>
 void einsum_impl(const Result& result, const Args&... args) {
   const auto& result_dims = std::get<0>(result).shape().dims();
@@ -114,29 +139,66 @@ void einsum_impl(const Result& result, const Args&... args) {
   });
 }
 
-}  // namespace internal
-
-template <
-    size_t... Arg1Is, size_t... ResultIs,
-    class Arg1, class ResultArg>
-void einsum(
-    const einsum_arg<Arg1, Arg1Is...>& arg1,
-    const einsum_arg<ResultArg, ResultIs...>& result) {
-  constexpr size_t LoopRank = internal::variadic_max(Arg1Is..., ResultIs...) + 1;
-
-  internal::einsum_impl<LoopRank>(result, arg1);
+template <size_t... ResultIs, class... Args>
+auto infer_einsum_result_shape(const Args&... args) {
+  return make_shape_from_tuple(infer_result_dims(
+    std::make_index_sequence<sizeof...(ResultIs)>(),
+    std::make_tuple(std::get<0>(args).shape().dims(), std::get<1>(args))...));
 }
 
+}  // namespace internal
+
+/** Argument for an Einstein summation, which is an array along with
+ * a set of dimension indices. `ein<i, j, ...>(a)` means the dimensions
+ * `i, j, ...` of the summation index are used to address `a` during
+ * Einstein summation. See `einsum` for more details. */
+template <size_t... Is, class T, class Shape>
+auto ein(const array_ref<T, Shape>& op) {
+  return std::make_tuple(op, std::index_sequence<Is...>());
+}
+template <size_t... Is, class T, class Shape, class Alloc>
+auto ein(array<T, Shape, Alloc>& op) {
+  return ein<Is...>(op.ref());
+}
+template <size_t... Is, class T, class Shape, class Alloc>
+auto ein(const array<T, Shape, Alloc>& op) {
+  return ein<Is...>(op.cref());
+}
+
+/** Compute an Einstein summation. TODO: Comment this better. It requires
+ * a lot of docs. */
 template <
     size_t... Arg1Is, size_t... Arg2Is, size_t... ResultIs,
     class Arg1, class Arg2, class ResultArg>
 void einsum(
-    const einsum_arg<Arg1, Arg1Is...>& arg1,
-    const einsum_arg<Arg2, Arg2Is...>& arg2,
-    const einsum_arg<ResultArg, ResultIs...>& result) {
+    const internal::einsum_arg<Arg1, Arg1Is...>& arg1,
+    const internal::einsum_arg<Arg2, Arg2Is...>& arg2,
+    const internal::einsum_arg<ResultArg, ResultIs...>& result) {
   constexpr size_t LoopRank = internal::variadic_max(Arg1Is..., Arg2Is..., ResultIs...) + 1;
 
   internal::einsum_impl<LoopRank>(result, arg1, arg2);
+}
+template <
+    size_t... Arg1Is, size_t... ResultIs,
+    class Arg1, class ResultArg>
+void einsum(
+    const internal::einsum_arg<Arg1, Arg1Is...>& arg1,
+    const internal::einsum_arg<ResultArg, ResultIs...>& result) {
+  constexpr size_t LoopRank = internal::variadic_max(Arg1Is..., ResultIs...) + 1;
+
+  internal::einsum_impl<LoopRank>(result, arg1);
+}
+// TODO: Consider supporting einsum of more than 2 operands.
+
+/** Compute an Einstein summation and return the result. The type of the
+ * result will be `T`, and the shape will be inferred from the shape of the
+ * operands. The Einstein summation indices for the result are `ResultIs...`. */
+template <class T, size_t... ResultIs, class... Args>
+auto make_einsum(const Args&... args) {
+  auto result_shape = internal::infer_einsum_result_shape<ResultIs...>(args...);
+  auto result = make_array<T>(make_compact(result_shape));
+  einsum(args..., ein<ResultIs...>(result));
+  return result;
 }
 
 }  // namespace nda

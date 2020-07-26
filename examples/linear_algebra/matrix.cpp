@@ -21,6 +21,9 @@
 
 using namespace nda;
 
+// Useful named dimension indices for einsum.
+enum { i = 0, j = 1, k = 2 };
+
 // A textbook implementation of matrix multiplication. This is very simple,
 // but it is slow, primarily because of poor locality of the loads of b. The
 // reduction loop is innermost.
@@ -69,6 +72,14 @@ void multiply_reduce_rows(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_r
       }
     }
   }
+}
+
+// This implementation uses Einstein summation. This should be equivalent
+// to writing a reduction loop outermost implementation.
+template <class T>
+void multiply_einsum(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+  fill(c, static_cast<T>(0));
+  einsum(ein<i, k>(a), ein<k, j>(b), ein<i, j>(c));
 }
 
 // This implementation of matrix multiplication splits the loops over
@@ -148,12 +159,30 @@ void multiply_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_
   }
 }
 
-template <class T>
-void multiply_einsum(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
-  enum { i = 0, j = 1, k = 2 };
+// I think when LLVM fixes https://bugs.llvm.org/show_bug.cgi?id=45863, this
+// will generate equivalent code to multiply_reduce_tiles!
+template <typename T>
+__attribute__((noinline))
+void multiply_einsum_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+  // Adjust this depending on the target architecture. For AVX2,
+  // vectors are 256-bit.
+  constexpr index_t vector_size = 32 / sizeof(T);
 
-  fill(c, static_cast<T>(0));
-  einsum(ein<i, k>(a), ein<k, j>(b), ein<i, j>(c));
+  // We want the tiles to be as big as possible without spilling any
+  // of the accumulator registers to the stack.
+  constexpr index_t tile_rows = 4;
+  constexpr index_t tile_cols = vector_size * 3;
+
+  for (auto io : split<tile_rows>(c.i())) {
+    for (auto jo : split<tile_cols>(c.j())) {
+      // Perform the matrix multiplication for this tile.
+      auto result_tile =
+          make_einsum<T, i, j>(ein<i, k>(a(io, _)), ein<k, j>(b(_, jo)));
+
+      // Copy the accumulators to the output.
+      copy(result_tile, c(io, jo));
+    }
+  }
 }
 
 float relative_error(float a, float b) {
@@ -189,8 +218,9 @@ int main(int, const char**) {
   version versions[] = {
     { "reduce_cols", multiply_reduce_cols<float> },
     { "reduce_rows", multiply_reduce_rows<float> },
-    { "reduce_tiles", multiply_reduce_tiles<float> },
     { "einsum", multiply_einsum<float> },
+    { "reduce_tiles", multiply_reduce_tiles<float> },
+    { "einsum_tiles", multiply_einsum_tiles<float> },
   };
   for (auto i : versions) {
     // Compute the result using all matrix multiply methods.
