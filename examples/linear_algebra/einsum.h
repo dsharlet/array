@@ -107,11 +107,19 @@ NDARRAY_INLINE T product() { return static_cast<T>(1); }
 template <class T, class... Ts>
 NDARRAY_INLINE T product(T a, Ts... b) { return a * product<T>(b...); }
 
-// TODO: FIgure out how to compute LoopRank from Args. It should be quite
-// doable, but all of my attempts either hit constexpr issues or
-// cause clang to hang (!!).
-template <size_t LoopRank, class... Args, class Result>
+// Get the max index of an index_sequence.
+template <size_t... Is>
+constexpr size_t max(index_sequence<Is...>) {
+  return variadic_max(Is...);
+}
+
+template <class... Args, class Result>
 void einsum_impl(const Result& result, const Args&... args) {
+  // Get the total number of loops we need.
+  constexpr size_t LoopRank = 1 + variadic_max(
+      max(typename std::tuple_element<1, Args>::type())...,
+      max(typename std::tuple_element<1, Result>::type()));
+
   const auto& result_dims = std::get<0>(result).shape().dims();
 
   // Gather the dimensions identified by the indices. gather_dims keeps the
@@ -194,17 +202,13 @@ void einsum(
     const internal::einsum_arg<Arg0, Arg0Is...>& arg0,
     const internal::einsum_arg<Arg1, Arg1Is...>& arg1,
     const internal::einsum_arg<ResultArg, ResultIs...>& result) {
-  constexpr size_t LoopRank = internal::variadic_max(Arg0Is..., Arg1Is..., ResultIs...) + 1;
-
-  internal::einsum_impl<LoopRank>(result, arg0, arg1);
+  internal::einsum_impl(result, arg0, arg1);
 }
 template <size_t... Arg0Is, size_t... ResultIs, class Arg0, class ResultArg>
 void einsum(
     const internal::einsum_arg<Arg0, Arg0Is...>& arg0,
     const internal::einsum_arg<ResultArg, ResultIs...>& result) {
-  constexpr size_t LoopRank = internal::variadic_max(Arg0Is..., ResultIs...) + 1;
-
-  internal::einsum_impl<LoopRank>(result, arg0);
+  internal::einsum_impl(result, arg0);
 }
 
 /** Infer the shape of the result of `make_einsum`. */
@@ -241,7 +245,7 @@ auto make_einsum(
     const Alloc& alloc = Alloc()) {
   auto result_shape = make_einsum_shape<ResultIs...>(arg0, arg1);
   auto result = make_array<T>(result_shape, static_cast<T>(0), alloc);
-  einsum(arg0, arg1, ein<ResultIs...>(result));
+  internal::einsum_impl(ein<ResultIs...>(result), arg0, arg1);
   return result;
 }
 template <
@@ -252,7 +256,7 @@ auto make_einsum(
     const Alloc& alloc = Alloc()) {
   auto result_shape = make_einsum_shape<ResultIs...>(arg0);
   auto result = make_array<T>(result_shape, static_cast<T>(0), alloc);
-  einsum(arg0, ein<ResultIs...>(result));
+  internal::einsum_impl(ein<ResultIs...>(result), arg0);
   return result;
 }
 
