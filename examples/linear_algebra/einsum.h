@@ -205,6 +205,14 @@ void einsum(
 }
 // TODO: Consider supporting einsum of more than 2 operands.
 
+/** Infer the shape of the result of `make_einsum`. */
+template <size_t... ResultIs, class... Args>
+auto make_einsum_shape(const Args&... args) {
+  auto result_shape = internal::infer_einsum_result_shape<ResultIs...>(args...);
+  // TODO: This would really benefit from addressing https://github.com/dsharlet/array/issues/31
+  return make_compact(result_shape);
+}
+
 /** Compute an Einstein summation and return the result. The `value_type` of the
  * result will be `T`, and the shape will be inferred from the shape of the
  * operands. The Einstein summation indices for the result are `ResultIs...`.
@@ -219,15 +227,15 @@ void einsum(
  * - `A`, `B` are matrices (rank 2 arrays)
  * - `x`, `y` are vectors (rank 1 arrays)
  **/
-// TODO: Allow specifying the allocator.
-// TODO: Allow a default ResultIs... = 0, 1, 2, ... This requires also inferring
-// the rank of the result.
+// TODO: Add an overload with a default ResultIs... = 0, 1, 2, ... This requires
+// also inferring the rank of the result.
+// TODO: Allow specifying the allocator. This is hard to do in a way that follows
+// existing conventions without template/overload ambiguity. For now,
+// `make_einsum_shape` allows one to work around this.
 template <class T, size_t... ResultIs, class... Args>
 auto make_einsum(const Args&... args) {
-  auto result_shape = internal::infer_einsum_result_shape<ResultIs...>(args...);
   // TODO: use make_array<T>(shape, 0) when overload ambiguity is fixed.
-  // TODO: This would really benefit from addressing https://github.com/dsharlet/array/issues/31
-  auto result = make_array<T>(make_compact(result_shape));
+  auto result = make_array<T>(make_einsum_shape<ResultIs...>(args...));
   fill(result, static_cast<T>(0));
   einsum(args..., ein<ResultIs...>(result));
   return result;
