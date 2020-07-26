@@ -27,7 +27,7 @@ using einsum_arg = std::tuple<Arg, index_sequence<Is...>>;
 // Make a dimension a reduction dimension (give it a constexpr stride 0).
 template <index_t Min, index_t Extent, index_t Stride>
 auto reduction(const dim<Min, Extent, Stride>& d) {
-  return dim<Min, Extent, 0>(d.min(), d.extent());
+  return broadcast_dim<Min, Extent>(d.min(), d.extent());
 }
 
 // Make all of the dimensions reduction dimensions.
@@ -163,7 +163,8 @@ auto ein(const array<T, Shape, Alloc>& op) {
 
 /** Compute an Einstein summation. This function allows one to specify
  * many kinds of array transformations and reductions using Einstein
- * notation.
+ * notation. See https://en.wikipedia.org/wiki/Einstein_notation for more
+ * information about the notation itself.
  *
  * This function accepts a list of arguments arg1, arg2, ... result.
  * Each argument is the result of the `ein<i, j, ...>(arg)` helper
