@@ -41,7 +41,8 @@ auto reductions(const std::tuple<Dims...>& dims) {
 }
 
 // If a dim appears more than twice in gather_dims, the summation is ill-formed.
-// TODO: Not sure about that...
+// TODO: Not sure about that... And even if it is true, we should generate a
+// better error than failing here.
 template <class Dim1>
 auto reconcile_dim(const Dim1& dim1) { return dim1; }
 template <class Dim1, class Dim2>
@@ -74,15 +75,7 @@ auto gather_dims(std::index_sequence<Is...>, const Dims&... dims) {
   return std::make_tuple(gather_dims<Is>(dims...)...);
 }
 
-template <class Dim1>
-auto infer_result_dim(const Dim1& dim1) { return dim1; }
-template <class Dim1, class Dim2>
-auto infer_result_dim(const Dim1& dim1, const Dim2& dim2) {
-  assert(dim1.min() == dim2.min());
-  assert(dim1.max() == dim2.max());
-  return dim1;
-}
-
+// Infer the dims of the result of an einsum.
 template <class... Dims, size_t... Is>
 auto infer_result_dim(const std::tuple<Dims...>& dims, std::index_sequence<Is...>) {
   return reconcile_dim(std::get<Is>(dims)...);
@@ -92,7 +85,6 @@ auto infer_result_dim(const std::tuple<Dims...>& dims) {
   return reconcile_dim(dims, std::make_index_sequence<sizeof...(Dims)>());
 }
 
-// Infer the dims of the result of an einsum.
 template <size_t Dim, class... Args>
 auto infer_result_dims(const Args&... args) {
   return infer_result_dim(std::tuple_cat(gather_dim<Dim>(args)...));
@@ -104,14 +96,14 @@ auto infer_result_dims(std::index_sequence<Is...>, const Dims&... dims) {
 
 // Call operator() on an einsum argument, using the einsum indices as a shuffle.
 template <class Idx, class Arg, size_t... Is>
-auto ein_at(const einsum_arg<Arg, Is...>& ein, const Idx& i) {
+NDARRAY_INLINE auto ein_at(const einsum_arg<Arg, Is...>& ein, const Idx& i) {
   return std::get<0>(ein)(std::get<Is>(i)...);
 }
 
 template <class T>
-T product() { return static_cast<T>(1); }
+NDARRAY_INLINE T product() { return static_cast<T>(1); }
 template <class T, class... Ts>
-T product(T a, Ts... b) { return a * product<T>(b...); }
+NDARRAY_INLINE T product(T a, Ts... b) { return a * product<T>(b...); }
 
 // TODO: FIgure out how to compute LoopRank from Args. It should be quite
 // doable, but all of my attempts either hit constexpr issues or
