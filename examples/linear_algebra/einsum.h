@@ -171,7 +171,9 @@ auto ein(const array<T, Shape, Alloc>& op) {
  * function, which describes which dimensions of the summation index
  * should be used to address that argument.
  *
- * The result of the summation is added to the result.
+ * The result of the summation is added to `result`. `result` must be
+ * initialized to some useful value (typically 0) before calling this
+ * function.
  *
  * Examples:
  * - `einsum(ein<0, 0>(A), ein<>(tr_A))`, the trace of A.
