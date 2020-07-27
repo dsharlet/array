@@ -20,10 +20,19 @@
 #define NDARRAY_ARRAY_H
 
 #include <array>
+// TODO(jiawen): CUDA *should* support assert on device. This might be due to the fact that we are
+// not depending on the CUDA toolkit.
+#if defined(__CUDA__)
+#undef assert
+#define assert(e)
+#else
 #include <cassert>
+#endif
+
 #include <limits>
 #include <memory>
 #include <tuple>
+#include <type_traits>
 
 // If we have __has_feature, automatically disable exceptions.
 #ifdef __has_feature
@@ -44,8 +53,14 @@
 
 // Some things in this header are unbearably slow without optimization if they
 // don't get inlined.
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(__GNUC__)
 #define NDARRAY_INLINE inline __attribute__((always_inline))
+#elif defined(__clang__)
+  #if defined(__CUDA__)
+  #define NDARRAY_INLINE __forceinline__
+  #else
+  #define NDARRAY_INLINE inline __attribute__((always_inline))
+  #endif
 #else
 #define NDARRAY_INLINE inline
 #endif
@@ -55,6 +70,13 @@
 // functions it knows are used only once, but it can't know this unless the
 // functions have internal linkage.
 #define NDARRAY_UNIQUE static
+
+// Functions attributed with NDARRAY_HOST_DEVICE can run on both device and host mode on CUDA.
+#if defined(__CUDA__)
+#define NDARRAY_HOST_DEVICE __device__ __host__
+#else
+#define NDARRAY_HOST_DEVICE
+#endif
 
 namespace nda {
 
@@ -83,7 +105,14 @@ constexpr index_t UNK = dynamic;
 
 namespace internal {
 
-NDARRAY_INLINE index_t abs(index_t a) { return a >= 0 ? a : -a; }
+// Workaround CUDA not supporting std::declval.
+// https://stackoverflow.com/questions/31969644/compilation-error-with-nvcc-and-c11-need-minimal-failing-example
+template <typename T>
+NDARRAY_HOST_DEVICE
+typename std::add_rvalue_reference<T>::type declval() noexcept;
+
+NDARRAY_INLINE NDARRAY_HOST_DEVICE
+index_t abs(index_t a) { return a >= 0 ? a : -a; }
 
 NDARRAY_INLINE constexpr index_t is_static(index_t x) { return x != dynamic; }
 NDARRAY_INLINE constexpr index_t is_dynamic(index_t x) { return x == dynamic; }
@@ -111,8 +140,11 @@ struct constexpr_index {
 public:
   // These asserts are really hard to debug
   // https://github.com/dsharlet/array/issues/26
+  NDARRAY_HOST_DEVICE
   constexpr_index(index_t value = Value) { assert(value == Value); }
+  NDARRAY_HOST_DEVICE
   constexpr_index& operator=(index_t value) { assert(value == Value); return *this; }
+  NDARRAY_HOST_DEVICE
   NDARRAY_INLINE operator index_t() const { return Value; }
 };
 
@@ -121,9 +153,12 @@ struct constexpr_index<dynamic> {
   index_t value_;
 
 public:
+  NDARRAY_HOST_DEVICE
   constexpr_index(index_t value) : value_(value) {}
+  NDARRAY_HOST_DEVICE
   constexpr_index& operator=(index_t value) { value_ = value; return *this; }
-  NDARRAY_INLINE operator index_t() const { return value_; }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE
+  operator index_t() const { return value_; }
 };
 
 }  // namespace internal
@@ -137,13 +172,18 @@ class index_iterator {
   index_iterator(index_t i) : i_(i) {}
 
   /** Access the current index of this iterator. */
-  NDARRAY_INLINE index_t operator*() const { return i_; }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE
+  index_t operator*() const { return i_; }
 
-  NDARRAY_INLINE bool operator==(const index_iterator& r) const { return i_ == r.i_; }
-  NDARRAY_INLINE bool operator!=(const index_iterator& r) const { return i_ != r.i_; }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE
+  bool operator==(const index_iterator& r) const { return i_ == r.i_; }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE
+  bool operator!=(const index_iterator& r) const { return i_ != r.i_; }
 
-  NDARRAY_INLINE index_iterator operator++(int) { return index_iterator(i_++); }
-  NDARRAY_INLINE index_iterator& operator++() { ++i_; return *this; }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE
+  index_iterator operator++(int) { return index_iterator(i_++); }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE
+  index_iterator& operator++() { ++i_; return *this; }
 };
 
 template <index_t Min, index_t Extent, index_t Stride>
@@ -182,13 +222,20 @@ class interval {
    * The default values if not specified in the constructor are:
    * - The default `min` is `Min` if `Min` is static, or 0 if not.
    * - The default `extent` is `Extent` if `Extent` is static, or 1 if not. */
+  NDARRAY_HOST_DEVICE
   interval(index_t min, index_t extent) : min_(min), extent_(extent) {}
+  NDARRAY_HOST_DEVICE
   interval(index_t min) : interval(min, internal::is_static(Extent) ? Extent : 1) {}
+  NDARRAY_HOST_DEVICE
   interval() : interval(internal::is_static(Min) ? Min : 0) {}
 
+  NDARRAY_HOST_DEVICE
   interval(const interval&) = default;
+  NDARRAY_HOST_DEVICE
   interval(interval&&) = default;
+  NDARRAY_HOST_DEVICE
   interval& operator=(const interval&) = default;
+  NDARRAY_HOST_DEVICE
   interval& operator=(interval&&) = default;
 
   /** Copy construction or assignment of another interval object, possibly
@@ -197,10 +244,12 @@ class interval {
   template <index_t CopyMin, index_t CopyExtent,
       class = internal::enable_if_compatible<Min, CopyMin>,
       class = internal::enable_if_compatible<Extent, CopyExtent>>
+  NDARRAY_HOST_DEVICE
   interval(const interval<CopyMin, CopyExtent>& other) : interval(other.min(), other.extent()) {}
   template <index_t CopyMin, index_t CopyExtent,
       class = internal::enable_if_compatible<Min, CopyMin>,
       class = internal::enable_if_compatible<Extent, CopyExtent>>
+  NDARRAY_HOST_DEVICE
   interval& operator=(const interval<CopyMin, CopyExtent>& other) {
     set_min(other.min());
     set_extent(other.extent());
@@ -208,40 +257,54 @@ class interval {
   }
 
   /** Get or set the first index in this interval. */
-  NDARRAY_INLINE index_t min() const { return min_; }
-  NDARRAY_INLINE void set_min(index_t min) { min_ = min; }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE
+  index_t min() const { return min_; }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE
+  void set_min(index_t min) { min_ = min; }
   /** Get or set the number of indices in this interval. */
-  NDARRAY_INLINE index_t extent() const { return extent_; }
-  NDARRAY_INLINE void set_extent(index_t extent) { extent_ = extent; }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE
+  index_t extent() const { return extent_; }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE
+  void set_extent(index_t extent) { extent_ = extent; }
+
   /** Get or set the last index in this interval. */
-  NDARRAY_INLINE index_t max() const { return min() + extent() - 1; }
-  NDARRAY_INLINE void set_max(index_t max) { set_extent(max - min() + 1); }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE
+  index_t max() const { return min() + extent() - 1; }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE
+  void set_max(index_t max) { set_extent(max - min() + 1); }
 
   /** Returns true if `at` is within the interval `[min(), max()]`. */
-  NDARRAY_INLINE bool is_in_range(index_t at) const { return min() <= at && at <= max(); }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE
+  bool is_in_range(index_t at) const { return min() <= at && at <= max(); }
   /** Returns true if `at.min()` and `at.max()` are both within the interval
    * `[min(), max()]`. */
   template <index_t OtherMin, index_t OtherExtent>
-  NDARRAY_INLINE bool is_in_range(const interval<OtherMin, OtherExtent>& at) const {
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE
+  bool is_in_range(const interval<OtherMin, OtherExtent>& at) const {
     return min() <= at.min() && at.max() <= max();
   }
   template <index_t OtherMin, index_t OtherExtent, index_t OtherStride>
-  NDARRAY_INLINE bool is_in_range(const dim<OtherMin, OtherExtent, OtherStride>& at) const {
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE
+  bool is_in_range(const dim<OtherMin, OtherExtent, OtherStride>& at) const {
     return min() <= at.min() && at.max() <= max();
   }
 
   /** Make an iterator referring to the first index in this interval. */
+  NDARRAY_HOST_DEVICE
   index_iterator begin() const { return index_iterator(min()); }
   /** Make an iterator referring to one past the last index in this interval. */
+  NDARRAY_HOST_DEVICE
   index_iterator end() const { return index_iterator(max() + 1); }
 
   /** Two interval objects are considered equal if they contain the
    * same indices. */
   template <index_t OtherMin, index_t OtherExtent>
+  NDARRAY_HOST_DEVICE
   bool operator==(const interval<OtherMin, OtherExtent>& other) const {
     return min() == other.min() && extent() == other.extent();
   }
   template <index_t OtherMin, index_t OtherExtent>
+  NDARRAY_HOST_DEVICE
   bool operator!=(const interval<OtherMin, OtherExtent>& other) const {
     return !operator==(other);
   }
@@ -252,19 +315,23 @@ template <index_t Extent>
 using fixed_interval = interval<dynamic, Extent>;
 
 /** Make an interval from a half-open range `[begin, end)`. */
-inline interval<> range(index_t begin, index_t end) {
+NDARRAY_INLINE NDARRAY_HOST_DEVICE
+interval<> range(index_t begin, index_t end) {
   return interval<>(begin, end - begin);
 }
-inline interval<> r(index_t begin, index_t end) {
+NDARRAY_INLINE NDARRAY_HOST_DEVICE
+interval<> r(index_t begin, index_t end) {
   return interval<>(begin, end - begin);
 }
 
 /** Make an interval from a half-open range `[begin, begin + Extent)`. */
 template <index_t Extent>
+NDARRAY_HOST_DEVICE
 fixed_interval<Extent> range(index_t begin) {
   return fixed_interval<Extent>(begin);
 }
 template <index_t Extent>
+NDARRAY_HOST_DEVICE
 fixed_interval<Extent> r(index_t begin) {
   return fixed_interval<Extent>(begin);
 }
@@ -275,18 +342,22 @@ const interval<0, -1> all, _;
 
 /** Overloads of `std::begin` and `std::end` for an interval. */
 template <index_t Min, index_t Extent>
+NDARRAY_HOST_DEVICE
 index_iterator begin(const interval<Min, Extent>& d) { return d.begin(); }
 template <index_t Min, index_t Extent>
+NDARRAY_HOST_DEVICE
 index_iterator end(const interval<Min, Extent>& d) { return d.end(); }
 
 /** Clamp `x` to the interval [min, max]. */
-inline index_t clamp(index_t x, index_t min, index_t max) {
+NDARRAY_INLINE NDARRAY_HOST_DEVICE
+index_t clamp(index_t x, index_t min, index_t max) {
   return std::min(std::max(x, min), max);
 }
 
 /** Clamp `x` to the range described by an object `r` with a `min()` and
  * `max()` method. */
 template <class Range>
+NDARRAY_HOST_DEVICE
 index_t clamp(index_t x, const Range& r) {
   return clamp(x, r.min(), r.max());
 }
@@ -321,16 +392,24 @@ class dim : private interval<Min_, Extent_> {
    * - The default `min` is `Min` if `Min` is static, or 0 if not.
    * - The default `extent` is `Extent` if `Extent` is static, or 0 if not.
    * - The default `stride` is `Stride`. */
+  NDARRAY_HOST_DEVICE
   dim(index_t min, index_t extent, index_t stride = Stride)
       : base_range(min, extent), stride_(stride) {}
+  NDARRAY_HOST_DEVICE
   dim(index_t extent) : dim(internal::is_static(Min) ? Min : 0, extent) {}
+  NDARRAY_HOST_DEVICE
   dim() : dim(internal::is_static(Extent) ? Extent : 0) {}
 
+  NDARRAY_HOST_DEVICE
   dim(const base_range& interval, index_t stride = Stride)
       : dim(interval.min(), interval.extent(), stride) {}
+  NDARRAY_HOST_DEVICE
   dim(const dim&) = default;
+  NDARRAY_HOST_DEVICE
   dim(dim&&) = default;
+  NDARRAY_HOST_DEVICE
   dim& operator=(const dim&) = default;
+  NDARRAY_HOST_DEVICE
   dim& operator=(dim&&) = default;
 
   /** Copy construction or assignment of another dim object, possibly
@@ -341,12 +420,14 @@ class dim : private interval<Min_, Extent_> {
       class = internal::enable_if_compatible<Min, CopyMin>,
       class = internal::enable_if_compatible<Extent, CopyExtent>,
       class = internal::enable_if_compatible<Stride, CopyStride>>
+  NDARRAY_HOST_DEVICE
   dim(const dim<CopyMin, CopyExtent, CopyStride>& other)
       : dim(other.min(), other.extent(), other.stride()) {}
   template <index_t CopyMin, index_t CopyExtent, index_t CopyStride,
       class = internal::enable_if_compatible<Min, CopyMin>,
       class = internal::enable_if_compatible<Extent, CopyExtent>,
       class = internal::enable_if_compatible<Stride, CopyStride>>
+  NDARRAY_HOST_DEVICE
   dim& operator=(const dim<CopyMin, CopyExtent, CopyStride>& other) {
     set_min(other.min());
     set_extent(other.extent());
@@ -366,19 +447,24 @@ class dim : private interval<Min_, Extent_> {
 
   /** Get or set the distance in flat indices between neighboring elements
    * in this dim. */
-  NDARRAY_INLINE index_t stride() const { return stride_; }
-  NDARRAY_INLINE void set_stride(index_t stride) { stride_ = stride; }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE
+  index_t stride() const { return stride_; }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE
+  void set_stride(index_t stride) { stride_ = stride; }
 
   /** Offset of the index `at` in this dim in the flat array. */
-  NDARRAY_INLINE index_t flat_offset(index_t at) const { return (at - min()) * stride(); }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE
+  index_t flat_offset(index_t at) const { return (at - min()) * stride(); }
 
   /** Two dim objects are considered equal if their mins, extents, and strides
    * are equal. */
   template <index_t OtherMin, index_t OtherExtent, index_t OtherStride>
+  NDARRAY_HOST_DEVICE
   bool operator==(const dim<OtherMin, OtherExtent, OtherStride>& other) const {
     return min() == other.min() && extent() == other.extent() && stride() == other.stride();
   }
   template <index_t OtherMin, index_t OtherExtent, index_t OtherStride>
+  NDARRAY_HOST_DEVICE
   bool operator!=(const dim<OtherMin, OtherExtent, OtherStride>& other) const {
     return !operator==(other);
   }
@@ -412,14 +498,19 @@ class split_iterator {
   index_t outer_max;
 
  public:
+  NDARRAY_HOST_DEVICE
   split_iterator(const fixed_interval<InnerExtent>& i, index_t outer_max)
       : i(i), outer_max(outer_max) {}
 
+  NDARRAY_HOST_DEVICE
   bool operator==(const split_iterator& r) const { return i.min() == r.i.min(); }
+  NDARRAY_HOST_DEVICE
   bool operator!=(const split_iterator& r) const { return i.min() != r.i.min(); }
 
+  NDARRAY_HOST_DEVICE
   fixed_interval<InnerExtent> operator *() const { return i; }
 
+  NDARRAY_HOST_DEVICE
   split_iterator& operator++() {
     if (is_static(InnerExtent)) {
       // When the extent of the inner split is a compile-time constant,
@@ -440,6 +531,7 @@ class split_iterator {
     }
     return *this;
   }
+  NDARRAY_HOST_DEVICE
   split_iterator operator++(int) {
     split_iterator<InnerExtent> result(i);
     ++result;
@@ -454,9 +546,12 @@ class iterator_range {
   T end_;
 
  public:
+  NDARRAY_HOST_DEVICE
   iterator_range(T begin, T end) : begin_(begin), end_(end) {}
 
+  NDARRAY_HOST_DEVICE
   T begin() const { return begin_; }
+  NDARRAY_HOST_DEVICE
   T end() const { return end_; }
 };
 
@@ -476,6 +571,7 @@ using split_iterator_range = iterator_range<split_iterator<InnerExtent>>;
  * - `split<5>(interval<>(0, 12))` produces the intervals `[0, 5)`,
  *   `[5, 10)`, `[7, 12)`. Note the last two intervals overlap. */
 template <index_t InnerExtent, index_t Min, index_t Extent>
+NDARRAY_HOST_DEVICE
 internal::split_iterator_range<InnerExtent> split(const interval<Min, Extent>& v) {
   assert(v.extent() >= InnerExtent);
   return {
@@ -483,6 +579,7 @@ internal::split_iterator_range<InnerExtent> split(const interval<Min, Extent>& v
       {fixed_interval<InnerExtent>(v.max() + 1), v.max()}};
 }
 template <index_t InnerExtent, index_t Min, index_t Extent, index_t Stride>
+NDARRAY_HOST_DEVICE
 internal::split_iterator_range<InnerExtent> split(const dim<Min, Extent, Stride>& v) {
   return split<InnerExtent>(interval<Min, Extent>(v.min(), v.extent()));
 }
@@ -498,12 +595,14 @@ internal::split_iterator_range<InnerExtent> split(const dim<Min, Extent, Stride>
 // avoid some conversion messes. dim<Min, Extent> probably can't implicitly
 // convert to interval<>.
 template <index_t Min, index_t Extent>
+NDARRAY_HOST_DEVICE
 internal::split_iterator_range<> split(const interval<Min, Extent>& v, index_t inner_extent) {
   return {
       {interval<>(v.min(), inner_extent), v.max()},
       {interval<>(v.max() + 1, inner_extent), v.max()}};
 }
 template <index_t Min, index_t Extent, index_t Stride>
+NDARRAY_HOST_DEVICE
 internal::split_iterator_range<> split(const dim<Min, Extent, Stride>& v, index_t inner_extent) {
   return split(interval<Min, Extent>(v.min(), v.extent()), inner_extent);
 }
@@ -516,20 +615,22 @@ using std::make_index_sequence;
 // Call `fn` with the elements of tuple `args` unwrapped from the tuple.
 // TODO: When we assume C++17, this can be replaced by std::apply.
 template <class Fn, class Args, size_t... Is>
-NDARRAY_INLINE auto apply(Fn&& fn, const Args& args, index_sequence<Is...>)
+NDARRAY_INLINE NDARRAY_HOST_DEVICE
+auto apply(Fn&& fn, const Args& args, index_sequence<Is...>)
     -> decltype(fn(std::get<Is>(args)...)) {
   return fn(std::get<Is>(args)...);
 }
 template <class Fn, class... Args>
-NDARRAY_INLINE auto apply(Fn&& fn, const std::tuple<Args...>& args)
+NDARRAY_INLINE NDARRAY_HOST_DEVICE
+auto apply(Fn&& fn, const std::tuple<Args...>& args)
     -> decltype(apply(fn, args, make_index_sequence<sizeof...(Args)>())) {
   return apply(fn, args, make_index_sequence<sizeof...(Args)>());
 }
 
 template <class Fn, class... Args>
-using enable_if_callable = decltype(std::declval<Fn>()(std::declval<Args>()...));
+using enable_if_callable = decltype(internal::declval<Fn>()(internal::declval<Args>()...));
 template <class Fn, class Args>
-using enable_if_applicable = decltype(apply(std::declval<Fn>(), std::declval<Args>()));
+using enable_if_applicable = decltype(apply(internal::declval<Fn>(), internal::declval<Args>()));
 
 // Some variadic reduction helpers.
 NDARRAY_INLINE constexpr index_t sum() { return 0; }
@@ -558,6 +659,7 @@ NDARRAY_INLINE constexpr index_t variadic_max(index_t first, Rest... rest) {
 
 // Computes the product of the extents of the dims.
 template <class Tuple, size_t... Is>
+NDARRAY_HOST_DEVICE
 index_t product(const Tuple& t, index_sequence<Is...>) {
   return product(std::get<Is>(t)...);
 }
@@ -574,21 +676,25 @@ constexpr bool any(Bools... bools) {
 
 // Computes the sum of the offsets of a list of dims and indices.
 template <class Dims, class Indices, size_t... Is>
+NDARRAY_HOST_DEVICE
 index_t flat_offset_tuple(const Dims& dims, const Indices& indices, index_sequence<Is...>) {
   return sum(std::get<Is>(dims).flat_offset(std::get<Is>(indices))...);
 }
 
 template <size_t D, class Dims>
-NDARRAY_INLINE index_t flat_offset_pack(const Dims& dims) {
+NDARRAY_INLINE NDARRAY_HOST_DEVICE
+index_t flat_offset_pack(const Dims& dims) {
   return 0;
 }
 template <size_t D, class Dims, class... Indices>
-NDARRAY_INLINE index_t flat_offset_pack(const Dims& dims, index_t i0, Indices... indices) {
+NDARRAY_INLINE NDARRAY_HOST_DEVICE
+index_t flat_offset_pack(const Dims& dims, index_t i0, Indices... indices) {
   return std::get<D>(dims).flat_offset(i0) + flat_offset_pack<D + 1>(dims, indices...);
 }
 
 // Computes one more than the sum of the offsets of the last index in every dim.
 template <class Dims, size_t... Is>
+NDARRAY_HOST_DEVICE
 index_t flat_min(const Dims& dims, index_sequence<Is...>) {
   return sum(
       (std::get<Is>(dims).extent() - 1) *
@@ -596,6 +702,7 @@ index_t flat_min(const Dims& dims, index_sequence<Is...>) {
 }
 
 template <class Dims, size_t... Is>
+NDARRAY_HOST_DEVICE
 index_t flat_max(const Dims& dims, index_sequence<Is...>) {
   return sum(
       (std::get<Is>(dims).extent() - 1) *
@@ -605,12 +712,14 @@ index_t flat_max(const Dims& dims, index_sequence<Is...>) {
 // Make dims with the interval of the first parameter and the stride
 // of the second parameter.
 template <index_t DimMin, index_t DimExtent, index_t DimStride>
+NDARRAY_HOST_DEVICE
 auto range_with_stride(index_t x, const dim<DimMin, DimExtent, DimStride>& d) {
   return dim<dynamic, 1, DimStride>(x, 1, d.stride());
 }
 template <
     index_t CropMin, index_t CropExtent,
     index_t DimMin, index_t DimExtent, index_t Stride>
+NDARRAY_HOST_DEVICE
 auto range_with_stride(
     const interval<CropMin, CropExtent>& x, const dim<DimMin, DimExtent, Stride>& d) {
   return dim<CropMin, CropExtent, Stride>(x.min(), x.extent(), d.stride());
@@ -618,74 +727,91 @@ auto range_with_stride(
 template <
     index_t CropMin, index_t CropExtent, index_t CropStride,
     index_t DimMin, index_t DimExtent, index_t Stride>
+NDARRAY_HOST_DEVICE
 auto range_with_stride(
     const dim<CropMin, CropExtent, CropStride>& x, const dim<DimMin, DimExtent, Stride>& d) {
   return dim<CropMin, CropExtent, Stride>(x.min(), x.extent(), d.stride());
 }
 template <index_t Min, index_t Extent, index_t Stride>
+NDARRAY_HOST_DEVICE
 auto range_with_stride(const decltype(_)&, const dim<Min, Extent, Stride>& d) {
   return d;
 }
 
 template <class Intervals, class Dims, size_t... Is>
+NDARRAY_HOST_DEVICE
 auto intervals_with_strides(const Intervals& intervals, const Dims& dims, index_sequence<Is...>) {
   return std::make_tuple(range_with_stride(std::get<Is>(intervals), std::get<Is>(dims))...);
 }
 
 // Make a tuple of dims corresponding to elements in intervals that are not slices.
 template <class Dim>
+NDARRAY_HOST_DEVICE
 std::tuple<> skip_slices_impl(const Dim& d, index_t) { return std::tuple<>(); }
 template <class Dim, index_t Min, index_t Extent>
+NDARRAY_HOST_DEVICE
 std::tuple<Dim> skip_slices_impl(const Dim& d, const interval<Min, Extent>&) {
   return std::tuple<Dim>(d);
 }
 template <class Dim, index_t Min, index_t Extent, index_t Stride>
+NDARRAY_HOST_DEVICE
 std::tuple<Dim> skip_slices_impl(const Dim& d, const dim<Min, Extent, Stride>&) {
   return std::tuple<Dim>(d);
 }
 
 template <class Dims, class Intervals, size_t... Is>
+NDARRAY_HOST_DEVICE
 auto skip_slices(const Dims& dims, const Intervals& intervals, index_sequence<Is...>) {
   return std::tuple_cat(skip_slices_impl(std::get<Is>(dims), std::get<Is>(intervals))...);
 }
 
 // Checks if all indices are in interval of each corresponding dim.
 template <class Dims, class Indices, size_t... Is>
+NDARRAY_HOST_DEVICE
 bool is_in_range(const Dims& dims, const Indices& indices, index_sequence<Is...>) {
   return all(std::get<Is>(dims).is_in_range(std::get<Is>(indices))...);
 }
 
 // Get the mins of a series of intervals.
 template <class Dim>
+NDARRAY_HOST_DEVICE
 index_t min_of_range(index_t x, const Dim&) { return x; }
 template <index_t Min, index_t Extent, class Dim>
+NDARRAY_HOST_DEVICE
 index_t min_of_range(const interval<Min, Extent>& x, const Dim&) { return x.min(); }
 template <index_t Min, index_t Extent, index_t Stride, class Dim>
+NDARRAY_HOST_DEVICE
 index_t min_of_range(const dim<Min, Extent, Stride>& x, const Dim&) { return x.min(); }
 template <class Dim>
+NDARRAY_HOST_DEVICE
 index_t min_of_range(const decltype(_)&, const Dim& dim) { return dim.min(); }
 
 template <class Intervals, class Dims, size_t... Is>
+NDARRAY_HOST_DEVICE
 auto mins_of_intervals(const Intervals& intervals, const Dims& dims, index_sequence<Is...>) {
   return std::make_tuple(min_of_range(std::get<Is>(intervals), std::get<Is>(dims))...);
 }
 
 template <class... Dims, size_t... Is>
+NDARRAY_HOST_DEVICE
 auto mins(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
   return std::make_tuple(std::get<Is>(dims).min()...);
 }
 
 template <class... Dims, size_t... Is>
+NDARRAY_HOST_DEVICE
 auto extents(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
   return std::make_tuple(std::get<Is>(dims).extent()...);
 }
 
 template <class... Dims, size_t... Is>
+NDARRAY_HOST_DEVICE
 auto strides(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
   return std::make_tuple(std::get<Is>(dims).stride()...);
 }
 
 template <class... Dims, size_t... Is>
+NDARRAY_HOST_DEVICE
 auto maxs(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
   return std::make_tuple(std::get<Is>(dims).max()...);
 }
@@ -696,6 +822,7 @@ auto maxs(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
 // A proposed stride is "OK" w.r.t. `dim` if the proposed
 // stride does not intersect the dim.
 template <class Dim>
+NDARRAY_HOST_DEVICE
 bool is_stride_ok(index_t stride, index_t extent, const Dim& dim) {
   if (is_dynamic(dim.stride())) {
     // If the dimension has an unknown dynamic stride, it's OK, we're
@@ -715,6 +842,7 @@ bool is_stride_ok(index_t stride, index_t extent, const Dim& dim) {
 }
 
 template <class AllDims, size_t... Is>
+NDARRAY_HOST_DEVICE
 bool is_stride_ok(index_t stride, index_t extent, const AllDims& all_dims, index_sequence<Is...>) {
   return all(is_stride_ok(stride, extent, std::get<Is>(all_dims))...);
 }
@@ -722,6 +850,7 @@ bool is_stride_ok(index_t stride, index_t extent, const AllDims& all_dims, index
 // Replace strides that are not OK with values that cannot be the
 // smallest stride.
 template <class AllDims>
+NDARRAY_HOST_DEVICE
 index_t filter_stride(index_t stride, index_t extent, const AllDims& all_dims) {
   constexpr size_t rank = std::tuple_size<AllDims>::value;
   if (is_stride_ok(stride, extent, all_dims, make_index_sequence<rank>())) {
@@ -734,6 +863,7 @@ index_t filter_stride(index_t stride, index_t extent, const AllDims& all_dims) {
 // The candidate stride for some other dimension is the minimum stride it
 // could have without intersecting this dim.
 template <class Dim>
+NDARRAY_HOST_DEVICE
 index_t candidate_stride(const Dim& dim) {
   if (is_dynamic(dim.stride())) {
     return std::numeric_limits<index_t>::max();
@@ -743,6 +873,7 @@ index_t candidate_stride(const Dim& dim) {
 
 // Find the best stride (the smallest) out of all possible candidate strides.
 template <class AllDims, size_t... Is>
+NDARRAY_HOST_DEVICE
 index_t find_stride(index_t extent, const AllDims& all_dims, index_sequence<Is...>) {
   return variadic_min(
       filter_stride(1, extent, all_dims),
@@ -751,8 +882,10 @@ index_t find_stride(index_t extent, const AllDims& all_dims, index_sequence<Is..
 
 // Replace unknown dynamic strides for each dimension, starting with the first dimension.
 template <class AllDims>
+NDARRAY_HOST_DEVICE
 void resolve_unknown_strides(AllDims& all_dims) {}
 template <class AllDims, class Dim0, class... Dims>
+NDARRAY_HOST_DEVICE
 void resolve_unknown_strides(AllDims& all_dims, Dim0& dim0, Dims&... dims) {
   if (is_dynamic(dim0.stride())) {
     constexpr size_t rank = std::tuple_size<AllDims>::value;
@@ -762,37 +895,43 @@ void resolve_unknown_strides(AllDims& all_dims, Dim0& dim0, Dims&... dims) {
 }
 
 template <class Dims, size_t... Is>
+NDARRAY_HOST_DEVICE
 void resolve_unknown_strides(Dims& dims, index_sequence<Is...>) {
   resolve_unknown_strides(dims, std::get<Is>(dims)...);
 }
 
 template<class Dims, size_t... Is>
+NDARRAY_HOST_DEVICE
 bool is_resolved(const Dims& dims, index_sequence<Is...>) {
   return all(!is_dynamic(std::get<Is>(dims).stride())...);
 }
 
 // A helper to transform an array to a tuple.
 template <class T, class Tuple, size_t... Is>
+NDARRAY_HOST_DEVICE
 std::array<T, sizeof...(Is)> tuple_to_array(const Tuple& t, index_sequence<Is...>) {
   return {{std::get<Is>(t)...}};
 }
 
 template <class T, class... Ts>
+NDARRAY_HOST_DEVICE
 std::array<T, sizeof...(Ts)> tuple_to_array(const std::tuple<Ts...>& t) {
   return tuple_to_array<T>(t, make_index_sequence<sizeof...(Ts)>());
 }
 
 template <class T, size_t N, size_t... Is>
+NDARRAY_HOST_DEVICE
 auto array_to_tuple(const std::array<T, N>& a, index_sequence<Is...>) {
   return std::make_tuple(a[Is]...);
 }
 template <class T, size_t N>
+NDARRAY_HOST_DEVICE
 auto array_to_tuple(const std::array<T, N>& a) {
   return array_to_tuple(a, make_index_sequence<N>());
 }
 
 template<class T, size_t N>
-using tuple_of_n = decltype(array_to_tuple(std::declval<std::array<T, N>>()));
+using tuple_of_n = decltype(array_to_tuple(internal::declval<std::array<T, N>>()));
 
 
 // A helper to check if a parameter pack is entirely implicitly convertible to
@@ -814,16 +953,19 @@ template <class T, class... Args>
 using all_of_type = all_of_any_type<std::tuple<T>, Args...>;
 
 template <size_t I, class T, class... Us, std::enable_if_t<(I < sizeof...(Us)), int> = 0>
+NDARRAY_HOST_DEVICE
 auto convert_dim(const std::tuple<Us...>& u) {
   return std::get<I>(u);
 }
 template <size_t I, class T, class... Us, std::enable_if_t<(I >= sizeof...(Us)), int> = 0>
+NDARRAY_HOST_DEVICE
 auto convert_dim(const std::tuple<Us...>& u) {
   // For dims beyond the rank of U, make a dimension of type T_I with extent 1.
-  return decltype(std::get<I>(std::declval<T>()))(1);
+  return decltype(std::get<I>(internal::declval<T>()))(1);
 }
 
 template <class T, class U, size_t... Is>
+NDARRAY_HOST_DEVICE
 T convert_dims(const U& u, internal::index_sequence<Is...>) {
   return std::make_tuple(convert_dim<Is, T>(u)...);
 }
@@ -845,11 +987,13 @@ class shape;
 
 /** Helper function to make a tuple from a variadic list of `dims...`. */
 template <class... Dims>
+NDARRAY_HOST_DEVICE
 auto make_shape(Dims... dims) {
   return shape<Dims...>(dims...);
 }
 
 template <class... Dims>
+NDARRAY_HOST_DEVICE
 shape<Dims...> make_shape_from_tuple(const std::tuple<Dims...>& dims) {
   return shape<Dims...>(dims);
 }
@@ -909,26 +1053,36 @@ class shape {
   using enable_if_dim = std::enable_if_t<(Dim < rank())>;
 
  public:
+  NDARRAY_HOST_DEVICE
   shape() {}
   // TODO: This is a bit messy, but necessary to avoid ambiguous default
   // constructors when Dims is empty.
   template <size_t N = sizeof...(Dims), class = std::enable_if_t<(N > 0)>>
+  NDARRAY_HOST_DEVICE
   shape(const Dims&... dims) : dims_(dims...) {}
+  NDARRAY_HOST_DEVICE
   shape(const shape&) = default;
+  NDARRAY_HOST_DEVICE
   shape(shape&&) = default;
+  NDARRAY_HOST_DEVICE
   shape& operator=(const shape&) = default;
+  NDARRAY_HOST_DEVICE
   shape& operator=(shape&&) = default;
 
   /** Construct or assign a shape from another set of dims of a possibly
    * different type. Each dim must be compatible with the corresponding
    * dim of this shape. */
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
+  NDARRAY_HOST_DEVICE
   shape(const std::tuple<OtherDims...>& other) : dims_(other) {}
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
+  NDARRAY_HOST_DEVICE
   shape(OtherDims... other_dims) : dims_(other_dims...) {}
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
+  NDARRAY_HOST_DEVICE
   shape(const shape<OtherDims...>& other) : dims_(other.dims()) {}
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
+  NDARRAY_HOST_DEVICE
   shape& operator=(const shape<OtherDims...>& other) {
     dims_ = other.dims();
     return *this;
@@ -947,34 +1101,41 @@ class shape {
    * Examples:
    * - `{{0, 5}, {0, 10}}` -> `{{0, 5, 1}, {0, 10, 5}}`
    * - `{{0, 5}, {0, 10}, {0, 3, 1}}` -> `{{0, 5, 3}, {0, 10, 15}, {0, 3, 1}}` */
+  NDARRAY_HOST_DEVICE
   void resolve() {
     internal::resolve_unknown_strides(dims_, internal::make_index_sequence<rank()>());
   }
 
   /** Check if all strides of the shape are known. */
+  NDARRAY_HOST_DEVICE
   bool is_resolved() const {
     return internal::is_resolved(dims_, internal::make_index_sequence<rank()>());
   }
 
   /** Returns `true` if the indices or intervals `args` are in interval of this shape. */
   template <class... Args, class = enable_if_same_rank<Args...>>
+  NDARRAY_HOST_DEVICE
   bool is_in_range(const std::tuple<Args...>& args) const {
     return internal::is_in_range(dims_, args, internal::make_index_sequence<rank()>());
   }
   template <class... Args, class = enable_if_same_rank<Args...>>
+  NDARRAY_HOST_DEVICE
   bool is_in_range(Args... args) const {
     return internal::is_in_range(
         dims_, std::make_tuple(args...), internal::make_index_sequence<rank()>());
   }
 
   /** Compute the flat offset of the index `indices`. */
+  NDARRAY_HOST_DEVICE
   index_t operator() (const index_type& indices) const {
     return internal::flat_offset_tuple(dims_, indices, internal::make_index_sequence<rank()>());
   }
+  NDARRAY_HOST_DEVICE
   index_t operator[] (const index_type& indices) const {
     return internal::flat_offset_tuple(dims_, indices, internal::make_index_sequence<rank()>());
   }
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_indices<Args...>>
+  NDARRAY_HOST_DEVICE
   index_t operator() (Args... indices) const {
     return internal::flat_offset_pack<0>(dims_, indices...);
   }
@@ -983,6 +1144,7 @@ class shape {
    * Dimensions corresponding to indices in `args` are sliced, i.e. the result
    * will not have this dimension. The rest of the dimensions are cropped. */
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
+  NDARRAY_HOST_DEVICE
   auto operator() (const std::tuple<Args...>& args) const {
     auto new_dims =
         internal::intervals_with_strides(args, dims_, internal::make_index_sequence<rank()>());
@@ -991,33 +1153,44 @@ class shape {
     return make_shape_from_tuple(new_dims_no_slices);
   }
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
+  NDARRAY_HOST_DEVICE
   auto operator[] (const std::tuple<Args...>& args) const { return operator()(args); }
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
+  NDARRAY_HOST_DEVICE
   auto operator() (Args... args) const { return operator()(std::make_tuple(args...)); }
 
   /** Get a specific dim `D` of this shape. */
   template <size_t D, class = enable_if_dim<D>>
+  NDARRAY_HOST_DEVICE
   auto& dim() { return std::get<D>(dims_); }
   template <size_t D, class = enable_if_dim<D>>
+  NDARRAY_HOST_DEVICE
   const auto& dim() const { return std::get<D>(dims_); }
 
   /** Get a specific dim of this shape with a runtime dimension index `d`.
    * This will lose knowledge of any compile-time constant dimension
    * attributes. */
+  NDARRAY_HOST_DEVICE
   nda::dim<> dim(size_t d) const {
     assert(d < rank());
     return internal::tuple_to_array<nda::dim<>>(dims_)[d];
   }
 
   /** Get a tuple of all of the dims of this shape. */
+  NDARRAY_HOST_DEVICE
   dims_type& dims() { return dims_; }
+  NDARRAY_HOST_DEVICE
   const dims_type& dims() const { return dims_; }
 
+  NDARRAY_HOST_DEVICE
   index_type min() const { return internal::mins(dims(), internal::make_index_sequence<rank()>()); }
+  NDARRAY_HOST_DEVICE
   index_type max() const { return internal::maxs(dims(), internal::make_index_sequence<rank()>()); }
+  NDARRAY_HOST_DEVICE
   index_type extent() const {
     return internal::extents(dims(), internal::make_index_sequence<rank()>());
   }
+  NDARRAY_HOST_DEVICE
   index_type stride() const {
     return internal::strides(dims(), internal::make_index_sequence<rank()>());
   }
@@ -1025,35 +1198,42 @@ class shape {
   /** Compute the min, max, or extent of the flat offsets of this shape.
    * This is the extent of the valid interval of values returned by `operator()`
    * or `operator[]`. */
+  NDARRAY_HOST_DEVICE
   index_t flat_min() const {
     return internal::flat_min(dims_, internal::make_index_sequence<rank()>());
   }
+  NDARRAY_HOST_DEVICE
   index_t flat_max() const {
     return internal::flat_max(dims_, internal::make_index_sequence<rank()>());
   }
+  NDARRAY_HOST_DEVICE
   size_type flat_extent() const {
     index_t e = flat_max() - flat_min() + 1;
     return e < 0 ? 0 : static_cast<size_type>(e);
   }
 
   /** Compute the total number of indices in this shape. */
+  NDARRAY_HOST_DEVICE
   size_type size() const {
     index_t s = internal::product(extent(), internal::make_index_sequence<rank()>());
     return s < 0 ? 0 : static_cast<size_type>(s);
   }
 
   /** A shape is empty if its size is 0. */
+  NDARRAY_HOST_DEVICE
   bool empty() const { return size() == 0; }
 
   /** Returns `true` if this shape is 'compact' in memory. A shape is compact
    * if there are no unaddressable flat indices between the first and last
    * addressable flat elements. */
+  NDARRAY_HOST_DEVICE
   bool is_compact() const { return flat_extent() <= size(); }
 
   /** Returns `true` if this shape is an injective function mapping indices to
    * flat indices. If the dims overlap, or a dim has stride zero, multiple
    * indices will map to the same flat index; in this case, this function will
    * return `false`. */
+  NDARRAY_HOST_DEVICE
   bool is_one_to_one() const {
     // TODO: https://github.com/dsharlet/array/issues/2
     return flat_extent() >= size();
@@ -1063,6 +1243,7 @@ class shape {
    * subset of the other shape's projection to flat indices, with an offset
    * `offset`. */
   template <typename OtherShape>
+  NDARRAY_HOST_DEVICE
   bool is_subset_of(const OtherShape& other, index_t offset) const {
     // TODO: https://github.com/dsharlet/array/issues/2
     return flat_min() >= other.flat_min() + offset && flat_max() <= other.flat_max() + offset;
@@ -1070,42 +1251,65 @@ class shape {
 
   /** Provide some aliases for common interpretations of dimensions
    * `i`, `j`, `k` as dimensions 0, 1, 2, respectively. */
+  NDARRAY_HOST_DEVICE
   auto& i() { return dim<0>(); }
+  NDARRAY_HOST_DEVICE
   const auto& i() const { return dim<0>(); }
+  NDARRAY_HOST_DEVICE
   auto& j() { return dim<1>(); }
+  NDARRAY_HOST_DEVICE
   const auto& j() const { return dim<1>(); }
+  NDARRAY_HOST_DEVICE
   auto& k() { return dim<2>(); }
+  NDARRAY_HOST_DEVICE
   const auto& k() const { return dim<2>(); }
 
   /** Provide some aliases for common interpretations of dimensions
    * `x`, `y`, `z` or `c`, `w` as dimensions 0, 1, 2, 3 respectively. */
+  NDARRAY_HOST_DEVICE
   auto& x() { return dim<0>(); }
+  NDARRAY_HOST_DEVICE
   const auto& x() const { return dim<0>(); }
+  NDARRAY_HOST_DEVICE
   auto& y() { return dim<1>(); }
+  NDARRAY_HOST_DEVICE
   const auto& y() const { return dim<1>(); }
+  NDARRAY_HOST_DEVICE
   auto& z() { return dim<2>(); }
+  NDARRAY_HOST_DEVICE
   const auto& z() const { return dim<2>(); }
+  NDARRAY_HOST_DEVICE
   auto& c() { return dim<2>(); }
+  NDARRAY_HOST_DEVICE
   const auto& c() const { return dim<2>(); }
+  NDARRAY_HOST_DEVICE
   auto& w() { return dim<3>(); }
+  NDARRAY_HOST_DEVICE
   const auto& w() const { return dim<3>(); }
 
   /** Assuming this array represents an image with dimensions {width,
    * height, channels}, get the extent of those dimensions. */
+  NDARRAY_HOST_DEVICE
   index_t width() const { return x().extent(); }
+  NDARRAY_HOST_DEVICE
   index_t height() const { return y().extent(); }
+  NDARRAY_HOST_DEVICE
   index_t channels() const { return c().extent(); }
 
   /** Assuming this array represents a matrix with dimensions {rows,
    * cols}, get the extent of those dimensions. */
+  NDARRAY_HOST_DEVICE
   index_t rows() const { return i().extent(); }
+  NDARRAY_HOST_DEVICE
   index_t columns() const { return j().extent(); }
 
   /** A shape is equal to another shape if the dim objects of each
    * dimension from both shapes are equal. */
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
+  NDARRAY_HOST_DEVICE
   bool operator==(const shape<OtherDims...>& other) const { return dims_ == other.dims(); }
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
+  NDARRAY_HOST_DEVICE
   bool operator!=(const shape<OtherDims...>& other) const { return dims_ != other.dims(); }
 };
 
@@ -1122,10 +1326,12 @@ class shape {
  * - `reorder<1, 2>(s_4d) == make_shape(s.y(), s.z())` */
 template <size_t... DimIndices, class... Dims,
     class = internal::enable_if_permutation<sizeof...(Dims), DimIndices...>>
+NDARRAY_HOST_DEVICE
 auto transpose(const shape<Dims...>& shape) {
   return make_shape(shape.template dim<DimIndices>()...);
 }
 template <size_t... DimIndices, class... Dims>
+NDARRAY_HOST_DEVICE
 auto reorder(const shape<Dims...>& shape) {
   return make_shape(shape.template dim<DimIndices>()...);
 }
@@ -1133,7 +1339,8 @@ auto reorder(const shape<Dims...>& shape) {
 namespace internal {
 
 template<class Fn, class Idx>
-NDARRAY_INLINE void for_each_index_in_order(Fn&& fn, const Idx& idx) { fn(idx); }
+NDARRAY_INLINE NDARRAY_HOST_DEVICE
+void for_each_index_in_order(Fn&& fn, const Idx& idx) { fn(idx); }
 
 // TODO: We could add some overloads here that help generate better code:
 // - Special case for dim<0, 1> placeholder loops.
@@ -1142,7 +1349,8 @@ NDARRAY_INLINE void for_each_index_in_order(Fn&& fn, const Idx& idx) { fn(idx); 
 // However, all of these are pretty redundant with the compiler. They would
 // probably only affect unoptimized code (which might still be useful).
 template<class Fn, class OuterIdx, class Dim0, class... Dims>
-NDARRAY_UNIQUE void for_each_index_in_order(
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE
+void for_each_index_in_order(
     Fn&& fn, const OuterIdx& idx, const Dim0& dim0, const Dims&... dims) {
   for (index_t i : dim0) {
     for_each_index_in_order(fn, std::tuple_cat(std::make_tuple(i), idx), dims...);
@@ -1150,22 +1358,26 @@ NDARRAY_UNIQUE void for_each_index_in_order(
 }
 
 template<class Dims, class Fn, size_t... Is>
-NDARRAY_UNIQUE void for_each_index_in_order(Fn&& fn, const Dims& dims, index_sequence<Is...>) {
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE
+void for_each_index_in_order(Fn&& fn, const Dims& dims, index_sequence<Is...>) {
   // We need to reverse the order of the dims so the last dim is
   // iterated innermost.
   for_each_index_in_order(fn, std::tuple<>(), std::get<sizeof...(Is) - 1 - Is>(dims)...);
 }
 
 template <size_t D>
-NDARRAY_INLINE void advance() {}
+NDARRAY_INLINE NDARRAY_HOST_DEVICE
+void advance() {}
 template <size_t D, class Ptr, class... Ptrs>
-NDARRAY_INLINE void advance(Ptr& ptr, Ptrs&... ptrs) {
+NDARRAY_INLINE NDARRAY_HOST_DEVICE
+void advance(Ptr& ptr, Ptrs&... ptrs) {
   std::get<0>(ptr) += std::get<D>(std::get<1>(ptr));
   advance<D>(ptrs...);
 }
 
 template <class Fn, class... Ptrs>
-NDARRAY_UNIQUE void for_each_value_in_order_inner_dense(index_t extent, Fn&& fn, Ptrs... ptrs) {
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE
+void for_each_value_in_order_inner_dense(index_t extent, Fn&& fn, Ptrs... ptrs) {
   for (index_t i = 0; i < extent; i++) {
     fn(*ptrs++...);
   }
@@ -1174,7 +1386,8 @@ NDARRAY_UNIQUE void for_each_value_in_order_inner_dense(index_t extent, Fn&& fn,
 // TODO: Try to use a variadic dims approach like for_each_index.
 template <size_t D, class ExtentType, class Fn, class... Ptrs,
     std::enable_if_t<(D == 0), int> = 0>
-NDARRAY_UNIQUE void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE
+void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
   index_t extent_d = std::get<D>(extent);
   if (all(std::get<D>(std::get<1>(ptrs)) == 1 ...)) {
     for_each_value_in_order_inner_dense(extent_d, fn, std::get<0>(ptrs)...);
@@ -1188,7 +1401,8 @@ NDARRAY_UNIQUE void for_each_value_in_order(const ExtentType& extent, Fn&& fn, P
 
 template <size_t D, class ExtentType, class Fn, class... Ptrs,
     std::enable_if_t<(D > 0), int> = 0>
-NDARRAY_UNIQUE void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE
+void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
   index_t extent_d = std::get<D>(extent);
   for (index_t i = 0; i < extent_d; i++) {
     for_each_value_in_order<D - 1>(extent, fn, ptrs...);
@@ -1198,31 +1412,37 @@ NDARRAY_UNIQUE void for_each_value_in_order(const ExtentType& extent, Fn&& fn, P
 
 // Scalar buffers are a special case.
 template <size_t D, class Fn, class... Ptrs>
-NDARRAY_UNIQUE void for_each_value_in_order(const std::tuple<>& extent, Fn&& fn, Ptrs... ptrs) {
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE
+void for_each_value_in_order(const std::tuple<>& extent, Fn&& fn, Ptrs... ptrs) {
   fn(*std::get<0>(ptrs)...);
 }
 
 template <typename TSrc, typename TDst>
-NDARRAY_INLINE void move_assign(TSrc& src, TDst& dst) {
+NDARRAY_INLINE NDARRAY_HOST_DEVICE
+void move_assign(TSrc& src, TDst& dst) {
   dst = std::move(src);
 }
 
 template <typename TSrc, typename TDst>
-NDARRAY_INLINE void copy_assign(const TSrc& src, TDst& dst) {
+NDARRAY_INLINE NDARRAY_HOST_DEVICE
+void copy_assign(const TSrc& src, TDst& dst) {
   dst = src;
 }
 
 template <size_t Rank, std::enable_if_t<(Rank > 0), int> = 0>
+NDARRAY_HOST_DEVICE
 auto make_default_dense_shape() {
   return make_shape_from_tuple(std::tuple_cat(
       std::make_tuple(dense_dim<>()), tuple_of_n<dim<>, Rank - 1>()));
 }
 template <size_t Rank, std::enable_if_t<(Rank == 0), int> = 0>
+NDARRAY_HOST_DEVICE
 auto make_default_dense_shape() {
   return shape<>();
 }
 
 template <class Shape, size_t... Is>
+NDARRAY_HOST_DEVICE
 auto make_dense_shape(const Shape& dims, index_sequence<Is...>) {
   return make_shape(
       dense_dim<>(std::get<0>(dims).min(), std::get<0>(dims).extent()),
@@ -1230,11 +1450,13 @@ auto make_dense_shape(const Shape& dims, index_sequence<Is...>) {
 }
 
 template <class Shape, size_t... Is>
+NDARRAY_HOST_DEVICE
 Shape without_strides(const Shape& s, index_sequence<Is...>) {
   return {{s.template dim<Is>().min(), s.template dim<Is>().extent()}...};
 }
 
 template <index_t Min, index_t Extent, index_t Stride, class DimSrc>
+NDARRAY_HOST_DEVICE
 bool is_dim_compatible(const dim<Min, Extent, Stride>&, const DimSrc& src) {
   return
     (is_dynamic(Min) || src.min() == Min) &&
@@ -1243,11 +1465,13 @@ bool is_dim_compatible(const dim<Min, Extent, Stride>&, const DimSrc& src) {
 }
 
 template <class... DimsDst, class ShapeSrc, size_t... Is>
+NDARRAY_HOST_DEVICE
 bool is_shape_compatible(const shape<DimsDst...>&, const ShapeSrc& src, index_sequence<Is...>) {
   return all(is_dim_compatible(DimsDst(), src.template dim<Is>())...);
 }
 
 template <class DimA, class DimB>
+NDARRAY_HOST_DEVICE
 auto clamp_dims(const DimA& a, const DimB& b) {
   constexpr index_t Min = static_max(DimA::Min, DimB::Min);
   constexpr index_t Max = static_min(DimA::Max, DimB::Max);
@@ -1259,17 +1483,20 @@ auto clamp_dims(const DimA& a, const DimB& b) {
 }
 
 template <class DimsA, class DimsB, size_t... Is>
+NDARRAY_HOST_DEVICE
 auto clamp(const DimsA& a, const DimsB& b, index_sequence<Is...>) {
   return make_shape(clamp_dims(std::get<Is>(a), std::get<Is>(b))...);
 }
 
 // Shuffle a tuple with indices Is...
 template <size_t... Is, class T>
+NDARRAY_HOST_DEVICE
 auto shuffle(const T& t) {
   return std::make_tuple(std::get<Is>(t)...);
 }
 
 // Return where the index I appears in Is...
+// TODO(dsharlet): Use numeric_limits<size_f>::max()?
 template <size_t I>
 constexpr size_t index_of() { return 10000; }
 template <size_t I, size_t I0, size_t... Is>
@@ -1280,20 +1507,24 @@ constexpr size_t index_of() {
 // Similar to std::get, but returns a one-element tuple if I is
 // in bounds, or an empty tuple if not.
 template <size_t I, class T, std::enable_if_t<(I < std::tuple_size<T>::value), int> = 0>
-NDARRAY_INLINE auto get_tuple(const T& t) {
+NDARRAY_INLINE NDARRAY_HOST_DEVICE
+auto get_tuple(const T& t) {
   return std::make_tuple(std::get<I>(t));
 }
 template <size_t I, class T, std::enable_if_t<(I >= std::tuple_size<T>::value), int> = 0>
-NDARRAY_INLINE auto get_tuple(const T& t) {
+NDARRAY_INLINE NDARRAY_HOST_DEVICE
+auto get_tuple(const T& t) {
   return std::make_tuple();
 }
 
 // Perform the inverse of a shuffle with indices Is...
 template <size_t... Is, class T, size_t... Js>
+NDARRAY_HOST_DEVICE
 auto unshuffle(const T& t, index_sequence<Js...>) {
   return std::tuple_cat(get_tuple<index_of<Js, Is...>()>(t)...);
 }
 template <size_t... Is, class... Ts>
+NDARRAY_HOST_DEVICE
 auto unshuffle(const std::tuple<Ts...>& t) {
   return unshuffle<Is...>(t, make_index_sequence<variadic_max(Is...) + 1>());
 }
@@ -1311,7 +1542,7 @@ using enable_if_shapes_copy_compatible =
     std::enable_if_t<(ShapeDst::rank() == ShapeSrc::rank())>;
 
 template <class Alloc>
-using enable_if_allocator = decltype(std::declval<Alloc>().allocate(0));
+using enable_if_allocator = decltype(internal::declval<Alloc>().allocate(0));
 
 }  // namespace internal
 
@@ -1328,6 +1559,7 @@ using dense_shape = decltype(internal::make_default_dense_shape<Rank>());
 
 /** Make a `dense_shape` with the same mins and extents as `s`. */
 template <class... Dims>
+NDARRAY_HOST_DEVICE
 auto make_dense(const shape<Dims...>& s) {
   constexpr size_t rank = sizeof...(Dims);
   return internal::make_dense_shape(s.dims(), internal::make_index_sequence<rank - 1>());
@@ -1341,6 +1573,7 @@ inline auto make_dense(const shape<>& s) { return s; }
  * The resulting shape may not have `Shape::is_compact` return `true`
  * if the shape has non-compact compile-time constant strides. */
 template <class Shape>
+NDARRAY_HOST_DEVICE
 Shape make_compact(const Shape& s) {
   Shape without_strides =
       internal::without_strides(s, internal::make_index_sequence<Shape::rank()>());
@@ -1352,6 +1585,7 @@ Shape make_compact(const Shape& s) {
  * `ShapeDst` without error. */
 template <class ShapeDst, class ShapeSrc,
     class = internal::enable_if_shapes_compatible<ShapeSrc, ShapeDst>>
+NDARRAY_HOST_DEVICE
 bool is_compatible(const ShapeSrc& src) {
   return internal::is_shape_compatible(
       ShapeDst(), src, internal::make_index_sequence<ShapeSrc::rank()>());
@@ -1365,6 +1599,7 @@ bool is_compatible(const ShapeSrc& src) {
 // it's a good idea.
 template <class ShapeDst, class ShapeSrc,
     class = internal::enable_if_shapes_explicitly_compatible<ShapeDst, ShapeSrc>>
+NDARRAY_HOST_DEVICE
 ShapeDst convert_shape(const ShapeSrc& src) {
   return internal::convert_dims<typename ShapeDst::dims_type>(
       src.dims(), internal::make_index_sequence<ShapeDst::rank()>());
@@ -1374,6 +1609,7 @@ ShapeDst convert_shape(const ShapeSrc& src) {
  * `ShapeDst` using `convert_shape` without error. */
 template <class ShapeDst, class ShapeSrc,
     class = internal::enable_if_shapes_explicitly_compatible<ShapeSrc, ShapeDst>>
+NDARRAY_HOST_DEVICE
 bool is_explicitly_compatible(const ShapeSrc& src) {
   return internal::is_shape_compatible(
       ShapeDst(), src, internal::make_index_sequence<ShapeSrc::rank()>());
@@ -1389,13 +1625,15 @@ bool is_explicitly_compatible(const ShapeSrc& src) {
  * `array_ref<>::for_each_value`, or `array<>::for_each_value` instead. */
 template<class Shape, class Fn,
     class = internal::enable_if_callable<Fn, typename Shape::index_type>>
-NDARRAY_UNIQUE void for_each_index_in_order(const Shape& shape, Fn &&fn) {
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE
+void for_each_index_in_order(const Shape& shape, Fn &&fn) {
   internal::for_each_index_in_order(
       fn, shape.dims(), internal::make_index_sequence<Shape::rank()>());
 }
 template<class Shape, class Ptr, class Fn,
     class = internal::enable_if_callable<Fn, typename std::remove_pointer<Ptr>::type&>>
-NDARRAY_UNIQUE void for_each_value_in_order(const Shape& shape, Ptr base, Fn &&fn) {
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE
+void for_each_value_in_order(const Shape& shape, Ptr base, Fn &&fn) {
   // TODO: This is losing compile-time constant extents and strides info
   // (https://github.com/dsharlet/array/issues/1).
   auto base_and_stride = std::make_tuple(base, shape.stride());
@@ -1408,7 +1646,8 @@ NDARRAY_UNIQUE void for_each_value_in_order(const Shape& shape, Ptr base, Fn &&f
 template<class Shape, class ShapeA, class PtrA, class ShapeB, class PtrB, class Fn,
     class = internal::enable_if_callable<Fn,
         typename std::remove_pointer<PtrA>::type&, typename std::remove_pointer<PtrB>::type&>>
-NDARRAY_UNIQUE void for_each_value_in_order(
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE
+void for_each_value_in_order(
     const Shape& shape, const ShapeA& shape_a, PtrA base_a, const ShapeB& shape_b, PtrB base_b,
     Fn &&fn) {
   base_a += shape_a(shape.min());
@@ -1422,11 +1661,13 @@ NDARRAY_UNIQUE void for_each_value_in_order(
 
 namespace internal {
 
-inline bool can_fuse(const dim<>& inner, const dim<>& outer) {
+NDARRAY_INLINE NDARRAY_HOST_DEVICE
+bool can_fuse(const dim<>& inner, const dim<>& outer) {
   return inner.stride() * inner.extent() == outer.stride();
 }
 
-inline dim<> fuse(const dim<>& inner, const dim<>& outer) {
+NDARRAY_INLINE NDARRAY_HOST_DEVICE
+dim<> fuse(const dim<>& inner, const dim<>& outer) {
   assert(can_fuse(inner, outer));
   return dim<>(
       inner.min() + outer.min() * inner.extent(),
@@ -1438,6 +1679,7 @@ inline dim<> fuse(const dim<>& inner, const dim<>& outer) {
 // and extra complexity here is costly in code size/compile time.
 // This is a rare job for bubble sort!
 template <class Iterator, class Compare>
+NDARRAY_HOST_DEVICE
 void bubble_sort(Iterator begin, Iterator end, Compare&& comp) {
   for (Iterator i = begin; i != end; ++i) {
     for (Iterator j = i; j != end; ++j) {
@@ -1451,6 +1693,7 @@ void bubble_sort(Iterator begin, Iterator end, Compare&& comp) {
 // Sort the dims such that strides are increasing from dim 0, and contiguous
 // dimensions are fused.
 template <class Shape>
+NDARRAY_HOST_DEVICE
 shape_of_rank<Shape::rank()> dynamic_optimize_shape(const Shape& shape) {
   auto dims = internal::tuple_to_array<dim<>>(shape.dims());
 
@@ -1486,6 +1729,7 @@ shape_of_rank<Shape::rank()> dynamic_optimize_shape(const Shape& shape) {
 // dimensions are fused.
 template <class ShapeSrc, class ShapeDst,
     class = enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
+NDARRAY_HOST_DEVICE
 auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDst& dst) {
   constexpr size_t rank = ShapeSrc::rank();
   static_assert(rank == ShapeDst::rank(), "copy shapes must have same rank.");
@@ -1542,29 +1786,34 @@ auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const ShapeDst& dst) {
 }
 
 template <class Shape>
+NDARRAY_HOST_DEVICE
 auto optimize_shape(const Shape& shape) {
   // In the general case, dynamically optimize the shape.
   return dynamic_optimize_shape(shape);
 }
 
 template <class Dim0>
+NDARRAY_HOST_DEVICE
 auto optimize_shape(const shape<Dim0>& shape) {
   // Nothing to do for rank 1 shapes.
   return shape;
 }
 
 template <class ShapeSrc, class ShapeDst>
+NDARRAY_HOST_DEVICE
 auto optimize_copy_shapes(const ShapeSrc& src, const ShapeDst& dst) {
   return dynamic_optimize_copy_shapes(src, dst);
 }
 
 template <class Dim0Src, class Dim0Dst>
+NDARRAY_HOST_DEVICE
 auto optimize_copy_shapes(const shape<Dim0Src>& src, const shape<Dim0Dst>& dst) {
   // Nothing to do for rank 1 shapes.
   return std::make_pair(src, dst);
 }
 
 template <class T>
+NDARRAY_HOST_DEVICE
 T* pointer_add(T* x, index_t offset) {
   return x != nullptr ? x + offset : x;
 }
@@ -1580,6 +1829,7 @@ class shape_traits {
   /** The `for_each_index` implementation for the shape may choose to iterate in a
    * different order than the default (in-order). */
   template <class Fn>
+  NDARRAY_HOST_DEVICE
   static void for_each_index(const Shape& shape, Fn&& fn) {
     for_each_index_in_order(shape, fn);
   }
@@ -1588,6 +1838,7 @@ class shape_traits {
    * optimize shape. The default implementation optimizes the shape at runtime,
    * and only attempts to convert the shape to a `dense_shape`. */
   template <class Ptr, class Fn>
+  NDARRAY_HOST_DEVICE
   static void for_each_value(const Shape& shape, Ptr base, Fn&& fn) {
     auto opt_shape = internal::optimize_shape(shape);
     for_each_value_in_order(opt_shape, base, fn);
@@ -1600,11 +1851,13 @@ class shape_traits<shape<>> {
   using shape_type = shape<>;
 
   template <class Fn>
+  NDARRAY_HOST_DEVICE
   static void for_each_index(const shape<>&, Fn&& fn) {
     fn(std::tuple<>());
   }
 
   template <class Ptr, class Fn>
+  NDARRAY_HOST_DEVICE
   static void for_each_value(const shape<>&, Ptr base, Fn&& fn) {
     fn(*base);
   }
@@ -1623,6 +1876,7 @@ class copy_shape_traits {
    * runtime, and only attempts to convert the shapes to `dense_shape`s of the
    * same rank. */
   template <class Fn, class TSrc, class TDst>
+  NDARRAY_HOST_DEVICE
   static void for_each_value(
       const ShapeSrc& shape_src, TSrc src, const ShapeDst& shape_dst, TDst dst, Fn&& fn) {
     // For this function, we don't care about the order in which the callback is
@@ -1654,13 +1908,15 @@ class copy_shape_traits {
 template <size_t... LoopOrder, class Shape, class Fn,
     class = internal::enable_if_callable<Fn, typename Shape::index_type>,
     std::enable_if_t<(sizeof...(LoopOrder) == 0), int> = 0>
-NDARRAY_UNIQUE void for_each_index(const Shape& s, Fn&& fn) {
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE
+void for_each_index(const Shape& s, Fn&& fn) {
   shape_traits<Shape>::for_each_index(s, fn);
 }
 template <size_t... LoopOrder, class Shape, class Fn,
     class = internal::enable_if_applicable<Fn, typename Shape::index_type>,
     std::enable_if_t<(sizeof...(LoopOrder) == 0), int> = 0>
-NDARRAY_UNIQUE void for_all_indices(const Shape& s, Fn&& fn) {
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE
+void for_all_indices(const Shape& s, Fn&& fn) {
   using index_type = typename Shape::index_type;
   for_each_index(s, [&](const index_type&i) {
     internal::apply(fn, i);
@@ -1669,7 +1925,8 @@ NDARRAY_UNIQUE void for_all_indices(const Shape& s, Fn&& fn) {
 template <size_t... LoopOrder, class Shape, class Fn,
     class = internal::enable_if_callable<Fn, index_of_rank<sizeof...(LoopOrder)>>,
     std::enable_if_t<(sizeof...(LoopOrder) != 0), int> = 0>
-NDARRAY_UNIQUE void for_each_index(const Shape& s, Fn&& fn) {
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE
+void for_each_index(const Shape& s, Fn&& fn) {
   using index_type = index_of_rank<sizeof...(LoopOrder)>;
   for_each_index_in_order(reorder<LoopOrder...>(s), [&](const index_type& i) {
     fn(internal::unshuffle<LoopOrder...>(i));
@@ -1678,7 +1935,8 @@ NDARRAY_UNIQUE void for_each_index(const Shape& s, Fn&& fn) {
 template <size_t... LoopOrder, class Shape, class Fn,
     class = internal::enable_if_callable<Fn, decltype(LoopOrder)...>,
     std::enable_if_t<(sizeof...(LoopOrder) != 0), int> = 0>
-NDARRAY_UNIQUE void for_all_indices(const Shape& s, Fn&& fn) {
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE
+void for_all_indices(const Shape& s, Fn&& fn) {
   using index_type = index_of_rank<sizeof...(LoopOrder)>;
   for_each_index_in_order(reorder<LoopOrder...>(s), [&](const index_type&i) {
     internal::apply(fn, internal::unshuffle<LoopOrder...>(i));
@@ -1695,6 +1953,7 @@ using const_array_ref = array_ref<const T, Shape>;
 
 /** Make a new `array_ref` with shape `shape` and base pointer `base`. */
 template <class T, class Shape>
+NDARRAY_HOST_DEVICE
 array_ref<T, Shape> make_array_ref(T* base, const Shape& shape) {
   return {base, shape};
 }
@@ -1702,6 +1961,7 @@ array_ref<T, Shape> make_array_ref(T* base, const Shape& shape) {
 namespace internal {
 
 template <class T, class Shape, class... Args>
+NDARRAY_HOST_DEVICE
 auto make_array_ref_at(T base, const Shape& shape, const std::tuple<Args...>& args) {
   auto new_shape = shape(args);
   auto new_mins =
@@ -1760,20 +2020,27 @@ class array_ref {
  public:
   /** Make an array_ref to the given `base` pointer, interpreting it as having
    * the shape `shape`. */
+  NDARRAY_HOST_DEVICE
   array_ref(pointer base = nullptr, const Shape& shape = Shape()) : base_(base), shape_(shape) {
     shape_.resolve();
   }
 
   /** Shallow copy or assign an array_ref. */
+  NDARRAY_HOST_DEVICE
   array_ref(const array_ref& other) = default;
+  NDARRAY_HOST_DEVICE
   array_ref(array_ref&& other) = default;
+  NDARRAY_HOST_DEVICE
   array_ref& operator=(const array_ref& other) = default;
+  NDARRAY_HOST_DEVICE
   array_ref& operator=(array_ref&& other) = default;
 
   /** Shallow copy or assign an array_ref with a different shape type. */
   template <class OtherShape, class = enable_if_shape_compatible<OtherShape>>
+  NDARRAY_HOST_DEVICE
   array_ref(const array_ref<T, OtherShape>& other) : array_ref(other.base(), other.shape()) {}
   template <class OtherShape, class = enable_if_shape_compatible<OtherShape>>
+  NDARRAY_HOST_DEVICE
   array_ref& operator=(const array_ref<T, OtherShape>& other) {
     base_ = other.base();
     shape_ = other.shape();
@@ -1781,9 +2048,12 @@ class array_ref {
   }
 
   /** Get a reference to the element at `indices`. */
+  NDARRAY_HOST_DEVICE
   reference operator() (const index_type& indices) const { return base_[shape_(indices)]; }
+  NDARRAY_HOST_DEVICE
   reference operator[] (const index_type& indices) const { return base_[shape_(indices)]; }
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_indices<Args...>>
+  NDARRAY_HOST_DEVICE
   reference operator() (Args... indices) const { return base_[shape_(indices...)]; }
 
   /** Create an `array_ref` from this array_ref using a indices or intervals
@@ -1791,14 +2061,17 @@ class array_ref {
    * the result will not have this dimension. The rest of the dimensions are
    * cropped. */
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
+  NDARRAY_HOST_DEVICE
   auto operator() (const std::tuple<Args...>& args) const {
     return internal::make_array_ref_at(base_, shape_, args);
   }
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
+  NDARRAY_HOST_DEVICE
   auto operator[] (const std::tuple<Args...>& args) const {
     return internal::make_array_ref_at(base_, shape_, args);
   }
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
+  NDARRAY_HOST_DEVICE
   auto operator() (Args... args) const {
     return internal::make_array_ref_at(base_, shape_, std::make_tuple(args...));
   }
@@ -1807,58 +2080,87 @@ class array_ref {
    * order in which `fn` is called is undefined, to enable optimized memory
    * access patterns. */
   template <class Fn, class = internal::enable_if_callable<Fn, reference>>
+  NDARRAY_HOST_DEVICE
   void for_each_value(Fn&& fn) const {
     shape_traits_type::for_each_value(shape_, base_, fn);
   }
 
   /** Pointer to the element at the min index of the shape. */
+  NDARRAY_HOST_DEVICE
   pointer base() const { return base_; }
 
   /** Pointer to the element at the beginning of the flat array. */
+  NDARRAY_HOST_DEVICE
   pointer data() const { return internal::pointer_add(base_, shape_.flat_min()); }
 
   /** Shape of this array_ref. */
+  NDARRAY_HOST_DEVICE
   const Shape& shape() const { return shape_; }
 
   template <size_t D, class = enable_if_dim<D>>
+  NDARRAY_HOST_DEVICE
   auto& dim() { return shape_.template dim<D>(); }
   template <size_t D, class = enable_if_dim<D>>
+  NDARRAY_HOST_DEVICE
   const auto& dim() const { return shape_.template dim<D>(); }
   size_type size() const { return shape_.size(); }
+  NDARRAY_HOST_DEVICE
   bool empty() const { return base() != nullptr ? shape_.empty() : true; }
+  NDARRAY_HOST_DEVICE
   bool is_compact() const { return shape_.is_compact(); }
 
   /** Provide some aliases for common interpretations of dimensions
    * `i`, `j`, `k` as dimensions 0, 1, 2, respectively. */
+  NDARRAY_HOST_DEVICE
   auto& i() { return shape_.i(); }
+  NDARRAY_HOST_DEVICE
   const auto& i() const { return shape_.i(); }
+  NDARRAY_HOST_DEVICE
   auto& j() { return shape_.j(); }
+  NDARRAY_HOST_DEVICE
   const auto& j() const { return shape_.j(); }
+  NDARRAY_HOST_DEVICE
   auto& k() { return shape_.k(); }
+  NDARRAY_HOST_DEVICE
   const auto& k() const { return shape_.k(); }
 
   /** Provide some aliases for common interpretations of dimensions
    * `x`, `y`, `z` or `c`, `w` as dimensions 0, 1, 2, 3 respectively. */
+  NDARRAY_HOST_DEVICE
   auto& x() { return shape_.x(); }
+  NDARRAY_HOST_DEVICE
   const auto& x() const { return shape_.x(); }
+  NDARRAY_HOST_DEVICE
   auto& y() { return shape_.y(); }
+  NDARRAY_HOST_DEVICE
   const auto& y() const { return shape_.y(); }
+  NDARRAY_HOST_DEVICE
   auto& z() { return shape_.z(); }
+  NDARRAY_HOST_DEVICE
   const auto& z() const { return shape_.z(); }
+  NDARRAY_HOST_DEVICE
   auto& c() { return shape_.c(); }
+  NDARRAY_HOST_DEVICE
   const auto& c() const { return shape_.c(); }
+  NDARRAY_HOST_DEVICE
   auto& w() { return shape_.w(); }
+  NDARRAY_HOST_DEVICE
   const auto& w() const { return shape_.w(); }
 
   /** Assuming this array represents an image with dimensions width, height,
    * channels, get the extent of those dimensions. */
+  NDARRAY_HOST_DEVICE
   index_t width() const { return shape_.width(); }
+  NDARRAY_HOST_DEVICE
   index_t height() const { return shape_.height(); }
+  NDARRAY_HOST_DEVICE
   index_t channels() const { return shape_.channels(); }
 
   /** Assuming this array represents a matrix with dimensions {rows, cols}, get
    * the extent of those dimensions. */
+  NDARRAY_HOST_DEVICE
   index_t rows() const { return shape_.rows(); }
+  NDARRAY_HOST_DEVICE
   index_t columns() const { return shape_.columns(); }
 
   /** Compare the contents of this array_ref to `other`. For two array_refs to
@@ -1866,6 +2168,7 @@ class array_ref {
    * addressable by the shape must also be equal. */
   // TODO: Maybe this should just check for equality of the shape and pointer,
   // and let the free function equal serve this purpose.
+  NDARRAY_HOST_DEVICE
   bool operator!=(const array_ref& other) const {
     if (shape_ != other.shape_) {
       return true;
@@ -1883,16 +2186,21 @@ class array_ref {
     });
     return result;
   }
+  NDARRAY_HOST_DEVICE
   bool operator==(const array_ref& other) const { return !operator!=(other); }
 
+  NDARRAY_HOST_DEVICE
   const array_ref<T, Shape>& ref() const { return *this; }
 
   /** Allow conversion from array_ref<T> to const_array_ref<T>. */
+  NDARRAY_HOST_DEVICE
   const const_array_ref<T, Shape> cref() const { return const_array_ref<T, Shape>(base_, shape_); }
+  NDARRAY_HOST_DEVICE
   operator const_array_ref<T, Shape>() const { return cref(); }
 
   /** Change the shape of the array to `new_shape`, and move the base pointer
    * by `offset`. The new shape must be a subset of the old shape. */
+  NDARRAY_HOST_DEVICE
   void set_shape(const Shape& new_shape, index_t offset = 0) {
     assert(new_shape.is_resolved());
     assert(new_shape.is_subset_of(shape_, -offset));
@@ -2566,6 +2874,7 @@ auto make_compact_move(array<T, Shape, Alloc>&& src, const Alloc& alloc = Alloc(
 
 /** Fill `dst` array or array_ref by copy-assigning `value`. */
 template <class T, class Shape>
+NDARRAY_HOST_DEVICE
 void fill(const array_ref<T, Shape>& dst, const T& value) {
   dst.for_each_value([value](T& i) { i = value; });
 }
@@ -2579,6 +2888,7 @@ void fill(array<T, Shape, Alloc>& dst, const T& value) {
  * `shape_traits<Shape>::for_each_value`. */
 template <class T, class Shape, class Generator,
     class = internal::enable_if_callable<Generator>>
+NDARRAY_HOST_DEVICE
 void generate(const array_ref<T, Shape>& dst, Generator g) {
   dst.for_each_value([g](T& i) { i = g(); });
 }
@@ -2590,6 +2900,7 @@ void generate(array<T, Shape, Alloc>& dst, Generator g) {
 
 /** Check if two array or array_refs have equal contents. */
 template <class TA, class ShapeA, class TB, class ShapeB>
+NDARRAY_HOST_DEVICE
 bool equal(const array_ref<TA, ShapeA>& a, const array_ref<TB, ShapeB>& b) {
   if (a.shape().min() != b.shape().min() || a.shape().extent() != b.shape().extent()) {
     return false;
@@ -2620,6 +2931,7 @@ bool equal(const array<TA, ShapeA, AllocA>& a, const array<TB, ShapeB, AllocB>& 
 /** Convert the shape of the array or array_ref `a` to a new type of shape
  * `NewShape`. The new shape is constructed from `a.shape()`. */
 template <class NewShape, class T, class OldShape>
+NDARRAY_HOST_DEVICE
 array_ref<T, NewShape> convert_shape(const array_ref<T, OldShape>& a) {
   return array_ref<T, NewShape>(a.base(), convert_shape<NewShape>(a.shape()));
 }
@@ -2636,6 +2948,7 @@ const_array_ref<T, NewShape> convert_shape(const array<T, OldShape, Allocator>& 
  * `U`. The size of `T` must be equal to the size of `U`. */
 template <class U, class T, class Shape,
     class = std::enable_if_t<sizeof(T) == sizeof(U)>>
+NDARRAY_HOST_DEVICE
 array_ref<U, Shape> reinterpret(const array_ref<T, Shape>& a) {
   return array_ref<U, Shape>(reinterpret_cast<U*>(a.base()), a.shape());
 }
@@ -2653,6 +2966,7 @@ const_array_ref<U, Shape> reinterpret(const array<T, Shape, Alloc>& a) {
 /** Reinterpret the shape of the array or array_ref `a` to be a new shape
  * `new_shape`, with a base pointer offset `offset`. */
 template <class NewShape, class T, class OldShape>
+NDARRAY_HOST_DEVICE
 array_ref<T, NewShape> reinterpret_shape(
     const array_ref<T, OldShape>& a, const NewShape& new_shape, index_t offset = 0) {
   assert(new_shape.is_subset_of(a.shape(), -offset));
@@ -2674,6 +2988,7 @@ const_array_ref<T, NewShape> reinterpret_shape(
  * `reorder<DimIndices...>(a.shape())`. */
 template <size_t... DimIndices, class T, class OldShape,
     class = internal::enable_if_permutation<OldShape::rank(), DimIndices...>>
+NDARRAY_HOST_DEVICE
 auto transpose(const array_ref<T, OldShape>& a) {
   return reinterpret_shape(a, transpose<DimIndices...>(a.shape()));
 }
@@ -2688,6 +3003,7 @@ auto transpose(const array<T, OldShape, Allocator>& a) {
   return reinterpret_shape(a, transpose<DimIndices...>(a.shape()));
 }
 template <size_t... DimIndices, class T, class OldShape>
+NDARRAY_HOST_DEVICE
 auto reorder(const array_ref<T, OldShape>& a) {
   return reinterpret_shape(a, reorder<DimIndices...>(a.shape()));
 }
