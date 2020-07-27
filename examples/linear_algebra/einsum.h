@@ -40,13 +40,16 @@ auto reductions(const std::tuple<Dims...>& dims) {
   return reductions(dims, make_index_sequence<sizeof...(Dims)>());
 }
 
-template <class Dim1, class... Dims>
-auto reconcile_dim(const Dim1& dim1, const Dims&... dims) {
+template <class Dim0, class... Dims>
+auto reconcile_dim(const Dim0& dim0, const Dims&... dims) {
   // If all dims are broadcasts, the intervals should match.
-  assert(dim1.stride() != 0 || any((dims.stride() != 0)...) || all(dim1 == dims...));
-  // dim2 will be accessed with dim1's bounds, so check this is possible.
-  assert(all(dims.is_in_range(dim1)...));
-  return dim1;
+  // TODO: Maybe we should always assert the intervals should match.
+  // this would catch some kinds of errors in einsum expressions, but
+  // it will also require some expressions to include explicit cropping.
+  assert(any(dim0.stride() != 0, (dims.stride() != 0)...) || all(dim0 == dims...));
+  // dims... will be accessed with dim0's bounds, so check this is possible.
+  assert(all(dims.is_in_range(dim0)...));
+  return dim0;
 }
 // If we have zero dims, the user skipped a dim index, so we need a dummy
 // loop.
@@ -240,8 +243,8 @@ auto make_einsum_impl(const Alloc& alloc, const T& init, const Ops&... ops) {
 }  // namespace internal
 
 /** Compute an Einstein summation using `einsum` and return the result. The
- * `value_type` of the result will be `T`, and the shape will be inferred from
- * the shape of the operands. The result is initialized to `T(0)` prior to
+ * `value_type` of the result will be `T`, and the result shape will be inferred
+ * from the shape of the operands. The result is initialized to `T(0)` prior to
  * computing the summation. The Einstein summation indices for the result are
  * `ResultIs...`.
  *
