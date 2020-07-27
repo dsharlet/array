@@ -40,17 +40,12 @@ auto reductions(const std::tuple<Dims...>& dims) {
   return reductions(dims, make_index_sequence<sizeof...(Dims)>());
 }
 
-// If a dim appears more than twice in gather_dims, the summation is ill-formed.
-// TODO: Not sure about that... And even if it is true, we should generate a
-// better error than failing here.
-template <class Dim1>
-auto reconcile_dim(const Dim1& dim1) { return dim1; }
-template <class Dim1, class Dim2>
-auto reconcile_dim(const Dim1& dim1, const Dim2& dim2) {
-  // If both dims are broadcasts, the intervals should match.
-  assert(dim1.stride() != 0 || dim2.stride() != 0 || dim1 == dim2);
+template <class Dim1, class... Dims>
+auto reconcile_dim(const Dim1& dim1, const Dims&... dims) {
+  // If all dims are broadcasts, the intervals should match.
+  assert(dim1.stride() != 0 || any((dims.stride() != 0)...) || all(dim1 == dims...));
   // dim2 will be accessed with dim1's bounds, so check this is possible.
-  assert(dim2.is_in_range(dim1));
+  assert(all(dims.is_in_range(dim1)...));
   return dim1;
 }
 // If we have zero dims, the user skipped a dim index, so we need a dummy
@@ -120,6 +115,9 @@ void einsum_impl(const Result& result, const Ops&... ops) {
   // Reinterpret the result as having a shape of the reduction dimensions.
   auto reduction = reinterpret_shape(std::get<0>(result), reduction_shape);
 
+  // Perform the summation. Becasue of the stride 0 loops, this may be anything
+  // from a complete reduction into a single value to adding only one thing
+  // to each element of the result, or something in between.
   for_each_index(reduction_shape, [&](const index_of_rank<LoopRank>& i) {
     reduction(i) += product(ein_at(ops, i)...);
   });

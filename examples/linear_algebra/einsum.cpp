@@ -73,6 +73,14 @@ int main(int, const char**) {
   }
   assert(relative_error(dot, dot_ref) < tolerance);
 
+  // dot(x.*x, y.*y)
+  float dot_sq = make_einsum<float>(ein<i>(x), ein<i>(x), ein<i>(y), ein<i>(y))();
+  float dot_sq_ref = 0.0f;
+  for (index_t i : A.i()) {
+    dot_sq_ref += x(i) * x(i) * y(i) * y(i);
+  }
+  assert(relative_error(dot_sq, dot_sq_ref) < tolerance);
+
   // x^T*z
   auto outer = make_einsum<float, i, j>(ein<i>(x), ein<j>(z));
   assert(outer.rank() == 2);
