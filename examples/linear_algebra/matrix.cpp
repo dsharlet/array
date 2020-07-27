@@ -16,8 +16,9 @@
 #include "einsum.h"
 #include "benchmark.h"
 
-#include <random>
 #include <iostream>
+#include <functional>
+#include <random>
 
 using namespace nda;
 

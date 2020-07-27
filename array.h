@@ -82,17 +82,6 @@ NDARRAY_INLINE index_t abs(index_t a) { return a >= 0 ? a : -a; }
 NDARRAY_INLINE constexpr index_t is_static(index_t x) { return x != dynamic; }
 NDARRAY_INLINE constexpr index_t is_dynamic(index_t x) { return x == dynamic; }
 
-// Given a compile-time static value, reconcile a compile-time static value and
-// runtime value.
-template <index_t Value>
-NDARRAY_INLINE constexpr index_t reconcile(index_t value) {
-  // It would be nice to assert here that Value == value. But, this is used in
-  // the innermost loops, so when asserts are on, this ruins performance. It
-  // is also a less helpful place to catch errors, because the context of the
-  // bug is lost here.
-  return is_static(Value) ? Value : value;
-}
-
 constexpr bool is_dynamic(index_t a, index_t b) { return is_dynamic(a) || is_dynamic(b); }
 
 template <index_t A, index_t B>
@@ -108,6 +97,28 @@ constexpr index_t static_min(index_t a, index_t b) {
 constexpr index_t static_max(index_t a, index_t b) {
   return is_dynamic(a, b) ? dynamic : (a > b ? a : b);
 }
+
+// A type that mimics a constexpr index_t with value Value, unless Value is
+// dynamic, then mimics index_t.
+template <index_t Value>
+struct constexpr_index {
+public:
+  // These asserts are really hard to debug
+  // https://github.com/dsharlet/array/issues/26
+  constexpr_index(index_t value = Value) { assert(value == Value); }
+  constexpr_index& operator=(index_t value) { assert(value == Value); return *this; }
+  NDARRAY_INLINE operator index_t() const { return Value; }
+};
+
+template <>
+struct constexpr_index<dynamic> {
+  index_t value_;
+
+public:
+  constexpr_index(index_t value) : value_(value) {}
+  constexpr_index& operator=(index_t value) { value_ = value; return *this; }
+  NDARRAY_INLINE operator index_t() const { return value_; }
+};
 
 }  // namespace internal
 
@@ -149,8 +160,8 @@ class dim;
 template <index_t Min_ = dynamic, index_t Extent_ = dynamic>
 class interval {
  protected:
-  index_t min_;
-  index_t extent_;
+  internal::constexpr_index<Min_> min_;
+  internal::constexpr_index<Extent_> extent_;
 
  public:
   static constexpr index_t Min = Min_;
@@ -165,10 +176,7 @@ class interval {
    * The default values if not specified in the constructor are:
    * - The default `min` is `Min` if `Min` is static, or 0 if not.
    * - The default `extent` is `Extent` if `Extent` is static, or 1 if not. */
-  interval(index_t min, index_t extent) {
-    set_min(min);
-    set_extent(extent);
-  }
+  interval(index_t min, index_t extent) : min_(min), extent_(extent) {}
   interval(index_t min) : interval(min, internal::is_static(Extent) ? Extent : 1) {}
   interval() : interval(internal::is_static(Min) ? Min : 0) {}
 
@@ -194,23 +202,11 @@ class interval {
   }
 
   /** Get or set the first index in this interval. */
-  NDARRAY_INLINE index_t min() const { return internal::reconcile<Min>(min_); }
-  NDARRAY_INLINE void set_min(index_t min) {
-    if (internal::is_dynamic(Min)) {
-      min_ = min;
-    } else {
-      assert(min == Min);
-    }
-  }
+  NDARRAY_INLINE index_t min() const { return min_; }
+  NDARRAY_INLINE void set_min(index_t min) { min_ = min; }
   /** Get or set the number of indices in this interval. */
-  NDARRAY_INLINE index_t extent() const { return internal::reconcile<Extent>(extent_); }
-  NDARRAY_INLINE void set_extent(index_t extent) {
-    if (internal::is_dynamic(Extent)) {
-      extent_ = extent;
-    } else {
-      assert(extent == Extent);
-    }
-  }
+  NDARRAY_INLINE index_t extent() const { return extent_; }
+  NDARRAY_INLINE void set_extent(index_t extent) { extent_ = extent; }
   /** Get or set the last index in this interval. */
   NDARRAY_INLINE index_t max() const { return min() + extent() - 1; }
   NDARRAY_INLINE void set_max(index_t max) { set_extent(max - min() + 1); }
@@ -297,12 +293,10 @@ index_t clamp(index_t x, const Range& r) {
  * offsets: `offset(x) = (x - min)*stride`. The extent does not affect the
  * mapping directly. Values not in the interval `[min, min + extent)` are considered
  * to be out of bounds. */
-// TODO: Consider adding helper class constant<Value> to use for the members of
-// dim. (https://github.com/dsharlet/array/issues/1)
 template <index_t Min_ = dynamic, index_t Extent_ = dynamic, index_t Stride_ = dynamic>
 class dim : private interval<Min_, Extent_> {
  protected:
-  index_t stride_;
+  internal::constexpr_index<Stride_> stride_;
 
  public:
   using base_range = interval<Min_, Extent_>;
@@ -321,9 +315,8 @@ class dim : private interval<Min_, Extent_> {
    * - The default `min` is `Min` if `Min` is static, or 0 if not.
    * - The default `extent` is `Extent` if `Extent` is static, or 0 if not.
    * - The default `stride` is `Stride`. */
-  dim(index_t min, index_t extent, index_t stride = Stride) : base_range(min, extent) {
-    set_stride(stride);
-  }
+  dim(index_t min, index_t extent, index_t stride = Stride)
+      : base_range(min, extent), stride_(stride) {}
   dim(index_t extent) : dim(internal::is_static(Min) ? Min : 0, extent) {}
   dim() : dim(internal::is_static(Extent) ? Extent : 0) {}
 
@@ -367,14 +360,8 @@ class dim : private interval<Min_, Extent_> {
 
   /** Get or set the distance in flat indices between neighboring elements
    * in this dim. */
-  NDARRAY_INLINE index_t stride() const { return internal::reconcile<Stride>(stride_); }
-  NDARRAY_INLINE void set_stride(index_t stride) {
-    if (internal::is_dynamic(Stride)) {
-      stride_ = stride;
-    } else {
-      assert(stride == Stride);
-    }
-  }
+  NDARRAY_INLINE index_t stride() const { return stride_; }
+  NDARRAY_INLINE void set_stride(index_t stride) { stride_ = stride; }
 
   /** Offset of the index `at` in this dim in the flat array. */
   NDARRAY_INLINE index_t flat_offset(index_t at) const { return (at - min()) * stride(); }
