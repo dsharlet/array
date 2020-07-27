@@ -179,16 +179,26 @@ auto ein(const array<T, Shape, Alloc>& op) {
  * initialized to some useful value (typically 0) before calling this
  * function.
  *
+ * This function does not optimize the order of operations, it evaluates
+ * the product of all operands for each element of the final result
+ * reduction. This can be efficient for expansion operations, but it
+ * may be inefficient for contractions. Contractions may need to be
+ * reassociated manually for efficient computation. The goal of this
+ * function is to provide a low-overhead and expressive reduction that
+ * can be composed with other explicit loop transformations to achieve
+ * good performance.
+ *
  * Examples:
- * - `einsum(ein<0, 0>(A), ein<>(tr_A))`, the trace of A.
- * - `einsum(ein<0>(x), ein<0>(y), ein<>(dot_xy))`, the dot product x*y.
- * - `einsum(ein<0, 2>(A), ein<2, 1>(B), einsum<0, 1>(AB))`, the matrix product A*B
- * - `einsum(ein<0, 1>(A), ein<1>(x), ein<0>(Ax))`, the matrix-vector product A*x
+ * - `einsum(ein<i, i>(A), ein<>(tr_A))`, the trace of A.
+ * - `einsum(ein<i>(x), ein<i>(y), ein<>(dot_xy))`, the dot product x*y.
+ * - `einsum(ein<i, k>(A), ein<k, j>(B), einsum<i, j>(AB))`, the matrix product A*B
+ * - `einsum(ein<i, j>(A), ein<j>(x), ein<i>(Ax))`, the matrix-vector product A*x
  *
  * where:
  * - `A`, `B`, `AB` are matrices (rank 2 arrays)
  * - `x`, `y`, `Ax` are vectors (rank 1 arrays)
  * - `tr_A`, `dot_xy` are scalar (rank 0 arrays)
+ * - `i`, `j`, `k` are the `constexpr` values `0, 1, 2`, respectively
  **/
 // The only reason we can't just variadic argument this like einsum_impl
 // is to have the result be the last argument :(
@@ -220,29 +230,31 @@ auto make_einsum_shape(const Ops&... ops) {
 namespace internal {
 
 template <class T, size_t... ResultIs, class Alloc, class... Ops>
-auto make_einsum_impl(const Alloc& alloc, const Ops&... ops) {
+auto make_einsum_impl(const Alloc& alloc, const T& init, const Ops&... ops) {
   auto result_shape = make_einsum_shape<ResultIs...>(ops...);
-  auto result = make_array<T>(result_shape, static_cast<T>(0), alloc);
+  auto result = make_array<T>(result_shape, init, alloc);
   internal::einsum_impl(ein<ResultIs...>(result), ops...);
   return result;
 }
 
 }  // namespace internal
 
-/** Compute an Einstein summation and return the result. The `value_type` of the
- * result will be `T`, and the shape will be inferred from the shape of the
- * operands. The result is initialized to 0 prior to computing the summation.
- * The Einstein summation indices for the result are `ResultIs...`.
+/** Compute an Einstein summation using `einsum` and return the result. The
+ * `value_type` of the result will be `T`, and the shape will be inferred from
+ * the shape of the operands. The result is initialized to `T(0)` prior to
+ * computing the summation. The Einstein summation indices for the result are
+ * `ResultIs...`.
  *
  * Examples:
- * - `tr(A) = make_einsum<T>(ein<0, 0>(A))`
- * - `dot(x, y) = make_einsum<T>(ein<0>(x), ein<0>(y))`
- * - `A*B = make_einsum<T, 0, 1>(ein<0, 2>(A), ein<2, 1>(B))`
- * - `A*x = make_einsum<T, 0>(ein<0, 1>(A), ein<1>(x))`
+ * - `tr(A) = make_einsum<T>(ein<i, i>(A))`
+ * - `dot(x, y) = make_einsum<T>(ein<i>(x), ein<i>(y))`
+ * - `A*B = make_einsum<T, i, j>(ein<i, k>(A), ein<k, j>(B))`
+ * - `A*x = make_einsum<T, i>(ein<i, j>(A), ein<1>(x))`
  *
  * where:
  * - `A`, `B` are matrices (rank 2 arrays)
  * - `x`, `y` are vectors (rank 1 arrays)
+ * - `i`, `j`, `k` are the `constexpr` values `0, 1, 2`, respectively
  **/
 // The only reason we can't just variadic argument this like make_einsum_impl
 // is to have the allocator be the last argument :(
@@ -251,25 +263,25 @@ auto make_einsum_impl(const Alloc& alloc, const Ops&... ops) {
 template <class T, size_t... ResultIs, class Op0, class Alloc = std::allocator<T>,
     class = internal::enable_if_allocator<Alloc>>
 auto make_einsum(const Op0& op0, const Alloc& alloc = Alloc()) {
-  return internal::make_einsum_impl<T, ResultIs...>(alloc, op0);
+  return internal::make_einsum_impl<T, ResultIs...>(alloc, static_cast<T>(0), op0);
 }
 template <class T, size_t... ResultIs, class Op0, class Op1, class Alloc = std::allocator<T>,
     class = internal::enable_if_allocator<Alloc>>
 auto make_einsum(const Op0& op0, const Op1& op1, const Alloc& alloc = Alloc()) {
-  return internal::make_einsum_impl<T, ResultIs...>(alloc, op0, op1);
+  return internal::make_einsum_impl<T, ResultIs...>(alloc, static_cast<T>(0), op0, op1);
 }
 template <
     class T, size_t... ResultIs, class Op0, class Op1, class Op2, class Alloc = std::allocator<T>,
     class = internal::enable_if_allocator<Alloc>>
 auto make_einsum(const Op0& op0, const Op1& op1, const Op2& op2, const Alloc& alloc = Alloc()) {
-  return internal::make_einsum_impl<T, ResultIs...>(alloc, op0, op1, op2);
+  return internal::make_einsum_impl<T, ResultIs...>(alloc, static_cast<T>(0), op0, op1, op2);
 }
 template <
     class T, size_t... ResultIs, class Op0, class Op1, class Op2, class Op3,
     class Alloc = std::allocator<T>, class = internal::enable_if_allocator<Alloc>>
 auto make_einsum(
     const Op0& op0, const Op1& op1, const Op2& op2, const Op3& op3, const Alloc& alloc = Alloc()) {
-  return internal::make_einsum_impl<T, ResultIs...>(alloc, op0, op1, op2, op3);
+  return internal::make_einsum_impl<T, ResultIs...>(alloc, static_cast<T>(0), op0, op1, op2, op3);
 }
 
 }  // namespace nda
