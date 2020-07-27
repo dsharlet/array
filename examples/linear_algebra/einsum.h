@@ -180,14 +180,27 @@ auto ein(const array<T, Shape, Alloc>& op) {
  * initialized to some useful value (typically 0) before calling this
  * function.
  *
- * This function does not optimize the order of operations, it evaluates
- * the product of all operands for each element of the final result
- * reduction. This can be efficient for expansion operations, but it
- * may be inefficient for contractions. Contractions may need to be
- * reassociated manually for efficient computation. The goal of this
- * function is to provide a low-overhead and expressive reduction that
- * can be composed with other explicit loop transformations to achieve
- * good performance.
+ * This function does not optimize the associative order in which the
+ * operations are performed. It evaluates the product of all operands
+ * for each element of the final result reduction. This can be efficient
+ * for expansion operations, but it may be inefficient for contractions.
+ * Contractions may need to be reassociated manually for efficient
+ * computation.
+ *
+ * This function does not optimize the loop ordering within each operation.
+ * The goal of this function is to provide a low-overhead and expressive
+ * summation that can be composed with other explicit loop transformations
+ * to achieve good performance. The loops associated with reductions (i.e.
+ * loops not associated with a dimension of the result) are executed as
+ * *outermost* loops. Therefore, good performance can usually be had by:
+ * 1. Ensuring one of the dimensions of the result has a compile-time
+ *    constant stride of 1.
+ * 2. Ensuring the stride 1 dimension has an extent at least as large as
+ *    (preferably a multiple of) the SIMD register size of the target.
+ * 3. Splitting the result into small constant-sized tiles of an
+ *    appropriate number of accumulators, typically 4-20 times the SIMD
+ *    register size of the target. The compiler does this automatically
+ *    in many cases (e.g. dot products), and so may not be necessary.
  *
  * Examples:
  * - `einsum(ein<i, i>(A), ein<>(tr_A))`, the trace of A.
@@ -256,6 +269,8 @@ auto make_einsum_impl(const Alloc& alloc, const T& init, const Ops&... ops) {
  * - `A`, `B` are matrices (rank 2 arrays)
  * - `x`, `y` are vectors (rank 1 arrays)
  * - `i`, `j`, `k` are the `constexpr` values `0, 1, 2`, respectively
+ *
+ * See `einsum` for more details.
  **/
 // The only reason we can't just variadic argument this like make_einsum_impl
 // is to have the allocator be the last argument :(
