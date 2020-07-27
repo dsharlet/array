@@ -74,8 +74,8 @@ auto gather_dims(const Ops&... ops) {
   return reconcile_dim(std::tuple_cat(gather_dim<Dim>(ops)...));
 }
 template <class... Dims, size_t... Is>
-auto gather_dims(index_sequence<Is...>, const Dims&... dims) {
-  return std::make_tuple(gather_dims<Is>(dims...)...);
+auto make_reduction_shape(index_sequence<Is...>, const Dims&... dims) {
+  return make_shape(gather_dims<Is>(dims...)...);
 }
 
 // Call operator() on an einsum operand, using the einsum indices as a shuffle.
@@ -102,16 +102,14 @@ void einsum_impl(const Result& result, const Ops&... ops) {
       max(typename std::tuple_element<1, Ops>::type())...,
       max(typename std::tuple_element<1, Result>::type()));
 
-  const auto& result_dims = std::get<0>(result).shape().dims();
-
   // Gather the dimensions identified by the indices. gather_dims keeps the
   // first dimension it finds, so we want that to be the result dimension if it
   // is present. If not, this selects one of the operand dimensions, which are
   // given stride 0.
-  auto reduction_shape = make_shape_from_tuple(gather_dims(
+  auto reduction_shape = make_reduction_shape(
       make_index_sequence<LoopRank>(),
-      std::make_tuple(result_dims, std::get<1>(result)),
-      std::make_tuple(reductions(std::get<0>(ops).shape().dims()), std::get<1>(ops))...));
+      std::make_tuple(std::get<0>(result).shape().dims(), std::get<1>(result)),
+      std::make_tuple(reductions(std::get<0>(ops).shape().dims()), std::get<1>(ops))...);
 
   // TODO: Try to compile-time optimize reduction_shape? :)
 
@@ -133,8 +131,8 @@ dim<Min, Extent> without_stride(const dim<Min, Extent, Stride>& d) {
 
 // Infer the dims of the result of an einsum.
 template <size_t... Is, class... Dims>
-auto infer_result_dims(const Dims&... dims) {
-  return std::make_tuple(without_stride(gather_dims<Is>(dims...))...);
+auto infer_result_shape(const Dims&... dims) {
+  return make_shape(without_stride(gather_dims<Is>(dims...))...);
 }
 
 // Figure out the shape of the result of an einsum.
@@ -142,8 +140,8 @@ auto infer_result_dims(const Dims&... dims) {
 // for performance.
 template <size_t... ResultIs, class... Ops>
 auto infer_einsum_result_shape(const Ops&... ops) {
-  return make_shape_from_tuple(infer_result_dims<ResultIs...>(
-      std::make_tuple(std::get<0>(ops).shape().dims(), std::get<1>(ops))...));
+  return infer_result_shape<ResultIs...>(
+      std::make_tuple(std::get<0>(ops).shape().dims(), std::get<1>(ops))...);
 }
 
 }  // namespace internal

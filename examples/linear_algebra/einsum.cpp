@@ -23,9 +23,11 @@ float relative_error(float a, float b) {
   return std::abs(a - b) / std::max(a, b);
 }
 
+// Examples/tests of einsum. With clang -O2, many of these generate
+// zero overhead implementations.
 int main(int, const char**) {
-  constexpr index_t M = 12;
-  constexpr index_t N = 8;
+  constexpr index_t M = 50;
+  constexpr index_t N = 64;
 
   array_of_rank<float, 3> T({4, 5, 8});
   matrix<float, N, N> A;
