@@ -46,12 +46,12 @@ auto reductions(const std::tuple<Dims...>& dims) {
 
 template <class Dim0, class... Dims>
 auto reconcile_dim(const Dim0& dim0, const Dims&... dims) {
-  // If all dims are broadcasts, the intervals should match.
+  // If all dims are broadcasts, the intervals should match (the strides are
+  // zero and must match).
   // TODO: Maybe we should always assert the intervals should match.
   // this would catch some kinds of errors in einsum expressions, but
   // it will also require some expressions to include explicit cropping.
-  assert(any(dim0.stride() != 0, (dims.stride() != 0)...) ||
-         all(dim0.min() == dims.min() && dim0.extent() == dims.extent()...));
+  assert(any(dim0.stride() != 0, (dims.stride() != 0)...) || all(dim0 == dims...));
   // dims... will be accessed with dim0's bounds, so check this is possible.
   assert(all(dims.is_in_range(dim0)...));
   return dim0;
