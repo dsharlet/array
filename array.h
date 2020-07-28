@@ -1127,20 +1127,25 @@ auto reorder(const shape<Dims...>& shape) {
 
 namespace internal {
 
-template<size_t D, class Dims, class Fn, class... Indices,
-    std::enable_if_t<(D == 0), int> = 0>
-void for_each_index_in_order(const Dims& dims, Fn&& fn, const std::tuple<Indices...>& indices) {
-  for (index_t i : std::get<D>(dims)) {
-    fn(std::tuple_cat(std::make_tuple(i), indices));
+template<class Dim, class Fn, class OuterIdx>
+void for_each_index_in_order(Fn&& fn, const OuterIdx& idx, const Dim& dim) {
+  for (index_t i : dim) {
+    fn(std::tuple_cat(std::make_tuple(i), idx));
   }
 }
 
-template<size_t D, class Dims, class Fn, class... Indices,
-    std::enable_if_t<(D > 0), int> = 0>
-void for_each_index_in_order(const Dims& dims, Fn&& fn, const std::tuple<Indices...>& indices) {
-  for (index_t i : std::get<D>(dims)) {
-    for_each_index_in_order<D - 1>(dims, fn, std::tuple_cat(std::make_tuple(i), indices));
+template<class Fn, class OuterIdx, class Dim0, class... Dims>
+void for_each_index_in_order(Fn&& fn, const OuterIdx& idx, const Dim0& dim0, const Dims&... dims) {
+  for (index_t i : dim0) {
+    for_each_index_in_order(fn, std::tuple_cat(std::make_tuple(i), idx), dims...);
   }
+}
+
+template<class Dims, class Fn, size_t... Is>
+void for_each_index_in_order(Fn&& fn, const Dims& dims, index_sequence<Is...>) {
+  // We need to reverse the order of the dims so the last dim is
+  // iterated innermost.
+  for_each_index_in_order(fn, std::tuple<>(), std::get<sizeof...(Is) - 1 - Is>(dims)...);
 }
 
 template <size_t D>
@@ -1158,6 +1163,7 @@ void for_each_value_in_order_inner_dense(index_t extent, Fn&& fn, Ptrs... ptrs) 
   }
 }
 
+// TODO: Try to use a variadic dims approach like for_each_index.
 template <size_t D, class ExtentType, class Fn, class... Ptrs,
     std::enable_if_t<(D == 0), int> = 0>
 void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
@@ -1376,15 +1382,15 @@ bool is_explicitly_compatible(const ShapeSrc& src) {
 template<class Shape, class Fn,
     class = internal::enable_if_callable<Fn, typename Shape::index_type>>
 void for_each_index_in_order(const Shape& shape, Fn &&fn) {
-  internal::for_each_index_in_order<Shape::rank() - 1>(shape.dims(), fn, std::tuple<>());
+  internal::for_each_index_in_order(
+      fn, shape.dims(), internal::make_index_sequence<Shape::rank()>());
 }
 template<class Shape, class Ptr, class Fn,
     class = internal::enable_if_callable<Fn, typename std::remove_pointer<Ptr>::type&>>
 void for_each_value_in_order(const Shape& shape, Ptr base, Fn &&fn) {
-  using index_type = typename Shape::index_type;
   // TODO: This is losing compile-time constant extents and strides info
   // (https://github.com/dsharlet/array/issues/1).
-  std::tuple<Ptr, index_type> base_and_stride(base, shape.stride());
+  auto base_and_stride = std::make_tuple(base, shape.stride());
   internal::for_each_value_in_order<Shape::rank() - 1>(shape.extent(), fn, base_and_stride);
 }
 
@@ -1401,9 +1407,8 @@ void for_each_value_in_order(
   base_b += shape_b(shape.min());
   // TODO: This is losing compile-time constant extents and strides info
   // (https://github.com/dsharlet/array/issues/1).
-  using index_type = typename Shape::index_type;
-  std::tuple<PtrA, index_type> a(base_a, shape_a.stride());
-  std::tuple<PtrB, index_type> b(base_b, shape_b.stride());
+  auto a = std::make_tuple(base_a, shape_a.stride());
+  auto b = std::make_tuple(base_b, shape_b.stride());
   internal::for_each_value_in_order<Shape::rank() - 1>(shape.extent(), fn, a, b);
 }
 
