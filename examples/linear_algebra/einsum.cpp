@@ -24,6 +24,13 @@ float relative_error(float a, float b) {
   return std::abs(a - b) / std::max(a, b);
 }
 
+// Helpers to make a Levi-Civita tensor.
+int sgn(index_t i) {
+  if (i > 0) return 1;
+  if (i < 0) return -1;
+  return 0;
+}
+
 constexpr index_t const_pow(index_t a, index_t b) {
   return b == 0 ? 1 : a * const_pow(a, b - 1);
 }
@@ -31,12 +38,6 @@ constexpr index_t const_pow(index_t a, index_t b) {
 template <size_t Rank, size_t... Is>
 auto make_epsilon_shape(std::index_sequence<Is...>) {
   return shape<dim<0, Rank, const_pow(Rank, Is)>...>();
-}
-
-int sgn(index_t i) {
-  if (i > 0) return 1;
-  if (i < 0) return -1;
-  return 0;
 }
 
 template <class T, size_t Rank>
