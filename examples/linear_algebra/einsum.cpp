@@ -16,11 +16,46 @@
 #include "einsum.h"
 
 #include <random>
+#include <iostream>
 
 using namespace nda;
 
 float relative_error(float a, float b) {
   return std::abs(a - b) / std::max(a, b);
+}
+
+constexpr index_t const_pow(index_t a, index_t b) {
+  return b == 0 ? 1 : a * const_pow(a, b - 1);
+}
+
+template <size_t Rank, size_t... Is>
+auto make_epsilon_shape(std::index_sequence<Is...>) {
+  return shape<dim<0, Rank, const_pow(Rank, Is)>...>();
+}
+
+int sgn(index_t i) {
+  if (i > 0) return 1;
+  if (i < 0) return -1;
+  return 0;
+}
+
+template <class T, size_t Rank>
+auto make_epsilon() {
+  auto shape = make_epsilon_shape<Rank>(std::make_index_sequence<Rank>());
+  auto result = make_array<T>(shape, 0);
+  for_each_index(shape, [&](const index_of_rank<Rank>& i) {
+    // TODO: There's probably a clever way to do this with compile-time
+    // template expressions, not sure it's worth it though.
+    auto idx = internal::tuple_to_array<index_t>(i);
+    int product = 1;
+    for (int j = 0; j < idx.size(); j++) {
+      for (int i = 0; i < j; i++) {
+        product *= sgn(idx[j] - idx[i]);
+      }
+    }
+    result(i) = product;
+  });
+  return result;
 }
 
 // Examples/tests of einsum. With clang -O2, many of these generate
@@ -82,6 +117,15 @@ int main(int, const char**) {
     dot_sq_ref += x(i) * x(i) * y(i) * y(i);
   }
   assert(relative_error(dot_sq, dot_sq_ref) < tolerance);
+
+  // cross(x(0:3), y(0:3))
+  auto epsilon = make_epsilon<float, 3>();
+  auto cross = make_einsum<float, i>(ein<i, j, k>(epsilon), ein<j>(x(r(0, 3))), ein<k>(y(r(0, 3))));
+  assert(cross.rank() == 1);
+  assert(cross.size() == 3);
+  assert(relative_error(x(1)*y(2) - x(2)*y(1), cross(0)) < tolerance);
+  assert(relative_error(x(2)*y(0) - x(0)*y(2), cross(1)) < tolerance);
+  assert(relative_error(x(0)*y(1) - x(1)*y(0), cross(2)) < tolerance);
 
   // x^T*z
   auto outer = make_einsum<float, i, j>(ein<i>(x), ein<j>(z));
