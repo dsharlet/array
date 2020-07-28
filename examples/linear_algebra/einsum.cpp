@@ -37,13 +37,13 @@ template <class... Ts>
 constexpr index_t product(index_t a, Ts... b) { return a * product(b...); }
 
 // Defines the arbitrary rank Levi-Civita tensor as a constexpr function.
-constexpr float epsilon() {
-  return 1.0f;
-}
-template <class T0, class... Ts>
-constexpr float epsilon(T0 i0, Ts... is) {
+constexpr float epsilon() { return 1.0f; }
+template <class... Ts>
+constexpr float epsilon(index_t i0, Ts... is) {
   return product(sgn(is - i0)...) * epsilon(is...);
 }
+
+constexpr float epsilon3(index_t i, index_t j, index_t k) { return epsilon(i, j, k); }
 
 // Examples/tests of einsum. With clang -O2, many of these generate
 // zero overhead implementations.
@@ -113,7 +113,6 @@ int main(int, const char**) {
 
   // TODO: We can't infer the output shape of this, because ein<> of a function
   // doesn't provide a shape.
-  auto epsilon3 = epsilon<int, int, int>;
   vector<float, 3> cross({}, 0.0f);
   einsum(ein<i, j, k>(epsilon3), ein<j>(x3), ein<k>(y3), ein<i>(cross));
   assert(cross.rank() == 1);
