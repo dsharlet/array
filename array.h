@@ -532,10 +532,11 @@ NDARRAY_INLINE constexpr index_t sum(index_t first, Rest... rest) {
   return first + sum(rest...);
 }
 
-NDARRAY_INLINE constexpr index_t product() { return 1; }
-template <class... Rest>
-NDARRAY_INLINE constexpr index_t product(index_t first, Rest... rest) {
-  return first * product(rest...);
+template <class T>
+NDARRAY_INLINE constexpr T product() { return 1; }
+template <class T, class... Rest>
+NDARRAY_INLINE constexpr T product(T first, Rest... rest) {
+  return first * product<T>(rest...);
 }
 
 NDARRAY_INLINE constexpr index_t variadic_min() { return std::numeric_limits<index_t>::max(); }
@@ -553,7 +554,7 @@ NDARRAY_INLINE constexpr index_t variadic_max(index_t first, Rest... rest) {
 // Computes the product of the extents of the dims.
 template <class Tuple, size_t... Is>
 index_t product(const Tuple& t, index_sequence<Is...>) {
-  return product(std::get<Is>(t)...);
+  return product<index_t>(std::get<Is>(t)...);
 }
 
 // Returns true if all of bools are true.

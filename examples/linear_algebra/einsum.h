@@ -97,11 +97,6 @@ auto ein_shape(const einsum_op<array_ref<T, Shape>, Is...>& ein) {
 template <class T, size_t... Is>
 auto ein_shape(const einsum_op<T, Is...>& ein) { return shape<>(); }
 
-template <class T>
-NDARRAY_INLINE T product() { return static_cast<T>(1); }
-template <class T, class... Ts>
-NDARRAY_INLINE T product(T a, Ts... b) { return a * product<T>(b...); }
-
 // Get the max index of an index_sequence.
 template <size_t... Is>
 constexpr size_t max(index_sequence<Is...>) {
@@ -181,12 +176,12 @@ auto ein(const array<T, Shape, Alloc>& op) {
   return ein<Is...>(op.cref());
 }
 
-/** Define an Einstein summation operand with a function instead of
- * an array or array_ref. `ein<i, j, ...>(fn)` means the dimensions
- * `i, j, ...` of the summation index are used to call `fn` during
- * Einstein summation. Because this operand does not provide a shape,
- * the dimensions of the sum must be inferred from other operands.
- * See `einsum` for more details. */
+/** Define an Einstein summation operand with a callable object
+ * instead of an array or array_ref. `ein<i, j, ...>(fn)` means the
+ * dimensions `i, j, ...` of the summation index are used to call
+ * `fn` during Einstein summation. Because this operand does not
+ * provide a shape, the dimensions of the sum must be inferred from
+ * other operands. See `einsum` for more details. */
 template <size_t... Is, class Fn, class = internal::enable_if_callable<Fn, decltype(Is)...>>
 auto ein(Fn&& fn) {
   return std::make_tuple(fn, internal::index_sequence<Is...>());
