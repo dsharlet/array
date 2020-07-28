@@ -59,7 +59,7 @@ int main(int, const char**) {
   vector<float, M> z;
 
   // Helpful names for dimensions we use in einsums.
-  enum { i = 0, j = 1, k = 2 };
+  enum { i = 0, j = 1, k = 2, l = 3 };
 
   // `generate` assigns each element of the array with the
   // result of the generating function. Use this to fill the
@@ -105,21 +105,25 @@ int main(int, const char**) {
   }
   assert(relative_error(dot_sq, dot_sq_ref) < tolerance);
 
-  // cross(x(0:3), y(0:3))
-  vector<float, 3> x3;
-  vector<float, 3> y3;
+  // An array of cross(x, y)
+  const int count = 10;
+  matrix<float, 3, dynamic> x3({{}, count}, 0.0f);
+  matrix<float, 3, dynamic> y3({{}, count}, 0.0f);
   generate(x3, [&]() { return uniform(rng); });
   generate(y3, [&]() { return uniform(rng); });
 
   // TODO: We can't infer the output shape of this, because ein<> of a function
   // doesn't provide a shape.
-  vector<float, 3> cross({}, 0.0f);
-  einsum(ein<i, j, k>(epsilon3), ein<j>(x3), ein<k>(y3), ein<i>(cross));
-  assert(cross.rank() == 1);
-  assert(cross.size() == 3);
-  assert(relative_error(x3(1)*y3(2) - x3(2)*y3(1), cross(0)) < tolerance);
-  assert(relative_error(x3(2)*y3(0) - x3(0)*y3(2), cross(1)) < tolerance);
-  assert(relative_error(x3(0)*y3(1) - x3(1)*y3(0), cross(2)) < tolerance);
+  matrix<float, 3, dynamic> cross({{}, count}, 0.0f);
+  einsum(ein<i, j, k>(epsilon3), ein<j, l>(x3), ein<k, l>(y3), ein<i, l>(cross));
+  assert(cross.rank() == 2);
+  assert(cross.rows() == 3);
+  assert(cross.columns() == count);
+  for (int l = 0; l < count; l++) {
+    assert(relative_error(x3(1, l)*y3(2, l) - x3(2, l)*y3(1, l), cross(0, l)) < tolerance);
+    assert(relative_error(x3(2, l)*y3(0, l) - x3(0, l)*y3(2, l), cross(1, l)) < tolerance);
+    assert(relative_error(x3(0, l)*y3(1, l) - x3(1, l)*y3(0, l), cross(2, l)) < tolerance);
+  }
 
   // x^T*z
   auto outer = make_einsum<float, i, j>(ein<i>(x), ein<j>(z));
