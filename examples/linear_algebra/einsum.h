@@ -50,7 +50,8 @@ auto reconcile_dim(const Dim0& dim0, const Dims&... dims) {
   // TODO: Maybe we should always assert the intervals should match.
   // this would catch some kinds of errors in einsum expressions, but
   // it will also require some expressions to include explicit cropping.
-  assert(any(dim0.stride() != 0, (dims.stride() != 0)...) || all(dim0 == dims...));
+  assert(any(dim0.stride() != 0, (dims.stride() != 0)...) ||
+         all(dim0.min() == dims.min() && dim0.extent() == dims.extent()...));
   // dims... will be accessed with dim0's bounds, so check this is possible.
   assert(all(dims.is_in_range(dim0)...));
   return dim0;
@@ -88,6 +89,16 @@ NDARRAY_INLINE auto ein_at(const einsum_op<Op, Is...>& ein, const Idx& i) {
   return std::get<0>(ein)(std::get<Is>(i)...);
 }
 
+// Get the shape of an einsum operand, or an empty shape if not an array.
+template <class T, class Shape, size_t... Is>
+auto ein_shape(const einsum_op<array_ref<T, Shape>, Is...>& ein) {
+  return std::get<0>(ein).shape();
+}
+template <class T, size_t... Is>
+auto ein_shape(const einsum_op<T, Is...>& ein) {
+  return shape<>();
+}
+
 template <class T>
 NDARRAY_INLINE T product() { return static_cast<T>(1); }
 template <class T, class... Ts>
@@ -112,8 +123,8 @@ auto einsum_impl(const Result& result, const Ops&... ops) {
   // given stride 0.
   auto reduction_shape = make_reduction_shape(
       make_index_sequence<LoopRank>(),
-      std::make_tuple(std::get<0>(result).shape().dims(), std::get<1>(result)),
-      std::make_tuple(reductions(std::get<0>(ops).shape().dims()), std::get<1>(ops))...);
+      std::make_tuple(ein_shape(result).dims(), std::get<1>(result)),
+      std::make_tuple(reductions(ein_shape(ops).dims()), std::get<1>(ops))...);
 
   // TODO: Try to compile-time optimize reduction_shape? :)
 
@@ -147,7 +158,7 @@ auto infer_result_shape(const Dims&... dims) {
 template <size_t... ResultIs, class... Ops>
 auto infer_einsum_result_shape(const Ops&... ops) {
   return infer_result_shape<ResultIs...>(
-      std::make_tuple(std::get<0>(ops).shape().dims(), std::get<1>(ops))...);
+      std::make_tuple(ein_shape(ops).dims(), std::get<1>(ops))...);
 }
 
 }  // namespace internal
@@ -170,6 +181,18 @@ template <size_t... Is, class T, class Shape, class Alloc,
     class = std::enable_if_t<sizeof...(Is) == Shape::rank()>>
 auto ein(const array<T, Shape, Alloc>& op) {
   return ein<Is...>(op.cref());
+}
+
+/** Define an Einstein summation operand with a function instead of
+ * an array or array_ref. `ein<i, j, ...>(fn)` means the dimensions
+ * `i, j, ...` of the summation index are used to call `fn` during
+ * Einstein summation. Because this operand does not provide a shape,
+ * the dimensions of the sum must be inferred from other operands.
+ * See `einsum` for more details. */
+template <size_t... Is, class Fn,
+    class = internal::enable_if_callable<Fn, decltype(Is)...>>
+auto ein(Fn&& fn) {
+  return std::make_tuple(fn, internal::index_sequence<Is...>());
 }
 
 /** Compute an Einstein summation. This function allows one to specify

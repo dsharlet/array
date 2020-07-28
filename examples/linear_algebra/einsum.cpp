@@ -25,38 +25,24 @@ float relative_error(float a, float b) {
 }
 
 // Helpers to make a Levi-Civita tensor.
-int sgn(index_t i) {
-  if (i > 0) return 1;
-  if (i < 0) return -1;
-  return 0;
+constexpr float sgn(index_t i) {
+  return i == 0 ? 0 : (i < 0 ? -1 : 1);
 }
 
-constexpr index_t const_pow(index_t a, index_t b) {
-  return b == 0 ? 1 : a * const_pow(a, b - 1);
-}
+// TODO: There's already 2 other product functions, but they are in internal,
+// and this is an example. Maybe we should use C++17 for the examples so we
+// can use fold expressions.
+constexpr index_t product() { return 1; }
+template <class... Ts>
+constexpr index_t product(index_t a, Ts... b) { return a * product(b...); }
 
-template <size_t Rank, size_t... Is>
-auto make_epsilon_shape(std::index_sequence<Is...>) {
-  return shape<dim<0, Rank, const_pow(Rank, Is)>...>();
+// Defines the arbitrary rank Levi-Civita tensor as a constexpr function.
+constexpr float epsilon() {
+  return 1.0f;
 }
-
-template <class T, size_t Rank>
-auto make_epsilon() {
-  auto shape = make_epsilon_shape<Rank>(std::make_index_sequence<Rank>());
-  auto result = make_array<T>(shape, 0);
-  for_each_index(shape, [&](const index_of_rank<Rank>& i) {
-    // TODO: There's probably a clever way to do this with compile-time
-    // template expressions, not sure it's worth it though.
-    auto idx = internal::tuple_to_array<index_t>(i);
-    int product = 1;
-    for (int j = 0; j < idx.size(); j++) {
-      for (int i = 0; i < j; i++) {
-        product *= sgn(idx[j] - idx[i]);
-      }
-    }
-    result(i) = product;
-  });
-  return result;
+template <class T0, class... Ts>
+constexpr float epsilon(T0 i0, Ts... is) {
+  return product(sgn(is - i0)...) * epsilon(is...);
 }
 
 // Examples/tests of einsum. With clang -O2, many of these generate
@@ -120,13 +106,21 @@ int main(int, const char**) {
   assert(relative_error(dot_sq, dot_sq_ref) < tolerance);
 
   // cross(x(0:3), y(0:3))
-  auto epsilon = make_epsilon<float, 3>();
-  auto cross = make_einsum<float, i>(ein<i, j, k>(epsilon), ein<j>(x(r(0, 3))), ein<k>(y(r(0, 3))));
+  vector<float, 3> x3;
+  vector<float, 3> y3;
+  generate(x3, [&]() { return uniform(rng); });
+  generate(y3, [&]() { return uniform(rng); });
+
+  // TODO: We can't infer the output shape of this, because ein<> of a function
+  // doesn't provide a shape.
+  auto epsilon3 = epsilon<int, int, int>;
+  vector<float, 3> cross({}, 0.0f);
+  einsum(ein<i, j, k>(epsilon3), ein<j>(x3), ein<k>(y3), ein<i>(cross));
   assert(cross.rank() == 1);
   assert(cross.size() == 3);
-  assert(relative_error(x(1)*y(2) - x(2)*y(1), cross(0)) < tolerance);
-  assert(relative_error(x(2)*y(0) - x(0)*y(2), cross(1)) < tolerance);
-  assert(relative_error(x(0)*y(1) - x(1)*y(0), cross(2)) < tolerance);
+  assert(relative_error(x3(1)*y3(2) - x3(2)*y3(1), cross(0)) < tolerance);
+  assert(relative_error(x3(2)*y3(0) - x3(0)*y3(2), cross(1)) < tolerance);
+  assert(relative_error(x3(0)*y3(1) - x3(1)*y3(0), cross(2)) < tolerance);
 
   // x^T*z
   auto outer = make_einsum<float, i, j>(ein<i>(x), ein<j>(z));
