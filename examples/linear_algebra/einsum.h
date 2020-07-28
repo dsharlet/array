@@ -44,6 +44,8 @@ auto reductions(const std::tuple<Dims...>& dims) {
   return reductions(dims, make_index_sequence<sizeof...(Dims)>());
 }
 
+// If multiple operands provide the same dim, we need to reconcile them
+// to one dim.
 template <class Dim0, class... Dims>
 auto reconcile_dim(const Dim0& dim0, const Dims&... dims) {
   // If all dims are broadcasts, the intervals should match (the strides are
@@ -121,37 +123,28 @@ auto einsum_impl(const Result& result, const Ops&... ops) {
 
   // TODO: Try to compile-time optimize reduction_shape? :)
 
-  // Reinterpret the result as having a shape of the reduction dimensions.
-  auto reduction = reinterpret_shape(std::get<0>(result), reduction_shape);
-
   // Perform the summation. Becasue of the stride 0 loops, this may be anything
   // from a complete reduction into a single value to adding only one thing
   // to each element of the result, or something in between.
+  auto reduction_base = std::get<0>(result).base();
   for_each_index(reduction_shape, [&](const index_of_rank<LoopRank>& i) {
-    reduction(i) += product(ein_at(ops, i)...);
+    reduction_base[reduction_shape(i)] += product(ein_at(ops, i)...);
   });
 
   return std::get<0>(result);
 }
 
+// Infer the dims of the result of an einsum.
+// TODO: This produces a shape without any constexpr strides, this is bad
+// for performance.
 template <index_t Min, index_t Extent, index_t Stride>
 dim<Min, Extent> without_stride(const dim<Min, Extent, Stride>& d) {
   return {d.min(), d.extent()};
 }
 
-// Infer the dims of the result of an einsum.
 template <size_t... Is, class... Dims>
 auto infer_result_shape(const Dims&... dims) {
   return make_shape(without_stride(gather_dims<Is>(dims...))...);
-}
-
-// Figure out the shape of the result of an einsum.
-// TODO: This produces a shape without any constexpr strides, this is bad
-// for performance.
-template <size_t... ResultIs, class... Ops>
-auto infer_einsum_result_shape(const Ops&... ops) {
-  return infer_result_shape<ResultIs...>(
-      std::make_tuple(ein_shape(ops).dims(), std::get<1>(ops))...);
 }
 
 }  // namespace internal
@@ -258,7 +251,8 @@ auto einsum(const Op0& op0, const Op1& op1, const Op2& op2, const Op3& op3, cons
 /** Infer the shape of the result of `make_einsum`. */
 template <size_t... ResultIs, class... Ops>
 auto make_einsum_shape(const Ops&... ops) {
-  auto result_shape = internal::infer_einsum_result_shape<ResultIs...>(ops...);
+  auto result_shape = internal::infer_result_shape<ResultIs...>(
+      std::make_tuple(internal::ein_shape(ops).dims(), std::get<1>(ops))...);
   // TODO: This would really benefit from addressing https://github.com/dsharlet/array/issues/31
   return make_compact(result_shape);
 }
