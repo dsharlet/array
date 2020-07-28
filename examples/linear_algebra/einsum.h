@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/** \file einsum.h
+ * \brief Optional Einstein summation helper.
+*/
+
 #ifndef NDARRAY_EINSUM_H
 #define NDARRAY_EINSUM_H
 
@@ -96,7 +100,7 @@ constexpr size_t max(index_sequence<Is...>) {
 }
 
 template <class... Ops, class Result>
-void einsum_impl(const Result& result, const Ops&... ops) {
+auto einsum_impl(const Result& result, const Ops&... ops) {
   // Get the total number of loops we need.
   constexpr size_t LoopRank = 1 + variadic_max(
       max(typename std::tuple_element<1, Ops>::type())...,
@@ -122,6 +126,8 @@ void einsum_impl(const Result& result, const Ops&... ops) {
   for_each_index(reduction_shape, [&](const index_of_rank<LoopRank>& i) {
     reduction(i) += product(ein_at(ops, i)...);
   });
+
+  return std::get<0>(result);
 }
 
 template <index_t Min, index_t Extent, index_t Stride>
@@ -171,10 +177,11 @@ auto ein(const array<T, Shape, Alloc>& op) {
  * notation. See https://en.wikipedia.org/wiki/Einstein_notation for more
  * information about the notation itself.
  *
- * This function accepts a list of operands op0, ..., result. Each operand
- * is the result of the `ein<i, j, ...>(op)` helper function, which
- * describes which dimensions of the summation index should be used to
- * address that operand.
+ * This function accepts a list of operands `op0, ..., result`. Each
+ * operand is the result of the `ein<i, j, ...>(op)` helper function,
+ * which describes which dimensions of the summation index should be
+ * used to address that operand. The return value is the array passed
+ * to `ein` to produce the result operand.
  *
  * The result of the summation is added to `result`. `result` must be
  * initialized to some useful value (typically 0) before calling this
@@ -217,20 +224,20 @@ auto ein(const array<T, Shape, Alloc>& op) {
 // The only reason we can't just variadic argument this like einsum_impl
 // is to have the result be the last argument :(
 template <class Op0, class Result>
-void einsum(const Op0& op0, const Result& result) {
-  internal::einsum_impl(result, op0);
+auto einsum(const Op0& op0, const Result& result) {
+  return internal::einsum_impl(result, op0);
 }
 template <class Op0, class Op1, class Result>
-void einsum(const Op0& op0, const Op1& op1, const Result& result) {
-  internal::einsum_impl(result, op0, op1);
+auto einsum(const Op0& op0, const Op1& op1, const Result& result) {
+  return internal::einsum_impl(result, op0, op1);
 }
 template <class Op0, class Op1, class Op2, class Result>
-void einsum(const Op0& op0, const Op1& op1, const Op2& op2, const Result& result) {
-  internal::einsum_impl(result, op0, op1, op2);
+auto einsum(const Op0& op0, const Op1& op1, const Op2& op2, const Result& result) {
+  return internal::einsum_impl(result, op0, op1, op2);
 }
 template <class Op0, class Op1, class Op2, class Op3, class Result>
-void einsum(const Op0& op0, const Op1& op1, const Op2& op2, const Op3& op3, const Result& result) {
-  internal::einsum_impl(result, op0, op1, op2, op3);
+auto einsum(const Op0& op0, const Op1& op1, const Op2& op2, const Op3& op3, const Result& result) {
+  return internal::einsum_impl(result, op0, op1, op2, op3);
 }
 
 /** Infer the shape of the result of `make_einsum`. */
