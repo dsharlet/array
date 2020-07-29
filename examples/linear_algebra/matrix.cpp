@@ -48,7 +48,7 @@ __attribute__((noinline))
 void multiply_einsum_cols(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
-       c(i, j) = make_einsum<T>(ein<k>(a(i, _)), ein<k>(b(_, j)))();
+      c(i, j) = make_einsum<T>(ein<k>(a(i, _)), ein<k>(b(_, j)))();
     }
   }
 }
