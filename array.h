@@ -1127,13 +1127,15 @@ auto reorder(const shape<Dims...>& shape) {
 
 namespace internal {
 
-template<class Dim, class Fn, class OuterIdx>
-void for_each_index_in_order(Fn&& fn, const OuterIdx& idx, const Dim& dim) {
-  for (index_t i : dim) {
-    fn(std::tuple_cat(std::make_tuple(i), idx));
-  }
-}
+template<class Fn, class Idx>
+NDARRAY_INLINE void for_each_index_in_order(Fn&& fn, const Idx& idx) { fn(idx); }
 
+// TODO: We could add some overloads here that help generate better code:
+// - Special case for dim<0, 1> placeholder loops.
+// - Overload for >1 loop at a time.
+// - Maybe small constant loops get unrolled.
+// However, all of these are pretty redundant with the compiler. They would
+// probably only affect unoptimized code (which might still be useful).
 template<class Fn, class OuterIdx, class Dim0, class... Dims>
 void for_each_index_in_order(Fn&& fn, const OuterIdx& idx, const Dim0& dim0, const Dims&... dims) {
   for (index_t i : dim0) {
