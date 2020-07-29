@@ -148,15 +148,22 @@ void multiply_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_
   constexpr index_t tile_rows = 4;
   constexpr index_t tile_cols = vector_size * 3;
 
-  // Unfortunately, this code is fairly sensitive. We can't use fill, copy,
-  // or directly computing the accumulation in the output, I think because
-  // we can't use __restrict__ to tell LLVM the inputs and outputs do not
-  // alias (https://bugs.llvm.org/show_bug.cgi?id=45863).
   for (auto io : split<tile_rows>(c.i())) {
     for (auto jo : split<tile_cols>(c.j())) {
       // Make a reference to this tile of the output.
       auto c_ijo = c(io, jo);
-
+#if 0
+      // This is slow. It would likely be fast if we could use __restrict__ on
+      // struct members: https://bugs.llvm.org/show_bug.cgi?id=45863.
+      fill(c_ijo, static_cast<T>(0));
+      for (index_t k : a.j()) {
+        for (index_t i : c_ijo.i()) {
+          for (index_t j : c_ijo.j()) {
+            c_ijo(i, j) += a(i, k) * b(k, j);
+          }
+        }
+      }
+#else
       // Define an accumulator buffer.
       T buffer[tile_rows * tile_cols] = { 0 };
       auto accumulator = make_array_ref(buffer, make_compact(c_ijo.shape()));
@@ -171,11 +178,18 @@ void multiply_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_
       }
 
       // Copy the accumulators to the output.
+#if 0
+      // Not sure why this is slow. It causes the accumulators in the loop above
+      // to drop out of registers.
+      copy(accumulator, c_ijo);
+#else
       for (index_t i : c_ijo.i()) {
         for (index_t j : c_ijo.j()) {
           c_ijo(i, j) = accumulator(i, j);
         }
       }
+#endif
+#endif
     }
   }
 }
@@ -211,11 +225,17 @@ void multiply_einsum_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_
       einsum(ein<i, k>(a(io, _)), ein<k, j>(b(_, jo)), ein<i, j>(accumulator));
 
       // Copy the accumulators to the output.
+#if 0
+      // Not sure why this is slow. It causes the accumulators in the loop above
+      // to drop out of registers.
+      copy(accumulator, c_ijo);
+#else
       for (index_t i : c_ijo.i()) {
         for (index_t j : c_ijo.j()) {
           c_ijo(i, j) = accumulator(i, j);
         }
       }
+#endif
 #endif
     }
   }
