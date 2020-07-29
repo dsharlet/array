@@ -41,6 +41,18 @@ void multiply_reduce_cols(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_r
   }
 }
 
+// This implementation uses Einstein summation. This should be equivalent
+// to multiply_reduce_cols.
+template <typename T>
+__attribute__((noinline))
+void multiply_einsum_cols(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+  for (index_t i : c.i()) {
+    for (index_t j : c.j()) {
+       c(i, j) = make_einsum<T>(ein<k>(a(i, _)), ein<k>(b(_, j)))();
+    }
+  }
+}
+
 // Similar to the above, but written in plain C. The timing of this version
 // indicates the performance overhead (if any) of the array helpers.
 template <typename TAB, typename TC>
@@ -75,6 +87,17 @@ void multiply_reduce_rows(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_r
   }
 }
 
+// This implementation uses Einstein summation. This should be equivalent
+// to multiply_reduce_rows.
+template <class T>
+__attribute__((noinline))
+void multiply_einsum_rows(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+  for (index_t i : c.i()) {
+    fill(c(i, _), static_cast<T>(0));
+    einsum(ein<k>(a(i, _)), ein<k, j>(b), ein<j>(c(i, _)));
+  }
+}
+
 template <typename T>
 __attribute__((noinline))
 void multiply_reduce_matrix(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
@@ -96,8 +119,12 @@ void multiply_reduce_matrix(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix
 // to multiply_reduce_matrix.
 template <class T>
 __attribute__((noinline))
-void multiply_einsum(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
-  fill(c, static_cast<T>(0));
+void multiply_einsum_matrix(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+  for (index_t i : c.i()) {
+    for (index_t j : c.j()) {
+      c(i, j) = 0;
+    }
+  }
   einsum(ein<i, k>(a), ein<k, j>(b), ein<i, j>(c));
 }
 
@@ -275,9 +302,11 @@ int main(int, const char**) {
   };
   version versions[] = {
     { "reduce_cols", multiply_reduce_cols<float> },
+    { "einsum_cols", multiply_einsum_cols<float> },
     { "reduce_rows", multiply_reduce_rows<float> },
+    { "einsum_rows", multiply_einsum_rows<float> },
     { "reduce_matrix", multiply_reduce_matrix<float> },
-    { "einsum", multiply_einsum<float> },
+    { "einsum_matrix", multiply_einsum_matrix<float> },
     { "reduce_tiles", multiply_reduce_tiles<float> },
     { "einsum_tiles", multiply_einsum_tiles<float> },
   };
