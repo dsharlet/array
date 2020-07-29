@@ -177,9 +177,21 @@ auto ein(const array<T, Shape, Alloc>& op) {
  * `fn` during Einstein summation. Because this operand does not
  * provide a shape, the dimensions of the sum must be inferred from
  * other operands. See `einsum` for more details. */
-template <size_t... Is, class Fn, class = internal::enable_if_callable<Fn, decltype(Is)...>>
+template <size_t... Is, class Fn,
+    class = std::enable_if_t<(sizeof...(Is) > 0)>,
+    class = internal::enable_if_callable<Fn, decltype(Is)...>>
 auto ein(Fn&& fn) {
   return std::make_tuple(fn, internal::index_sequence<Is...>());
+}
+
+/** Define an Einstein summation operand for a scalar. The scalar
+ * is broadcasted as needed during the summation. Because this
+ * operand does not provide a shape, the dimensions of the sum
+ * must be inferred from other operands. See `einsum` for more
+ * details. */
+template <class T>
+auto ein(T& scalar) {
+  return std::make_tuple(array_ref<T, shape<>>(&scalar, {}), internal::index_sequence<>());
 }
 
 /** Compute an Einstein summation. This function allows one to specify

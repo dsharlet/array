@@ -155,7 +155,8 @@ TEST(einsum_sum_3d) {
   array_of_rank<int, 3> T({4, 5, 8});
   fill_pattern(T);
 
-  int sum_ijk = make_einsum<int>(ein<i, j, k>(T))();
+  int sum_ijk = 0;
+  einsum(ein<i, j, k>(T), ein(sum_ijk));
   int sum_ijk_ref = 0;
   T.for_each_value([&](int i) { sum_ijk_ref += i; });
   ASSERT_EQ(sum_ijk, sum_ijk_ref);
