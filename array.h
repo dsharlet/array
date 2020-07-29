@@ -1892,7 +1892,7 @@ class array_ref {
   operator const_array_ref<T, Shape>() const { return cref(); }
 
   /** Implicit conversion to `T` for scalar shaped array_refs. */
-  operator const_reference() const {
+  operator reference() const {
     static_assert(rank() == 0, "Cannot convert non-scalar array to scalar.");
     return *base_;
   }
