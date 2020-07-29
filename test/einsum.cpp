@@ -29,7 +29,7 @@ constexpr int sgn(index_t i) {
 constexpr int epsilon() { return 1.0f; }
 template <class... Ts>
 constexpr int epsilon(index_t i0, Ts... is) {
-  return internal::product<int>(sgn(is - i0)...) * epsilon(is...);
+  return internal::product(sgn(is - i0)...) * epsilon(is...);
 }
 
 constexpr int epsilon3(index_t i, index_t j, index_t k) { return epsilon(i, j, k); }
@@ -155,10 +155,10 @@ TEST(einsum_sum_3d) {
   array_of_rank<int, 3> T({4, 5, 8});
   fill_pattern(T);
 
-  int sumT = make_einsum<int>(ein<i, j, k>(T))();
-  int sumT_ref = 0;
-  T.for_each_value([&](int i) { sumT_ref += i; });
-  ASSERT_EQ(sumT, sumT_ref);
+  int sum_ijk = make_einsum<int>(ein<i, j, k>(T))();
+  int sum_ijk_ref = 0;
+  T.for_each_value([&](int i) { sum_ijk_ref += i; });
+  ASSERT_EQ(sum_ijk, sum_ijk_ref);
 
 }
 
