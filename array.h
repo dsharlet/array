@@ -1137,14 +1137,15 @@ NDARRAY_INLINE void for_each_index_in_order(Fn&& fn, const Idx& idx) { fn(idx); 
 // However, all of these are pretty redundant with the compiler. They would
 // probably only affect unoptimized code (which might still be useful).
 template<class Fn, class OuterIdx, class Dim0, class... Dims>
-void for_each_index_in_order(Fn&& fn, const OuterIdx& idx, const Dim0& dim0, const Dims&... dims) {
+static void for_each_index_in_order(
+    Fn&& fn, const OuterIdx& idx, const Dim0& dim0, const Dims&... dims) {
   for (index_t i : dim0) {
     for_each_index_in_order(fn, std::tuple_cat(std::make_tuple(i), idx), dims...);
   }
 }
 
 template<class Dims, class Fn, size_t... Is>
-void for_each_index_in_order(Fn&& fn, const Dims& dims, index_sequence<Is...>) {
+static void for_each_index_in_order(Fn&& fn, const Dims& dims, index_sequence<Is...>) {
   // We need to reverse the order of the dims so the last dim is
   // iterated innermost.
   for_each_index_in_order(fn, std::tuple<>(), std::get<sizeof...(Is) - 1 - Is>(dims)...);
@@ -1159,7 +1160,7 @@ NDARRAY_INLINE void advance(Ptr& ptr, Ptrs&... ptrs) {
 }
 
 template <class Fn, class... Ptrs>
-void for_each_value_in_order_inner_dense(index_t extent, Fn&& fn, Ptrs... ptrs) {
+static void for_each_value_in_order_inner_dense(index_t extent, Fn&& fn, Ptrs... ptrs) {
   for (index_t i = 0; i < extent; i++) {
     fn(*ptrs++...);
   }
@@ -1168,7 +1169,7 @@ void for_each_value_in_order_inner_dense(index_t extent, Fn&& fn, Ptrs... ptrs) 
 // TODO: Try to use a variadic dims approach like for_each_index.
 template <size_t D, class ExtentType, class Fn, class... Ptrs,
     std::enable_if_t<(D == 0), int> = 0>
-void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
+static void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
   index_t extent_d = std::get<D>(extent);
   if (all(std::get<D>(std::get<1>(ptrs)) == 1 ...)) {
     for_each_value_in_order_inner_dense(extent_d, fn, std::get<0>(ptrs)...);
@@ -1182,7 +1183,7 @@ void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
 
 template <size_t D, class ExtentType, class Fn, class... Ptrs,
     std::enable_if_t<(D > 0), int> = 0>
-void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
+static void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
   index_t extent_d = std::get<D>(extent);
   for (index_t i = 0; i < extent_d; i++) {
     for_each_value_in_order<D - 1>(extent, fn, ptrs...);
@@ -1192,7 +1193,7 @@ void for_each_value_in_order(const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
 
 // Scalar buffers are a special case.
 template <size_t D, class Fn, class... Ptrs>
-void for_each_value_in_order(const std::tuple<>& extent, Fn&& fn, Ptrs... ptrs) {
+static void for_each_value_in_order(const std::tuple<>& extent, Fn&& fn, Ptrs... ptrs) {
   fn(*std::get<0>(ptrs)...);
 }
 
@@ -1383,13 +1384,13 @@ bool is_explicitly_compatible(const ShapeSrc& src) {
  * `array_ref<>::for_each_value`, or `array<>::for_each_value` instead. */
 template<class Shape, class Fn,
     class = internal::enable_if_callable<Fn, typename Shape::index_type>>
-void for_each_index_in_order(const Shape& shape, Fn &&fn) {
+static void for_each_index_in_order(const Shape& shape, Fn &&fn) {
   internal::for_each_index_in_order(
       fn, shape.dims(), internal::make_index_sequence<Shape::rank()>());
 }
 template<class Shape, class Ptr, class Fn,
     class = internal::enable_if_callable<Fn, typename std::remove_pointer<Ptr>::type&>>
-void for_each_value_in_order(const Shape& shape, Ptr base, Fn &&fn) {
+static void for_each_value_in_order(const Shape& shape, Ptr base, Fn &&fn) {
   // TODO: This is losing compile-time constant extents and strides info
   // (https://github.com/dsharlet/array/issues/1).
   auto base_and_stride = std::make_tuple(base, shape.stride());
@@ -1402,7 +1403,7 @@ void for_each_value_in_order(const Shape& shape, Ptr base, Fn &&fn) {
 template<class Shape, class ShapeA, class PtrA, class ShapeB, class PtrB, class Fn,
     class = internal::enable_if_callable<Fn,
         typename std::remove_pointer<PtrA>::type&, typename std::remove_pointer<PtrB>::type&>>
-void for_each_value_in_order(
+static void for_each_value_in_order(
     const Shape& shape, const ShapeA& shape_a, PtrA base_a, const ShapeB& shape_b, PtrB base_b,
     Fn &&fn) {
   base_a += shape_a(shape.min());
@@ -1648,13 +1649,13 @@ class copy_shape_traits {
 template <size_t... LoopOrder, class Shape, class Fn,
     class = internal::enable_if_callable<Fn, typename Shape::index_type>,
     std::enable_if_t<(sizeof...(LoopOrder) == 0), int> = 0>
-void for_each_index(const Shape& s, Fn&& fn) {
+static void for_each_index(const Shape& s, Fn&& fn) {
   shape_traits<Shape>::for_each_index(s, fn);
 }
 template <size_t... LoopOrder, class Shape, class Fn,
     class = internal::enable_if_applicable<Fn, typename Shape::index_type>,
     std::enable_if_t<(sizeof...(LoopOrder) == 0), int> = 0>
-void for_all_indices(const Shape& s, Fn&& fn) {
+static void for_all_indices(const Shape& s, Fn&& fn) {
   using index_type = typename Shape::index_type;
   for_each_index(s, [&](const index_type&i) {
     internal::apply(fn, i);
@@ -1663,7 +1664,7 @@ void for_all_indices(const Shape& s, Fn&& fn) {
 template <size_t... LoopOrder, class Shape, class Fn,
     class = internal::enable_if_callable<Fn, index_of_rank<sizeof...(LoopOrder)>>,
     std::enable_if_t<(sizeof...(LoopOrder) != 0), int> = 0>
-void for_each_index(const Shape& s, Fn&& fn) {
+static void for_each_index(const Shape& s, Fn&& fn) {
   using index_type = index_of_rank<sizeof...(LoopOrder)>;
   for_each_index_in_order(reorder<LoopOrder...>(s), [&](const index_type& i) {
     fn(internal::unshuffle<LoopOrder...>(i));
@@ -1672,7 +1673,7 @@ void for_each_index(const Shape& s, Fn&& fn) {
 template <size_t... LoopOrder, class Shape, class Fn,
     class = internal::enable_if_callable<Fn, decltype(LoopOrder)...>,
     std::enable_if_t<(sizeof...(LoopOrder) != 0), int> = 0>
-void for_all_indices(const Shape& s, Fn&& fn) {
+static void for_all_indices(const Shape& s, Fn&& fn) {
   using index_type = index_of_rank<sizeof...(LoopOrder)>;
   for_each_index_in_order(reorder<LoopOrder...>(s), [&](const index_type&i) {
     internal::apply(fn, internal::unshuffle<LoopOrder...>(i));

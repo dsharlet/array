@@ -148,38 +148,39 @@ void multiply_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_
   constexpr index_t tile_rows = 4;
   constexpr index_t tile_cols = vector_size * 3;
 
-  // Unfortunately, this code is fairly sensitive. See this file in
-  // the 'matrix-repros' branch for a variety of alternative.
+  // Unfortunately, this code is fairly sensitive. We can't use fill, copy,
+  // or directly computing the accumulation in the output, I think because
+  // we can't use __restrict__ to tell LLVM the inputs and outputs do not
+  // alias (https://bugs.llvm.org/show_bug.cgi?id=45863).
   for (auto io : split<tile_rows>(c.i())) {
     for (auto jo : split<tile_cols>(c.j())) {
       // Make a reference to this tile of the output.
-      auto c_tile = c(io, jo);
+      auto c_ijo = c(io, jo);
 
       // Define an accumulator buffer.
       T buffer[tile_rows * tile_cols] = { 0 };
-      auto accumulator = make_array_ref(buffer, make_compact(c_tile.shape()));
+      auto accumulator = make_array_ref(buffer, make_compact(c_ijo.shape()));
 
       // Perform the matrix multiplication for this tile.
       for (index_t k : a.j()) {
-        for (index_t i : c_tile.i()) {
-          for (index_t j : c_tile.j()) {
+        for (index_t i : c_ijo.i()) {
+          for (index_t j : c_ijo.j()) {
             accumulator(i, j) += a(i, k) * b(k, j);
           }
         }
       }
 
       // Copy the accumulators to the output.
-      for (index_t i : c_tile.i()) {
-        for (index_t j : c_tile.j()) {
-          c_tile(i, j) = accumulator(i, j);
+      for (index_t i : c_ijo.i()) {
+        for (index_t j : c_ijo.j()) {
+          c_ijo(i, j) = accumulator(i, j);
         }
       }
     }
   }
 }
 
-// I think when LLVM fixes https://bugs.llvm.org/show_bug.cgi?id=45863, this
-// will generate equivalent code to multiply_reduce_tiles!
+//  With clang -O2, this generates the same fast inner loop as the above!!
 template <typename T>
 __attribute__((noinline))
 void multiply_einsum_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
@@ -192,11 +193,28 @@ void multiply_einsum_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_
   constexpr index_t tile_rows = 4;
   constexpr index_t tile_cols = vector_size * 3;
 
+  // Unfortunately, this code is fairly sensitive. We can't use fill, copy,
+  // or directly computing the accumulation in the output, I think because
+  // we can't use __restrict__ to tell LLVM the inputs and outputs do not
+  // alias (https://bugs.llvm.org/show_bug.cgi?id=45863).
   for (auto io : split<tile_rows>(c.i())) {
     for (auto jo : split<tile_cols>(c.j())) {
+      // Make a reference to this tile of the output.
       auto c_ijo = c(io, jo);
-      fill(c_ijo, static_cast<T>(0));
-      einsum(ein<i, k>(a), ein<k, j>(b), ein<i, j>(c_ijo));
+
+      // Define an accumulator buffer.
+      T buffer[tile_rows * tile_cols] = { 0 };
+      auto accumulator = make_array_ref(buffer, make_compact(c_ijo.shape()));
+
+      // Perform the matrix multiplication for this tile.
+      einsum(ein<i, k>(a(io, _)), ein<k, j>(b(_, jo)), ein<i, j>(accumulator));
+
+      // Copy the accumulators to the output.
+      for (index_t i : c_ijo.i()) {
+        for (index_t j : c_ijo.j()) {
+          c_ijo(i, j) = accumulator(i, j);
+        }
+      }
     }
   }
 }
