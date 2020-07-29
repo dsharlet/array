@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /** \file einsum.h
- * \brief Optional Einstein summation helper.
+ * \brief Optional helper for computing Einstein summations on arrays.
 */
 
 #ifndef NDARRAY_EINSUM_H
