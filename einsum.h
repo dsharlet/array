@@ -93,7 +93,7 @@ NDARRAY_INLINE auto ein_at(const einsum_op<Op, Is...>& ein, const Idx& i) {
 
 // Get the shape of an einsum operand, or an empty shape if not an array.
 template <class T, class Shape, size_t... Is>
-auto ein_shape(const einsum_op<array_ref<T, Shape>, Is...>& ein) {
+const auto& ein_shape(const einsum_op<array_ref<T, Shape>, Is...>& ein) {
   return std::get<0>(ein).shape();
 }
 template <class T, size_t... Is>
@@ -106,11 +106,11 @@ constexpr size_t max(index_sequence<Is...>) {
 }
 
 template <class... Ops, class Result>
-auto einsum_impl(const Result& result, const Ops&... ops) {
+const auto& einsum_impl(const Result& result, const Ops&... ops) {
   // Get the total number of loops we need.
   constexpr size_t LoopRank = 1 + variadic_max(
-      max(typename std::tuple_element<1, Ops>::type())...,
-      max(typename std::tuple_element<1, Result>::type()));
+      max(typename std::tuple_element<1, Result>::type()),
+      max(typename std::tuple_element<1, Ops>::type())...);
 
   // Gather the dimensions identified by the indices. gather_dims keeps the
   // first dimension it finds, so we want that to be the result dimension if it
@@ -156,17 +156,17 @@ auto infer_result_shape(const Dims&... dims) {
 template <size_t... Is, class T, class Shape,
     class = std::enable_if_t<sizeof...(Is) == Shape::rank()>>
 auto ein(const array_ref<T, Shape>& op) {
-  return std::make_tuple(op, internal::index_sequence<Is...>());
+  return std::tie(op, internal::index_sequence<Is...>());
 }
 template <size_t... Is, class T, class Shape, class Alloc,
     class = std::enable_if_t<sizeof...(Is) == Shape::rank()>>
 auto ein(array<T, Shape, Alloc>& op) {
-  return ein<Is...>(op.ref());
+  return std::make_tuple(op.ref(), internal::index_sequence<Is...>());
 }
 template <size_t... Is, class T, class Shape, class Alloc,
     class = std::enable_if_t<sizeof...(Is) == Shape::rank()>>
 auto ein(const array<T, Shape, Alloc>& op) {
-  return ein<Is...>(op.cref());
+  return std::make_tuple(op.cref(), internal::index_sequence<Is...>());
 }
 
 /** Define an Einstein summation operand with a callable object

@@ -75,9 +75,27 @@ void multiply_reduce_rows(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_r
   }
 }
 
+template <typename T>
+__attribute__((noinline))
+void multiply_reduce_matrix(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+  for (index_t i : c.i()) {
+    for (index_t j : c.j()) {
+      c(i, j) = 0;
+    }
+  }
+  for (index_t k : a.j()) {
+    for (index_t i : c.i()) {
+      for (index_t j : c.j()) {
+        c(i, j) += a(i, k) * b(k, j);
+      }
+    }
+  }
+}
+
 // This implementation uses Einstein summation. This should be equivalent
-// to writing a reduction loop outermost implementation.
+// to multiply_reduce_matrix.
 template <class T>
+__attribute__((noinline))
 void multiply_einsum(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   fill(c, static_cast<T>(0));
   einsum(ein<i, k>(a), ein<k, j>(b), ein<i, j>(c));
@@ -216,6 +234,7 @@ int main(int, const char**) {
   version versions[] = {
     { "reduce_cols", multiply_reduce_cols<float> },
     { "reduce_rows", multiply_reduce_rows<float> },
+    { "reduce_matrix", multiply_reduce_matrix<float> },
     { "einsum", multiply_einsum<float> },
     { "reduce_tiles", multiply_reduce_tiles<float> },
     { "einsum_tiles", multiply_einsum_tiles<float> },
