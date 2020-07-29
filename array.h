@@ -1891,6 +1891,12 @@ class array_ref {
   const const_array_ref<T, Shape> cref() const { return const_array_ref<T, Shape>(base_, shape_); }
   operator const_array_ref<T, Shape>() const { return cref(); }
 
+  /** Implicit conversion to `T` for scalar shaped array_refs. */
+  operator const_reference() const {
+    static_assert(rank() == 0, "Cannot convert non-scalar array to scalar.");
+    return *base_;
+  }
+
   /** Change the shape of the array to `new_shape`, and move the base pointer
    * by `offset`. The new shape must be a subset of the old shape. */
   void set_shape(const Shape& new_shape, index_t offset = 0) {
@@ -2371,6 +2377,16 @@ class array {
   const_array_ref<T, Shape> ref() const { return cref(); }
   operator array_ref<T, Shape>() { return ref(); }
   operator const_array_ref<T, Shape>() const { return cref(); }
+
+  /** Implicit conversion to `T` for scalar shaped arrays. */
+  operator reference() {
+    static_assert(rank() == 0, "Cannot convert non-scalar array to scalar.");
+    return *base_;
+  }
+  operator const_reference() const {
+    static_assert(rank() == 0, "Cannot convert non-scalar array to scalar.");
+    return *base_;
+  }
 };
 
 /** An array type with an arbitrary shape of rank `Rank`. */

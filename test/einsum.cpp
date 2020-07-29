@@ -42,7 +42,7 @@ TEST(einsum_trace) {
   matrix<int, N, N> A;
   fill_pattern(A);
 
-  int tr = make_einsum<int>(ein<i, i>(A))();
+  int tr = make_einsum<int>(ein<i, i>(A));
   int tr_ref = 0;
   for (index_t i : A.i()) {
     tr_ref += A(i, i);
@@ -83,7 +83,7 @@ TEST(einsum_dot_sq) {
   fill_pattern(x);
   fill_pattern(y);
 
-  int dot_sq = make_einsum<int>(ein<i>(x), ein<i>(x), ein<i>(y), ein<i>(y))();
+  int dot_sq = make_einsum<int>(ein<i>(x), ein<i>(x), ein<i>(y), ein<i>(y));
   int dot_sq_ref = 0;
   for (index_t i : x.i()) {
     dot_sq_ref += x(i) * x(i) * y(i) * y(i);
