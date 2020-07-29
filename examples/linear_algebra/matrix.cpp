@@ -194,7 +194,9 @@ void multiply_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_
   }
 }
 
-//  With clang -O2, this generates the same fast inner loop as the above!!
+//  With clang -O2, this generates (almost) the same fast inner loop as the above!!
+// It only spills one accumulator register, and produces statistically identical
+// performance.
 template <typename T>
 __attribute__((noinline))
 void multiply_einsum_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
