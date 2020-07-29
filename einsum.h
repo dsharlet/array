@@ -106,7 +106,7 @@ constexpr size_t max(index_sequence<Is...>) {
 }
 
 template <class... Ops, class Result>
-static const auto& einsum_impl(const Result& result, const Ops&... ops) {
+NDARRAY_UNIQUE const auto& einsum_impl(const Result& result, const Ops&... ops) {
   // Get the total number of loops we need.
   constexpr size_t LoopRank = 1 + variadic_max(
       max(typename std::tuple_element<1, Result>::type()),
@@ -234,19 +234,19 @@ auto ein(Fn&& fn) {
 // The only reason we can't just variadic argument this like einsum_impl
 // is to have the result be the last argument :(
 template <class Op0, class Result>
-static auto einsum(const Op0& op0, const Result& result) {
+NDARRAY_UNIQUE auto einsum(const Op0& op0, const Result& result) {
   return internal::einsum_impl(result, op0);
 }
 template <class Op0, class Op1, class Result>
-static auto einsum(const Op0& op0, const Op1& op1, const Result& result) {
+NDARRAY_UNIQUE auto einsum(const Op0& op0, const Op1& op1, const Result& result) {
   return internal::einsum_impl(result, op0, op1);
 }
 template <class Op0, class Op1, class Op2, class Result>
-static auto einsum(const Op0& op0, const Op1& op1, const Op2& op2, const Result& result) {
+NDARRAY_UNIQUE auto einsum(const Op0& op0, const Op1& op1, const Op2& op2, const Result& result) {
   return internal::einsum_impl(result, op0, op1, op2);
 }
 template <class Op0, class Op1, class Op2, class Op3, class Result>
-static auto einsum(
+NDARRAY_UNIQUE auto einsum(
     const Op0& op0, const Op1& op1, const Op2& op2, const Op3& op3, const Result& result) {
   return internal::einsum_impl(result, op0, op1, op2, op3);
 }
@@ -263,7 +263,7 @@ auto make_einsum_shape(const Ops&... ops) {
 namespace internal {
 
 template <class T, size_t... ResultIs, class Alloc, class... Ops>
-static auto make_einsum_impl(const Alloc& alloc, const T& init, const Ops&... ops) {
+NDARRAY_UNIQUE auto make_einsum_impl(const Alloc& alloc, const T& init, const Ops&... ops) {
   auto result_shape = make_einsum_shape<ResultIs...>(ops...);
   auto result = make_array<T>(result_shape, init, alloc);
   internal::einsum_impl(ein<ResultIs...>(result), ops...);
@@ -297,25 +297,25 @@ static auto make_einsum_impl(const Alloc& alloc, const T& init, const Ops&... op
 // also inferring the rank of the result.
 template <class T, size_t... ResultIs, class Op0, class Alloc = std::allocator<T>,
     class = internal::enable_if_allocator<Alloc>>
-static auto make_einsum(const Op0& op0, const Alloc& alloc = Alloc()) {
+NDARRAY_UNIQUE auto make_einsum(const Op0& op0, const Alloc& alloc = Alloc()) {
   return internal::make_einsum_impl<T, ResultIs...>(alloc, static_cast<T>(0), op0);
 }
 template <class T, size_t... ResultIs, class Op0, class Op1, class Alloc = std::allocator<T>,
     class = internal::enable_if_allocator<Alloc>>
-static auto make_einsum(const Op0& op0, const Op1& op1, const Alloc& alloc = Alloc()) {
+NDARRAY_UNIQUE auto make_einsum(const Op0& op0, const Op1& op1, const Alloc& alloc = Alloc()) {
   return internal::make_einsum_impl<T, ResultIs...>(alloc, static_cast<T>(0), op0, op1);
 }
 template <
     class T, size_t... ResultIs, class Op0, class Op1, class Op2, class Alloc = std::allocator<T>,
     class = internal::enable_if_allocator<Alloc>>
-static auto make_einsum(
+NDARRAY_UNIQUE auto make_einsum(
     const Op0& op0, const Op1& op1, const Op2& op2, const Alloc& alloc = Alloc()) {
   return internal::make_einsum_impl<T, ResultIs...>(alloc, static_cast<T>(0), op0, op1, op2);
 }
 template <
     class T, size_t... ResultIs, class Op0, class Op1, class Op2, class Op3,
     class Alloc = std::allocator<T>, class = internal::enable_if_allocator<Alloc>>
-static auto make_einsum(
+NDARRAY_UNIQUE auto make_einsum(
     const Op0& op0, const Op1& op1, const Op2& op2, const Op3& op3, const Alloc& alloc = Alloc()) {
   return internal::make_einsum_impl<T, ResultIs...>(alloc, static_cast<T>(0), op0, op1, op2, op3);
 }
