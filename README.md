@@ -196,6 +196,8 @@ small_matrix<float, 4, 4> my_small_matrix;
 // happen. sizeof(small_matrix) = sizeof(float) * 4 * 4 + (overhead)
 ```
 
+`matrix.h` is a small helper library of typical matrix shape and object types defined using arrays, including the examples above.
+
 ### Slicing, cropping, and splitting
 
 Shapes and arrays can be sliced and cropped using `interval<Min, Extent>` objects, which are similar to `dim<>`s.
