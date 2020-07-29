@@ -819,7 +819,7 @@ auto convert_dim(const std::tuple<Us...>& u) {
 }
 
 template <class T, class U, size_t... Is>
-T convert_dims(const U& u, std::index_sequence<Is...>) {
+T convert_dims(const U& u, internal::index_sequence<Is...>) {
   return std::make_tuple(convert_dim<Is, T>(u)...);
 }
 
@@ -1361,7 +1361,7 @@ template <class ShapeDst, class ShapeSrc,
     class = internal::enable_if_shapes_explicitly_compatible<ShapeDst, ShapeSrc>>
 ShapeDst convert_shape(const ShapeSrc& src) {
   return internal::convert_dims<typename ShapeDst::dims_type>(
-      src.dims(), std::make_index_sequence<ShapeDst::rank()>());
+      src.dims(), internal::make_index_sequence<ShapeDst::rank()>());
 }
 
 /** Test if a shape `src` can be explicitly converted to a shape of type
