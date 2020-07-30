@@ -149,40 +149,22 @@ auto infer_result_shape(const Dims&... dims) {
 
 }  // namespace internal
 
-/** Operand for an Einstein summation, which is an array along with
- * a set of dimension indices. `ein<i, j, ...>(a)` means the dimensions
- * `i, j, ...` of the summation index are used to address `a` during
- * Einstein summation. See `einsum` for more details. */
-template <size_t... Is, class T, class Shape,
-    class = std::enable_if_t<sizeof...(Is) == Shape::rank()>>
-auto ein(const array_ref<T, Shape>& op) {
-  // TODO: It's possible that actually using make_tuple here would be
-  // better *because* it makes a copy, which helps alias analysis(?).
-  return std::tie(op, internal::index_sequence<Is...>());
+/** Operand for an Einstein summation, which is an array or other
+ * callable object, along with a set of dimension indices.
+ * `ein<i, j, ...>(a)` means the dimensions `i, j, ...` of the
+ * summation index are used to address `a` during Einstein
+ * summation. See `einsum` for more details. */
+template <size_t... Is, class Op,
+    class = internal::enable_if_callable<Op, decltype(Is)...>>
+auto ein(Op op) {
+  return std::make_tuple(op, internal::index_sequence<Is...>());
 }
 template <size_t... Is, class T, class Shape, class Alloc,
     class = std::enable_if_t<sizeof...(Is) == Shape::rank()>>
-auto ein(array<T, Shape, Alloc>& op) {
-  return std::make_tuple(op.ref(), internal::index_sequence<Is...>());
-}
+auto ein(array<T, Shape, Alloc>& op) { return ein<Is...>(op.ref()); }
 template <size_t... Is, class T, class Shape, class Alloc,
     class = std::enable_if_t<sizeof...(Is) == Shape::rank()>>
-auto ein(const array<T, Shape, Alloc>& op) {
-  return std::make_tuple(op.cref(), internal::index_sequence<Is...>());
-}
-
-/** Define an Einstein summation operand with a callable object
- * instead of an array or array_ref. `ein<i, j, ...>(fn)` means the
- * dimensions `i, j, ...` of the summation index are used to call
- * `fn` during Einstein summation. Because this operand does not
- * provide a shape, the dimensions of the sum must be inferred from
- * other operands. See `einsum` for more details. */
-template <size_t... Is, class Fn,
-    class = std::enable_if_t<(sizeof...(Is) > 0)>,
-    class = internal::enable_if_callable<Fn, decltype(Is)...>>
-auto ein(Fn&& fn) {
-  return std::make_tuple(fn, internal::index_sequence<Is...>());
-}
+auto ein(const array<T, Shape, Alloc>& op) { return ein<Is...>(op.ref()); }
 
 /** Define an Einstein summation operand for a scalar. The scalar
  * is broadcasted as needed during the summation. Because this
@@ -190,9 +172,7 @@ auto ein(Fn&& fn) {
  * must be inferred from other operands. See `einsum` for more
  * details. */
 template <class T>
-auto ein(T& scalar) {
-  return std::make_tuple(array_ref<T, shape<>>(&scalar, {}), internal::index_sequence<>());
-}
+auto ein(T& scalar) { return ein<>(array_ref<T, shape<>>(&scalar, {})); }
 
 /** Compute an Einstein summation. This function allows one to specify
  * many kinds of array transformations and reductions using Einstein
