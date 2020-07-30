@@ -26,7 +26,20 @@ namespace nda {
 namespace internal {
 
 template <class Op, size_t... Is>
-using einsum_op = std::tuple<Op, index_sequence<Is...>>;
+struct ein_op {
+  Op op;
+  using indices = index_sequence<Is...>;
+
+  template <class Idx>
+  NDARRAY_INLINE auto operator()(const Idx& i) const {
+    return op(std::get<Is>(i)...);
+  }
+};
+
+template <class Op, size_t... Is>
+auto make_ein_op(Op op, index_sequence<Is...>) {
+  return ein_op<Op, Is...>{std::move(op)};
+}
 
 // Make a dimension a reduction dimension (give it a constexpr stride 0).
 template <index_t Min, index_t Extent, index_t Stride>
@@ -73,8 +86,8 @@ auto reconcile_dim(const std::tuple<Dims...>& dims) {
 
 // Gather all of the dimensions for einsum operands into one shape.
 template <size_t Dim, size_t... Is, class Dims>
-auto gather_dim(const einsum_op<Dims, Is...>& op) {
-  return get_tuple<index_of<Dim, Is...>()>(std::get<0>(op));
+auto gather_dim(const ein_op<Dims, Is...>& op) {
+  return get_tuple<index_of<Dim, Is...>()>(op.op);
 }
 template <size_t Dim, class... Ops>
 auto gather_dims(const Ops&... ops) {
@@ -85,19 +98,13 @@ auto make_reduction_shape(index_sequence<Is...>, const Dims&... dims) {
   return make_shape(gather_dims<Is>(dims...)...);
 }
 
-// Call operator() on an einsum operand, using the einsum indices as a shuffle.
-template <class Idx, class Op, size_t... Is>
-NDARRAY_INLINE auto ein_at(const einsum_op<Op, Is...>& ein, const Idx& i) {
-  return std::get<0>(ein)(std::get<Is>(i)...);
-}
-
 // Get the shape of an einsum operand, or an empty shape if not an array.
-template <class T, class Shape, size_t... Is>
-const auto& ein_shape(const einsum_op<array_ref<T, Shape>, Is...>& ein) {
-  return std::get<0>(ein).shape();
+template <class T, class Shape>
+const auto& dims_of(const array_ref<T, Shape>& op) {
+  return op.shape().dims();
 }
-template <class T, size_t... Is>
-auto ein_shape(const einsum_op<T, Is...>& ein) { return shape<>(); }
+template <class T>
+auto dims_of(const T& op) { return std::tuple<>(); }
 
 // Get the max index of an index_sequence.
 template <size_t... Is>
@@ -108,9 +115,8 @@ constexpr size_t max(index_sequence<Is...>) {
 template <class... Ops, class Result>
 NDARRAY_UNIQUE const auto& einsum_impl(const Result& result, const Ops&... ops) {
   // Get the total number of loops we need.
-  constexpr size_t LoopRank = 1 + variadic_max(
-      max(typename std::tuple_element<1, Result>::type()),
-      max(typename std::tuple_element<1, Ops>::type())...);
+  constexpr size_t LoopRank =
+      1 + variadic_max(max(typename Result::indices()), max(typename Ops::indices())...);
 
   // Gather the dimensions identified by the indices. gather_dims keeps the
   // first dimension it finds, so we want that to be the result dimension if it
@@ -118,20 +124,20 @@ NDARRAY_UNIQUE const auto& einsum_impl(const Result& result, const Ops&... ops) 
   // given stride 0.
   auto reduction_shape = make_reduction_shape(
       make_index_sequence<LoopRank>(),
-      std::make_tuple(ein_shape(result).dims(), std::get<1>(result)),
-      std::make_tuple(reductions(ein_shape(ops).dims()), std::get<1>(ops))...);
+      make_ein_op(dims_of(result.op), typename Result::indices()),
+      make_ein_op(reductions(dims_of(ops.op)), typename Ops::indices())...);
 
   // TODO: Try to compile-time optimize reduction_shape? :)
 
   // Perform the summation. Becasue of the stride 0 loops, this may be anything
   // from a complete reduction into a single value to adding only one thing
   // to each element of the result, or something in between.
-  auto reduction_base = std::get<0>(result).base();
+  auto reduction_base = result.op.base();
   for_each_index(reduction_shape, [&](const index_of_rank<LoopRank>& i) {
-    reduction_base[reduction_shape(i)] += product(ein_at(ops, i)...);
+    reduction_base[reduction_shape(i)] += product(ops(i)...);
   });
 
-  return std::get<0>(result);
+  return result.op;
 }
 
 // Infer the dims of the result of an einsum.
@@ -156,9 +162,7 @@ auto infer_result_shape(const Dims&... dims) {
  * summation. See `einsum` for more details. */
 template <size_t... Is, class Op,
     class = internal::enable_if_callable<Op, decltype(Is)...>>
-auto ein(Op op) {
-  return std::make_tuple(op, internal::index_sequence<Is...>());
-}
+auto ein(Op op) { return internal::ein_op<Op, Is...>{op}; }
 template <size_t... Is, class T, class Shape, class Alloc,
     class = std::enable_if_t<sizeof...(Is) == Shape::rank()>>
 auto ein(array<T, Shape, Alloc>& op) { return ein<Is...>(op.ref()); }
@@ -247,7 +251,7 @@ NDARRAY_UNIQUE auto einsum(
 template <size_t... ResultIs, class... Ops>
 auto make_einsum_shape(const Ops&... ops) {
   auto result_shape = internal::infer_result_shape<ResultIs...>(
-      std::make_tuple(internal::ein_shape(ops).dims(), std::get<1>(ops))...);
+      internal::make_ein_op(internal::dims_of(ops.op), typename Ops::indices())...);
   // TODO: This would really benefit from addressing https://github.com/dsharlet/array/issues/31
   return make_compact(result_shape);
 }
