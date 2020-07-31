@@ -41,20 +41,18 @@ auto make_ein_op(Op op, index_sequence<Is...>) {
   return ein_op<Op, Is...>{std::move(op)};
 }
 
-// Make a dimension a reduction dimension (give it a constexpr stride 0).
-template <index_t Min, index_t Extent, index_t Stride>
-auto reduction(const dim<Min, Extent, Stride>& d) {
-  return broadcast_dim<Min, Extent>(d.min(), d.extent());
+// Helper to reinterpret a dim/shape with a new stride.
+template <index_t NewStride, index_t Min, index_t Extent, index_t Stride>
+auto with_stride(const dim<Min, Extent, Stride>& d) {
+  return dim<Min, Extent, NewStride>(d.min(), d.extent());
 }
-
-// Make all of the dimensions reduction dimensions.
-template <class... Dims, size_t... Is>
-auto reductions(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
-  return std::make_tuple(reduction(std::get<Is>(dims))...);
+template <index_t NewStride, class... Dims, size_t... Is>
+auto with_stride(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
+  return std::make_tuple(with_stride<NewStride>(std::get<Is>(dims))...);
 }
-template <class... Dims>
-auto reductions(const std::tuple<Dims...>& dims) {
-  return reductions(dims, make_index_sequence<sizeof...(Dims)>());
+template <index_t NewStride, class... Dims>
+auto with_stride(const std::tuple<Dims...>& dims) {
+  return with_stride<NewStride>(dims, make_index_sequence<sizeof...(Dims)>());
 }
 
 // If multiple operands provide the same dim, we need to reconcile them
@@ -84,20 +82,6 @@ auto reconcile_dim(const std::tuple<Dims...>& dims) {
   return reconcile_dim(dims, make_index_sequence<sizeof...(Dims)>());
 }
 
-// Gather all of the dimensions for einsum operands into one shape.
-template <size_t Dim, size_t... Is, class Dims>
-auto gather_dim(const ein_op<Dims, Is...>& op) {
-  return get_tuple<index_of<Dim, Is...>()>(op.op);
-}
-template <size_t Dim, class... Ops>
-auto gather_dims(const Ops&... ops) {
-  return reconcile_dim(std::tuple_cat(gather_dim<Dim>(ops)...));
-}
-template <class... Dims, size_t... Is>
-auto make_reduction_shape(index_sequence<Is...>, const Dims&... dims) {
-  return make_shape(gather_dims<Is>(dims...)...);
-}
-
 // Get the shape of an einsum operand, or an empty shape if not an array.
 template <class T, class Shape>
 const auto& dims_of(const array_ref<T, Shape>& op) {
@@ -105,6 +89,37 @@ const auto& dims_of(const array_ref<T, Shape>& op) {
 }
 template <class T>
 auto dims_of(const T& op) { return std::tuple<>(); }
+
+// These types are flags that let us overload a function based on these 3 options.
+class is_inferred_shape{};
+class is_result_shape{};
+class is_operand_shape{};
+
+// Get a dim from an operand, depending on the intended use of the shape.
+template <size_t Dim, class Dims, size_t... Is>
+auto gather_dim(is_result_shape, const ein_op<Dims, Is...>& op) {
+  // If this is part of the result, we want to keep its strides.
+  return get_tuple<index_of<Dim, Is...>()>(dims_of(op.op));
+}
+template <size_t Dim, class Dims, size_t... Is>
+auto gather_dim(is_inferred_shape, const ein_op<Dims, Is...>& op) {
+  // For inferred shapes, we want shapes without any constexpr strides, so it can be reshaped.
+  return get_tuple<index_of<Dim, Is...>()>(with_stride<dynamic>(dims_of(op.op)));
+}
+template <size_t Dim, class Dims, size_t... Is>
+auto gather_dim(is_operand_shape, const ein_op<Dims, Is...>& op) {
+  // If this is an operand shape, we want all of its dimensions to be stride 0.
+  return get_tuple<index_of<Dim, Is...>()>(with_stride<0>(dims_of(op.op)));
+}
+
+template <size_t Dim, class... Ops>
+auto gather_dims(const Ops&... ops) {
+  return reconcile_dim(std::tuple_cat(gather_dim<Dim>(std::get<0>(ops), std::get<1>(ops))...));
+}
+template <size_t... Is, class... Ops>
+auto make_einsum_shape(index_sequence<Is...>, const Ops&... ops) {
+  return make_shape(gather_dims<Is>(ops...)...);
+}
 
 // Get the max index of an index_sequence.
 template <size_t... Is>
@@ -122,10 +137,10 @@ NDARRAY_UNIQUE const auto& einsum_impl(const Result& result, const Ops&... ops) 
   // first dimension it finds, so we want that to be the result dimension if it
   // is present. If not, this selects one of the operand dimensions, which are
   // given stride 0.
-  auto reduction_shape = make_reduction_shape(
+  auto reduction_shape = make_einsum_shape(
       make_index_sequence<LoopRank>(),
-      make_ein_op(dims_of(result.op), typename Result::indices()),
-      make_ein_op(reductions(dims_of(ops.op)), typename Ops::indices())...);
+      std::make_tuple(is_result_shape(), result),
+      std::make_tuple(is_operand_shape(), ops)...);
 
   // TODO: Try to compile-time optimize reduction_shape? :)
 
@@ -138,19 +153,6 @@ NDARRAY_UNIQUE const auto& einsum_impl(const Result& result, const Ops&... ops) 
   });
 
   return result.op;
-}
-
-// Infer the dims of the result of an einsum.
-// TODO: This produces a shape without any constexpr strides, this is bad
-// for performance.
-template <index_t Min, index_t Extent, index_t Stride>
-dim<Min, Extent> without_stride(const dim<Min, Extent, Stride>& d) {
-  return {d.min(), d.extent()};
-}
-
-template <size_t... Is, class... Dims>
-auto infer_result_shape(const Dims&... dims) {
-  return make_shape(without_stride(gather_dims<Is>(dims...))...);
 }
 
 }  // namespace internal
@@ -250,8 +252,9 @@ NDARRAY_UNIQUE auto einsum(
 /** Infer the shape of the result of `make_einsum`. */
 template <size_t... ResultIs, class... Ops>
 auto make_einsum_shape(const Ops&... ops) {
-  auto result_shape = internal::infer_result_shape<ResultIs...>(
-      internal::make_ein_op(internal::dims_of(ops.op), typename Ops::indices())...);
+  auto result_shape = internal::make_einsum_shape(
+      internal::index_sequence<ResultIs...>(),
+      std::make_tuple(internal::is_inferred_shape(), ops)...);
   // TODO: This would really benefit from addressing https://github.com/dsharlet/array/issues/31
   return make_compact(result_shape);
 }
