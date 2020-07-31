@@ -1496,9 +1496,12 @@ auto shuffle(const T& t) {
 }
 
 // Return where the index I appears in Is...
-// TODO(dsharlet): Use numeric_limits<size_f>::max()?
 template <size_t I>
-constexpr size_t index_of() { return 10000; }
+constexpr size_t index_of() {
+  // This constant is just something that would be absurd to use as a tuple
+  // index, but has headroom so we can add to it without overflow.
+  return 10000;
+}
 template <size_t I, size_t I0, size_t... Is>
 constexpr size_t index_of() {
   return I == I0 ? 0 : 1 + index_of<I, Is...>();
