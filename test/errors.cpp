@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "array.h"
+#include "ein_reduce.h"
 
 // These tests should each generate one error, with errors.cpp as the
 // location of the error.
@@ -169,6 +170,19 @@ void make_move_different_rank() {
 
 void make_move_ref_different_rank() {
   auto a2 = make_move(ref, shape_of_rank<3>());
+}
+
+
+void ein_wrong_rank() {
+  ein<0, 1>(a);
+}
+
+void ein_scalar_arithmetic() {
+  ein<0, 1, 2>(a) + 2;
+}
+
+void ein_reduce_not_assignment() {
+  ein_reduce(ein<0, 1, 2>(a));
 }
 
 }  // namespace nda

@@ -25,6 +25,15 @@ namespace nda {
 
 namespace internal {
 
+// TODO: Find a way to enable operations with non-op types? e.g. scalars.
+template <class T>
+using enable_if_ein_op =
+    std::enable_if_t<std::is_same<typename T::is_ein_op, std::true_type>::value>;
+
+template <class T>
+using enable_if_ein_assign =
+    std::enable_if_t<std::is_same<typename T::is_assign, std::true_type>::value>;
+
 // Briefly, the high level goal of the next few classes is to enable construction of
 // expressions describing Einstein summations or other reductions. This is done using
 // a small expression template system. Normally, expression templates are troublesome
@@ -37,8 +46,11 @@ template <class Op, size_t... Is>
 struct ein_op {
   Op op;
 
+  using is_ein_op = std::true_type;
+  using is_assign = std::false_type;
+
   // The largest dimension used by this operand.
-  enum { rank = sizeof...(Is) == 0 ? 0 : variadic_max(Is...) + 1 };
+  enum { max_index = sizeof...(Is) == 0 ? -1 : variadic_max(Is...) };
 
   // auto doesn't work here because it doesn't include the reference type of operator() when we
   // need it, but it writing it includes it when we can't, e.g. if op(...) doesn't return a
@@ -48,15 +60,24 @@ struct ein_op {
     return op(std::get<Is>(i)...);
   }
 
-  template <class T> auto operator+(const T& r) const { return make_ein_op_add(*this, r); }
-  template <class T> auto operator-(const T& r) const { return make_ein_op_sub(*this, r); }
-  template <class T> auto operator*(const T& r) const { return make_ein_op_mul(*this, r); }
-  template <class T> auto operator/(const T& r) const { return make_ein_op_div(*this, r); }
+  // TODO: Should we be checking that the ranks of the operands match?
+  template <class T, class = enable_if_ein_op<T>>
+  auto operator+(const T& r) const { return make_ein_op_add(*this, r); }
+  template <class T, class = enable_if_ein_op<T>>
+  auto operator-(const T& r) const { return make_ein_op_sub(*this, r); }
+  template <class T, class = enable_if_ein_op<T>>
+  auto operator*(const T& r) const { return make_ein_op_mul(*this, r); }
+  template <class T, class = enable_if_ein_op<T>>
+  auto operator/(const T& r) const { return make_ein_op_div(*this, r); }
 
-  template <class T> auto operator=(const T& r) const { return make_ein_op_assign(*this, r); }
-  template <class T> auto operator+=(const T& r) const { return make_ein_op_add_assign(*this, r); }
-  template <class T> auto operator-=(const T& r) const { return make_ein_op_sub_assign(*this, r); }
-  template <class T> auto operator*=(const T& r) const { return make_ein_op_mul_assign(*this, r); }
+  template <class T, class = enable_if_ein_op<T>>
+  auto operator=(const T& r) const { return make_ein_op_assign(*this, r); }
+  template <class T, class = enable_if_ein_op<T>>
+  auto operator+=(const T& r) const { return make_ein_op_add_assign(*this, r); }
+  template <class T, class = enable_if_ein_op<T>>
+  auto operator-=(const T& r) const { return make_ein_op_sub_assign(*this, r); }
+  template <class T, class = enable_if_ein_op<T>>
+  auto operator*=(const T& r) const { return make_ein_op_mul_assign(*this, r); }
 };
 
 // A binary operation of two operands.
@@ -64,17 +85,24 @@ template <class OpA, class OpB, class IsAssign, class Derived>
 struct ein_bin_op {
   OpA op_a;
   OpB op_b;
+
+  using is_ein_op = std::true_type;
   using is_assign = IsAssign;
-  enum { rank = OpA::rank > OpB::rank ? OpA::rank : OpB::rank };
+
+  enum { max_index = OpA::max_index > OpB::max_index ? OpA::max_index : OpB::max_index };
 
   // We need to be able to get the derived type when creating binary operations using
   // this operation as an operand.
   const Derived& This() const { return *static_cast<const Derived*>(this); }
 
-  template <class T> auto operator+(const T& r) const { return make_ein_op_add(This(), r); }
-  template <class T> auto operator-(const T& r) const { return make_ein_op_sub(This(), r); }
-  template <class T> auto operator*(const T& r) const { return make_ein_op_mul(This(), r); }
-  template <class T> auto operator/(const T& r) const { return make_ein_op_div(This(), r); }
+  template <class T, class = enable_if_ein_op<T>>
+  auto operator+(const T& r) const { return make_ein_op_add(This(), r); }
+  template <class T, class = enable_if_ein_op<T>>
+  auto operator-(const T& r) const { return make_ein_op_sub(This(), r); }
+  template <class T, class = enable_if_ein_op<T>>
+  auto operator*(const T& r) const { return make_ein_op_mul(This(), r); }
+  template <class T, class = enable_if_ein_op<T>>
+  auto operator/(const T& r) const { return make_ein_op_div(This(), r); }
 };
 
 #define NDARRAY_MAKE_EIN_BIN_HELPERS(name, op) \
@@ -308,20 +336,22 @@ auto ein(T& scalar) { return ein<>(array_ref<T, shape<>>(&scalar, {})); }
  * - `x`, `y`, `Ax` are vectors (rank 1 arrays)
  * - `tr_A`, `dot_xy` are scalar (rank 0 arrays)
  * - `i`, `j`, `k` are the `constexpr` values `0, 1, 2`, respectively */
-template <class Expr>
+template <class Expr, class = internal::enable_if_ein_assign<Expr>>
 NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
+  enum { loop_rank = Expr::max_index + 1 };
+
   // Gather the dimensions identified by the indices. gather_dims keeps the
   // first dimension it finds, so we want that to be the result dimension if it
   // is present. If not, this selects one of the operand dimensions, which are
   // given stride 0.
   auto reduction_shape = internal::make_ein_reduce_shape(
-      internal::make_index_sequence<Expr::rank>(),
+      internal::make_index_sequence<loop_rank>(),
       std::make_tuple(internal::is_operand_shape(), expr));
 
   // TODO: Try to compile-time optimize reduction_shape? :)
 
   // Perform the reduction.
-  for_each_index(reduction_shape, [&](const index_of_rank<Expr::rank>& i) { expr(i); });
+  for_each_index(reduction_shape, [&](const index_of_rank<loop_rank>& i) { expr(i); });
 
   // Assume the expr is an assignment, and return the left-hand side.
   return expr.op_a.op;
@@ -329,13 +359,16 @@ NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
 
 /** Wrapper for `ein_reduce` computing the sum of the operand  of the
  * operand expression via `ein_reduce(result += expr)`. */
-template <class Expr, class Result>
+template <class Expr, class Result,
+    class = internal::enable_if_ein_op<Expr>,
+    class = internal::enable_if_ein_op<Result>>
 NDARRAY_UNIQUE auto einsum(const Expr& expr, const Result& result) {
   return ein_reduce(result += expr);
 }
 
 /** Infer the shape of the result of `make_ein_reduce`. */
-template <size_t... ResultIs, class Expr>
+template <size_t... ResultIs, class Expr,
+    class = internal::enable_if_ein_op<Expr>>
 auto make_ein_reduce_shape(const Expr& expr) {
   auto result_shape = internal::make_ein_reduce_shape(
       internal::index_sequence<ResultIs...>(),
@@ -367,7 +400,7 @@ auto make_ein_reduce_shape(const Expr& expr) {
 // TODO: Add an overload with a default ResultIs... = 0, 1, 2, ... This requires
 // also inferring the rank of the result.
 template <class T, size_t... ResultIs, class Expr, class Alloc = std::allocator<T>,
-    class = internal::enable_if_allocator<Alloc>>
+    class = internal::enable_if_ein_op<Expr>>
 NDARRAY_UNIQUE auto make_einsum(
     const Expr& expr, const T& init = T(), const Alloc& alloc = Alloc()) {
   auto result_shape = make_ein_reduce_shape<ResultIs...>(expr);
