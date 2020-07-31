@@ -25,10 +25,19 @@ namespace nda {
 
 namespace internal {
 
+// Briefly, the high level goal of the next few classes is to enable construction of
+// expressions describing Einstein summations or other reductions. This is done using
+// a small expression template system. Normally, expression templates are troublesome
+// due to overwhemling the compiler's ability to do CSE and other optimziations. In
+// the case of Einstein reductions, the expressions will usually be very small...
+
+// A leaf operand of an Einstein reduction expression. The Is... indicate the
+// dimension of the reduction to use to address this operand.
 template <class Op, size_t... Is>
 struct ein_op {
   Op op;
 
+  // The largest dimension used by this operand.
   enum { rank = sizeof...(Is) == 0 ? 0 : variadic_max(Is...) + 1 };
 
   // auto doesn't work here because it doesn't include the reference type of operator() when we
@@ -50,16 +59,12 @@ struct ein_op {
   template <class T> auto operator*=(const T& r) const { return make_ein_op_mul_assign(*this, r); }
 };
 
-// Normally, expression templates are troublesome due to overwhemling the
-// compiler's ability to do CSE and other optimziations. In the case of
-// Einstein reductions, the expressions will usually be very small...
+// A binary operation of two operands.
 template <class OpA, class OpB, class IsAssign, class Derived>
 struct ein_bin_op {
   OpA op_a;
   OpB op_b;
-
   using is_assign = IsAssign;
-
   enum { rank = OpA::rank > OpB::rank ? OpA::rank : OpB::rank };
 
   // We need to be able to get the derived type when creating binary operations using
@@ -106,6 +111,7 @@ struct name : public ein_bin_op<OpA, OpB, is_assign, name<OpA, OpB>> { \
 }; \
 NDARRAY_MAKE_EIN_BIN_HELPERS(name, op)
 
+// Define the expression types for the operations we support.
 NDARRAY_MAKE_EIN_BIN_OP(ein_op_add, +, std::false_type);
 NDARRAY_MAKE_EIN_BIN_OP(ein_op_sub, -, std::false_type);
 NDARRAY_MAKE_EIN_BIN_OP(ein_op_mul, *, std::false_type);
@@ -123,6 +129,8 @@ NDARRAY_MAKE_EIN_BIN_FN(ein_op_max, std::max, std::false_type);
 #undef NDARRAY_MAKE_EIN_BIN_OP
 #undef NDARRAY_MAKE_EIN_BIN_HELPERS
 
+// TODO: These are usually used as reductions, some kind of "min_assign"
+// operator would be nice.
 template <class OpA, class OpB>
 auto min(const OpA& a, const OpB& b) {
   return make_ein_op_min(a, b);
@@ -182,7 +190,7 @@ const auto& dims_of(const array_ref<T, Shape>& op) {
 template <class T>
 auto dims_of(const T& op) { return std::tuple<>(); }
 
-// These types are flags that let us overload a function based on these 3 options.
+// These types are flags that let us overload behavior based on these 3 options.
 class is_inferred_shape{};
 class is_result_shape{};
 class is_operand_shape{};
@@ -204,22 +212,16 @@ auto gather_dim(is_operand_shape, const ein_op<Dims, Is...>& op) {
   return get_tuple<index_of<Dim, Is...>()>(with_stride<0>(dims_of(op.op)));
 }
 
+// We need to change the 'kind' of a gather operation to is_result_shape when
+// we encounter an assignment.
 template <class Kind>
-inline auto get_lhs_kind(std::true_type, Kind) {
-  return is_result_shape();
-}
-
+inline auto get_lhs_kind(std::true_type, Kind) { return is_result_shape(); }
 template <class Kind>
-inline auto get_lhs_kind(std::false_type, Kind kind) {
-  return kind;
-}
+inline auto get_lhs_kind(std::false_type, Kind kind) { return kind; }
 
 template <size_t Dim, class Kind, class OpA, class OpB, class IsAssign, class X>
 auto gather_dim(Kind k, const ein_bin_op<OpA, OpB, IsAssign, X>& op) {
-  // In assignments, the kind changes from an operand to a result.
   auto lhs_kind = get_lhs_kind(IsAssign(), k);
-
-  // If this is an operand shape, we want all of its dimensions to be stride 0.
   return std::tuple_cat(gather_dim<Dim>(lhs_kind, op.op_a), gather_dim<Dim>(k, op.op_b));
 }
 
@@ -262,21 +264,22 @@ auto ein(T& scalar) { return ein<>(array_ref<T, shape<>>(&scalar, {})); }
  * notation. See https://en.wikipedia.org/wiki/Einstein_notation for more
  * information about the notation itself.
  *
- * This function accepts an expression `expr` constructed using binary
- * operations on `ein<i, j, ...>(op)` operands. These operands describe
- * which dimensions of the reduction index should be used to address
- * that operand.
+ * This function accepts an expression `expr` constructed using operators
+ * on `ein<i, j, ...>(op)` operands. These operands describe which
+ * dimensions of the reduction index should be used to address that
+ * operand.
  *
  * If `expr` is a reduction operator (such as `+=`), the result must be
- * initialized to some useful value, typically the identity element for
- * the reduction operator, e.g. `0` for `+=` or `1` for `*=`.
+ * initialized to some useful value, typically the identity value for the
+ * reduction operator, e.g. `0` for `+=`. Not initializing the result
+ * allows successive `ein_reduce` operations to be applied to the same
+ * result.
  *
  * This function does not optimize the associative order in which the
- * operations are performed. It evaluates the product of all operands
- * for each element of the final result reduction. This can be efficient
- * for expansion operations, but it may be inefficient for contractions.
- * Contractions may need to be reassociated manually for efficient
- * computation.
+ * operations are performed. It evaluates the expression for each element
+ * of the final result reduction. This can be efficient for expansion
+ * operations, but it may be inefficient for contractions. Contractions
+ * may need to be reassociated manually for efficient computation.
  *
  * This function does not optimize the loop ordering within each operation.
  * The goal of this function is to provide a low-overhead and expressive
@@ -298,6 +301,7 @@ auto ein(T& scalar) { return ein<>(array_ref<T, shape<>>(&scalar, {})); }
  * - `ein_reduce(ein<>(dot_xy) += ein<i>(x) * ein<i>(y))`, the dot product x*y.
  * - `ein_reduce(ein<i, j>(AB) += ein<i, k>(A) * ein<k, j>(B))`, the matrix product A*B
  * - `ein_reduce(ein<i>(Ax) += ein<i, j>(A) * ein<j>(x))`, the matrix-vector product A*x
+ * - `ein_reduce(ein<i>(diag_A) = ein<i, i>(A))`, the diagonal of A.
  *
  * where:
  * - `A`, `B`, `AB` are matrices (rank 2 arrays)
@@ -318,6 +322,9 @@ NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
 
   // Perform the reduction.
   for_each_index(reduction_shape, [&](const index_of_rank<Expr::rank>& i) { expr(i); });
+
+  // Assume the expr is an assignment, and return the left-hand side.
+  return expr.op_a.op;
 }
 
 /** Wrapper for `ein_reduce` computing the sum of the operand  of the
