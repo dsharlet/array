@@ -32,7 +32,7 @@ NDARRAY_HOST_DEVICE
 void reinterpret() {
   float eight = 8.0f;
   int eight_int = *reinterpret_cast<int*>(&eight);
-  
+
   dense_array_ref<int, 3> int_array(&eight_int, {1, 1, 1});
   dense_array_ref<float, 3> float_array = reinterpret<float>(int_array);
   (void)int_array;
@@ -42,15 +42,19 @@ void reinterpret() {
 NDARRAY_HOST_DEVICE
 void array_ref_empty() {
   // This does *not* work: it that shape_ = new_shape is not allowed because we use the
-  // defaulted assignment operator, which is apparently __host__ only?
-  // I.e., shape& operator=(const shape&) = default;
-  // 
+  // defaulted assignment operator, which is apparently __host__ only? This seems
+  // like a bug in clang, the operator is explicitly defaulted with a __device__ annotation:
+  //   NDARRAY_HOST_DEVICE
+  //   shape& operator=(const shape&) = default;
+  //
   // dense_array_ref<int, 1> null_ref(nullptr, {10});
   // null_ref.set_shape({{3, 3}}, 3);
-  
+
   int x;
   array_ref_of_rank<int, 0> scalar_ref(&x, {});
   array_ref_of_rank<int, 0> null_scalar_ref(nullptr, {});
 }
+
+// TODO(jiawen): Add CUDA support to image.h, matrix.h, and einsum.h.
 
 }  // namespace nda
