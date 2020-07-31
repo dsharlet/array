@@ -235,17 +235,9 @@ auto gather_dim(is_operand_shape, const ein_op<Dims, Is...>& op) {
   return get_tuple<index_of<Dim, Is...>()>(with_stride<0>(dims_of(op.op)));
 }
 
-// We need to change the 'kind' of a gather operation to is_result_shape when
-// we encounter an assignment.
-template <class Kind>
-inline auto get_lhs_kind(std::true_type, Kind) { return is_result_shape(); }
-template <class Kind>
-inline auto get_lhs_kind(std::false_type, Kind kind) { return kind; }
-
 template <size_t Dim, class Kind, class OpA, class OpB, class IsAssign, class X>
-auto gather_dim(Kind k, const ein_bin_op<OpA, OpB, IsAssign, X>& op) {
-  auto lhs_kind = get_lhs_kind(IsAssign(), k);
-  return std::tuple_cat(gather_dim<Dim>(lhs_kind, op.op_a), gather_dim<Dim>(k, op.op_b));
+auto gather_dim(Kind kind, const ein_bin_op<OpA, OpB, IsAssign, X>& op) {
+  return std::tuple_cat(gather_dim<Dim>(kind, op.op_a), gather_dim<Dim>(kind, op.op_b));
 }
 
 template <size_t Dim, class... Ops>
@@ -341,7 +333,8 @@ NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
   // given stride 0.
   auto reduction_shape = internal::make_ein_reduce_shape(
       internal::make_index_sequence<loop_rank>(),
-      std::make_tuple(internal::is_operand_shape(), expr));
+      std::make_tuple(internal::is_result_shape(), expr.op_a),
+      std::make_tuple(internal::is_operand_shape(), expr.op_b));
 
   // TODO: Try to compile-time optimize reduction_shape? :)
 
