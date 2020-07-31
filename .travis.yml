@@ -4,5 +4,6 @@ os: linux
 compiler: clang
 script:
   - make test
+  - make cuda_build_test
   - make -C examples/linear_algebra test
   - make -C examples/resample benchmark
