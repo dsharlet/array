@@ -20,16 +20,16 @@
 
 namespace nda {
 
-// Helpful names for dimensions we use in einsums.
+// Helpful names for dimensions we use in ein_sums.
 enum { i = 0, j = 1, k = 2, l = 3 };
 
-TEST(make_einsum_diag) {
+TEST(make_ein_sum_diag) {
   constexpr index_t N = 64;
   matrix<int, N, N> A;
   fill_pattern(A);
 
   // Make diag(A), the digonal of the matrix A.
-  auto a_diag = make_einsum<int, i>(ein<i, i>(A));
+  auto a_diag = make_ein_sum<int, i>(ein<i, i>(A));
   ASSERT_EQ(a_diag.rank(), 1);
   ASSERT_EQ(a_diag.size(), N);
   for (index_t i : A.i()) {
@@ -51,13 +51,13 @@ TEST(ein_reduce_diag) {
   }
 }
 
-TEST(make_einsum_trace) {
+TEST(make_ein_sum_trace) {
   constexpr index_t N = 64;
   matrix<int, N, N> A;
   fill_pattern(A);
 
   // Compute trace(A) = sum(diag(A))
-  int tr = make_einsum<int>(ein<i, i>(A));
+  int tr = make_ein_sum<int>(ein<i, i>(A));
   int tr_ref = 0;
   for (index_t i : A.i()) {
     tr_ref += A(i, i);
@@ -65,15 +65,15 @@ TEST(make_einsum_trace) {
   ASSERT_EQ(tr, tr_ref);
 }
 
-TEST(make_einsum_dot) {
+TEST(make_ein_sum_dot) {
   constexpr index_t N = 64;
   vector<int, N> x;
   vector<int, N> y;
   fill_pattern(x);
   fill_pattern(y, 2);
 
-  // Compute the dot product x.y using an einsum.
-  int dot = make_einsum<int>(ein<i>(x) * ein<i>(y));
+  // Compute the dot product x.y using an ein_sum.
+  int dot = make_ein_sum<int>(ein<i>(x) * ein<i>(y));
   int dot_ref = 0;
   for (index_t i : x.i()) {
     dot_ref += x(i) * y(i);
@@ -114,7 +114,7 @@ constexpr int epsilon(index_t i0, Ts... is) {
 
 constexpr int epsilon3(index_t i, index_t j, index_t k) { return epsilon(i, j, k); }
 
-TEST(einsum_cross) {
+TEST(ein_sum_cross) {
   const int count = 10;
   matrix<int, 3, dynamic> x({{}, count}, 0);
   matrix<int, 3, dynamic> y({{}, count}, 0);
@@ -125,7 +125,7 @@ TEST(einsum_cross) {
   // TODO: We can't infer the output shape of this, because ein<> of a function
   // doesn't provide a shape.
   matrix<int, 3, dynamic> cross({{}, count}, 0);
-  einsum(ein<i, j, k>(epsilon3) * ein<j, l>(x) * ein<k, l>(y), ein<i, l>(cross));
+  ein_sum(ein<i, j, k>(epsilon3) * ein<j, l>(x) * ein<k, l>(y), ein<i, l>(cross));
   ASSERT_EQ(cross.rank(), 2);
   ASSERT_EQ(cross.rows(), 3);
   ASSERT_EQ(cross.columns(), count);
@@ -136,7 +136,7 @@ TEST(einsum_cross) {
   }
 }
 
-TEST(make_einsum_outer) {
+TEST(make_ein_sum_outer) {
   constexpr index_t N = 64;
   constexpr index_t M = 40;
   vector<int, N> x;
@@ -145,7 +145,7 @@ TEST(make_einsum_outer) {
   fill_pattern(y, 8);
 
   // Compute the outer product x^T*y.
-  auto outer = make_einsum<int, i, j>(ein<i>(x) * ein<j>(y));
+  auto outer = make_ein_sum<int, i, j>(ein<i>(x) * ein<j>(y));
   ASSERT_EQ(outer.rank(), 2);
   ASSERT_EQ(outer.rows(), x.size());
   ASSERT_EQ(outer.columns(), y.size());
@@ -174,7 +174,7 @@ TEST(ein_reduce_outer) {
   }
 }
 
-TEST(make_einsum_matrix_vector) {
+TEST(make_ein_sum_matrix_vector) {
   constexpr index_t M = 50;
   constexpr index_t N = 64;
   matrix<int, M, N> B;
@@ -183,7 +183,7 @@ TEST(make_einsum_matrix_vector) {
   fill_pattern(x);
 
   // Compute the matrix-vector product B*x.
-  auto Bx = make_einsum<int, i>(ein<i, j>(B) * ein<j>(x));
+  auto Bx = make_ein_sum<int, i>(ein<i, j>(B) * ein<j>(x));
   ASSERT_EQ(Bx.rank(), 1);
   ASSERT_EQ(Bx.size(), B.rows());
   for (index_t i : Bx.i()) {
@@ -195,25 +195,25 @@ TEST(make_einsum_matrix_vector) {
   }
 }
 
-TEST(einsum_sum_3d) {
+TEST(ein_sum_sum_3d) {
   array_of_rank<int, 3> T({4, 5, 8});
   fill_pattern(T);
 
   // Fully reduce T.
   int sum_ijk = 0;
-  einsum(ein<i, j, k>(T), ein(sum_ijk));
+  ein_sum(ein<i, j, k>(T), ein(sum_ijk));
   int sum_ijk_ref = 0;
   T.for_each_value([&](int i) { sum_ijk_ref += i; });
   ASSERT_EQ(sum_ijk, sum_ijk_ref);
 
 }
 
-TEST(make_einsum_sum_2d) {
+TEST(make_ein_sum_sum_2d) {
   array_of_rank<int, 3> T({4, 5, 8});
   fill_pattern(T);
 
   // Reduce T along the i and k dimensions, keeping j.
-  auto sum_ik = make_einsum<int, j>(ein<i, j, k>(T));
+  auto sum_ik = make_ein_sum<int, j>(ein<i, j, k>(T));
   ASSERT_EQ(sum_ik.rank(), 1);
   ASSERT_EQ(sum_ik.size(), T.j().extent());
   for (index_t j : T.i()) {

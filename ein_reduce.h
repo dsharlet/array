@@ -60,7 +60,6 @@ struct ein_op {
     return op(std::get<Is>(i)...);
   }
 
-  // TODO: Should we be checking that the ranks of the operands match?
   template <class T, class = enable_if_ein_op<T>>
   auto operator+(const T& r) const { return make_ein_op_add(*this, r); }
   template <class T, class = enable_if_ein_op<T>>
@@ -93,16 +92,16 @@ struct ein_bin_op {
 
   // We need to be able to get the derived type when creating binary operations using
   // this operation as an operand.
-  const Derived& This() const { return *static_cast<const Derived*>(this); }
+  const Derived& derived() const { return *static_cast<const Derived*>(this); }
 
   template <class T, class = enable_if_ein_op<T>>
-  auto operator+(const T& r) const { return make_ein_op_add(This(), r); }
+  auto operator+(const T& r) const { return make_ein_op_add(derived(), r); }
   template <class T, class = enable_if_ein_op<T>>
-  auto operator-(const T& r) const { return make_ein_op_sub(This(), r); }
+  auto operator-(const T& r) const { return make_ein_op_sub(derived(), r); }
   template <class T, class = enable_if_ein_op<T>>
-  auto operator*(const T& r) const { return make_ein_op_mul(This(), r); }
+  auto operator*(const T& r) const { return make_ein_op_mul(derived(), r); }
   template <class T, class = enable_if_ein_op<T>>
-  auto operator/(const T& r) const { return make_ein_op_div(This(), r); }
+  auto operator/(const T& r) const { return make_ein_op_div(derived(), r); }
 };
 
 #define NDARRAY_MAKE_EIN_BIN_HELPERS(name, op) \
@@ -144,26 +143,22 @@ NDARRAY_MAKE_EIN_BIN_OP(ein_op_add, +, std::false_type);
 NDARRAY_MAKE_EIN_BIN_OP(ein_op_sub, -, std::false_type);
 NDARRAY_MAKE_EIN_BIN_OP(ein_op_mul, *, std::false_type);
 NDARRAY_MAKE_EIN_BIN_OP(ein_op_div, /, std::false_type);
+NDARRAY_MAKE_EIN_BIN_FN(ein_op_min, std::min, std::false_type);
+NDARRAY_MAKE_EIN_BIN_FN(ein_op_max, std::max, std::false_type);
 
 NDARRAY_MAKE_EIN_BIN_OP(ein_op_assign, =, std::true_type);
 NDARRAY_MAKE_EIN_BIN_OP(ein_op_add_assign, +=, std::true_type);
 NDARRAY_MAKE_EIN_BIN_OP(ein_op_sub_assign, -=, std::true_type);
 NDARRAY_MAKE_EIN_BIN_OP(ein_op_mul_assign, *=, std::true_type);
 
-NDARRAY_MAKE_EIN_BIN_FN(ein_op_min, std::min, std::false_type);
-NDARRAY_MAKE_EIN_BIN_FN(ein_op_max, std::max, std::false_type);
-
 #undef NDARRAY_MAKE_EIN_BIN_FN
 #undef NDARRAY_MAKE_EIN_BIN_OP
 #undef NDARRAY_MAKE_EIN_BIN_HELPERS
 
-// TODO: These are usually used as reductions, some kind of "min_assign"
-// operator would be nice.
 template <class OpA, class OpB>
 auto min(const OpA& a, const OpB& b) {
   return make_ein_op_min(a, b);
 }
-
 template <class OpA, class OpB>
 auto max(const OpA& a, const OpB& b) {
   return make_ein_op_max(a, b);
@@ -357,12 +352,12 @@ NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
   return expr.op_a.op;
 }
 
-/** Wrapper for `ein_reduce` computing the sum of the operand  of the
- * operand expression via `ein_reduce(result += expr)`. */
+/** Wrapper for `ein_reduce` computing the sum of the operand operand
+ * expression via `ein_reduce(result += expr)`. */
 template <class Expr, class Result,
     class = internal::enable_if_ein_op<Expr>,
     class = internal::enable_if_ein_op<Result>>
-NDARRAY_UNIQUE auto einsum(const Expr& expr, const Result& result) {
+NDARRAY_UNIQUE auto ein_sum(const Expr& expr, const Result& result) {
   return ein_reduce(result += expr);
 }
 
@@ -384,10 +379,10 @@ auto make_ein_reduce_shape(const Expr& expr) {
  * `ResultIs...`.
  *
  * Examples:
- * - `tr(A) = make_einsum<T>(ein<i, i>(A))`
- * - `dot(x, y) = make_einsum<T>(ein<i>(x) * ein<i>(y))`
- * - `A*B = make_einsum<T, i, j>(ein<i, k>(A) * ein<k, j>(B))`
- * - `A*x = make_einsum<T, i>(ein<i, j>(A) * ein<1>(x))`
+ * - `tr(A) = make_ein_sum<T>(ein<i, i>(A))`
+ * - `dot(x, y) = make_ein_sum<T>(ein<i>(x) * ein<i>(y))`
+ * - `A*B = make_ein_sum<T, i, j>(ein<i, k>(A) * ein<k, j>(B))`
+ * - `A*x = make_ein_sum<T, i>(ein<i, j>(A) * ein<1>(x))`
  *
  * where:
  * - `A`, `B` are matrices (rank 2 arrays)
@@ -401,7 +396,7 @@ auto make_ein_reduce_shape(const Expr& expr) {
 // also inferring the rank of the result.
 template <class T, size_t... ResultIs, class Expr, class Alloc = std::allocator<T>,
     class = internal::enable_if_ein_op<Expr>>
-NDARRAY_UNIQUE auto make_einsum(
+NDARRAY_UNIQUE auto make_ein_sum(
     const Expr& expr, const T& init = T(), const Alloc& alloc = Alloc()) {
   auto result_shape = make_ein_reduce_shape<ResultIs...>(expr);
   auto result = make_array<T>(result_shape, init, alloc);
