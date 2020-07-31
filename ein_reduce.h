@@ -114,12 +114,11 @@ template <class OpA, class OpB> auto make_##name(const OpA& a, const OpB& b) { \
 #define NDARRAY_MAKE_EIN_BIN_OP(name, op, is_assign_) \
 template <class OpA, class OpB> \
 struct name : public ein_bin_op<OpA, OpB, name<OpA, OpB>> { \
-  using ein_bin_op<OpA, OpB, name>::op_a; \
-  using ein_bin_op<OpA, OpB, name>::op_b; \
   using is_assign = is_assign_; \
   template <class Idx> \
   NDARRAY_INLINE auto operator()(const Idx& i) const { \
-    return op_a(i) op op_b(i); \
+    using base = ein_bin_op<OpA, OpB, name>; \
+    return base::op_a(i) op base::op_b(i); \
   } \
 }; \
 NDARRAY_MAKE_EIN_BIN_HELPERS(name, op)
@@ -127,12 +126,11 @@ NDARRAY_MAKE_EIN_BIN_HELPERS(name, op)
 #define NDARRAY_MAKE_EIN_BIN_FN(name, fn, is_assign_) \
 template <class OpA, class OpB> \
 struct name : public ein_bin_op<OpA, OpB, name<OpA, OpB>> { \
-  using ein_bin_op<OpA, OpB, name>::op_a; \
-  using ein_bin_op<OpA, OpB, name>::op_b; \
   using is_assign = is_assign_; \
   template <class Idx> \
   NDARRAY_INLINE auto operator()(const Idx& i) const { \
-    return fn(op_a(i), op_b(i)); \
+    using base = ein_bin_op<OpA, OpB, name>; \
+    return fn(base::op_a(i), base::op_b(i)); \
   } \
 }; \
 NDARRAY_MAKE_EIN_BIN_HELPERS(name, op)
@@ -155,13 +153,9 @@ NDARRAY_MAKE_EIN_BIN_OP(ein_op_mul_assign, *=, std::true_type);
 #undef NDARRAY_MAKE_EIN_BIN_HELPERS
 
 template <class OpA, class OpB>
-auto min(const OpA& a, const OpB& b) {
-  return make_ein_op_min(a, b);
-}
+auto min(const OpA& a, const OpB& b) { return make_ein_op_min(a, b); }
 template <class OpA, class OpB>
-auto max(const OpA& a, const OpB& b) {
-  return make_ein_op_max(a, b);
-}
+auto max(const OpA& a, const OpB& b) { return make_ein_op_max(a, b); }
 
 // Helper to reinterpret a dim/shape with a new stride.
 template <index_t NewStride, index_t Min, index_t Extent, index_t Stride>
@@ -364,7 +358,7 @@ auto make_ein_reduce_shape(const Expr& expr) {
   return make_compact(result_shape);
 }
 
-/** Compute an Einstein summation using `ein_reduce` and return the result. The
+/** Compute an Einstein summation using `ein_sum` and return the result. The
  * `value_type` of the result will be `T`, and the result shape will be inferred
  * from the shape of the operands. The result is initialized to `init` prior to
  * computing the summation. The Einstein summation indices for the result are
