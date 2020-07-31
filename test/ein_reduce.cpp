@@ -16,21 +16,9 @@
 #include "ein_reduce.h"
 #include "test.h"
 
+#include <complex>
+
 namespace nda {
-
-// Helpers to make a Levi-Civita tensor.
-constexpr int sgn(index_t i) {
-  return i == 0 ? 0 : (i < 0 ? -1 : 1);
-}
-
-// Defines the arbitrary rank Levi-Civita tensor as a constexpr function.
-constexpr int epsilon() { return 1.0f; }
-template <class... Ts>
-constexpr int epsilon(index_t i0, Ts... is) {
-  return internal::product(sgn(is - i0)...) * epsilon(is...);
-}
-
-constexpr int epsilon3(index_t i, index_t j, index_t k) { return epsilon(i, j, k); }
 
 // Helpful names for dimensions we use in einsums.
 enum { i = 0, j = 1, k = 2, l = 3 };
@@ -111,6 +99,20 @@ TEST(ein_reduce_dot_offset) {
   }
   ASSERT_EQ(dot, dot_ref);
 }
+
+// Helpers to make a Levi-Civita tensor.
+constexpr int sgn(index_t i) {
+  return i == 0 ? 0 : (i < 0 ? -1 : 1);
+}
+
+// Defines the arbitrary rank Levi-Civita tensor as a constexpr function.
+constexpr int epsilon() { return 1.0f; }
+template <class... Ts>
+constexpr int epsilon(index_t i0, Ts... is) {
+  return internal::product(sgn(is - i0)...) * epsilon(is...);
+}
+
+constexpr int epsilon3(index_t i, index_t j, index_t k) { return epsilon(i, j, k); }
 
 TEST(einsum_cross) {
   const int count = 10;
@@ -235,6 +237,34 @@ TEST(ein_reduce_max_2d) {
     int max_ik_ref = std::numeric_limits<int>::min();
     T(_, j, _).for_each_value([&](int i) { max_ik_ref = std::max(i, max_ik_ref); });
     ASSERT_EQ(max_ik(j), max_ik_ref);
+  }
+}
+
+template <index_t N>
+std::complex<float> dft_basis(float j, float k) {
+  static const float pi = std::acos(-1.0f);
+  static const std::complex<float> i(0, 1);
+  return std::exp(-2.0f * pi * i * j * k / static_cast<float>(N));
+}
+
+TEST(ein_reduce_dft) {
+  constexpr index_t N = 30;
+  vector<float, N> x;
+  fill_pattern(x);
+
+  // Compute the DFT by multiplying by a function computing the DFT matrix.
+  // This isn't fast, but it's a fun test of a reduction with a different
+  // type than the operands.
+  vector<std::complex<float>, N> dft_x({}, 0.0f);
+  ein_reduce(ein<j>(dft_x) += ein<j, k>(dft_basis<N>) * ein<k>(x));
+
+  const float tolerance = 1e-3f;
+  for (index_t j = 0; j < N; j++) {
+    std::complex<float> dft_j_ref = 0.0f;
+    for (index_t k = 0; k < N; k++) {
+      dft_j_ref += dft_basis<N>(j, k) * x(k);
+    }
+    ASSERT_LT(abs(dft_j_ref - dft_x(j)), tolerance);
   }
 }
 
