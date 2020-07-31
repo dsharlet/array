@@ -227,7 +227,8 @@ TEST(ein_reduce_max_2d) {
 
   // Reduce T along the i and k dimensions, keeping j.
   auto max_ik = make_array<int>(make_shape(T.j()), std::numeric_limits<int>::min());
-  ein_reduce(ein<j>(max_ik) = max(ein<j>(max_ik), ein<i, j, k>(T)));
+  auto r = ein<j>(max_ik);
+  ein_reduce(r = max(r, ein<i, j, k>(T)));
   ASSERT_EQ(max_ik.rank(), 1);
   ASSERT_EQ(max_ik.size(), T.j().extent());
   for (index_t j : T.i()) {
