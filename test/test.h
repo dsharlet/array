@@ -146,14 +146,14 @@ T pattern(const IndexType& indices, const IndexType& offset = IndexType()) {
 
 // Fill an array with the pattern.
 template <class T, class Shape>
-void fill_pattern(const array_ref<T, Shape>& a) {
+void fill_pattern(const array_ref<T, Shape>& a, const typename Shape::index_type& offset = typename Shape::index_type()) {
   for_each_index(a.shape(), [&](const typename Shape::index_type& i) {
-    a(i) = pattern<T>(i);
+    a(i) = pattern<T>(i, offset);
   });
 }
 template <class T, class Shape>
-void fill_pattern(array<T, Shape>& a) {
-  fill_pattern(a.ref());
+void fill_pattern(array<T, Shape>& a, const typename Shape::index_type& offset = typename Shape::index_type()) {
+  fill_pattern(a.ref(), offset);
 }
 
 // Check an array matches the pattern.

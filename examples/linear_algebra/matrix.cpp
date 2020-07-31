@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "matrix.h"
-#include "einsum.h"
+#include "ein_reduce.h"
 #include "benchmark.h"
 
 #include <iostream>
@@ -22,7 +22,7 @@
 
 using namespace nda;
 
-// Useful named dimension indices for einsum.
+// Useful named dimension indices for ein_reduce.
 enum { i = 0, j = 1, k = 2 };
 
 // A textbook implementation of matrix multiplication. This is very simple,
@@ -45,10 +45,10 @@ void multiply_reduce_cols(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_r
 // to multiply_reduce_cols.
 template <typename T>
 __attribute__((noinline))
-void multiply_einsum_cols(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+void multiply_ein_reduce_cols(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
-      c(i, j) = make_einsum<T>(ein<k>(a(i, _)), ein<k>(b(_, j)));
+      c(i, j) = make_einsum<T>(ein<k>(a(i, _)) * ein<k>(b(_, j)));
     }
   }
 }
@@ -91,10 +91,10 @@ void multiply_reduce_rows(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_r
 // to multiply_reduce_rows.
 template <class T>
 __attribute__((noinline))
-void multiply_einsum_rows(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+void multiply_ein_reduce_rows(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   for (index_t i : c.i()) {
     fill(c(i, _), static_cast<T>(0));
-    einsum(ein<k>(a(i, _)), ein<k, j>(b), ein<j>(c(i, _)));
+    ein_reduce(ein<j>(c(i, _)) += ein<k>(a(i, _)) * ein<k, j>(b));
   }
 }
 
@@ -119,9 +119,9 @@ void multiply_reduce_matrix(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix
 // to multiply_reduce_matrix.
 template <class T>
 __attribute__((noinline))
-void multiply_einsum_matrix(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+void multiply_ein_reduce_matrix(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   fill(c, static_cast<T>(0));
-  einsum(ein<i, k>(a), ein<k, j>(b), ein<i, j>(c));
+  ein_reduce(ein<i, j>(c) += ein<i, k>(a) * ein<k, j>(b));
 }
 
 // This implementation of matrix multiplication splits the loops over
@@ -222,7 +222,7 @@ void multiply_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_
 // performance.
 template <typename T>
 __attribute__((noinline))
-void multiply_einsum_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+void multiply_ein_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   // Adjust this depending on the target architecture. For AVX2,
   // vectors are 256-bit.
   constexpr index_t vector_size = 32 / sizeof(T);
@@ -240,14 +240,14 @@ void multiply_einsum_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_
       // This is slow. It would likely be fast if we could use __restrict__ on
       // struct members: https://bugs.llvm.org/show_bug.cgi?id=45863.
       fill(c_ijo, static_cast<T>(0));
-      einsum(ein<i, k>(a(io, _)), ein<k, j>(b(_, jo)), ein<i, j>(c_ijo));
+      ein_reduce(ein<i, k>(a(io, _)), ein<k, j>(b(_, jo)), ein<i, j>(c_ijo));
 #else
       // Define an accumulator buffer.
       T buffer[tile_rows * tile_cols] = { 0 };
       auto accumulator = make_array_ref(buffer, make_compact(c_ijo.shape()));
 
       // Perform the matrix multiplication for this tile.
-      einsum(ein<i, k>(a(io, _)), ein<k, j>(b(_, jo)), ein<i, j>(accumulator));
+      ein_reduce(ein<i, j>(accumulator) += ein<i, k>(a(io, _)) * ein<k, j>(b(_, jo)));
 
       // Copy the accumulators to the output.
 #if 0
@@ -298,13 +298,13 @@ int main(int, const char**) {
   };
   version versions[] = {
     { "reduce_cols", multiply_reduce_cols<float> },
-    { "einsum_cols", multiply_einsum_cols<float> },
+    { "ein_reduce_cols", multiply_ein_reduce_cols<float> },
     { "reduce_rows", multiply_reduce_rows<float> },
-    { "einsum_rows", multiply_einsum_rows<float> },
+    { "ein_reduce_rows", multiply_ein_reduce_rows<float> },
     { "reduce_matrix", multiply_reduce_matrix<float> },
-    { "einsum_matrix", multiply_einsum_matrix<float> },
+    { "ein_reduce_matrix", multiply_ein_reduce_matrix<float> },
     { "reduce_tiles", multiply_reduce_tiles<float> },
-    { "einsum_tiles", multiply_einsum_tiles<float> },
+    { "ein_reduce_tiles", multiply_ein_reduce_tiles<float> },
   };
   for (auto i : versions) {
     // Compute the result using all matrix multiply methods.

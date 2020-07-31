@@ -13,10 +13,8 @@
 // limitations under the License.
 
 #include "matrix.h"
-#include "einsum.h"
+#include "ein_reduce.h"
 #include "test.h"
-
-#include <random>
 
 namespace nda {
 
@@ -37,11 +35,40 @@ constexpr int epsilon3(index_t i, index_t j, index_t k) { return epsilon(i, j, k
 // Helpful names for dimensions we use in einsums.
 enum { i = 0, j = 1, k = 2, l = 3 };
 
-TEST(einsum_trace) {
+TEST(make_einsum_diag) {
   constexpr index_t N = 64;
   matrix<int, N, N> A;
   fill_pattern(A);
 
+  // Make diag(A), the digonal of the matrix A.
+  auto a_diag = make_einsum<int, i>(ein<i, i>(A));
+  ASSERT_EQ(a_diag.rank(), 1);
+  ASSERT_EQ(a_diag.size(), N);
+  for (index_t i : A.i()) {
+    ASSERT_EQ(a_diag(i), A(i, i));
+  }
+}
+
+TEST(ein_reduce_diag) {
+  constexpr index_t N = 64;
+  matrix<int, N, N> A;
+  fill_pattern(A);
+
+  // Make diag(A), the diagonal of the matrix A.
+  vector<int, N> a_diag;
+  // This isn't a reduction!
+  ein_reduce(ein<i>(a_diag) = ein<i, i>(A));
+  for (index_t i : A.i()) {
+    ASSERT_EQ(a_diag(i), A(i, i));
+  }
+}
+
+TEST(make_einsum_trace) {
+  constexpr index_t N = 64;
+  matrix<int, N, N> A;
+  fill_pattern(A);
+
+  // Compute trace(A) = sum(diag(A))
   int tr = make_einsum<int>(ein<i, i>(A));
   int tr_ref = 0;
   for (index_t i : A.i()) {
@@ -50,25 +77,15 @@ TEST(einsum_trace) {
   ASSERT_EQ(tr, tr_ref);
 }
 
-TEST(einsum_diag) {
-  constexpr index_t N = 64;
-  matrix<int, N, N> A;
-  fill_pattern(A);
-
-  auto a_diag = make_einsum<int, i>(ein<i, i>(A));
-  for (index_t i : A.i()) {
-    ASSERT_EQ(a_diag(i), A(i, i));
-  }
-}
-
-TEST(einsum_dot) {
+TEST(make_einsum_dot) {
   constexpr index_t N = 64;
   vector<int, N> x;
   vector<int, N> y;
   fill_pattern(x);
-  fill_pattern(y);
+  fill_pattern(y, {2});
 
-  int dot = make_einsum<int>(ein<i>(x), ein<i>(y))();
+  // Compute the dot product x.y using an einsum.
+  int dot = make_einsum<int>(ein<i>(x) * ein<i>(y));
   int dot_ref = 0;
   for (index_t i : x.i()) {
     dot_ref += x(i) * y(i);
@@ -76,19 +93,23 @@ TEST(einsum_dot) {
   ASSERT_EQ(dot, dot_ref);
 }
 
-TEST(einsum_dot_sq) {
-  constexpr index_t N = 64;
+TEST(ein_reduce_dot_offset) {
+  constexpr index_t N = 40;
   vector<int, N> x;
   vector<int, N> y;
+  vector<int, N> z;
   fill_pattern(x);
-  fill_pattern(y);
+  fill_pattern(y, {2});
+  fill_pattern(z, {6});
 
-  int dot_sq = make_einsum<int>(ein<i>(x), ein<i>(x), ein<i>(y), ein<i>(y));
-  int dot_sq_ref = 0;
+  // Compute the dot product (x + y).z.
+  int dot = 0;
+  ein_reduce(ein<>(dot) += (ein<i>(x) + ein<i>(y)) * ein<i>(z));
+  int dot_ref = 0;
   for (index_t i : x.i()) {
-    dot_sq_ref += x(i) * x(i) * y(i) * y(i);
+    dot_ref += (x(i) + y(i)) * z(i);
   }
-  ASSERT_EQ(dot_sq, dot_sq_ref);
+  ASSERT_EQ(dot, dot_ref);
 }
 
 TEST(einsum_cross) {
@@ -96,12 +117,13 @@ TEST(einsum_cross) {
   matrix<int, 3, dynamic> x({{}, count}, 0);
   matrix<int, 3, dynamic> y({{}, count}, 0);
   fill_pattern(x);
-  fill_pattern(y);
+  fill_pattern(y, {3, 4});
 
+  // Compute the cross product of an array of vectors.
   // TODO: We can't infer the output shape of this, because ein<> of a function
   // doesn't provide a shape.
   matrix<int, 3, dynamic> cross({{}, count}, 0);
-  einsum(ein<i, j, k>(epsilon3), ein<j, l>(x), ein<k, l>(y), ein<i, l>(cross));
+  einsum(ein<i, j, k>(epsilon3) * ein<j, l>(x) * ein<k, l>(y), ein<i, l>(cross));
   ASSERT_EQ(cross.rank(), 2);
   ASSERT_EQ(cross.rows(), 3);
   ASSERT_EQ(cross.columns(), count);
@@ -112,26 +134,45 @@ TEST(einsum_cross) {
   }
 }
 
-TEST(einsum_outer) {
+TEST(make_einsum_outer) {
   constexpr index_t N = 64;
   constexpr index_t M = 40;
   vector<int, N> x;
-  vector<int, M> z;
+  vector<int, M> y;
   fill_pattern(x);
-  fill_pattern(z);
+  fill_pattern(y, {8});
 
-  auto outer = make_einsum<int, i, j>(ein<i>(x), ein<j>(z));
+  // Compute the outer product x^T*y.
+  auto outer = make_einsum<int, i, j>(ein<i>(x) * ein<j>(y));
   ASSERT_EQ(outer.rank(), 2);
   ASSERT_EQ(outer.rows(), x.size());
-  ASSERT_EQ(outer.columns(), z.size());
+  ASSERT_EQ(outer.columns(), y.size());
   for (index_t i : outer.i()) {
     for (index_t j : outer.j()) {
-      ASSERT_EQ(outer(i, j), x(i) * z(j));
+      ASSERT_EQ(outer(i, j), x(i) * y(j));
     }
   }
 }
 
-TEST(einsum_matrix_vector) {
+TEST(ein_reduce_outer) {
+  constexpr index_t N = 64;
+  constexpr index_t M = 40;
+  vector<int, N> x;
+  vector<int, M> y;
+  fill_pattern(x);
+  fill_pattern(y, {4});
+
+  // Compute the outer product x^T*y.
+  matrix<int, N, M> outer;
+  ein_reduce(ein<i, j>(outer) = ein<i>(x) * ein<j>(y));
+  for (index_t i : outer.i()) {
+    for (index_t j : outer.j()) {
+      ASSERT_EQ(outer(i, j), x(i) * y(j));
+    }
+  }
+}
+
+TEST(make_einsum_matrix_vector) {
   constexpr index_t M = 50;
   constexpr index_t N = 64;
   matrix<int, M, N> B;
@@ -139,7 +180,8 @@ TEST(einsum_matrix_vector) {
   fill_pattern(B);
   fill_pattern(x);
 
-  auto Bx = make_einsum<int, i>(ein<i, j>(B), ein<j>(x));
+  // Compute the matrix-vector product B*x.
+  auto Bx = make_einsum<int, i>(ein<i, j>(B) * ein<j>(x));
   ASSERT_EQ(Bx.rank(), 1);
   ASSERT_EQ(Bx.size(), B.rows());
   for (index_t i : Bx.i()) {
@@ -155,6 +197,7 @@ TEST(einsum_sum_3d) {
   array_of_rank<int, 3> T({4, 5, 8});
   fill_pattern(T);
 
+  // Fully reduce T.
   int sum_ijk = 0;
   einsum(ein<i, j, k>(T), ein(sum_ijk));
   int sum_ijk_ref = 0;
@@ -163,10 +206,11 @@ TEST(einsum_sum_3d) {
 
 }
 
-TEST(einsum_sum_2d) {
+TEST(make_einsum_sum_2d) {
   array_of_rank<int, 3> T({4, 5, 8});
   fill_pattern(T);
 
+  // Reduce T along the i and k dimensions, keeping j.
   auto sum_ik = make_einsum<int, j>(ein<i, j, k>(T));
   ASSERT_EQ(sum_ik.rank(), 1);
   ASSERT_EQ(sum_ik.size(), T.j().extent());
@@ -174,6 +218,22 @@ TEST(einsum_sum_2d) {
     int sum_ik_ref = 0;
     T(_, j, _).for_each_value([&](int i) { sum_ik_ref += i; });
     ASSERT_EQ(sum_ik(j), sum_ik_ref);
+  }
+}
+
+TEST(ein_reduce_max_2d) {
+  array_of_rank<int, 3> T({4, 5, 8});
+  fill_pattern(T);
+
+  // Reduce T along the i and k dimensions, keeping j.
+  auto max_ik = make_array<int>(make_shape(T.j()));
+  ein_reduce(ein<j>(max_ik) = max(ein<j>(max_ik), ein<i, j, k>(T)));
+  ASSERT_EQ(max_ik.rank(), 1);
+  ASSERT_EQ(max_ik.size(), T.j().extent());
+  for (index_t j : T.i()) {
+    int max_ik_ref = std::numeric_limits<int>::min();
+    T(_, j, _).for_each_value([&](int i) { max_ik_ref = std::max(i, max_ik_ref); });
+    ASSERT_EQ(max_ik(j), max_ik_ref);
   }
 }
 
