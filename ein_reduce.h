@@ -80,13 +80,12 @@ struct ein_op {
 };
 
 // A binary operation of two operands.
-template <class OpA, class OpB, class IsAssign, class Derived>
+template <class OpA, class OpB, class Derived>
 struct ein_bin_op {
   OpA op_a;
   OpB op_b;
 
   using is_ein_op = std::true_type;
-  using is_assign = IsAssign;
 
   enum { max_index = OpA::max_index > OpB::max_index ? OpA::max_index : OpB::max_index };
 
@@ -112,12 +111,12 @@ template <class OpA, class OpB> auto make_##name(const OpA& a, const OpB& b) { \
   return result; \
 }
 
-#define NDARRAY_MAKE_EIN_BIN_OP(name, op, is_assign) \
+#define NDARRAY_MAKE_EIN_BIN_OP(name, op, is_assign_) \
 template <class OpA, class OpB> \
-struct name : public ein_bin_op<OpA, OpB, is_assign, name<OpA, OpB>> { \
-  using base = ein_bin_op<OpA, OpB, is_assign, name>; \
-  using base::op_a; \
-  using base::op_b; \
+struct name : public ein_bin_op<OpA, OpB, name<OpA, OpB>> { \
+  using ein_bin_op<OpA, OpB, name>::op_a; \
+  using ein_bin_op<OpA, OpB, name>::op_b; \
+  using is_assign = is_assign_; \
   template <class Idx> \
   NDARRAY_INLINE auto operator()(const Idx& i) const { \
     return op_a(i) op op_b(i); \
@@ -125,12 +124,12 @@ struct name : public ein_bin_op<OpA, OpB, is_assign, name<OpA, OpB>> { \
 }; \
 NDARRAY_MAKE_EIN_BIN_HELPERS(name, op)
 
-#define NDARRAY_MAKE_EIN_BIN_FN(name, fn, is_assign) \
+#define NDARRAY_MAKE_EIN_BIN_FN(name, fn, is_assign_) \
 template <class OpA, class OpB> \
-struct name : public ein_bin_op<OpA, OpB, is_assign, name<OpA, OpB>> { \
-  using base = ein_bin_op<OpA, OpB, is_assign, name>; \
-  using base::op_a; \
-  using base::op_b; \
+struct name : public ein_bin_op<OpA, OpB, name<OpA, OpB>> { \
+  using ein_bin_op<OpA, OpB, name>::op_a; \
+  using ein_bin_op<OpA, OpB, name>::op_b; \
+  using is_assign = is_assign_; \
   template <class Idx> \
   NDARRAY_INLINE auto operator()(const Idx& i) const { \
     return fn(op_a(i), op_b(i)); \
@@ -235,8 +234,8 @@ auto gather_dim(is_operand_shape, const ein_op<Dims, Is...>& op) {
   return get_tuple<index_of<Dim, Is...>()>(with_stride<0>(dims_of(op.op)));
 }
 
-template <size_t Dim, class Kind, class OpA, class OpB, class IsAssign, class X>
-auto gather_dim(Kind kind, const ein_bin_op<OpA, OpB, IsAssign, X>& op) {
+template <size_t Dim, class Kind, class OpA, class OpB, class X>
+auto gather_dim(Kind kind, const ein_bin_op<OpA, OpB, X>& op) {
   return std::tuple_cat(gather_dim<Dim>(kind, op.op_a), gather_dim<Dim>(kind, op.op_b));
 }
 
