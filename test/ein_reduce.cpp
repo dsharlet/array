@@ -82,7 +82,7 @@ TEST(make_einsum_dot) {
   vector<int, N> x;
   vector<int, N> y;
   fill_pattern(x);
-  fill_pattern(y, {2});
+  fill_pattern(y, 2);
 
   // Compute the dot product x.y using an einsum.
   int dot = make_einsum<int>(ein<i>(x) * ein<i>(y));
@@ -99,8 +99,8 @@ TEST(ein_reduce_dot_offset) {
   vector<int, N> y;
   vector<int, N> z;
   fill_pattern(x);
-  fill_pattern(y, {2});
-  fill_pattern(z, {6});
+  fill_pattern(y, 2);
+  fill_pattern(z, 6);
 
   // Compute the dot product (x + y).z.
   int dot = 0;
@@ -117,7 +117,7 @@ TEST(einsum_cross) {
   matrix<int, 3, dynamic> x({{}, count}, 0);
   matrix<int, 3, dynamic> y({{}, count}, 0);
   fill_pattern(x);
-  fill_pattern(y, {3, 4});
+  fill_pattern(y, 3);
 
   // Compute the cross product of an array of vectors.
   // TODO: We can't infer the output shape of this, because ein<> of a function
@@ -140,7 +140,7 @@ TEST(make_einsum_outer) {
   vector<int, N> x;
   vector<int, M> y;
   fill_pattern(x);
-  fill_pattern(y, {8});
+  fill_pattern(y, 8);
 
   // Compute the outer product x^T*y.
   auto outer = make_einsum<int, i, j>(ein<i>(x) * ein<j>(y));
@@ -160,7 +160,7 @@ TEST(ein_reduce_outer) {
   vector<int, N> x;
   vector<int, M> y;
   fill_pattern(x);
-  fill_pattern(y, {4});
+  fill_pattern(y, 4);
 
   // Compute the outer product x^T*y.
   matrix<int, N, M> outer;
@@ -226,7 +226,7 @@ TEST(ein_reduce_max_2d) {
   fill_pattern(T);
 
   // Reduce T along the i and k dimensions, keeping j.
-  auto max_ik = make_array<int>(make_shape(T.j()));
+  auto max_ik = make_array<int>(make_shape(T.j()), std::numeric_limits<int>::min());
   ein_reduce(ein<j>(max_ik) = max(ein<j>(max_ik), ein<i, j, k>(T)));
   ASSERT_EQ(max_ik.rank(), 1);
   ASSERT_EQ(max_ik.size(), T.j().extent());
