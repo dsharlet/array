@@ -1,7 +1,7 @@
 ## About
 
 This library provides a multidimensional array class for C++, with the following design goals:
-* Enable specification of array parameters as compile-time constants, enabling significantly more efficient code generation in some cases.
+* Enable specification of array parameters as [compile-time constants](#compile-time-constant-shapes) per parameter, enabling more efficient code generation in some cases, while retaining run-time flexibility where needed.
 * Provide an API following the conventions of the C++ STL where possible.
 * Minimal dependencies and requirements (the library is currently a single header file, and depends only on the C++ STL).
 
@@ -17,11 +17,9 @@ where:
 * `minN` are the mins in each dimension. The min is the value of the first in-range index in this dimension (the max is `minN + extentN - 1`).
 * `strideN` are the distances in the flat offsets between elements in each dimension.
 
-Arrays efficiently support advanced manipulations like cropping, slicing, and splitting loops, all while preserving compile-time constant parameters when possible.
+Arrays efficiently support advanced manipulations like [cropping, slicing, and splitting loops](#slicing-cropping-and-splitting), all while preserving compile-time constant parameters when possible.
 Although it is a heavily templated library, most features do not have significant code size or compile time implications, and incorrect usage generates informative and helpful error messages.
 Typically, an issue will result in only one error message, located at the site of the problem in user code.
-
-Many of the tools provided by this library can be used in `__device__` code compiled with [CUDA](https://developer.nvidia.com/cuda-zone).
 
 Many other libraries offering multi-dimensional arrays or tensors allow compile-time constant shapes.
 *However*, most if not all of them only allow either all of the shape parameters to be compile-time constant, or none of them.
@@ -30,6 +28,10 @@ Some examples of this are:
 * '[Chunky](https://en.wikipedia.org/wiki/Packed_pixel)' image formats with a small fixed number of channels.
 * Matrices where one dimension represent variables intrinsic to the problem, while the other dimension represents a number of samples of data.
 * Algorithms optimized by splitting or tiling intermediate stages will have intermediate buffers that have a constant extent in the dimensions that are split or tiled.
+
+Some other features of the library are:
+* [CUDA support](#cuda-support) for use in `__device__` functions.
+* Zero-cost [Einstein reduction](#einstein-reductions) functions, enabling many kinds of reductions and other array operations to be expressed safely.
 
 ## Usage
 
@@ -113,7 +115,7 @@ The default implementation of `shape_traits<Shape>::for_each_index` iterates ove
 The default implementation of `shape_traits<Shape>::for_each_value` iterates over a dynamically optimized shape.
 The order will vary depending on the properties of the shape.
 
-There are overloads of `for_each_value` and `for_each_index` accepting a permutation to indicate the loop order. In this example, the permutation `<2, 0, 1>` iterates over the `z` dimension as the innermost loop, then `x`, then `y`.
+There are overloads of `for_all_indices` and `for_each_index` accepting a permutation to indicate the loop order. In this example, the permutation `<2, 0, 1>` iterates over the `z` dimension as the innermost loop, then `x`, then `y`.
 ```c++
   for_all_indices<2, 0, 1>(my_shape, [](int x, int y, int z) {
     std::cout << x << ", " << y << ", " << z << std::endl;
@@ -246,9 +248,8 @@ This allows potentially significant optimizations to be expressed relatively eas
 ### Einstein reductions
 
 The `ein_reduce.h` header provides [Einstein notation](https://en.wikipedia.org/wiki/Einstein_notation) reductions and summation helpers, similar to [np.einsum](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html) or [tf.einsum](https://www.tensorflow.org/api_docs/python/tf/einsum).
-This is a powerful tool that allows expressing a variety of array operations in a safe and performant way.
-Einstein notation expression operands are constructed using the `ein<i, j, ...>(x)` helper function.
-`x` can be any callable object, including an `array<>` or `array_ref<>`.
+This is a zero-cost abstraction for generating loops that allow expressing a variety of array operations in a safe and performant way.
+Einstein notation expression operands are constructed using the `ein<i, j, ...>(x)` helper function, where `x` can be any callable object, including an `array<>` or `array_ref<>`.
 The dimensions `i, j, ...` of the reduction operation are used to call `x`.
 Therefore, the number of arguments of `x` must match the number of dimensions provided to `ein`.
 Operands can be combined into larger expressions using typical binary operators.
@@ -258,40 +259,48 @@ Einstein notation expressions can be evaluated using one of the following functi
 * `ein_sum(lhs, rhs)`, evaluate the summation `ein_reduce(lhs += rhs)`.
 * `lhs = make_ein_sum<T, i, j, ...>(rhs)`, evaluate the summation `lhs += rhs` and return it, inferring the shape of `lhs` from `rhs`. `i, j, ...` are the dimensions of the reduction operation to use for `rhs`.
 
-Here are some examples of how to use these reduction operations:
+Here are some examples of how to use these reduction operations to compute summations:
 ```c++
   // Name the dimensions we use in Einstein reductions.
   enum { i = 0, j = 1, k = 2, l = 3 };
 
-  // Dot product x.y:
+  // Dot product dot1 = dot2 = dot3 = x.y:
   vector<float> x({10});
   vector<float> y({10});
   float dot1 = make_ein_sum<float>(ein<i>(x) * ein<i>(y));
   float dot2 = 0.0f;
-  ein_reduce(ein<>(dot2) += ein<i>(x) * ein<i>(y));
+  ein_reduce(ein(dot2) += ein<i>(x) * ein<i>(y));
   float dot3 = 0.0f;
-  ein_sum(ein<i>(x) * ein<i>(y), ein<>(dot3));
+  ein_sum(ein<i>(x) * ein<i>(y), ein(dot3));
 
-  // Matrix transpose:
+  // Matrix multiply C1 = C2 = A*B:
   matrix<float> A({10, 10});
-  matrix<float> AT({10, 10});
-  ein_reduce(ein<i, j>(AT) = ein<j, i>(A));
-
-  // Matrix multiply:
   matrix<float> B({10, 15});
   matrix<float> C1({10, 15});
   fill(C1, 0.0f);
   ein_reduce(ein<i, j>(C1) += ein<i, k>(A) * ein<k, j>(B));
   auto C2 = make_ein_sum<float, i, j>(ein<i, k>(A) * ein<k, j>(B));
+```
 
-  // Cross product of an array of vectors x and y:
+We can use arbitrary functions as expression operands:
+```c++
+  // Cross product array crosses_n = x_n x y_n:
   using vector_array = array<float, shape<dim<0, 3>, dense_dim<>>>;
   vector_array xs({3, 100});
   vector_array ys({3, 100});
   vector_array crosses({3, 100});
-  // In this example, we use a function as an operand.
   auto epsilon3 = [](int i, int j, int k) { return sgn(j - i) * sgn(k - i) * sgn(k - j); };
   ein_reduce(ein<i, l>(crosses) += ein<i, j, k>(epsilon3) * ein<j, l>(xs) * ein<k, l>(ys));
+```
+
+These operations generally produce loop nests that are as readily optimized by the compiler as hand-written loops.
+For example, consider the cross product: if `crosses`, `xs`, and `ys` have shape `shape<dim<0, 3>, dim<>>`, the compiler will likely be able to optimize this to similar efficiency as hand-written code, by unrolling and evaluating the function at compile time.
+
+The expression can be another kind of reduction, or not a reduction at all:
+```c++
+  // Matrix transpose AT = A^T:
+  matrix<float> AT({10, 10});
+  ein_reduce(ein<i, j>(AT) = ein<j, i>(A));
 
   // Maximum of each x-y plane of a 3D volume:
   dense_array<float, 3> T({8, 12, 20});
@@ -300,9 +309,20 @@ Here are some examples of how to use these reduction operations:
   ein_reduce(r = max(r, ein<i, j, k>(T)));
 ```
 
-These reduction operators generate loops that can be readily optimized by the compiler.
-For example, consider the cross product: if `crosses`, `xs`, and `ys` have shape `shape<dim<0, 3>, dim<>>`, the compiler will likely be able to optimize this to similar efficiency as hand-written code.
-These reductions also compose well with loop transformations like `split`.
+Reductions can have a mix of result and operand types:
+```c++
+  // Compute X1 = X2 = DFT[x]:
+  using complex = std::complex<float>;
+  dense_array<complex, 2> W({10, 10});
+  for_all_indices(W.shape(), [&](int j, int k) {
+    W(j, k) = exp(-2.0f * pi * complex(0, 1) * (static_cast<float>(j * k) / 10));
+  });
+  auto X1 = make_ein_sum<complex, j>(ein<j, k>(W) * ein<k>(x));
+  vector<complex> X2({10}, 0.0f);
+  ein_reduce(ein<j>(X2) += ein<j, k>(W) * ein<k>(x));
+```
+
+These reductions also compose well with loop transformations like `split` and array operations like [slicing and cropping](#slicing-cropping-and-splitting).
 For example, a matrix multiplication can be tiled like so:
 ```c++
   // Adjust this depending on the target architecture. For AVX2, vectors are 256-bit.

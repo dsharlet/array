@@ -285,7 +285,7 @@ TEST(ein_reduce_max_2d) {
 }
 
 template <index_t N>
-std::complex<float> dft_basis(float j, float k) {
+std::complex<float> W(float j, float k) {
   static const float pi = std::acos(-1.0f);
   static const std::complex<float> i(0, 1);
   return std::exp(-2.0f * pi * i * j * k / static_cast<float>(N));
@@ -299,16 +299,16 @@ TEST(ein_reduce_dft) {
   // Compute the DFT by multiplying by a function computing the DFT matrix.
   // This isn't fast, but it's a fun test of a reduction with a different
   // type than the operands.
-  vector<std::complex<float>, N> dft_x({}, 0.0f);
-  ein_reduce(ein<j>(dft_x) += ein<j, k>(dft_basis<N>) * ein<k>(x));
+  vector<std::complex<float>, N> X({}, 0.0f);
+  ein_reduce(ein<j>(X) += ein<j, k>(W<N>) * ein<k>(x));
 
   const float tolerance = 1e-3f;
   for (index_t j = 0; j < N; j++) {
-    std::complex<float> dft_j_ref = 0.0f;
+    std::complex<float> X_j_ref = 0.0f;
     for (index_t k = 0; k < N; k++) {
-      dft_j_ref += dft_basis<N>(j, k) * x(k);
+      X_j_ref += W<N>(j, k) * x(k);
     }
-    ASSERT_LT(abs(dft_j_ref - dft_x(j)), tolerance);
+    ASSERT_LT(abs(X_j_ref - X(j)), tolerance);
   }
 }
 

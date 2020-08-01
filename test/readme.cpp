@@ -16,6 +16,8 @@
 #include "ein_reduce.h"
 #include "test.h"
 
+#include <complex>
+
 namespace nda {
 
 // TODO: Find a way to embed these snippets in README.md without having
@@ -151,41 +153,52 @@ TEST(readme_ein_reduce) {
   // Name the dimensions we use in Einstein reductions.
   enum { i = 0, j = 1, k = 2, l = 3 };
 
-  // Dot product x.y:
+  // Dot product dot1 = dot2 = dot3 = x.y:
   vector<float> x({10});
   vector<float> y({10});
   float dot1 = make_ein_sum<float>(ein<i>(x) * ein<i>(y));
   float dot2 = 0.0f;
-  ein_reduce(ein<>(dot2) += ein<i>(x) * ein<i>(y));
+  ein_reduce(ein(dot2) += ein<i>(x) * ein<i>(y));
   float dot3 = 0.0f;
-  ein_sum(ein<i>(x) * ein<i>(y), ein<>(dot3));
+  ein_sum(ein<i>(x) * ein<i>(y), ein(dot3));
 
-  // Matrix transpose:
+  // Matrix multiply C1 = C2 = A*B:
   matrix<float> A({10, 10});
-  matrix<float> AT({10, 10});
-  ein_reduce(ein<i, j>(AT) = ein<j, i>(A));
-
-  // Matrix multiply:
   matrix<float> B({10, 15});
   matrix<float> C1({10, 15});
   fill(C1, 0.0f);
   ein_reduce(ein<i, j>(C1) += ein<i, k>(A) * ein<k, j>(B));
   auto C2 = make_ein_sum<float, i, j>(ein<i, k>(A) * ein<k, j>(B));
 
-  // Cross product of an array of vectors x and y:
+  // Cross product array crosses_n = x_n x y_n:
   using vector_array = array<float, shape<dim<0, 3>, dense_dim<>>>;
   vector_array xs({3, 100});
   vector_array ys({3, 100});
   vector_array crosses({3, 100});
-  // In this example, we use a function as an operand.
   auto epsilon3 = [](int i, int j, int k) { return sgn(j - i) * sgn(k - i) * sgn(k - j); };
   ein_reduce(ein<i, l>(crosses) += ein<i, j, k>(epsilon3) * ein<j, l>(xs) * ein<k, l>(ys));
+
+  // Matrix transpose AT = A^T:
+  matrix<float> AT({10, 10});
+  ein_reduce(ein<i, j>(AT) = ein<j, i>(A));
 
   // Maximum of each x-y plane of a 3D volume:
   dense_array<float, 3> T({8, 12, 20});
   dense_array<float, 1> max_xy({20});
   auto r = ein<k>(max_xy);
   ein_reduce(r = max(r, ein<i, j, k>(T)));
+
+  const float pi = std::acos(-1.0f);
+
+  // Compute X1 = X2 = DFT[x]:
+  using complex = std::complex<float>;
+  dense_array<complex, 2> W({10, 10});
+  for_all_indices(W.shape(), [&](int j, int k) {
+    W(j, k) = exp(-2.0f * pi * complex(0, 1) * (static_cast<float>(j * k) / 10));
+  });
+  auto X1 = make_ein_sum<complex, j>(ein<j, k>(W) * ein<k>(x));
+  vector<complex> X2({10}, 0.0f);
+  ein_reduce(ein<j>(X2) += ein<j, k>(W) * ein<k>(x));
 
   assert_used(dot1);
 }
