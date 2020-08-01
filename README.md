@@ -161,9 +161,9 @@ A dimension with unknown min and extent, and stride 1, is common enough that it 
 There are other common examples that are easy to support.
 A very common array is an image where 3-channel RGB or 4-channel RGBA pixels are stored together in a 'chunky' format.
 ```c++
-template <int Channels, int ChannelStride = Channels>
+template <int Channels, int PixelStride = Channels>
 using chunky_image_shape = shape<
-    strided_dim</*Stride=*/ChannelStride>,
+    strided_dim</*Stride=*/PixelStride>,
     dim<>,
     dense_dim</*Min=*/0, /*Extent=*/Channels>>;
 ```
@@ -260,11 +260,13 @@ Einstein notation expressions can be evaluated using one of the following functi
 
 Here are some examples of how to use these reduction operations:
 ```c++
-  // Name the dimensions we will use in these examples.
+  // Name the dimensions we use in Einstein reductions.
   enum { i = 0, j = 1, k = 2, l = 3 };
 
   // Dot product x.y:
-  float dot1 = make_ein_sum<float>(ein<i>(x), ein<i>(y));
+  vector<float> x({10});
+  vector<float> y({10});
+  float dot1 = make_ein_sum<float>(ein<i>(x) * ein<i>(y));
 
   float dot2 = 0.0f;
   ein_reduce(ein<>(dot2) += ein<i>(x) * ein<i>(y));
@@ -273,22 +275,30 @@ Here are some examples of how to use these reduction operations:
   ein_sum(ein<i>(x) * ein<i>(y), ein<>(dot3));
 
   // Matrix transpose:
+  matrix<float> A({10, 10});
+  matrix<float> AT({10, 10});
   ein_reduce(ein<i, j>(AT) = ein<j, i>(A));
 
   // Matrix multiply:
+  matrix<float> B({10, 15});
+  matrix<float> C1({10, 15});
   fill(C1, 0.0f);
   ein_reduce(ein<i, j>(C1) += ein<i, k>(A) * ein<k, j>(B));
 
   auto C2 = make_ein_sum<float, i, j>(ein<i, k>(A) * ein<k, j>(B));
 
   // Cross product of an array of vectors x and y:
+  using vector_array = array<float, shape<dim<0, 3>, dense_dim<>>>;
+  vector_array xs({3, 100});
+  vector_array ys({3, 100});
+  vector_array crosses({3, 100});
   // In this example, we use a function as an operand.
-  auto epsilon3 = [](index_t i, index_t j, index_t k) {
-    return sgn(j - i) * sgn(k - i) * sgn(k - j);
-  };
+  auto epsilon3 = [](int i, int j, int k) { return sgn(j - i) * sgn(k - i) * sgn(k - j); };
   ein_reduce(ein<i, l>(crosses) += ein<i, j, k>(epsilon3) * ein<j, l>(xs) * ein<k, l>(ys));
 
   // Maximum of each x-y plane of a 3D volume:
+  dense_array<float, 3> T({8, 12, 20});
+  dense_array<float, 1> max_xy({20});
   auto r = ein<k>(max_xy);
   ein_reduce(r = max(r, ein<i, j, k>(T)));
 ```

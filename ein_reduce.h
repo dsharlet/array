@@ -101,6 +101,8 @@ struct ein_bin_op {
   OpA op_a;
   OpB op_b;
 
+  ein_bin_op(const OpA& a, const OpB& b) : op_a(a), op_b(b) {}
+
   using is_ein_op = std::true_type;
 
   static constexpr index_t MaxIndex = std::max(OpA::MaxIndex, OpB::MaxIndex);
@@ -130,19 +132,17 @@ struct ein_bin_op {
 #define NDARRAY_MAKE_EIN_BIN_HELPERS(name, op)                                                     \
   template <class OpA, class OpB>                                                                  \
   auto make_##name(const OpA& a, const OpB& b) {                                                   \
-    name<OpA, OpB> result;                                                                         \
-    result.op_a = a;                                                                               \
-    result.op_b = b;                                                                               \
-    return result;                                                                                 \
+    return name<OpA, OpB>(a, b);                                                                   \
   }
 
 #define NDARRAY_MAKE_EIN_BIN_OP(name, op, is_assign_)                                              \
   template <class OpA, class OpB>                                                                  \
   struct name : public ein_bin_op<OpA, OpB, name<OpA, OpB>> {                                      \
+    using base = ein_bin_op<OpA, OpB, name>;                                                       \
+    name(const OpA& a, const OpB& b) : base(a, b) {}                                               \
     using is_assign = is_assign_;                                                                  \
     template <class Idx>                                                                           \
     NDARRAY_INLINE auto operator()(const Idx& i) const {                                           \
-      using base = ein_bin_op<OpA, OpB, name>;                                                     \
       return base::op_a(i) op base::op_b(i);                                                       \
     }                                                                                              \
   };                                                                                               \
@@ -151,10 +151,11 @@ struct ein_bin_op {
 #define NDARRAY_MAKE_EIN_BIN_FN(name, fn, is_assign_)                                              \
   template <class OpA, class OpB>                                                                  \
   struct name : public ein_bin_op<OpA, OpB, name<OpA, OpB>> {                                      \
+    using base = ein_bin_op<OpA, OpB, name>;                                                       \
+    name(const OpA& a, const OpB& b) : base(a, b) {}                                               \
     using is_assign = is_assign_;                                                                  \
     template <class Idx>                                                                           \
     NDARRAY_INLINE auto operator()(const Idx& i) const {                                           \
-      using base = ein_bin_op<OpA, OpB, name>;                                                     \
       return fn(base::op_a(i), base::op_b(i));                                                     \
     }                                                                                              \
   };                                                                                               \

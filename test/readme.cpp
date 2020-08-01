@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "array.h"
+#include "ein_reduce.h"
 #include "test.h"
 
 namespace nda {
@@ -20,10 +21,10 @@ namespace nda {
 // TODO: Find a way to embed these snippets in README.md without having
 // to copy-paste them.
 
-// Define a compile-time "chunky" imag eshape.
-template <int Channels, int ChannelStride = Channels>
+// Define a compile-time "chunky" image shape.
+template <int Channels, int PixelStride = Channels>
 using chunky_image_shape =
-    shape<strided_dim</*Stride=*/ChannelStride>, dim<>, dense_dim</*Min=*/0, /*Extent=*/Channels>>;
+    shape<strided_dim</*Stride=*/PixelStride>, dim<>, dense_dim</*Min=*/0, /*Extent=*/Channels>>;
 
 // Define a compile-time small matrix type, with the array data in
 // automatic storage.
@@ -137,6 +138,59 @@ TEST(readme) {
       }
     }
   }
+}
+
+template <class T, int M = dynamic, int N = dynamic>
+using matrix = array<T, shape<dim<0, M>, dense_dim<0, N>>>;
+template <class T, int N = dynamic>
+using vector = array<T, shape<dim<0, N>>>;
+
+constexpr int sgn(int i) { return i == 0 ? 0 : (i < 0 ? -1 : 1); }
+
+TEST(readme_ein_reduce) {
+  // Name the dimensions we use in Einstein reductions.
+  enum { i = 0, j = 1, k = 2, l = 3 };
+
+  // Dot product x.y:
+  vector<float> x({10});
+  vector<float> y({10});
+  float dot1 = make_ein_sum<float>(ein<i>(x) * ein<i>(y));
+
+  float dot2 = 0.0f;
+  ein_reduce(ein<>(dot2) += ein<i>(x) * ein<i>(y));
+
+  float dot3 = 0.0f;
+  ein_sum(ein<i>(x) * ein<i>(y), ein<>(dot3));
+
+  // Matrix transpose:
+  matrix<float> A({10, 10});
+  matrix<float> AT({10, 10});
+  ein_reduce(ein<i, j>(AT) = ein<j, i>(A));
+
+  // Matrix multiply:
+  matrix<float> B({10, 15});
+  matrix<float> C1({10, 15});
+  fill(C1, 0.0f);
+  ein_reduce(ein<i, j>(C1) += ein<i, k>(A) * ein<k, j>(B));
+
+  auto C2 = make_ein_sum<float, i, j>(ein<i, k>(A) * ein<k, j>(B));
+
+  // Cross product of an array of vectors x and y:
+  using vector_array = array<float, shape<dim<0, 3>, dense_dim<>>>;
+  vector_array xs({3, 100});
+  vector_array ys({3, 100});
+  vector_array crosses({3, 100});
+  // In this example, we use a function as an operand.
+  auto epsilon3 = [](int i, int j, int k) { return sgn(j - i) * sgn(k - i) * sgn(k - j); };
+  ein_reduce(ein<i, l>(crosses) += ein<i, j, k>(epsilon3) * ein<j, l>(xs) * ein<k, l>(ys));
+
+  // Maximum of each x-y plane of a 3D volume:
+  dense_array<float, 3> T({8, 12, 20});
+  dense_array<float, 1> max_xy({20});
+  auto r = ein<k>(max_xy);
+  ein_reduce(r = max(r, ein<i, j, k>(T)));
+
+  assert_used(dot1);
 }
 
 } // namespace nda
