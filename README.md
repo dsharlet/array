@@ -213,8 +213,8 @@ They can have either a compile-time constant or runtime valued min and extent.
   array_ref_of_rank<int, 1> row4_channel2 = my_array(_, 4, 2);
 
   // Cropping
-  array_ref_of_rank<int, 3> top_left = my_array(range(0, 2), range(0, 4), _);
-  array_ref_of_rank<int, 2> center_channel0 = my_array(ragnge(1, 2), range(2, 4), 0);
+  array_ref_of_rank<int, 3> top_left = my_array(interval<>{0, 2}, interval<>{0, 4}, _);
+  array_ref_of_rank<int, 2> center_channel0 = my_array(interval<>{1, 2}, interval<>{2, 4}, 0);
 ```
 The `_` or `all` constants are placeholders indicating the entire dimension should be preserved.
 Dimensions that are sliced are removed from the shape of the array.
@@ -240,7 +240,7 @@ Both loops have extents that are not divided by their split factors.
 To avoid generating an `array_ref` referencing data out of bounds of the original array, the split iterators modify the last iteration.
 The behavior of each kind of split is different:
 * Because the extent of `yo` can vary, it is reduced on the last iteration. This strategy can accommodate dimensions of any extent.
-* Because the extent of `xo` must be a constant, the last iteration will be shifted to overlap the previous iteration. This strategy requires the extent of the dimension being split is greater than the split factor.
+* Because the extent of `xo` must be a constant, the last iteration will be shifted to overlap the previous iteration. This strategy requires the extent of the dimension being split is greater than the split factor (but not a multiple!)
 
 Compile-time constant split factors produce ranges with compile-time extents, and shapes and arrays cropped with these ranges will have a corresponding `dim<>` with a compile-time constant extent.
 This allows potentially significant optimizations to be expressed relatively easily!
