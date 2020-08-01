@@ -21,23 +21,17 @@ namespace nda {
 
 TEST(array_ref_indices) {
   int data[100];
-  for (int i = 0; i < 100; i++) {
-    data[i] = i;
-  }
+  for (int i = 0; i < 100; i++) { data[i] = i; }
 
   dense_array_ref<int, 1> ref_1d(data, {100});
-  for_all_indices(ref_1d.shape(), [&](int x) {
-    ASSERT_EQ(ref_1d(x), x);
-  });
+  for_all_indices(ref_1d.shape(), [&](int x) { ASSERT_EQ(ref_1d(x), x); });
 
   dense_array_ref<int, 2> ref_2d(data, {20, 5});
   ASSERT_EQ(ref_2d.width(), 20);
   ASSERT_EQ(ref_2d.height(), 5);
   ASSERT_EQ(ref_2d.rows(), 20);
   ASSERT_EQ(ref_2d.columns(), 5);
-  for_all_indices(ref_2d.shape(), [&](int x, int y) {
-    ASSERT_EQ(ref_2d(x, y), y*20 + x);
-  });
+  for_all_indices(ref_2d.shape(), [&](int x, int y) { ASSERT_EQ(ref_2d(x, y), y * 20 + x); });
 }
 
 TEST(reinterpret) {
@@ -66,9 +60,7 @@ TEST(reinterpret) {
 
 TEST(array_ref_copy) {
   int data[100];
-  for (int i = 0; i < 100; i++) {
-    data[i] = i;
-  }
+  for (int i = 0; i < 100; i++) { data[i] = i; }
 
   array_ref_of_rank<int, 1> evens(data, {dim<>(0, 50, 2)});
   dense_array<int, 1> evens_copy = make_dense_copy(evens);
@@ -139,13 +131,13 @@ TEST(array_ref_implicit_conversion) {
   dense_array_ref<int, 3> dense_null_ref(null_ref);
   dense_null_ref = null_ref;
   non_template_dense(null_ref);
-  //non_template_dense(non_ref);
+  // non_template_dense(non_ref);
 
   // dense -> general
   array_ref_of_rank<int, 3> null_ref2(dense_null_ref);
   null_ref = dense_null_ref;
   non_template(dense_null_ref);
-  //non_template(dense_non_ref);
+  // non_template(dense_non_ref);
 
   // nullptr -> ref
   non_template(nullptr);
@@ -185,22 +177,22 @@ TEST(array_ref_crop_slice) {
   assert_dim_eq(a_slice1.x(), a.y());
   // TODO: This doesn't pass because check_pattern doesn't understand
   // that there is a second dimension to the pattern.
-  //check_pattern(a_slice1);
+  // check_pattern(a_slice1);
 
   auto a_slice2 = a(_, 2);
   static_assert(a_slice2.rank() == 1, "");
   assert_dim_eq(a_slice2.x(), a.x());
-  //check_pattern(a_slice2);
+  // check_pattern(a_slice2);
 
   auto a_crop1_slice2 = a(interval<4, 3>(), 5);
   static_assert(a_crop1_slice2.rank() == 1, "");
   assert_dim_eq(a_crop1_slice2.x(), dense_dim<4, 3>());
-  //check_pattern(a_crop1_slice2);
+  // check_pattern(a_crop1_slice2);
 
   auto a_slice1_crop2 = a(6, interval<4, 3>());
   static_assert(a_slice1_crop2.rank() == 1, "");
   assert_dim_eq(a_slice1_crop2.x(), dim<4, 3>(4, 3, a.y().stride()));
-  //check_pattern(a_slice1_crop2);
+  // check_pattern(a_slice1_crop2);
 
   auto a_crop1_crop2 = a(interval<>(2, 6), interval<3, 4>());
   static_assert(a_crop1_crop2.rank() == 2, "");
@@ -221,4 +213,4 @@ TEST(array_ref_crop_slice) {
   check_pattern(a_temp_names);
 }
 
-}  // namespace nda
+} // namespace nda

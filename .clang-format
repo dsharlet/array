@@ -1,7 +1,14 @@
 ---
 Language:        Cpp
 BasedOnStyle:  LLVM
+PenaltyBreakBeforeFirstCallParameter: 0
+PenaltyBreakTemplateDeclaration: 0
 AlignAfterOpenBracket: DontAlign
 AlwaysBreakTemplateDeclarations: Yes
+AllowShortFunctionsOnASingleLine: All
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortBlocksOnASingleLine: Always
+AllowShortIfStatementsOnASingleLine: Always
+AllowShortLoopsOnASingleLine: true
 ColumnLimit: 100
 PointerAlignment: Left

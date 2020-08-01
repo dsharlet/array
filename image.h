@@ -14,7 +14,7 @@
 
 /** \file image.h
  * \brief Optional image-specific helpers and specializations.
-*/
+ */
 #ifndef NDARRAY_IMAGE_H
 #define NDARRAY_IMAGE_H
 
@@ -39,10 +39,8 @@ using const_image_ref = image_ref<const T>;
  * alignment. This is a common image storage format used by many programs
  * working with images. */
 template <index_t Channels = dynamic, index_t ChannelStride = Channels>
-using chunky_image_shape =
-  shape<strided_dim<ChannelStride>, dim<>, dense_dim<0, Channels>>;
-template <
-    class T, index_t Channels = dynamic, index_t ChannelStride = Channels,
+using chunky_image_shape = shape<strided_dim<ChannelStride>, dim<>, dense_dim<0, Channels>>;
+template <class T, index_t Channels = dynamic, index_t ChannelStride = Channels,
     class Alloc = std::allocator<T>>
 using chunky_image = array<T, chunky_image_shape<Channels, ChannelStride>, Alloc>;
 template <class T, index_t Channels = dynamic, index_t ChannelStride = Channels>
@@ -60,16 +58,14 @@ void for_each_image_index(const Shape& s, Fn&& fn) {
   // communication in the c dimension).
   for (index_t y : s.y()) {
     for (index_t x : s.x()) {
-      for (index_t c : s.c()) {
-        fn(std::make_tuple(x, y, c));
-      }
+      for (index_t c : s.c()) { fn(std::make_tuple(x, y, c)); }
     }
   }
 }
 
 template <index_t Channels, index_t ChannelStride>
 class shape_traits<chunky_image_shape<Channels, ChannelStride>> {
- public:
+public:
   typedef chunky_image_shape<Channels, ChannelStride> shape_type;
 
   template <class Fn>
@@ -79,15 +75,13 @@ class shape_traits<chunky_image_shape<Channels, ChannelStride>> {
 
   template <class Ptr, class Fn>
   static void for_each_value(const shape_type& s, Ptr base, Fn&& fn) {
-    for_each_image_index(s, [=, &fn](const typename shape_type::index_type& i) {
-      fn(base[s(i)]);
-    });
+    for_each_image_index(s, [=, &fn](const typename shape_type::index_type& i) { fn(base[s(i)]); });
   }
 };
 
 template <index_t Channels>
 class shape_traits<chunky_image_shape<Channels>> {
- public:
+public:
   typedef chunky_image_shape<Channels> shape_type;
 
   template <class Fn>
@@ -128,7 +122,7 @@ enum class crop_origin {
  * the new shape is determined by `origin`. */
 template <class Shape>
 Shape crop_image_shape(Shape s, index_t x0, index_t y0, index_t x1, index_t y1,
-                       crop_origin origin = crop_origin::crop) {
+    crop_origin origin = crop_origin::crop) {
   s.x().set_extent(x1 - x0);
   s.y().set_extent(y1 - y0);
   switch (origin) {
@@ -148,9 +142,8 @@ Shape crop_image_shape(Shape s, index_t x0, index_t y0, index_t x1, index_t y1,
  * result is a ref of the input image. The origin of the result is determined by
  * `origin`. */
 template <class T, class Shape>
-array_ref<T, Shape> crop(const array_ref<T, Shape>& im,
-                         index_t x0, index_t y0, index_t x1, index_t y1,
-                         crop_origin origin = crop_origin::crop) {
+array_ref<T, Shape> crop(const array_ref<T, Shape>& im, index_t x0, index_t y0, index_t x1,
+    index_t y1, crop_origin origin = crop_origin::crop) {
   x0 = std::max(x0, im.x().min());
   y0 = std::max(y0, im.y().min());
   x1 = std::min(x1, im.x().max() + 1);
@@ -164,15 +157,13 @@ array_ref<T, Shape> crop(const array_ref<T, Shape>& im,
   return array_ref<T, Shape>(base, cropped_shape);
 }
 template <class T, class Shape>
-array_ref<const T, Shape> crop(const array<T, Shape>& im,
-                               index_t x0, index_t y0, index_t x1, index_t y1,
-                               crop_origin origin = crop_origin::crop) {
+array_ref<const T, Shape> crop(const array<T, Shape>& im, index_t x0, index_t y0, index_t x1,
+    index_t y1, crop_origin origin = crop_origin::crop) {
   return crop(im.ref(), x0, y0, x1, y1, origin);
 }
 template <class T, class Shape>
-array_ref<T, Shape> crop(array<T, Shape>& im,
-                         index_t x0, index_t y0, index_t x1, index_t y1,
-                         crop_origin origin = crop_origin::crop) {
+array_ref<T, Shape> crop(array<T, Shape>& im, index_t x0, index_t y0, index_t x1, index_t y1,
+    crop_origin origin = crop_origin::crop) {
   return crop(im.ref(), x0, y0, x1, y1, origin);
 }
 
@@ -191,6 +182,6 @@ auto slice_channel(array<T, Shape, Alloc>& im, index_t channel) {
   return slice_channel(im.ref(), channel);
 }
 
-}  // namespace nda
+} // namespace nda
 
-#endif  // NDARRAY_IMAGE_H
+#endif // NDARRAY_IMAGE_H

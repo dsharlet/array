@@ -79,4 +79,4 @@ TEST(split_uneven_nonconstant) {
   check_pattern(a);
 }
 
-}  // namespace nda
+} // namespace nda

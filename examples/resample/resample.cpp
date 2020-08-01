@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "image.h"
 #include "resample.h"
+#include "image.h"
 
 #include <iostream>
 
@@ -41,7 +41,7 @@ continuous_kernel parse_kernel(const char* name) {
 chunky_image_ref<Magick::Quantum, 4> ref(Magick::Image& img) {
   index_t width = img.columns();
   index_t height = img.rows();
-  Magick::PixelPacket *pixel_cache = img.setPixels(0, 0, width, height);
+  Magick::PixelPacket* pixel_cache = img.setPixels(0, 0, width, height);
   Magick::Quantum* base = reinterpret_cast<Magick::Quantum*>(pixel_cache);
   return {base, {width, height, 4}};
 }
@@ -49,7 +49,7 @@ chunky_image_ref<Magick::Quantum, 4> ref(Magick::Image& img) {
 chunky_image_ref<const Magick::Quantum, 4> cref(const Magick::Image& img) {
   index_t width = img.columns();
   index_t height = img.rows();
-  const Magick::PixelPacket *pixel_cache = img.getConstPixels(0, 0, width, height);
+  const Magick::PixelPacket* pixel_cache = img.getConstPixels(0, 0, width, height);
   const Magick::Quantum* base = reinterpret_cast<const Magick::Quantum*>(pixel_cache);
   return {base, {width, height, 4}};
 }
@@ -101,4 +101,3 @@ int main(int argc, char* argv[]) {
   magick_output.write(output_path);
   return 0;
 }
-

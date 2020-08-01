@@ -13,11 +13,11 @@
 // limitations under the License.
 
 #include "matrix.h"
-#include "ein_reduce.h"
 #include "benchmark.h"
+#include "ein_reduce.h"
 
-#include <iostream>
 #include <functional>
+#include <iostream>
 #include <random>
 
 using namespace nda;
@@ -29,14 +29,12 @@ enum { i = 0, j = 1, k = 2 };
 // but it is slow, primarily because of poor locality of the loads of b. The
 // reduction loop is innermost.
 template <typename T>
-__attribute__((noinline))
-void multiply_reduce_cols(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+__attribute__((noinline)) void multiply_reduce_cols(
+    const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
       c(i, j) = 0;
-      for (index_t k : a.j()) {
-        c(i, j) += a(i, k) * b(k, j);
-      }
+      for (index_t k : a.j()) { c(i, j) += a(i, k) * b(k, j); }
     }
   }
 }
@@ -44,26 +42,22 @@ void multiply_reduce_cols(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_r
 // This implementation uses Einstein summation. This should be equivalent
 // to multiply_reduce_cols.
 template <typename T>
-__attribute__((noinline))
-void multiply_ein_reduce_cols(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+__attribute__((noinline)) void multiply_ein_reduce_cols(
+    const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   for (index_t i : c.i()) {
-    for (index_t j : c.j()) {
-      c(i, j) = make_ein_sum<T>(ein<k>(a(i, _)) * ein<k>(b(_, j)));
-    }
+    for (index_t j : c.j()) { c(i, j) = make_ein_sum<T>(ein<k>(a(i, _)) * ein<k>(b(_, j))); }
   }
 }
 
 // Similar to the above, but written in plain C. The timing of this version
 // indicates the performance overhead (if any) of the array helpers.
 template <typename TAB, typename TC>
-__attribute__((noinline))
-void multiply_ref(const TAB* a, const TAB* b, TC* c, int M, int K, int N) {
+__attribute__((noinline)) void multiply_ref(
+    const TAB* a, const TAB* b, TC* c, int M, int K, int N) {
   for (int i = 0; i < M; i++) {
     for (int j = 0; j < N; j++) {
       TC sum = 0;
-      for (int k = 0; k < K; k++) {
-        sum += a[i * K + k] * b[k * N + j];
-      }
+      for (int k = 0; k < K; k++) { sum += a[i * K + k] * b[k * N + j]; }
       c[i * N + j] = sum;
     }
   }
@@ -73,16 +67,12 @@ void multiply_ref(const TAB* a, const TAB* b, TC* c, int M, int K, int N) {
 // loops. This avoids the locality problem for the loads from b. This also is
 // an easier loop to vectorize (it does not vectorize a reduction variable).
 template <typename T>
-__attribute__((noinline))
-void multiply_reduce_rows(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+__attribute__((noinline)) void multiply_reduce_rows(
+    const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   for (index_t i : c.i()) {
-    for (index_t j : c.j()) {
-      c(i, j) = 0;
-    }
+    for (index_t j : c.j()) { c(i, j) = 0; }
     for (index_t k : a.j()) {
-      for (index_t j : c.j()) {
-        c(i, j) += a(i, k) * b(k, j);
-      }
+      for (index_t j : c.j()) { c(i, j) += a(i, k) * b(k, j); }
     }
   }
 }
@@ -90,8 +80,8 @@ void multiply_reduce_rows(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_r
 // This implementation uses Einstein summation. This should be equivalent
 // to multiply_reduce_rows.
 template <class T>
-__attribute__((noinline))
-void multiply_ein_reduce_rows(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+__attribute__((noinline)) void multiply_ein_reduce_rows(
+    const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   for (index_t i : c.i()) {
     fill(c(i, _), static_cast<T>(0));
     ein_reduce(ein<j>(c(i, _)) += ein<k>(a(i, _)) * ein<k, j>(b));
@@ -99,18 +89,14 @@ void multiply_ein_reduce_rows(const_matrix_ref<T> a, const_matrix_ref<T> b, matr
 }
 
 template <typename T>
-__attribute__((noinline))
-void multiply_reduce_matrix(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+__attribute__((noinline)) void multiply_reduce_matrix(
+    const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   for (index_t i : c.i()) {
-    for (index_t j : c.j()) {
-      c(i, j) = 0;
-    }
+    for (index_t j : c.j()) { c(i, j) = 0; }
   }
   for (index_t k : a.j()) {
     for (index_t i : c.i()) {
-      for (index_t j : c.j()) {
-        c(i, j) += a(i, k) * b(k, j);
-      }
+      for (index_t j : c.j()) { c(i, j) += a(i, k) * b(k, j); }
     }
   }
 }
@@ -118,8 +104,8 @@ void multiply_reduce_matrix(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix
 // This implementation uses Einstein summation. This should be equivalent
 // to multiply_reduce_matrix.
 template <class T>
-__attribute__((noinline))
-void multiply_ein_reduce_matrix(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+__attribute__((noinline)) void multiply_ein_reduce_matrix(
+    const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   fill(c, static_cast<T>(0));
   ein_reduce(ein<i, j>(c) += ein<i, k>(a) * ein<k, j>(b));
 }
@@ -160,8 +146,8 @@ void multiply_ein_reduce_matrix(const_matrix_ref<T> a, const_matrix_ref<T> b, ma
 // This appears to achieve ~70% of the peak theoretical throughput
 // of my machine.
 template <typename T>
-__attribute__((noinline))
-void multiply_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+__attribute__((noinline)) void multiply_reduce_tiles(
+    const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   // Adjust this depending on the target architecture. For AVX2,
   // vectors are 256-bit.
   constexpr index_t vector_size = 32 / sizeof(T);
@@ -188,15 +174,13 @@ void multiply_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_
       }
 #else
       // Define an accumulator buffer.
-      T buffer[tile_rows * tile_cols] = { 0 };
+      T buffer[tile_rows * tile_cols] = {0};
       auto accumulator = make_array_ref(buffer, make_compact(c_ijo.shape()));
 
       // Perform the matrix multiplication for this tile.
       for (index_t k : a.j()) {
         for (index_t i : c_ijo.i()) {
-          for (index_t j : c_ijo.j()) {
-            accumulator(i, j) += a(i, k) * b(k, j);
-          }
+          for (index_t j : c_ijo.j()) { accumulator(i, j) += a(i, k) * b(k, j); }
         }
       }
 
@@ -207,9 +191,7 @@ void multiply_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_
       copy(accumulator, c_ijo);
 #else
       for (index_t i : c_ijo.i()) {
-        for (index_t j : c_ijo.j()) {
-          c_ijo(i, j) = accumulator(i, j);
-        }
+        for (index_t j : c_ijo.j()) { c_ijo(i, j) = accumulator(i, j); }
       }
 #endif
 #endif
@@ -221,8 +203,8 @@ void multiply_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_
 // It only spills one accumulator register, and produces statistically identical
 // performance.
 template <typename T>
-__attribute__((noinline))
-void multiply_ein_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+__attribute__((noinline)) void multiply_ein_reduce_tiles(
+    const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   // Adjust this depending on the target architecture. For AVX2,
   // vectors are 256-bit.
   constexpr index_t vector_size = 32 / sizeof(T);
@@ -243,7 +225,7 @@ void multiply_ein_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, mat
       ein_reduce(ein<i, k>(a(io, _)), ein<k, j>(b(_, jo)), ein<i, j>(c_ijo));
 #else
       // Define an accumulator buffer.
-      T buffer[tile_rows * tile_cols] = { 0 };
+      T buffer[tile_rows * tile_cols] = {0};
       auto accumulator = make_array_ref(buffer, make_compact(c_ijo.shape()));
 
       // Perform the matrix multiplication for this tile.
@@ -256,9 +238,7 @@ void multiply_ein_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, mat
       copy(accumulator, c_ijo);
 #else
       for (index_t i : c_ijo.i()) {
-        for (index_t j : c_ijo.j()) {
-          c_ijo(i, j) = accumulator(i, j);
-        }
+        for (index_t j : c_ijo.j()) { c_ijo(i, j) = accumulator(i, j); }
       }
 #endif
 #endif
@@ -266,9 +246,7 @@ void multiply_ein_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, mat
   }
 }
 
-float relative_error(float a, float b) {
-  return std::abs(a - b) / std::max(a, b);
-}
+float relative_error(float a, float b) { return std::abs(a - b) / std::max(a, b); }
 
 int main(int, const char**) {
   // Define two input matrices.
@@ -287,9 +265,7 @@ int main(int, const char**) {
   generate(b, [&]() { return uniform(rng); });
 
   matrix<float> c_ref({M, N});
-  double ref_time = benchmark([&]() {
-    multiply_ref(a.data(), b.data(), c_ref.data(), M, K, N);
-  });
+  double ref_time = benchmark([&]() { multiply_ref(a.data(), b.data(), c_ref.data(), M, K, N); });
   std::cout << "reference time: " << ref_time * 1e3 << " ms" << std::endl;
 
   struct version {
@@ -297,21 +273,19 @@ int main(int, const char**) {
     std::function<void(const_matrix_ref<float>, const_matrix_ref<float>, matrix_ref<float>)> fn;
   };
   version versions[] = {
-    { "reduce_cols", multiply_reduce_cols<float> },
-    { "ein_reduce_cols", multiply_ein_reduce_cols<float> },
-    { "reduce_rows", multiply_reduce_rows<float> },
-    { "ein_reduce_rows", multiply_ein_reduce_rows<float> },
-    { "reduce_matrix", multiply_reduce_matrix<float> },
-    { "ein_reduce_matrix", multiply_ein_reduce_matrix<float> },
-    { "reduce_tiles", multiply_reduce_tiles<float> },
-    { "ein_reduce_tiles", multiply_ein_reduce_tiles<float> },
+      {"reduce_cols", multiply_reduce_cols<float>},
+      {"ein_reduce_cols", multiply_ein_reduce_cols<float>},
+      {"reduce_rows", multiply_reduce_rows<float>},
+      {"ein_reduce_rows", multiply_ein_reduce_rows<float>},
+      {"reduce_matrix", multiply_reduce_matrix<float>},
+      {"ein_reduce_matrix", multiply_ein_reduce_matrix<float>},
+      {"reduce_tiles", multiply_reduce_tiles<float>},
+      {"ein_reduce_tiles", multiply_ein_reduce_tiles<float>},
   };
   for (auto i : versions) {
     // Compute the result using all matrix multiply methods.
     matrix<float> c({M, N});
-    double time = benchmark([&]() {
-      i.fn(a.cref(), b.cref(), c.ref());
-    });
+    double time = benchmark([&]() { i.fn(a.cref(), b.cref(), c.ref()); });
     std::cout << i.name << " time: " << time * 1e3 << " ms" << std::endl;
 
     // Verify the results from all methods are equal.
@@ -319,9 +293,8 @@ int main(int, const char**) {
     for (index_t i = 0; i < M; i++) {
       for (index_t j = 0; j < N; j++) {
         if (relative_error(c_ref(i, j), c(i, j)) > tolerance) {
-          std::cout
-            << "c_ref(" << i << ", " << j << ") = " << c_ref(i, j)
-            << " != c(" << i << ", " << j << ") = " << c(i, j) << std::endl;
+          std::cout << "c_ref(" << i << ", " << j << ") = " << c_ref(i, j) << " != c(" << i << ", "
+                    << j << ") = " << c(i, j) << std::endl;
           return -1;
         }
       }
@@ -329,4 +302,3 @@ int main(int, const char**) {
   }
   return 0;
 }
-

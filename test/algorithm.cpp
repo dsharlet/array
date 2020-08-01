@@ -29,11 +29,12 @@ TEST(algorithm_equal) {
   ASSERT(!equal(a1, b));
 }
 
-
 #ifndef NDARRAY_NO_EXCEPTIONS
 const int copy_crop_tests[] = {0, 1, -1};
 #define TRY try
-#define CATCH_OUT_OF_RANGE catch(std::out_of_range&) {}
+#define CATCH_OUT_OF_RANGE                                                                         \
+  catch (std::out_of_range&) {                                                                     \
+  }
 #else
 const int copy_crop_tests[] = {0, 1};
 #define TRY
@@ -58,7 +59,8 @@ TEST(algorithm_copy) {
         copy(a, b);
         ASSERT(equal(a(b.x(), b.y()), b));
         succeeded++;
-      } CATCH_OUT_OF_RANGE;
+      }
+      CATCH_OUT_OF_RANGE;
     }
   }
   ASSERT_EQ(succeeded, 4);
@@ -83,7 +85,8 @@ TEST(algorithm_move) {
         // The lifetime of moved elements is tested in array_lifetime.cpp.
         ASSERT(equal(a(b.x(), b.y()), b));
         succeeded++;
-      } CATCH_OUT_OF_RANGE;
+      }
+      CATCH_OUT_OF_RANGE;
     }
   }
   ASSERT_EQ(succeeded, 4);
@@ -107,4 +110,4 @@ TEST(algorithm_move_scalar) {
   ASSERT(a == b);
 }
 
-}  // namespace nda
+} // namespace nda

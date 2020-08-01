@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "array.h"
-#include "test.h"
 #include "lifetime.h"
+#include "test.h"
 
 namespace nda {
 
@@ -30,7 +30,7 @@ typedef std::allocator<lifetime_counter> std_alloc;
 typedef auto_allocator<lifetime_counter, 256> auto_alloc;
 
 class custom_alloc {
- public:
+public:
   typedef lifetime_counter value_type;
 
   typedef std::true_type propagate_on_container_copy_assignment;
@@ -40,21 +40,16 @@ class custom_alloc {
   lifetime_counter* allocate(size_t n) {
     return reinterpret_cast<lifetime_counter*>(malloc(n * sizeof(lifetime_counter)));
   }
-  void deallocate(lifetime_counter* p, size_t) noexcept {
-    free(p);
-  }
+  void deallocate(lifetime_counter* p, size_t) noexcept { free(p); }
 
   bool operator==(const custom_alloc& other) const { return true; }
   bool operator!=(const custom_alloc& other) const { return false; }
 };
 
-
 template <typename Alloc>
 void test_default_init_lifetime() {
   lifetime_counter::reset();
-  {
-    lifetime_array<Alloc> default_init(lifetime_shape);
-  }
+  { lifetime_array<Alloc> default_init(lifetime_shape); }
   ASSERT_EQ(lifetime_counter::default_constructs, lifetime_shape.size());
   ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size());
 }
@@ -65,14 +60,11 @@ TEST(array_default_init_lifetime) {
   test_default_init_lifetime<auto_alloc>();
 }
 
-
 template <typename Alloc>
 void test_default_init_constant_lifetime() {
   lifetime_counter::reset();
   typedef shape<dim<0, 4>, dim<0, 5>, dim<0, 6>> ConstantShape;
-  {
-    array<lifetime_counter, ConstantShape, Alloc> default_constant_init;
-  }
+  { array<lifetime_counter, ConstantShape, Alloc> default_constant_init; }
   ConstantShape constant_shape;
   ASSERT_EQ(lifetime_counter::default_constructs, constant_shape.size());
   ASSERT_EQ(lifetime_counter::destructs, constant_shape.size());
@@ -84,13 +76,10 @@ TEST(array_default_init_constant_lifetime) {
   test_default_init_constant_lifetime<auto_alloc>();
 }
 
-
 template <typename Alloc>
 void test_copy_init_lifetime() {
   lifetime_counter::reset();
-  {
-    lifetime_array<Alloc> copy_init(lifetime_shape, lifetime_counter());
-  }
+  { lifetime_array<Alloc> copy_init(lifetime_shape, lifetime_counter()); }
   ASSERT_EQ(lifetime_counter::copy_constructs, lifetime_shape.size());
   ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size() + 1);
 }
@@ -101,14 +90,11 @@ TEST(array_copy_init_lifetime) {
   test_copy_init_lifetime<auto_alloc>();
 }
 
-
 template <typename Alloc>
 void test_copy_lifetime() {
   lifetime_array<Alloc> source(lifetime_shape);
   lifetime_counter::reset();
-  {
-    lifetime_array<Alloc> copy(source);
-  }
+  { lifetime_array<Alloc> copy(source); }
   ASSERT_EQ(lifetime_counter::copy_constructs, lifetime_shape.size());
   ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size());
 
@@ -126,7 +112,6 @@ TEST(array_copy_lifetime) {
   test_copy_lifetime<custom_alloc>();
   test_copy_lifetime<auto_alloc>();
 }
-
 
 template <typename Alloc>
 void test_move_lifetime(bool alloc_movable = true) {
@@ -163,7 +148,6 @@ TEST(array_move_lifetime) {
   test_move_lifetime<auto_alloc>(false);
 }
 
-
 template <typename Alloc>
 void test_move_alloc_lifetime(bool alloc_movable = true) {
   {
@@ -189,7 +173,6 @@ TEST(array_move_alloc_lifetime) {
   test_move_alloc_lifetime<auto_alloc>(false);
 }
 
-
 template <typename Alloc>
 void test_copy_assign_lifetime() {
   lifetime_array<Alloc> source(lifetime_shape);
@@ -207,7 +190,6 @@ TEST(array_copy_assign_lifetime) {
   test_copy_assign_lifetime<custom_alloc>();
   test_copy_assign_lifetime<auto_alloc>();
 }
-
 
 template <typename Alloc>
 void test_move_assign_lifetime(bool alloc_movable = true) {
@@ -234,7 +216,6 @@ TEST(array_move_assign_lifetime) {
   test_move_assign_lifetime<custom_alloc>();
   test_move_assign_lifetime<auto_alloc>(false);
 }
-
 
 template <typename Alloc>
 void test_clear_lifetime() {
@@ -307,7 +288,6 @@ TEST(array_swap_lifetime) {
   test_swap_lifetime<auto_alloc>(false);
 }
 
-
 template <typename Alloc>
 void test_lifetime_leaks() {
   lifetime_counter::reset();
@@ -367,4 +347,4 @@ TEST(array_lifetime_uninitialized) {
   ASSERT_EQ(lifetime_counter::constructs(), 0);
 }
 
-}  // namespace nda
+} // namespace nda

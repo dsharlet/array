@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "image.h"
 #include "benchmark.h"
+#include "image.h"
 
-#include <random>
 #include <iostream>
+#include <random>
 
 using namespace nda;
 
@@ -56,13 +56,13 @@ void conv2d_tiled(const Input& input, const Filter& filter, const Output& output
     for (auto xo : split<unroll_x>(output.x())) {
       for (auto co : split<vector_size>(output.c())) {
         auto output_tile = output(xo, yo, co);
-        T buffer[unroll_x * unroll_y * vector_size] = { static_cast<T>(0) };
+        T buffer[unroll_x * unroll_y * vector_size] = {static_cast<T>(0)};
         auto accumulator = make_array_ref(buffer, make_compact(output_tile.shape()));
         for (index_t dy : filter.y()) {
           for (index_t dx : filter.x()) {
-            #pragma unroll
+#pragma unroll
             for (index_t y : accumulator.y()) {
-              #pragma unroll
+#pragma unroll
               for (index_t x : accumulator.x()) {
                 for (index_t c : accumulator.c()) {
                   accumulator(x, y, c) += input(x + dx, y + dy, c) * filter(dx, dy, c);
@@ -73,16 +73,13 @@ void conv2d_tiled(const Input& input, const Filter& filter, const Output& output
         }
         for (index_t y : output_tile.y()) {
           for (index_t x : output_tile.x()) {
-            for (index_t c : output_tile.c()) {
-              output_tile(x, y, c) = accumulator(x, y, c);
-            }
+            for (index_t c : output_tile.c()) { output_tile(x, y, c) = accumulator(x, y, c); }
           }
         }
       }
     }
   }
 }
-
 
 // This generates the following inner loop:
 // LBB12_6:
@@ -127,9 +124,8 @@ void conv2d_tiled(const Input& input, const Filter& filter, const Output& output
 //   jne     LBB12_6
 
 template <index_t Channels, index_t DX, index_t DY>
-void conv2d_tiled_c(
-    const float* input, const float* filter, float* output,
-    index_t width, index_t height, index_t input_stride, index_t output_stride) {
+void conv2d_tiled_c(const float* input, const float* filter, float* output, index_t width,
+    index_t height, index_t input_stride, index_t output_stride) {
   // Adjust this depending on the target architecture. For AVX2,
   // vectors are 256-bit.
   constexpr index_t vector_size = 32 / sizeof(float);
@@ -145,19 +141,20 @@ void conv2d_tiled_c(
     for (index_t xo = 0; xo < width; xo += unroll_x) {
       // TODO: Putting this outermost should be better, but it's slower.
       for (index_t co = 0; co < Channels; co += vector_size) {
-        float buffer[unroll_x * unroll_y * vector_size] = { 0.0f };
+        float buffer[unroll_x * unroll_y * vector_size] = {0.0f};
         for (index_t dy = 0; dy < DY; dy++) {
           for (index_t dx = 0; dx < DX; dx++) {
-            #pragma unroll
+#pragma unroll
             for (index_t yi = 0; yi < unroll_y; yi++) {
-              #pragma unroll
+#pragma unroll
               for (index_t xi = 0; xi < unroll_x; xi++) {
                 for (index_t ci = 0; ci < vector_size; ci++) {
                   index_t x = xo + xi;
                   index_t y = yo + yi;
                   index_t c = co + ci;
                   buffer[xi * vector_size + yi * vector_size * unroll_x + ci] +=
-                      input[(x + dx) * Channels + (y + dy) * input_stride + c] * filter[dy * DX * Channels + dx * Channels + c];
+                      input[(x + dx) * Channels + (y + dy) * input_stride + c] *
+                      filter[dy * DX * Channels + dx * Channels + c];
                 }
               }
             }
@@ -169,7 +166,8 @@ void conv2d_tiled_c(
               index_t x = xo + xi;
               index_t y = yo + yi;
               index_t c = co + ci;
-              output[x * Channels + y * output_stride + c] = buffer[xi * vector_size + yi * vector_size * unroll_x + ci];
+              output[x * Channels + y * output_stride + c] =
+                  buffer[xi * vector_size + yi * vector_size * unroll_x + ci];
             }
           }
         }
@@ -186,7 +184,7 @@ int main(int, const char**) {
   constexpr int DY = 3;
 
   auto input = make_array<float>(chunky_image_shape<C, nda::dynamic>(W + DX, H + DY, {}));
-  auto filter = make_array<float>(shape<dim<0, DX, C>, dim<0, DY, C*DX>, dense_dim<0, C>>());
+  auto filter = make_array<float>(shape<dim<0, DX, C>, dim<0, DY, C * DX>, dense_dim<0, C>>());
 
   // 'for_each_value' calls the given function with a reference to
   // each value in the array. Use this to randomly initialize the
@@ -197,40 +195,33 @@ int main(int, const char**) {
   generate(filter, [&]() { return uniform(rng); });
 
   auto naive_output = make_array<float>(chunky_image_shape<C, nda::dynamic>(W, H, {}));
-  double naive_time = benchmark([&]() {
-    conv2d(input.cref(), filter.cref(), naive_output.ref());
-  });
+  double naive_time = benchmark([&]() { conv2d(input.cref(), filter.cref(), naive_output.ref()); });
   std::cout << "naive time: " << naive_time * 1e3 << " ms" << std::endl;
 
   auto tiled_output = make_array<float>(chunky_image_shape<C, nda::dynamic>(W, H, {}));
-  double tiled_time = benchmark([&]() {
-    conv2d_tiled(input.cref(), filter.cref(), tiled_output.ref());
-  });
+  double tiled_time =
+      benchmark([&]() { conv2d_tiled(input.cref(), filter.cref(), tiled_output.ref()); });
   std::cout << "tiled time: " << tiled_time * 1e3 << " ms" << std::endl;
 
   auto tiled_output_c = make_array<float>(chunky_image_shape<C, nda::dynamic>(W, H, {}));
   double tiled_time_c = benchmark([&]() {
-    conv2d_tiled_c<C, DX, DY>(
-        input.data(), filter.data(), tiled_output_c.data(),
-        tiled_output_c.width(), tiled_output_c.height(),
-        input.y().stride(), tiled_output_c.y().stride());
+    conv2d_tiled_c<C, DX, DY>(input.data(), filter.data(), tiled_output_c.data(),
+        tiled_output_c.width(), tiled_output_c.height(), input.y().stride(),
+        tiled_output_c.y().stride());
   });
   std::cout << "tiled time (C): " << tiled_time_c * 1e3 << " ms" << std::endl;
 
   const float epsilon = 1e-4f;
   for_each_index(naive_output.shape(), [&](const index_of_rank<3>& i) {
     if (std::abs(naive_output(i) - tiled_output(i)) > epsilon) {
-      std::cout
-        << "naive_output(i) = " << naive_output(i)
-        << " != tiled_output(i) = " << tiled_output(i) << std::endl;
+      std::cout << "naive_output(i) = " << naive_output(i)
+                << " != tiled_output(i) = " << tiled_output(i) << std::endl;
     }
     if (std::abs(naive_output(i) - tiled_output_c(i)) > epsilon) {
-      std::cout
-        << "naive_output(i) = " << naive_output(i)
-        << " != tiled_output_c(i) = " << tiled_output_c(i) << std::endl;
+      std::cout << "naive_output(i) = " << naive_output(i)
+                << " != tiled_output_c(i) = " << tiled_output_c(i) << std::endl;
     }
   });
 
   return 0;
 }
-

@@ -32,18 +32,14 @@ TEST(shape_1d) {
   for (int stride : {1, 2, 10}) {
     dim<> x(0, 10, stride);
     shape<dim<>> s(x);
-    for (int i : x) {
-      ASSERT_EQ(s(i), i * stride);
-    }
+    for (int i : x) { ASSERT_EQ(s(i), i * stride); }
   }
 }
 
 TEST(shape_1d_dense) {
   dense_dim<> x(0, 10);
   shape<dense_dim<>> s(x);
-  for (int i : x) {
-    ASSERT_EQ(s(i), i);
-  }
+  for (int i : x) { ASSERT_EQ(s(i), i); }
 }
 
 TEST(shape_2d) {
@@ -51,9 +47,7 @@ TEST(shape_2d) {
   dim<> y(0, 5, x.extent());
   shape<dense_dim<>, dim<>> s(x, y);
   for (int i : y) {
-    for (int j : x) {
-      ASSERT_EQ(s(j, i), i * x.extent() + j);
-    }
+    for (int j : x) { ASSERT_EQ(s(j, i), i * x.extent() + j); }
   }
 }
 
@@ -136,9 +130,7 @@ void test_all_unknown_strides() {
 }
 
 size_t factorial(size_t x) {
-  if (x <= 1) {
-    return 1;
-  }
+  if (x <= 1) { return 1; }
   return x * factorial(x - 1);
 }
 
@@ -171,9 +163,7 @@ void test_auto_strides() {
 template <size_t Rank>
 void check_resolved_strides(shape_of_rank<Rank> shape, const std::vector<index_t>& strides) {
   shape.resolve();
-  for (size_t i = 0; i < strides.size(); i++) {
-    ASSERT_EQ(shape.dim(i).stride(), strides[i]);
-  }
+  for (size_t i = 0; i < strides.size(); i++) { ASSERT_EQ(shape.dim(i).stride(), strides[i]); }
 }
 
 TEST(auto_strides) {
@@ -183,7 +173,7 @@ TEST(auto_strides) {
   // Small interleaved.
   // TODO: This test would be nice to enable, but the automatic strides are too clever.
   // x is given a stride of 1, which is safe and correct, but annoying.
-  //check_resolved_strides<3>({1, 1, {0, 2, 1}}, {2, 2, 1});
+  // check_resolved_strides<3>({1, 1, {0, 2, 1}}, {2, 2, 1});
 
   // Interleaved with row stride.
   check_resolved_strides<3>({5, {0, 4, 20}, {0, 3, 1}}, {3, 20, 1});
@@ -211,9 +201,7 @@ TEST(broadcast_dim) {
   broadcast_dim<> y;
   shape<dim<>, broadcast_dim<>> s(x, y);
   for (int i = 0; i < 10; i++) {
-    for (int j : x) {
-      ASSERT_EQ(s(j, i), j);
-    }
+    for (int j : x) { ASSERT_EQ(s(j, i), j); }
   }
 }
 
@@ -228,9 +216,7 @@ TEST(clamp) {
 TEST(for_all_indices_scalar) {
   shape<> s;
   int count = 0;
-  for_all_indices(s, [&]() {
-    count++;
-  });
+  for_all_indices(s, [&]() { count++; });
   ASSERT_EQ(count, 1);
 }
 
@@ -284,9 +270,7 @@ TEST(for_all_indices_3d_reordered) {
 TEST(for_each_index_scalar) {
   shape<> s;
   int count = 0;
-  for_each_index(s, [&](std::tuple<>) {
-    count++;
-  });
+  for_each_index(s, [&](std::tuple<>) { count++; });
   ASSERT_EQ(count, 1);
 }
 
@@ -340,9 +324,7 @@ TEST(for_each_index_3d_reorderd) {
 TEST(dim_is_in_range) {
   dim<> x(2, 5);
 
-  for (int i = 2; i < 7; i++) {
-    ASSERT(x.is_in_range(i));
-  }
+  for (int i = 2; i < 7; i++) { ASSERT(x.is_in_range(i)); }
   ASSERT(!x.is_in_range(1));
   ASSERT(!x.is_in_range(8));
 
@@ -355,9 +337,7 @@ TEST(shape_is_in_range_1d) {
   dim<> x(2, 5);
   shape<dim<>> s(x);
 
-  for (int i = 2; i < 7; i++) {
-    ASSERT(s.is_in_range(i));
-  }
+  for (int i = 2; i < 7; i++) { ASSERT(s.is_in_range(i)); }
   ASSERT(!s.is_in_range(1));
   ASSERT(!s.is_in_range(8));
 
@@ -372,9 +352,7 @@ TEST(shape_is_in_range_2d) {
   shape<dim<>, dim<>> s(x, y);
 
   for (int i = -3; i < 3; i++) {
-    for (int j = 2; j < 7; j++) {
-      ASSERT(s.is_in_range(j, i));
-    }
+    for (int j = 2; j < 7; j++) { ASSERT(s.is_in_range(j, i)); }
   }
   ASSERT(!s.is_in_range(1, 0));
   ASSERT(!s.is_in_range(2, -4));
@@ -446,11 +424,9 @@ TEST(shape_optimize) {
   e.resolve();
   shape_of_rank<10> e2 = reorder<9, 5, 3, 7, 2, 8, 4, 6, 0, 1>(e);
   dim<> e_optimized_dim(0, 1, 3628800);
-  shape_of_rank<10> e_optimized(
-    {0, 3628800, 1},
-    e_optimized_dim, e_optimized_dim, e_optimized_dim,
-    e_optimized_dim, e_optimized_dim, e_optimized_dim,
-    e_optimized_dim, e_optimized_dim, e_optimized_dim);
+  shape_of_rank<10> e_optimized({0, 3628800, 1}, e_optimized_dim, e_optimized_dim, e_optimized_dim,
+      e_optimized_dim, e_optimized_dim, e_optimized_dim, e_optimized_dim, e_optimized_dim,
+      e_optimized_dim);
   ASSERT_EQ(internal::dynamic_optimize_shape(e), e_optimized);
   ASSERT_EQ(internal::dynamic_optimize_shape(e2), e_optimized);
 
@@ -487,8 +463,7 @@ void test_number_theory(Shape s) {
   for_each_index(s, [&](const typename Shape::index_type& i) {
     addresses[static_cast<size_t>(s(i) - s.flat_min())] += 1;
   });
-  bool is_compact =
-      std::all_of(addresses.begin(), addresses.end(), [](int c) { return c >= 1; });
+  bool is_compact = std::all_of(addresses.begin(), addresses.end(), [](int c) { return c >= 1; });
   bool is_one_to_one =
       std::all_of(addresses.begin(), addresses.end(), [](int c) { return c <= 1; });
 
@@ -505,4 +480,4 @@ TEST(shape_number_theory) {
   // test_number_theory(shape_of_rank<2>({0, 4, 4}, {0, 4, 4}));
 }
 
-}  // namespace nda
+} // namespace nda

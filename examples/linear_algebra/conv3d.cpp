@@ -15,8 +15,8 @@
 #include "array.h"
 #include "benchmark.h"
 
-#include <random>
 #include <iostream>
+#include <random>
 
 using namespace nda;
 
@@ -41,8 +41,8 @@ void conv3d_naive(const Input& input, const Filter& filter, const Output& output
 }
 
 template <typename Input, typename Filter, typename Output>
-__attribute__((always_inline))
-void conv3d(const Input& input, const Filter& filter, const Output& output) {
+__attribute__((always_inline)) void conv3d(
+    const Input& input, const Filter& filter, const Output& output) {
   typedef typename Output::value_type T;
 
   for (index_t n : output.template dim<3>()) {
@@ -94,11 +94,7 @@ void conv3d_tiled(const Input& input, const Filter& filter, const Output& output
 
 // Define a fully compile-time constant shape.
 template <index_t X, index_t Y, index_t Z, index_t W>
-using tensor_shape = shape<
-    dense_dim<0, X>,
-    dim<0, Y, X>,
-    dim<0, Z, X * Y>,
-    dim<0, W, X * Y * Z>>;
+using tensor_shape = shape<dense_dim<0, X>, dim<0, Y, X>, dim<0, Z, X * Y>, dim<0, W, X * Y * Z>>;
 
 int main(int, const char**) {
   constexpr int N = 5;
@@ -119,26 +115,22 @@ int main(int, const char**) {
   generate(filter, [&]() { return uniform(rng); });
 
   auto naive_output = make_array<float>(tensor_shape<CO, W, H, N>());
-  double naive_time = benchmark([&]() {
-    conv3d_naive(input.cref(), filter.cref(), naive_output.ref());
-  });
+  double naive_time =
+      benchmark([&]() { conv3d_naive(input.cref(), filter.cref(), naive_output.ref()); });
   std::cout << "naive time: " << naive_time * 1e3 << " ms" << std::endl;
 
   auto tiled_output = make_array<float>(tensor_shape<CO, W, H, N>());
-  double tiled_time = benchmark([&]() {
-    conv3d_tiled(input.cref(), filter.cref(), tiled_output.ref());
-  });
+  double tiled_time =
+      benchmark([&]() { conv3d_tiled(input.cref(), filter.cref(), tiled_output.ref()); });
   std::cout << "tiled time: " << tiled_time * 1e3 << " ms" << std::endl;
 
   const float epsilon = 1e-4f;
   for_each_index(naive_output.shape(), [&](const index_of_rank<4>& i) {
     if (std::abs(naive_output(i) - tiled_output(i)) > epsilon) {
-      std::cout
-        << "naive_output(i) = " << naive_output(i)
-        << " != tiled_output(i) = " << tiled_output(i) << std::endl;
+      std::cout << "naive_output(i) = " << naive_output(i)
+                << " != tiled_output(i) = " << tiled_output(i) << std::endl;
     }
   });
 
   return 0;
 }
-

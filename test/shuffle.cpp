@@ -93,5 +93,5 @@ TEST(shuffle_3_of_3) {
   ASSERT_EQ(t5, t);
 }
 
-}  // namespace internal
-}  // namespace nda
+} // namespace internal
+} // namespace nda

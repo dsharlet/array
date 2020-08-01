@@ -14,7 +14,7 @@
 
 /** \file matrix.h
  * \brief Optional matrix-specific helpers and specializations.
-*/
+ */
 #ifndef NDARRAY_MATRIX_H
 #define NDARRAY_MATRIX_H
 
@@ -32,9 +32,7 @@ using matrix_shape = shape<dim<dynamic, Rows>, dense_dim<dynamic, Cols>>;
 
 /** A matrix or matrix_ref is an `array` or `array_ref` with `Shape` =
  * `matrix_shape`. */
-template <
-    class T, index_t Rows = dynamic, index_t Cols = dynamic,
-    class Alloc = std::allocator<T>>
+template <class T, index_t Rows = dynamic, index_t Cols = dynamic, class Alloc = std::allocator<T>>
 using matrix = array<T, matrix_shape<Rows, Cols>, Alloc>;
 template <class T, index_t Rows = dynamic, index_t Cols = dynamic>
 using matrix_ref = array_ref<T, matrix_shape<Rows, Cols>>;
@@ -55,25 +53,21 @@ using const_vector_ref = vector_ref<const T, Length>;
 /** A matrix with static dimensions `Rows` and `Cols`, with an
  * `auto_allocator`. */
 template <class T, index_t Rows, index_t Cols>
-using small_matrix =
-    array<T, matrix_shape<Rows, Cols>, auto_allocator<T, Rows * Cols>>;
+using small_matrix = array<T, matrix_shape<Rows, Cols>, auto_allocator<T, Rows * Cols>>;
 template <class T, index_t Length>
-using small_vector =
-    array<T, vector_shape<Length>, auto_allocator<T, Length>>;
+using small_vector = array<T, vector_shape<Length>, auto_allocator<T, Length>>;
 
 /** Calls `fn` for each index in a matrix shape `s`. */
 template <class Shape, class Fn>
 void for_each_matrix_index(const Shape& s, Fn&& fn) {
   for (index_t i : s.i()) {
-    for (index_t j : s.j()) {
-      fn(std::make_tuple(i, j));
-    }
+    for (index_t j : s.j()) { fn(std::make_tuple(i, j)); }
   }
 }
 
 template <index_t Rows, index_t Cols>
 class shape_traits<matrix_shape<Rows, Cols>> {
- public:
+public:
   typedef matrix_shape<Rows, Cols> shape_type;
 
   template <class Fn>
@@ -83,12 +77,11 @@ class shape_traits<matrix_shape<Rows, Cols>> {
 
   template <class Ptr, class Fn>
   static void for_each_value(const shape_type& s, Ptr base, Fn&& fn) {
-    for_each_matrix_index(s, [=, &fn](const typename shape_type::index_type& i) {
-      fn(base[s(i)]);
-    });
+    for_each_matrix_index(
+        s, [=, &fn](const typename shape_type::index_type& i) { fn(base[s(i)]); });
   }
 };
 
-}  // namespace nda
+} // namespace nda
 
-#endif  // NDARRAY_MATRIX_H
+#endif // NDARRAY_MATRIX_H

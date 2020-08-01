@@ -36,31 +36,29 @@ struct lifetime_counter {
     destructs = 0;
   }
 
-  static size_t constructs() {
-    return default_constructs + copy_constructs + move_constructs;
-  }
+  static size_t constructs() { return default_constructs + copy_constructs + move_constructs; }
 
-  static size_t assigns() {
-    return copy_assigns + move_assigns;
-  }
+  static size_t assigns() { return copy_assigns + move_assigns; }
 
-  static size_t copies() {
-    return copy_constructs + copy_assigns;
-  }
+  static size_t copies() { return copy_constructs + copy_assigns; }
 
-  static size_t moves() {
-    return move_constructs + move_assigns;
-  }
+  static size_t moves() { return move_constructs + move_assigns; }
 
   lifetime_counter() { default_constructs++; }
   lifetime_counter(const lifetime_counter&) { copy_constructs++; }
   lifetime_counter(lifetime_counter&&) { move_constructs++; }
   ~lifetime_counter() { destructs++; }
 
-  lifetime_counter& operator=(const lifetime_counter&) { copy_assigns++; return *this; }
-  lifetime_counter& operator=(lifetime_counter&&) { move_assigns++; return *this; }
+  lifetime_counter& operator=(const lifetime_counter&) {
+    copy_assigns++;
+    return *this;
+  }
+  lifetime_counter& operator=(lifetime_counter&&) {
+    move_assigns++;
+    return *this;
+  }
 };
 
-}  // namespace nda
+} // namespace nda
 
-#endif  // NDARRAY_TEST_LIFETIME_H
+#endif // NDARRAY_TEST_LIFETIME_H

@@ -23,4 +23,4 @@ size_t lifetime_counter::copy_assigns = 0;
 size_t lifetime_counter::move_assigns = 0;
 size_t lifetime_counter::destructs = 0;
 
-}  // namespace nda
+} // namespace nda

@@ -27,14 +27,10 @@ namespace nda {
 using continuous_kernel = std::function<float(float)>;
 
 /** Box kernel. */
-inline float box(float s) {
-  return std::abs(s) <= 0.5f ? 1.0f : 0.0f;
-}
+inline float box(float s) { return std::abs(s) <= 0.5f ? 1.0f : 0.0f; }
 
 /** Linear interpolation kernel. */
-inline float linear(float s) {
-  return std::max(0.0f, 1.0f - std::abs(s));
-}
+inline float linear(float s) { return std::max(0.0f, 1.0f - std::abs(s)); }
 
 // The quadratic and cubic formulas come from
 // https://pdfs.semanticscholar.org/45e0/92c057ffe242665ef44590f2b8d725696d76.pdf
@@ -55,40 +51,26 @@ inline float cubic_family(float s, float B, float C) {
   float s2 = s * s;
   float s3 = s2 * s;
   if (s <= 1.0f) {
-    return
-        (2.0f - B * 1.5f - C) * s3 +
-        (-3.0f + 2.0f * B + C) * s2 +
-        (1.0f - B / 3.0f);
+    return (2.0f - B * 1.5f - C) * s3 + (-3.0f + 2.0f * B + C) * s2 + (1.0f - B / 3.0f);
   } else if (s <= 2.0f) {
-    return
-        (-B / 6.0f - C) * s3 +
-        (B + 5.0f * C) * s2 +
-        (-2.0f * B - 8.0f * C) * s +
-        (B * 4.0f / 3.0f + 4.0f * C);
+    return (-B / 6.0f - C) * s3 + (B + 5.0f * C) * s2 + (-2.0f * B - 8.0f * C) * s +
+           (B * 4.0f / 3.0f + 4.0f * C);
   } else {
     return 0.0f;
   }
 }
 
 /** Interpolating quadratic kernel. */
-inline float interpolating_quadratic(float s) {
-  return quadratic_family(s, 1.0f);
-}
+inline float interpolating_quadratic(float s) { return quadratic_family(s, 1.0f); }
 
 /** Interpolating cubic, i.e. Catmull-Rom spline. */
-inline float interpolating_cubic(float s) {
-  return cubic_family(s, 0.0f, 0.5f);
-}
+inline float interpolating_cubic(float s) { return cubic_family(s, 0.0f, 0.5f); }
 
 /** Smooth but soft quadratic B-spline approximation (not interpolating). */
-inline float quadratic_bspline(float s) {
-  return quadratic_family(s, 0.5f);
-}
+inline float quadratic_bspline(float s) { return quadratic_family(s, 0.5f); }
 
 /** Smooth but soft cubic B-spline approximation (not interpolating). */
-inline float cubic_bspline(float s) {
-  return cubic_family(s, 1.0f, 0.0f);
-}
+inline float cubic_bspline(float s) { return cubic_family(s, 1.0f, 0.0f); }
 
 inline float sinc(float s) {
   s *= M_PI;
@@ -103,8 +85,10 @@ inline float lanczos(float s, int side_lobes) {
     return 0.0f;
   }
 }
-template<int side_lobes>
-float lanczos(float s) { return lanczos(s, side_lobes); }
+template <int side_lobes>
+float lanczos(float s) {
+  return lanczos(s, side_lobes);
+}
 
 namespace internal {
 
@@ -115,8 +99,7 @@ using kernel_array = dense_array<dense_array<float, 1>, 1>;
 // Build kernels for each index in a dim 'out' to sample from a dim 'in'.
 // The kernels are guaranteed not to read out of bounds of 'in'.
 inline kernel_array build_kernels(
-    interval<> in, interval<> out, const rational<index_t>& rate,
-    continuous_kernel kernel) {
+    interval<> in, interval<> out, const rational<index_t>& rate, continuous_kernel kernel) {
   // The constant 1/2 as a rational.
   const rational<index_t> half = rational<index_t>(1, 2);
 
@@ -160,9 +143,7 @@ inline kernel_array build_kernels(
     assert(extent > 0);
     assert(sum > 0.0f);
     dense_array<float, 1> kernel_x({{min, extent}});
-    for (index_t rx : kernel_x.x()) {
-      kernel_x(rx) = buffer(rx) / sum;
-    }
+    for (index_t rx : kernel_x.x()) { kernel_x(rx) = buffer(rx) / sum; }
 
     // Make a copy without the padding, and store it in the kernel array.
     kernels(x) = std::move(kernel_x);
@@ -178,14 +159,10 @@ void resample_y(const TIn& in, const TOut& out, const kernel_array& kernels) {
   for (index_t y : out.y()) {
     const dense_array<float, 1>& kernel_y = kernels(y);
     for (index_t c : out.c()) {
-      for (index_t x : out.x()) {
-        out(x, y, c) = 0.0f;
-      }
+      for (index_t x : out.x()) { out(x, y, c) = 0.0f; }
       for (index_t ry : kernel_y.x()) {
         float kernel_y_ry = kernel_y(ry);
-        for (index_t x : out.x()) {
-          out(x, y, c) += in(x, ry, c) * kernel_y_ry;
-        }
+        for (index_t x : out.x()) { out(x, y, c) += in(x, ry, c) * kernel_y_ry; }
       }
     }
   }
@@ -195,9 +172,7 @@ template <class TIn, class TOut>
 void transpose(const TIn& in, const TOut& out) {
   for (index_t c : out.c()) {
     for (index_t y : out.y()) {
-      for (index_t x : out.x()) {
-        out(x, y, c) = in(y, x, c);
-      }
+      for (index_t x : out.x()) { out(x, y, c) = in(y, x, c); }
     }
   }
 }
@@ -223,21 +198,18 @@ auto make_temp_image(X x, Y y, C c) {
   return make_array<T>(make_temp_image_shape(x, y, c));
 }
 
-}  // namespace internal
+} // namespace internal
 
 /** Resample an array `in` to produce an array `out`, using an interpolation `kernel`.
  * Input coordinates (x, y) map to output coordinates (x * rate_x, y * rate_y). */
 template <class TIn, class TOut, class ShapeIn, class ShapeOut>
-void resample(array_ref<TIn, ShapeIn> in, array_ref<TOut, ShapeOut> out,
-              rational<index_t> rate_x, rational<index_t> rate_y,
-              continuous_kernel kernel) {
+void resample(array_ref<TIn, ShapeIn> in, array_ref<TOut, ShapeOut> out, rational<index_t> rate_x,
+    rational<index_t> rate_y, continuous_kernel kernel) {
   // Make the kernels we need at each output x and y coordinate in the output.
-  internal::kernel_array kernels_x =
-      internal::build_kernels(
-          {in.x().min(), in.x().extent()}, {out.x().min(), out.x().extent()}, rate_x, kernel);
-  internal::kernel_array kernels_y =
-      internal::build_kernels(
-          {in.y().min(), in.y().extent()}, {out.y().min(), out.y().extent()}, rate_y, kernel);
+  internal::kernel_array kernels_x = internal::build_kernels(
+      {in.x().min(), in.x().extent()}, {out.x().min(), out.x().extent()}, rate_x, kernel);
+  internal::kernel_array kernels_y = internal::build_kernels(
+      {in.y().min(), in.y().extent()}, {out.y().min(), out.y().extent()}, rate_y, kernel);
 
   // Split the image into horizontal strips.
   constexpr index_t StripSize = 64;
@@ -261,6 +233,6 @@ void resample(array_ref<TIn, ShapeIn> in, array_ref<TOut, ShapeOut> out,
   }
 }
 
-}  // namespace nda
+} // namespace nda
 
-#endif  // NDARRAY_RESAMPLE_H
+#endif // NDARRAY_RESAMPLE_H

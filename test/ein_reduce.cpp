@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "matrix.h"
 #include "ein_reduce.h"
+#include "matrix.h"
 #include "test.h"
 
 #include <complex>
@@ -32,9 +32,7 @@ TEST(make_ein_sum_diag) {
   auto a_diag = make_ein_sum<int, i>(ein<i, i>(A));
   ASSERT_EQ(a_diag.rank(), 1);
   ASSERT_EQ(a_diag.size(), N);
-  for (index_t i : A.i()) {
-    ASSERT_EQ(a_diag(i), A(i, i));
-  }
+  for (index_t i : A.i()) { ASSERT_EQ(a_diag(i), A(i, i)); }
 }
 
 TEST(ein_reduce_diag) {
@@ -46,9 +44,7 @@ TEST(ein_reduce_diag) {
   vector<int, N> a_diag;
   // This isn't a reduction!
   ein_reduce(ein<i>(a_diag) = ein<i, i>(A));
-  for (index_t i : A.i()) {
-    ASSERT_EQ(a_diag(i), A(i, i));
-  }
+  for (index_t i : A.i()) { ASSERT_EQ(a_diag(i), A(i, i)); }
 }
 
 TEST(make_ein_sum_trace) {
@@ -59,9 +55,7 @@ TEST(make_ein_sum_trace) {
   // Compute trace(A) = sum(diag(A))
   int tr = make_ein_sum<int>(ein<i, i>(A));
   int tr_ref = 0;
-  for (index_t i : A.i()) {
-    tr_ref += A(i, i);
-  }
+  for (index_t i : A.i()) { tr_ref += A(i, i); }
   ASSERT_EQ(tr, tr_ref);
 }
 
@@ -75,9 +69,7 @@ TEST(make_ein_sum_dot) {
   // Compute the dot product x.y using an ein_sum.
   int dot = make_ein_sum<int>(ein<i>(x) * ein<i>(y));
   int dot_ref = 0;
-  for (index_t i : x.i()) {
-    dot_ref += x(i) * y(i);
-  }
+  for (index_t i : x.i()) { dot_ref += x(i) * y(i); }
   ASSERT_EQ(dot, dot_ref);
 }
 
@@ -94,16 +86,12 @@ TEST(ein_reduce_dot_offset) {
   int dot = 0;
   ein_reduce(ein<>(dot) += (ein<i>(x) + ein<i>(y)) * ein<i>(z));
   int dot_ref = 0;
-  for (index_t i : x.i()) {
-    dot_ref += (x(i) + y(i)) * z(i);
-  }
+  for (index_t i : x.i()) { dot_ref += (x(i) + y(i)) * z(i); }
   ASSERT_EQ(dot, dot_ref);
 }
 
 // Helpers to make a Levi-Civita tensor.
-constexpr int sgn(index_t i) {
-  return i == 0 ? 0 : (i < 0 ? -1 : 1);
-}
+constexpr int sgn(index_t i) { return i == 0 ? 0 : (i < 0 ? -1 : 1); }
 
 // Defines the arbitrary rank Levi-Civita tensor as a constexpr function.
 constexpr int epsilon() { return 1.0f; }
@@ -130,9 +118,9 @@ TEST(ein_sum_cross) {
   ASSERT_EQ(cross.rows(), 3);
   ASSERT_EQ(cross.columns(), count);
   for (int l = 0; l < count; l++) {
-    ASSERT_EQ(x(1, l)*y(2, l) - x(2, l)*y(1, l), cross(0, l));
-    ASSERT_EQ(x(2, l)*y(0, l) - x(0, l)*y(2, l), cross(1, l));
-    ASSERT_EQ(x(0, l)*y(1, l) - x(1, l)*y(0, l), cross(2, l));
+    ASSERT_EQ(x(1, l) * y(2, l) - x(2, l) * y(1, l), cross(0, l));
+    ASSERT_EQ(x(2, l) * y(0, l) - x(0, l) * y(2, l), cross(1, l));
+    ASSERT_EQ(x(0, l) * y(1, l) - x(1, l) * y(0, l), cross(2, l));
   }
 }
 
@@ -150,9 +138,7 @@ TEST(make_ein_sum_outer) {
   ASSERT_EQ(outer.rows(), x.size());
   ASSERT_EQ(outer.columns(), y.size());
   for (index_t i : outer.i()) {
-    for (index_t j : outer.j()) {
-      ASSERT_EQ(outer(i, j), x(i) * y(j));
-    }
+    for (index_t j : outer.j()) { ASSERT_EQ(outer(i, j), x(i) * y(j)); }
   }
 }
 
@@ -168,9 +154,7 @@ TEST(ein_reduce_outer) {
   matrix<int, N, M> outer;
   ein_reduce(ein<i, j>(outer) = ein<i>(x) * ein<j>(y));
   for (index_t i : outer.i()) {
-    for (index_t j : outer.j()) {
-      ASSERT_EQ(outer(i, j), x(i) * y(j));
-    }
+    for (index_t j : outer.j()) { ASSERT_EQ(outer(i, j), x(i) * y(j)); }
   }
 }
 
@@ -188,9 +172,7 @@ TEST(make_ein_sum_matrix_vector) {
   ASSERT_EQ(Bx.size(), B.rows());
   for (index_t i : Bx.i()) {
     int Bx_i = 0;
-    for (index_t j : x.i()) {
-      Bx_i += B(i, j) * x(j);
-    }
+    for (index_t j : x.i()) { Bx_i += B(i, j) * x(j); }
     ASSERT_EQ(Bx(i), Bx_i);
   }
 }
@@ -205,7 +187,6 @@ TEST(ein_sum_sum_3d) {
   int sum_ijk_ref = 0;
   T.for_each_value([&](int i) { sum_ijk_ref += i; });
   ASSERT_EQ(sum_ijk, sum_ijk_ref);
-
 }
 
 TEST(make_ein_sum_sum_2d) {
@@ -261,12 +242,9 @@ TEST(ein_reduce_dft) {
   const float tolerance = 1e-3f;
   for (index_t j = 0; j < N; j++) {
     std::complex<float> dft_j_ref = 0.0f;
-    for (index_t k = 0; k < N; k++) {
-      dft_j_ref += dft_basis<N>(j, k) * x(k);
-    }
+    for (index_t k = 0; k < N; k++) { dft_j_ref += dft_basis<N>(j, k) * x(k); }
     ASSERT_LT(abs(dft_j_ref - dft_x(j)), tolerance);
   }
 }
 
-}  // namespace nda
-
+} // namespace nda

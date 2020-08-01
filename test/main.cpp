@@ -30,10 +30,8 @@ bool wildcard_match(const char* p, const char* str) {
   } else if (*p == '*') {
     p++;
     do {
-      if (wildcard_match(p, str)) {
-        return true;
-      }
-    } while(*str++);
+      if (wildcard_match(p, str)) { return true; }
+    } while (*str++);
   }
   return !*p;
 }
@@ -43,19 +41,17 @@ std::vector<std::pair<std::string, std::function<void()>>>& tests() {
   return v;
 }
 
-}  // namespace
+} // namespace
 
 namespace nda {
 
-test::test(const std::string& name, std::function<void()> fn) {
-  add_test(name, fn);
-}
+test::test(const std::string& name, std::function<void()> fn) { add_test(name, fn); }
 
 void add_test(const std::string& name, std::function<void()> fn) {
   tests().push_back(std::make_pair(name, fn));
 }
 
-}  // namespace nda
+} // namespace nda
 
 using namespace nda;
 
@@ -80,12 +76,11 @@ int main(int argc, const char** argv) {
       std::cout << "passed" << std::endl;
       passed++;
 #ifndef NDARRAY_NO_EXCEPTIONS
-    } catch(const std::exception& e) {
-      std::cout << "failed: " << e.what() << std::endl;
-    }
+    } catch (const std::exception& e) { std::cout << "failed: " << e.what() << std::endl; }
 #endif
     total++;
   }
-  std::cout << passed << " of " << total << " tests passed, " << tests().size() - total << " skipped" << std::endl;
+  std::cout << passed << " of " << total << " tests passed, " << tests().size() - total
+            << " skipped" << std::endl;
   return passed < total ? -1 : 0;
 }

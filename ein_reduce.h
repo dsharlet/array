@@ -14,7 +14,7 @@
 
 /** \file ein_reduce.h
  * \brief Optional helper for computing Einstein reductions on arrays.
-*/
+ */
 
 #ifndef NDARRAY_EIN_REDUCE_H
 #define NDARRAY_EIN_REDUCE_H
@@ -61,22 +61,38 @@ struct ein_op {
   }
 
   template <class T, class = enable_if_ein_op<T>>
-  auto operator+(const T& r) const { return make_ein_op_add(*this, r); }
+  auto operator+(const T& r) const {
+    return make_ein_op_add(*this, r);
+  }
   template <class T, class = enable_if_ein_op<T>>
-  auto operator-(const T& r) const { return make_ein_op_sub(*this, r); }
+  auto operator-(const T& r) const {
+    return make_ein_op_sub(*this, r);
+  }
   template <class T, class = enable_if_ein_op<T>>
-  auto operator*(const T& r) const { return make_ein_op_mul(*this, r); }
+  auto operator*(const T& r) const {
+    return make_ein_op_mul(*this, r);
+  }
   template <class T, class = enable_if_ein_op<T>>
-  auto operator/(const T& r) const { return make_ein_op_div(*this, r); }
+  auto operator/(const T& r) const {
+    return make_ein_op_div(*this, r);
+  }
 
   template <class T, class = enable_if_ein_op<T>>
-  auto operator=(const T& r) const { return make_ein_op_assign(*this, r); }
+  auto operator=(const T& r) const {
+    return make_ein_op_assign(*this, r);
+  }
   template <class T, class = enable_if_ein_op<T>>
-  auto operator+=(const T& r) const { return make_ein_op_add_assign(*this, r); }
+  auto operator+=(const T& r) const {
+    return make_ein_op_add_assign(*this, r);
+  }
   template <class T, class = enable_if_ein_op<T>>
-  auto operator-=(const T& r) const { return make_ein_op_sub_assign(*this, r); }
+  auto operator-=(const T& r) const {
+    return make_ein_op_sub_assign(*this, r);
+  }
   template <class T, class = enable_if_ein_op<T>>
-  auto operator*=(const T& r) const { return make_ein_op_mul_assign(*this, r); }
+  auto operator*=(const T& r) const {
+    return make_ein_op_mul_assign(*this, r);
+  }
 };
 
 // A binary operation of two operands.
@@ -94,46 +110,55 @@ struct ein_bin_op {
   const Derived& derived() const { return *static_cast<const Derived*>(this); }
 
   template <class T, class = enable_if_ein_op<T>>
-  auto operator+(const T& r) const { return make_ein_op_add(derived(), r); }
+  auto operator+(const T& r) const {
+    return make_ein_op_add(derived(), r);
+  }
   template <class T, class = enable_if_ein_op<T>>
-  auto operator-(const T& r) const { return make_ein_op_sub(derived(), r); }
+  auto operator-(const T& r) const {
+    return make_ein_op_sub(derived(), r);
+  }
   template <class T, class = enable_if_ein_op<T>>
-  auto operator*(const T& r) const { return make_ein_op_mul(derived(), r); }
+  auto operator*(const T& r) const {
+    return make_ein_op_mul(derived(), r);
+  }
   template <class T, class = enable_if_ein_op<T>>
-  auto operator/(const T& r) const { return make_ein_op_div(derived(), r); }
+  auto operator/(const T& r) const {
+    return make_ein_op_div(derived(), r);
+  }
 };
 
-#define NDARRAY_MAKE_EIN_BIN_HELPERS(name, op) \
-template <class OpA, class OpB> auto make_##name(const OpA& a, const OpB& b) { \
-  name<OpA, OpB> result; \
-  result.op_a = a; \
-  result.op_b = b; \
-  return result; \
-}
+#define NDARRAY_MAKE_EIN_BIN_HELPERS(name, op)                                                     \
+  template <class OpA, class OpB>                                                                  \
+  auto make_##name(const OpA& a, const OpB& b) {                                                   \
+    name<OpA, OpB> result;                                                                         \
+    result.op_a = a;                                                                               \
+    result.op_b = b;                                                                               \
+    return result;                                                                                 \
+  }
 
-#define NDARRAY_MAKE_EIN_BIN_OP(name, op, is_assign_) \
-template <class OpA, class OpB> \
-struct name : public ein_bin_op<OpA, OpB, name<OpA, OpB>> { \
-  using is_assign = is_assign_; \
-  template <class Idx> \
-  NDARRAY_INLINE auto operator()(const Idx& i) const { \
-    using base = ein_bin_op<OpA, OpB, name>; \
-    return base::op_a(i) op base::op_b(i); \
-  } \
-}; \
-NDARRAY_MAKE_EIN_BIN_HELPERS(name, op)
+#define NDARRAY_MAKE_EIN_BIN_OP(name, op, is_assign_)                                              \
+  template <class OpA, class OpB>                                                                  \
+  struct name : public ein_bin_op<OpA, OpB, name<OpA, OpB>> {                                      \
+    using is_assign = is_assign_;                                                                  \
+    template <class Idx>                                                                           \
+    NDARRAY_INLINE auto operator()(const Idx& i) const {                                           \
+      using base = ein_bin_op<OpA, OpB, name>;                                                     \
+      return base::op_a(i) op base::op_b(i);                                                       \
+    }                                                                                              \
+  };                                                                                               \
+  NDARRAY_MAKE_EIN_BIN_HELPERS(name, op)
 
-#define NDARRAY_MAKE_EIN_BIN_FN(name, fn, is_assign_) \
-template <class OpA, class OpB> \
-struct name : public ein_bin_op<OpA, OpB, name<OpA, OpB>> { \
-  using is_assign = is_assign_; \
-  template <class Idx> \
-  NDARRAY_INLINE auto operator()(const Idx& i) const { \
-    using base = ein_bin_op<OpA, OpB, name>; \
-    return fn(base::op_a(i), base::op_b(i)); \
-  } \
-}; \
-NDARRAY_MAKE_EIN_BIN_HELPERS(name, op)
+#define NDARRAY_MAKE_EIN_BIN_FN(name, fn, is_assign_)                                              \
+  template <class OpA, class OpB>                                                                  \
+  struct name : public ein_bin_op<OpA, OpB, name<OpA, OpB>> {                                      \
+    using is_assign = is_assign_;                                                                  \
+    template <class Idx>                                                                           \
+    NDARRAY_INLINE auto operator()(const Idx& i) const {                                           \
+      using base = ein_bin_op<OpA, OpB, name>;                                                     \
+      return fn(base::op_a(i), base::op_b(i));                                                     \
+    }                                                                                              \
+  };                                                                                               \
+  NDARRAY_MAKE_EIN_BIN_HELPERS(name, op)
 
 // Define the expression types for the operations we support.
 NDARRAY_MAKE_EIN_BIN_OP(ein_op_add, +, std::false_type);
@@ -153,9 +178,13 @@ NDARRAY_MAKE_EIN_BIN_OP(ein_op_mul_assign, *=, std::true_type);
 #undef NDARRAY_MAKE_EIN_BIN_HELPERS
 
 template <class OpA, class OpB>
-auto min(const OpA& a, const OpB& b) { return make_ein_op_min(a, b); }
+auto min(const OpA& a, const OpB& b) {
+  return make_ein_op_min(a, b);
+}
 template <class OpA, class OpB>
-auto max(const OpA& a, const OpB& b) { return make_ein_op_max(a, b); }
+auto max(const OpA& a, const OpB& b) {
+  return make_ein_op_max(a, b);
+}
 
 // Helper to reinterpret a dim/shape with a new stride.
 template <index_t NewStride, index_t Min, index_t Extent, index_t Stride>
@@ -200,14 +229,18 @@ auto reconcile_dim(const std::tuple<Dims...>& dims) {
 
 // Get the shape of an ein_reduce operand, or an empty shape if not an array.
 template <class T, class Shape>
-const auto& dims_of(const array_ref<T, Shape>& op) { return op.shape().dims(); }
+const auto& dims_of(const array_ref<T, Shape>& op) {
+  return op.shape().dims();
+}
 template <class T>
-auto dims_of(const T& op) { return std::tuple<>(); }
+auto dims_of(const T& op) {
+  return std::tuple<>();
+}
 
 // These types are flags that let us overload behavior based on these 3 options.
-class is_inferred_shape{};
-class is_result_shape{};
-class is_operand_shape{};
+class is_inferred_shape {};
+class is_result_shape {};
+class is_operand_shape {};
 
 // Get a dim from an operand, depending on the intended use of the shape.
 template <size_t Dim, class Dims, size_t... Is>
@@ -240,22 +273,27 @@ auto make_ein_reduce_shape(index_sequence<Is...>, const Ops&... ops) {
   return make_shape(gather_dims<Is>(ops...)...);
 }
 
-}  // namespace internal
+} // namespace internal
 
 /** Operand for an Einstein summation, which is an array or other
  * callable object, along with a set of dimension indices.
  * `ein<i, j, ...>(a)` means the dimensions `i, j, ...` of the
  * summation index are used to address `a` during Einstein
  * summation. See `ein_reduce` for more details. */
-template <size_t... Is, class Op,
-    class = internal::enable_if_callable<Op, decltype(Is)...>>
-auto ein(Op op) { return internal::ein_op<Op, Is...>{op}; }
+template <size_t... Is, class Op, class = internal::enable_if_callable<Op, decltype(Is)...>>
+auto ein(Op op) {
+  return internal::ein_op<Op, Is...>{op};
+}
 template <size_t... Is, class T, class Shape, class Alloc,
     class = std::enable_if_t<sizeof...(Is) == Shape::rank()>>
-auto ein(array<T, Shape, Alloc>& op) { return ein<Is...>(op.ref()); }
+auto ein(array<T, Shape, Alloc>& op) {
+  return ein<Is...>(op.ref());
+}
 template <size_t... Is, class T, class Shape, class Alloc,
     class = std::enable_if_t<sizeof...(Is) == Shape::rank()>>
-auto ein(const array<T, Shape, Alloc>& op) { return ein<Is...>(op.ref()); }
+auto ein(const array<T, Shape, Alloc>& op) {
+  return ein<Is...>(op.ref());
+}
 
 /** Define an Einstein summation operand for a scalar. The scalar
  * is broadcasted as needed during the summation. Because this
@@ -263,7 +301,9 @@ auto ein(const array<T, Shape, Alloc>& op) { return ein<Is...>(op.ref()); }
  * must be inferred from other operands. See `ein_reduce` for more
  * details. */
 template <class T>
-auto ein(T& scalar) { return ein<>(array_ref<T, shape<>>(&scalar, {})); }
+auto ein(T& scalar) {
+  return ein<>(array_ref<T, shape<>>(&scalar, {}));
+}
 
 /** Compute an Einstein reduction. This function allows one to specify
  * many kinds of array transformations and reductions using Einstein
@@ -322,8 +362,7 @@ NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
   // first dimension it finds, so we want that to be the result dimension if it
   // is present. If not, this selects one of the operand dimensions, which are
   // given stride 0.
-  auto reduction_shape = internal::make_ein_reduce_shape(
-      internal::make_index_sequence<loop_rank>(),
+  auto reduction_shape = internal::make_ein_reduce_shape(internal::make_index_sequence<loop_rank>(),
       std::make_tuple(internal::is_result_shape(), expr.op_a),
       std::make_tuple(internal::is_operand_shape(), expr.op_b));
 
@@ -338,19 +377,16 @@ NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
 
 /** Wrapper for `ein_reduce` computing the sum of the operand operand
  * expression via `ein_reduce(result += expr)`. */
-template <class Expr, class Result,
-    class = internal::enable_if_ein_op<Expr>,
+template <class Expr, class Result, class = internal::enable_if_ein_op<Expr>,
     class = internal::enable_if_ein_op<Result>>
 NDARRAY_UNIQUE auto ein_sum(const Expr& expr, const Result& result) {
   return ein_reduce(result += expr);
 }
 
 /** Infer the shape of the result of `make_ein_reduce`. */
-template <size_t... ResultIs, class Expr,
-    class = internal::enable_if_ein_op<Expr>>
+template <size_t... ResultIs, class Expr, class = internal::enable_if_ein_op<Expr>>
 auto make_ein_reduce_shape(const Expr& expr) {
-  auto result_shape = internal::make_ein_reduce_shape(
-      internal::index_sequence<ResultIs...>(),
+  auto result_shape = internal::make_ein_reduce_shape(internal::index_sequence<ResultIs...>(),
       std::make_tuple(internal::is_inferred_shape(), expr));
   // TODO: This would really benefit from addressing https://github.com/dsharlet/array/issues/31
   return make_compact(result_shape);
@@ -388,6 +424,6 @@ NDARRAY_UNIQUE auto make_ein_sum(
   return result;
 }
 
-}  // namespace nda
+} // namespace nda
 
-#endif  // NDARRAY_EIN_REDUCE_H
+#endif // NDARRAY_EIN_REDUCE_H

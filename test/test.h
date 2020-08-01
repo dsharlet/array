@@ -17,13 +17,13 @@
 
 #include "array.h"
 
-#include <cstdlib>
-#include <cmath>
 #include <chrono>
-#include <sstream>
+#include <cmath>
+#include <cstdlib>
 #include <functional>
-#include <limits>
 #include <iostream>
+#include <limits>
+#include <sstream>
 
 namespace nda {
 
@@ -89,9 +89,7 @@ class assert_stream {
   bool fail_;
 
 public:
- assert_stream(bool condition, const std::string& check) : fail_(!condition) {
-    msg_ << check;
-  }
+  assert_stream(bool condition, const std::string& check) : fail_(!condition) { msg_ << check; }
   ~assert_stream() noexcept(false) {
     if (fail_) {
 #ifdef NDARRAY_NO_EXCEPTIONS
@@ -105,51 +103,44 @@ public:
 
   template <class T>
   assert_stream& operator<<(const T& x) {
-    if (fail_) {
-      msg_ << x;
-    }
+    if (fail_) { msg_ << x; }
     return *this;
   }
 };
 
 // Make a new test object. The body of the test should follow this
 // macro, e.g. TEST(equality) { ASSERT(1 == 1); }
-#define TEST(name)                                                     \
-  void test_##name##_body();                                           \
-  static ::nda::test test_##name##_obj(#name, test_##name##_body);     \
+#define TEST(name)                                                                                 \
+  void test_##name##_body();                                                                       \
+  static ::nda::test test_##name##_obj(#name, test_##name##_body);                                 \
   void test_##name##_body()
 
 #define ASSERT(condition) assert_stream(condition, #condition)
 
-#define ASSERT_EQ(a, b)                 \
-  ASSERT(a == b)                        \
-    << "\n" << #a << "=" << a            \
-    << "\n" << #b << "=" << b << " "
+#define ASSERT_EQ(a, b) ASSERT(a == b) << "\n" << #a << "=" << a << "\n" << #b << "=" << b << " "
 
-#define ASSERT_LT(a, b)                 \
-  ASSERT(a < b)                         \
-    << "\n" << #a << "=" << a            \
-    << "\n" << #b << "=" << b << " "
+#define ASSERT_LT(a, b) ASSERT(a < b) << "\n" << #a << "=" << a << "\n" << #b << "=" << b << " "
 
 template <class T, class IndexType, size_t... Is>
 T pattern_impl(const IndexType& indices, const IndexType& offset, std::index_sequence<Is...>) {
-  static const index_t pattern_basis[] = { 1, 30, 1000, 10000, 1000000 };
-  return static_cast<T>(internal::sum((std::get<Is>(indices) + std::get<Is>(offset)) * pattern_basis[Is]...));
+  static const index_t pattern_basis[] = {1, 30, 1000, 10000, 1000000};
+  return static_cast<T>(
+      internal::sum((std::get<Is>(indices) + std::get<Is>(offset)) * pattern_basis[Is]...));
 }
 
 // Generate a pattern from multi-dimensional indices that is generally
 // suitable for detecting bugs in array operations.
 template <class T, class IndexType>
 T pattern(const IndexType& indices, const IndexType& offset = IndexType()) {
-  return pattern_impl<T>(indices, offset, std::make_index_sequence<std::tuple_size<IndexType>::value>());
+  return pattern_impl<T>(
+      indices, offset, std::make_index_sequence<std::tuple_size<IndexType>::value>());
 }
 
 // Fill an array with the pattern.
 template <class T, class Shape>
 void fill_pattern(const array_ref<T, Shape>& a, int seed = 0) {
-  for_each_index(a.shape(), [&](const typename Shape::index_type& i) {
-    a(i) = pattern<T>(i) + seed;
-  });
+  for_each_index(
+      a.shape(), [&](const typename Shape::index_type& i) { a(i) = pattern<T>(i) + seed; });
 }
 template <class T, class Shape>
 void fill_pattern(array<T, Shape>& a, int seed = 0) {
@@ -158,20 +149,21 @@ void fill_pattern(array<T, Shape>& a, int seed = 0) {
 
 // Check an array matches the pattern.
 template <class T, class Shape>
-void check_pattern(const array_ref<T, Shape>& a, const typename Shape::index_type& offset = typename Shape::index_type()) {
+void check_pattern(const array_ref<T, Shape>& a,
+    const typename Shape::index_type& offset = typename Shape::index_type()) {
   for_each_index(a.shape(), [&](const typename Shape::index_type& i) {
     ASSERT_EQ(a(i), pattern<T>(i, offset)) << "i=" << i << ", offset=" << offset;
   });
 }
 template <class T, class Shape, class Alloc>
-void check_pattern(const array<T, Shape, Alloc>& a, const typename Shape::index_type& offset = typename Shape::index_type()) {
+void check_pattern(const array<T, Shape, Alloc>& a,
+    const typename Shape::index_type& offset = typename Shape::index_type()) {
   check_pattern(a.ref(), offset);
 }
 
 // Check that two dims are equal, including the compile-time constants.
-template <
-    index_t MinA, index_t ExtentA, index_t StrideA,
-    index_t MinB, index_t ExtentB, index_t StrideB>
+template <index_t MinA, index_t ExtentA, index_t StrideA, index_t MinB, index_t ExtentB,
+    index_t StrideB>
 void assert_dim_eq(const dim<MinA, ExtentA, StrideA>& a, const dim<MinB, ExtentB, StrideB>& b) {
   static_assert(MinA == MinB, "");
   static_assert(ExtentA == ExtentB, "");
@@ -190,14 +182,11 @@ double benchmark(F op) {
   long iterations = 1;
   for (int trials = 0; trials < max_trials; trials++) {
     auto t1 = std::chrono::high_resolution_clock::now();
-    for (int j = 0; j < iterations; j++) {
-      op();
-    }
+    for (int j = 0; j < iterations; j++) { op(); }
     auto t2 = std::chrono::high_resolution_clock::now();
-    time_per_iteration_s = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count() / (iterations * 1e9);
-    if (time_per_iteration_s * iterations > min_time_s) {
-      break;
-    }
+    time_per_iteration_s =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count() / (iterations * 1e9);
+    if (time_per_iteration_s * iterations > min_time_s) { break; }
 
     long next_iterations = static_cast<long>(std::ceil((min_time_s * 2) / time_per_iteration_s));
     iterations = std::min(std::max(next_iterations, iterations), iterations * 10);
@@ -211,8 +200,10 @@ __attribute__((noinline)) void assert_used(const T&) {}
 
 // Tricks the compiler into not constant folding the result of x.
 template <class T>
-__attribute__((noinline)) T not_constant(T x) { return x; }
+__attribute__((noinline)) T not_constant(T x) {
+  return x;
+}
 
-}  // namespace nda
+} // namespace nda
 
-#endif  // NDARRAY_TEST_TEST_H
+#endif // NDARRAY_TEST_TEST_H

@@ -22,19 +22,15 @@ namespace nda {
 
 // Define a compile-time "chunky" imag eshape.
 template <int Channels, int ChannelStride = Channels>
-using chunky_image_shape = shape<
-    strided_dim</*Stride=*/ChannelStride>,
-    dim<>,
-    dense_dim</*Min=*/0, /*Extent=*/Channels>>;
+using chunky_image_shape =
+    shape<strided_dim</*Stride=*/ChannelStride>, dim<>, dense_dim</*Min=*/0, /*Extent=*/Channels>>;
 
 // Define a compile-time small matrix type, with the array data in
 // automatic storage.
 template <int M, int N>
-using small_matrix_shape = shape<
-    dim<0, M>,
-    dense_dim<0, N>>;
+using small_matrix_shape = shape<dim<0, M>, dense_dim<0, N>>;
 template <typename T, int M, int N>
-using small_matrix = array<T, small_matrix_shape<M, N>, auto_allocator<T, M*N>>;
+using small_matrix = array<T, small_matrix_shape<M, N>, auto_allocator<T, M * N>>;
 small_matrix<float, 4, 4> my_small_matrix;
 // my_small_matrix is only one fixed size allocation, no dynamic allocations
 // happen. sizeof(small_matrix) = sizeof(float) * 4 * 4 + (overhead)
@@ -51,30 +47,21 @@ TEST(readme) {
   // Access elements of this array.
   for (int z = 0; z < depth; z++) {
     for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
-        my_array(x, y, z) = 5;
-      }
+      for (int x = 0; x < width; x++) { my_array(x, y, z) = 5; }
     }
   }
 
   // Use for_each_value helper to access this array.
-  my_array.for_each_value([](int& value) {
-    value = 5;
-  });
+  my_array.for_each_value([](int& value) { value = 5; });
 
   // Use for_all_indices/for_each_index helper to access this array.
-  for_all_indices(my_3d_shape, [&](int x, int y, int z) {
-    my_array(x, y, z) = 5;
-  });
-  for_each_index(my_3d_shape, [&](my_3d_shape_type::index_type i) {
-    my_array[i] = 5;
-  });
+  for_all_indices(my_3d_shape, [&](int x, int y, int z) { my_array(x, y, z) = 5; });
+  for_each_index(my_3d_shape, [&](my_3d_shape_type::index_type i) { my_array[i] = 5; });
 
   // This shows the default iteration order of for_all_indices.
   my_3d_shape_type my_shape(2, 2, 2);
-  for_all_indices(my_shape, [](int x, int y, int z) {
-    std::cout << x << ", " << y << ", " << z << std::endl;
-  });
+  for_all_indices(
+      my_shape, [](int x, int y, int z) { std::cout << x << ", " << y << ", " << z << std::endl; });
   // Output:
   // 0, 0, 0
   // 1, 0, 0
@@ -87,9 +74,8 @@ TEST(readme) {
 
   // This shows the iteration order of for_all_indices with
   // a permutation.
-  for_all_indices<2, 0, 1>(my_shape, [](int x, int y, int z) {
-    std::cout << x << ", " << y << ", " << z << std::endl;
-  });
+  for_all_indices<2, 0, 1>(
+      my_shape, [](int x, int y, int z) { std::cout << x << ", " << y << ", " << z << std::endl; });
   // Output:
   // 0, 0, 0
   // 0, 0, 1
@@ -104,10 +90,8 @@ TEST(readme) {
   index_t z = 0;
 
   // Define a compile-time dense 3 dimensional shape.
-  using my_dense_3d_shape_type = shape<
-      dim</*Min=*/dynamic, /*Extent=*/dynamic, /*Stride=*/1>,
-      dim<>,
-      dim<>>;
+  using my_dense_3d_shape_type =
+      shape<dim</*Min=*/dynamic, /*Extent=*/dynamic, /*Stride=*/1>, dim<>, dim<>>;
   array<char, my_dense_3d_shape_type> my_dense_array({16, 3, 3});
   for (auto x : my_dense_array.x()) {
     // The compiler knows that each loop iteration accesses
@@ -153,5 +137,4 @@ TEST(readme) {
   }
 }
 
-}  // namespace nda
-
+} // namespace nda

@@ -75,18 +75,30 @@ public:
 };
 
 template <typename T>
-rational<T> operator*(T l, const rational<T>& r) { return rational<T>(l) * r; }
+rational<T> operator*(T l, const rational<T>& r) {
+  return rational<T>(l) * r;
+}
 template <typename T>
-rational<T> operator/(T l, const rational<T>& r) { return rational<T>(l) / r; }
+rational<T> operator/(T l, const rational<T>& r) {
+  return rational<T>(l) / r;
+}
 template <typename T>
-rational<T> operator-(T l, const rational<T>& r) { return rational<T>(l) - r; }
+rational<T> operator-(T l, const rational<T>& r) {
+  return rational<T>(l) - r;
+}
 template <typename T>
-rational<T> operator+(T l, const rational<T>& r) { return rational<T>(l) + r; }
+rational<T> operator+(T l, const rational<T>& r) {
+  return rational<T>(l) + r;
+}
 
 template <typename T>
-rational<T> min(const rational<T>& l, const rational<T>& r) { return l < r ? l : r; }
+rational<T> min(const rational<T>& l, const rational<T>& r) {
+  return l < r ? l : r;
+}
 template <typename T>
-rational<T> max(const rational<T>& l, const rational<T>& r) { return l > r ? l : r; }
+rational<T> max(const rational<T>& l, const rational<T>& r) {
+  return l > r ? l : r;
+}
 
 template <typename T>
 T floor(const rational<T>& r) {
@@ -98,7 +110,7 @@ T round(const rational<T>& r) {
 }
 template <typename T>
 T ceil(const rational<T>& r) {
-  return euclidean_div(r.numerator() + r.denominator() - 1,  r.denominator());
+  return euclidean_div(r.numerator() + r.denominator() - 1, r.denominator());
 }
 template <typename T>
 rational<T> frac(const rational<T>& r) {
@@ -109,4 +121,4 @@ float to_float(const rational<T>& r) {
   return static_cast<float>(r.numerator()) / r.denominator();
 }
 
-#endif  // NDARRAY_RATIONAL_H
+#endif // NDARRAY_RATIONAL_H

@@ -15,9 +15,9 @@
 #ifndef NDARRAY_EXAMPLES_BENCHMARK_H
 #define NDARRAY_EXAMPLES_BENCHMARK_H
 
-#include <cmath>
-#include <chrono>
 #include <algorithm>
+#include <chrono>
+#include <cmath>
 
 namespace nda {
 
@@ -30,14 +30,11 @@ double benchmark(F op) {
   long iterations = 1;
   for (int trials = 0; trials < max_trials; trials++) {
     auto t1 = std::chrono::high_resolution_clock::now();
-    for (int j = 0; j < iterations; j++) {
-      op();
-    }
+    for (int j = 0; j < iterations; j++) { op(); }
     auto t2 = std::chrono::high_resolution_clock::now();
-    time_per_iteration_s = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count() / (iterations * 1e9);
-    if (time_per_iteration_s * iterations > min_time_s) {
-      break;
-    }
+    time_per_iteration_s =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count() / (iterations * 1e9);
+    if (time_per_iteration_s * iterations > min_time_s) { break; }
 
     long next_iterations = static_cast<long>(std::ceil((min_time_s * 2) / time_per_iteration_s));
     iterations = std::min(std::max(next_iterations, iterations), iterations * 10);
@@ -45,6 +42,6 @@ double benchmark(F op) {
   return time_per_iteration_s;
 }
 
-}  // namespace nda
+} // namespace nda
 
-#endif  // NDARRAY_EXAMPLES_BENCHMARK_H
+#endif // NDARRAY_EXAMPLES_BENCHMARK_H
