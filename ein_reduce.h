@@ -279,7 +279,8 @@ auto make_ein_reduce_shape(index_sequence<Is...>, const Ops&... ops) {
  * callable object, along with a set of dimension indices.
  * `ein<i, j, ...>(a)` means the dimensions `i, j, ...` of the
  * summation index are used to address `a` during Einstein
- * summation. See `ein_reduce()` for more details. */
+ * summation. The number of dimensions must match the number of
+ * arguments of `a`. See `ein_reduce()` for more details. */
 template <size_t... Is, class Op, class = internal::enable_if_callable<Op, decltype(Is)...>>
 auto ein(Op op) {
   return internal::ein_op<Op, Is...>{op};
