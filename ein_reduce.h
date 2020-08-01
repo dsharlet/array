@@ -279,7 +279,7 @@ auto make_ein_reduce_shape(index_sequence<Is...>, const Ops&... ops) {
  * callable object, along with a set of dimension indices.
  * `ein<i, j, ...>(a)` means the dimensions `i, j, ...` of the
  * summation index are used to address `a` during Einstein
- * summation. See `ein_reduce` for more details. */
+ * summation. See `ein_reduce()` for more details. */
 template <size_t... Is, class Op, class = internal::enable_if_callable<Op, decltype(Is)...>>
 auto ein(Op op) {
   return internal::ein_op<Op, Is...>{op};
@@ -298,7 +298,7 @@ auto ein(const array<T, Shape, Alloc>& op) {
 /** Define an Einstein summation operand for a scalar. The scalar
  * is broadcasted as needed during the summation. Because this
  * operand does not provide a shape, the dimensions of the sum
- * must be inferred from other operands. See `ein_reduce` for more
+ * must be inferred from other operands. See `ein_reduce()` for more
  * details. */
 template <class T>
 auto ein(T& scalar) {
@@ -306,20 +306,18 @@ auto ein(T& scalar) {
 }
 
 /** Compute an Einstein reduction. This function allows one to specify
- * many kinds of array transformations and reductions using Einstein
- * notation. See https://en.wikipedia.org/wiki/Einstein_notation for more
- * information about the notation itself.
+ * many kinds of array transformations and reductions using
+ * <a href="https://en.wikipedia.org/wiki/Einstein_notation">Einstein notation</a>.
  *
  * This function accepts an expression `expr` constructed using operators
  * on `ein<i, j, ...>(op)` operands. These operands describe which
  * dimensions of the reduction index should be used to address that
  * operand.
  *
- * If `expr` is a reduction operator (such as `+=`), the result must be
- * initialized to some useful value, typically the identity value for the
- * reduction operator, e.g. `0` for `+=`. Not initializing the result
- * allows successive `ein_reduce` operations to be applied to the same
- * result.
+ * If `expr` is a reduction operator, the result must be initialized to
+ * some useful value, typically the identity value for the reduction
+ * operator, e.g. `0` for `+=`. Not initializing the result allows
+ * successive `ein_reduce` operations to be applied to the same result.
  *
  * This function does not optimize the associative order in which the
  * operations are performed. It evaluates the expression for each element
@@ -334,7 +332,7 @@ auto ein(T& scalar) {
  * loops not associated with a dimension of the result) are executed as
  * *outermost* loops. Therefore, good performance can usually be had by:
  * 1. Ensuring one of the dimensions of the result has a compile-time
- *    constant stride of 1.
+ *    constant stride of 1 (see `dim<>`).
  * 2. Ensuring the stride 1 dimension has an extent at least as large as
  *    (preferably a multiple of) the SIMD register size of the target.
  * 3. Splitting the result into small constant-sized tiles of an
@@ -343,11 +341,11 @@ auto ein(T& scalar) {
  *    in many cases (e.g. dot products), and so may not be necessary.
  *
  * Examples:
- * - `ein_reduce(ein<>(tr_A) += ein<i, i>(A))`, the trace of A.
- * - `ein_reduce(ein<>(dot_xy) += ein<i>(x) * ein<i>(y))`, the dot product x*y.
- * - `ein_reduce(ein<i, j>(AB) += ein<i, k>(A) * ein<k, j>(B))`, the matrix product A*B
- * - `ein_reduce(ein<i>(Ax) += ein<i, j>(A) * ein<j>(x))`, the matrix-vector product A*x
- * - `ein_reduce(ein<i>(diag_A) = ein<i, i>(A))`, the diagonal of A.
+ * - `ein_reduce(ein<>(tr_A) += ein<i, i>(A))`, the trace of `A`.
+ * - `ein_reduce(ein<>(dot_xy) += ein<i>(x) * ein<i>(y))`, the dot product `x*y`.
+ * - `ein_reduce(ein<i, j>(AB) += ein<i, k>(A) * ein<k, j>(B))`, the matrix product `A*B`
+ * - `ein_reduce(ein<i>(Ax) += ein<i, j>(A) * ein<j>(x))`, the matrix-vector product `A*x`
+ * - `ein_reduce(ein<i>(diag_A) = ein<i, i>(A))`, the diagonal of `A`.
  *
  * where:
  * - `A`, `B`, `AB` are matrices (rank 2 arrays)
@@ -399,17 +397,17 @@ auto make_ein_reduce_shape(const Expr& expr) {
  * `ResultIs...`.
  *
  * Examples:
- * - `tr(A) = make_ein_sum<T>(ein<i, i>(A))`
- * - `dot(x, y) = make_ein_sum<T>(ein<i>(x) * ein<i>(y))`
- * - `A*B = make_ein_sum<T, i, j>(ein<i, k>(A) * ein<k, j>(B))`
- * - `A*x = make_ein_sum<T, i>(ein<i, j>(A) * ein<1>(x))`
+ * - `trace_A = make_ein_sum<T>(ein<i, i>(A))`
+ * - `dot_xy = make_ein_sum<T>(ein<i>(x) * ein<i>(y))`
+ * - `AB = make_ein_sum<T, i, j>(ein<i, k>(A) * ein<k, j>(B))`
+ * - `Ax = make_ein_sum<T, i>(ein<i, j>(A) * ein<1>(x))`
  *
  * where:
  * - `A`, `B` are matrices (rank 2 arrays)
  * - `x`, `y` are vectors (rank 1 arrays)
  * - `i`, `j`, `k` are the `constexpr` values `0, 1, 2`, respectively
  *
- * See `ein_reduce` for more details.
+ * See `ein_reduce()` for more details.
  **/
 // TODO: It would be nice to be able to express reductions other than sums.
 // TODO: Add an overload with a default ResultIs... = 0, 1, 2, ... This requires
