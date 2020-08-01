@@ -50,7 +50,7 @@ struct ein_op {
   using is_assign = std::false_type;
 
   // The largest dimension used by this operand.
-  enum { max_index = sizeof...(Is) == 0 ? -1 : variadic_max(Is...) };
+  static constexpr index_t MaxIndex = sizeof...(Is) == 0 ? -1 : variadic_max(Is...);
 
   // auto doesn't work here because it doesn't include the reference type of operator() when we
   // need it, but it writing it includes it when we can't, e.g. if op(...) doesn't return a
@@ -103,7 +103,7 @@ struct ein_bin_op {
 
   using is_ein_op = std::true_type;
 
-  enum { max_index = variadic_max(OpA::max_index, OpB::max_index) + 1 };
+  static constexpr index_t MaxIndex = std::max(OpA::MaxIndex, OpB::MaxIndex);
 
   // We need to be able to get the derived type when creating binary operations using
   // this operation as an operand.
@@ -354,20 +354,20 @@ auto ein(T& scalar) {
  * - `i`, `j`, `k` are the `constexpr` values `0, 1, 2`, respectively */
 template <class Expr, class = internal::enable_if_ein_assign<Expr>>
 NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
-  enum { loop_rank = Expr::max_index + 1 };
+  constexpr index_t LoopRank = Expr::MaxIndex + 1;
 
   // Gather the dimensions identified by the indices. gather_dims keeps the
   // first dimension it finds, so we want that to be the result dimension if it
   // is present. If not, this selects one of the operand dimensions, which are
   // given stride 0.
-  auto reduction_shape = internal::make_ein_reduce_shape(internal::make_index_sequence<loop_rank>(),
+  auto reduction_shape = internal::make_ein_reduce_shape(internal::make_index_sequence<LoopRank>(),
       std::make_tuple(internal::is_result_shape(), expr.op_a),
       std::make_tuple(internal::is_operand_shape(), expr.op_b));
 
   // TODO: Try to compile-time optimize reduction_shape? :)
 
   // Perform the reduction.
-  for_each_index(reduction_shape, [&](const index_of_rank<loop_rank>& i) { expr(i); });
+  for_each_index(reduction_shape, [&](const index_of_rank<LoopRank>& i) { expr(i); });
 
   // Assume the expr is an assignment, and return the left-hand side.
   return expr.op_a.op;
