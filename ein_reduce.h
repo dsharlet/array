@@ -87,7 +87,7 @@ struct ein_bin_op {
 
   using is_ein_op = std::true_type;
 
-  enum { max_index = OpA::max_index > OpB::max_index ? OpA::max_index : OpB::max_index };
+  enum { max_index = variadic_max(OpA::max_index, OpB::max_index) + 1 };
 
   // We need to be able to get the derived type when creating binary operations using
   // this operation as an operand.
@@ -200,9 +200,7 @@ auto reconcile_dim(const std::tuple<Dims...>& dims) {
 
 // Get the shape of an ein_reduce operand, or an empty shape if not an array.
 template <class T, class Shape>
-const auto& dims_of(const array_ref<T, Shape>& op) {
-  return op.shape().dims();
-}
+const auto& dims_of(const array_ref<T, Shape>& op) { return op.shape().dims(); }
 template <class T>
 auto dims_of(const T& op) { return std::tuple<>(); }
 
