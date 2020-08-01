@@ -21,6 +21,8 @@ Arrays efficiently support advanced manipulations like cropping, slicing, and sp
 Although it is a heavily templated library, most features do not have significant code size or compile time implications, and incorrect usage generates informative and helpful error messages.
 Typically, an issue will result in only one error message, located at the site of the problem in user code.
 
+Many of the tools provided by this library can be used in `__device__` code compiled with [CUDA](https://developer.nvidia.com/cuda-zone).
+
 Many other libraries offering multi-dimensional arrays or tensors allow compile-time constant shapes.
 *However*, most if not all of them only allow either all of the shape parameters to be compile-time constant, or none of them.
 This is really limiting; often only a few key parameters of a shape need to be compile-time constant for performance, while other dimensions need flexibility to accommodate runtime-valued shape parameters.
@@ -240,3 +242,9 @@ The behavior of each kind of split is different:
 
 Compile-time constant split factors produce ranges with compile-time extents, and shapes and arrays cropped with these ranges will have a corresponding `dim<>` with a compile-time constant extent.
 This allows potentially significant optimizations to be expressed relatively easily!
+
+### CUDA support
+
+Most of the functions in this library are marked with `__device__`, enabling them to be used in CUDA code.
+This includes `array_ref<T, Shape>` and most of its helper functions.
+The exceptions to this are functions and classes that allocate memory, primarily `array<T, Shape, Alloc>`.
