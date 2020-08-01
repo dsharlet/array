@@ -296,7 +296,7 @@ Here are some examples of how to use these reduction operations:
 These reduction operators generate loops that can be readily optimized by the compiler.
 For example, consider the cross product: if `crosses`, `xs`, and `ys` have shape `shape<dim<0, 3>, dim<>>`, the compiler will likely be able to optimize this to similar efficiency as hand-written code.
 These reductions also compose well with loop transformations like `split`.
-For example, a matrix multiplication can be tiled like so(\*):
+For example, a matrix multiplication can be tiled like so:
 ```c++
   // Adjust this depending on the target architecture. For AVX2,
   // vectors are 256-bit.
@@ -314,10 +314,8 @@ For example, a matrix multiplication can be tiled like so(\*):
     }
   }
 ```
-(\*) This doesn't generate performant code currently and requires a few tweaks to work around an issue in LLVM.
-See the [matrix example](examples/linear_algebra/matrix.cpp) for an explanation.
 
-A very similar example produces the following machine code for the inner loop using clang 11 with -O2 -ffast-math:
+This generates the following machine code(\*) for the inner loop using clang 11 with -O2 -ffast-math:
 ```assembly
 LBB9_11:
         vmovaps %ymm9, %ymm10
@@ -343,6 +341,9 @@ LBB9_11:
         jne     LBB9_11
 ```
 This is **30-40x** faster than a naive C implementation of nested loops on my machine, and I believe it is within a factor of 2 of the peak performance possible.
+
+(\*) Unfortunately, this doesn't generate performant code currently and requires a few tweaks to work around an issue in LLVM.
+See the [matrix example](examples/linear_algebra/matrix.cpp) for the example code that produces good performance.
 
 ### CUDA support
 
