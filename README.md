@@ -333,11 +333,11 @@ For example, a matrix multiplication can be tiled like so:
   constexpr index_t tile_rows = 3;
   constexpr index_t tile_cols = vector_size * 3;
 
-  for (auto io : split<tile_rows>(c.i())) {
-    for (auto jo : split<tile_cols>(c.j())) {
-      auto c_ijo = c(io, jo);
-      fill(c_ijo, 0.0f);
-      ein_reduce(ein<i, j>(c_ijo) += ein<i, k>(a(io, _)) * ein<k, j>(b(_, jo)));
+  for (auto io : split<tile_rows>(C.i())) {
+    for (auto jo : split<tile_cols>(C.j())) {
+      auto C_ijo = C(io, jo);
+      fill(C_ijo, 0.0f);
+      ein_reduce(ein<i, j>(C_ijo) += ein<i, k>(A(io, _)) * ein<k, j>(B(_, jo)));
     }
   }
 ```
