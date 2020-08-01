@@ -143,7 +143,9 @@ inline kernel_array build_kernels(
     assert(extent > 0);
     assert(sum > 0.0f);
     dense_array<float, 1> kernel_x({{min, extent}});
-    for (index_t rx : kernel_x.x()) { kernel_x(rx) = buffer(rx) / sum; }
+    for (index_t rx : kernel_x.x()) {
+      kernel_x(rx) = buffer(rx) / sum;
+    }
 
     // Make a copy without the padding, and store it in the kernel array.
     kernels(x) = std::move(kernel_x);
@@ -159,10 +161,14 @@ void resample_y(const TIn& in, const TOut& out, const kernel_array& kernels) {
   for (index_t y : out.y()) {
     const dense_array<float, 1>& kernel_y = kernels(y);
     for (index_t c : out.c()) {
-      for (index_t x : out.x()) { out(x, y, c) = 0.0f; }
+      for (index_t x : out.x()) {
+        out(x, y, c) = 0.0f;
+      }
       for (index_t ry : kernel_y.x()) {
         float kernel_y_ry = kernel_y(ry);
-        for (index_t x : out.x()) { out(x, y, c) += in(x, ry, c) * kernel_y_ry; }
+        for (index_t x : out.x()) {
+          out(x, y, c) += in(x, ry, c) * kernel_y_ry;
+        }
       }
     }
   }
@@ -172,7 +178,9 @@ template <class TIn, class TOut>
 void transpose(const TIn& in, const TOut& out) {
   for (index_t c : out.c()) {
     for (index_t y : out.y()) {
-      for (index_t x : out.x()) { out(x, y, c) = in(y, x, c); }
+      for (index_t x : out.x()) {
+        out(x, y, c) = in(y, x, c);
+      }
     }
   }
 }

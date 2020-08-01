@@ -47,7 +47,9 @@ TEST(readme) {
   // Access elements of this array.
   for (int z = 0; z < depth; z++) {
     for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) { my_array(x, y, z) = 5; }
+      for (int x = 0; x < width; x++) {
+        my_array(x, y, z) = 5;
+      }
     }
   }
 

@@ -61,7 +61,9 @@ using small_vector = array<T, vector_shape<Length>, auto_allocator<T, Length>>;
 template <class Shape, class Fn>
 void for_each_matrix_index(const Shape& s, Fn&& fn) {
   for (index_t i : s.i()) {
-    for (index_t j : s.j()) { fn(std::make_tuple(i, j)); }
+    for (index_t j : s.j()) {
+      fn(std::make_tuple(i, j));
+    }
   }
 }
 

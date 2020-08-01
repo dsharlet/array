@@ -70,7 +70,9 @@ TEST(performance_copy) {
   double loop_time = benchmark([&] {
     for (int z : c.z()) {
       for (int y : c.y()) {
-        for (int x : c.x()) { c(x, y, z) = a(x, y, z); }
+        for (int x : c.x()) {
+          c(x, y, z) = a(x, y, z);
+        }
       }
     }
   });

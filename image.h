@@ -58,7 +58,9 @@ void for_each_image_index(const Shape& s, Fn&& fn) {
   // communication in the c dimension).
   for (index_t y : s.y()) {
     for (index_t x : s.x()) {
-      for (index_t c : s.c()) { fn(std::make_tuple(x, y, c)); }
+      for (index_t c : s.c()) {
+        fn(std::make_tuple(x, y, c));
+      }
     }
   }
 }

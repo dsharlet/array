@@ -30,7 +30,9 @@ double benchmark(F op) {
   long iterations = 1;
   for (int trials = 0; trials < max_trials; trials++) {
     auto t1 = std::chrono::high_resolution_clock::now();
-    for (int j = 0; j < iterations; j++) { op(); }
+    for (int j = 0; j < iterations; j++) {
+      op();
+    }
     auto t2 = std::chrono::high_resolution_clock::now();
     time_per_iteration_s =
         std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count() / (iterations * 1e9);

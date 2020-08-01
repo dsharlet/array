@@ -32,14 +32,18 @@ TEST(shape_1d) {
   for (int stride : {1, 2, 10}) {
     dim<> x(0, 10, stride);
     shape<dim<>> s(x);
-    for (int i : x) { ASSERT_EQ(s(i), i * stride); }
+    for (int i : x) {
+      ASSERT_EQ(s(i), i * stride);
+    }
   }
 }
 
 TEST(shape_1d_dense) {
   dense_dim<> x(0, 10);
   shape<dense_dim<>> s(x);
-  for (int i : x) { ASSERT_EQ(s(i), i); }
+  for (int i : x) {
+    ASSERT_EQ(s(i), i);
+  }
 }
 
 TEST(shape_2d) {
@@ -47,7 +51,9 @@ TEST(shape_2d) {
   dim<> y(0, 5, x.extent());
   shape<dense_dim<>, dim<>> s(x, y);
   for (int i : y) {
-    for (int j : x) { ASSERT_EQ(s(j, i), i * x.extent() + j); }
+    for (int j : x) {
+      ASSERT_EQ(s(j, i), i * x.extent() + j);
+    }
   }
 }
 
@@ -163,7 +169,9 @@ void test_auto_strides() {
 template <size_t Rank>
 void check_resolved_strides(shape_of_rank<Rank> shape, const std::vector<index_t>& strides) {
   shape.resolve();
-  for (size_t i = 0; i < strides.size(); i++) { ASSERT_EQ(shape.dim(i).stride(), strides[i]); }
+  for (size_t i = 0; i < strides.size(); i++) {
+    ASSERT_EQ(shape.dim(i).stride(), strides[i]);
+  }
 }
 
 TEST(auto_strides) {
@@ -201,7 +209,9 @@ TEST(broadcast_dim) {
   broadcast_dim<> y;
   shape<dim<>, broadcast_dim<>> s(x, y);
   for (int i = 0; i < 10; i++) {
-    for (int j : x) { ASSERT_EQ(s(j, i), j); }
+    for (int j : x) {
+      ASSERT_EQ(s(j, i), j);
+    }
   }
 }
 
@@ -324,7 +334,9 @@ TEST(for_each_index_3d_reorderd) {
 TEST(dim_is_in_range) {
   dim<> x(2, 5);
 
-  for (int i = 2; i < 7; i++) { ASSERT(x.is_in_range(i)); }
+  for (int i = 2; i < 7; i++) {
+    ASSERT(x.is_in_range(i));
+  }
   ASSERT(!x.is_in_range(1));
   ASSERT(!x.is_in_range(8));
 
@@ -337,7 +349,9 @@ TEST(shape_is_in_range_1d) {
   dim<> x(2, 5);
   shape<dim<>> s(x);
 
-  for (int i = 2; i < 7; i++) { ASSERT(s.is_in_range(i)); }
+  for (int i = 2; i < 7; i++) {
+    ASSERT(s.is_in_range(i));
+  }
   ASSERT(!s.is_in_range(1));
   ASSERT(!s.is_in_range(8));
 
@@ -352,7 +366,9 @@ TEST(shape_is_in_range_2d) {
   shape<dim<>, dim<>> s(x, y);
 
   for (int i = -3; i < 3; i++) {
-    for (int j = 2; j < 7; j++) { ASSERT(s.is_in_range(j, i)); }
+    for (int j = 2; j < 7; j++) {
+      ASSERT(s.is_in_range(j, i));
+    }
   }
   ASSERT(!s.is_in_range(1, 0));
   ASSERT(!s.is_in_range(2, -4));

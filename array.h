@@ -1257,7 +1257,9 @@ NDARRAY_INLINE NDARRAY_HOST_DEVICE void advance(Ptr& ptr, Ptrs&... ptrs) {
 template <class Fn, class... Ptrs>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order_inner_dense(
     index_t extent, Fn&& fn, Ptrs... ptrs) {
-  for (index_t i = 0; i < extent; i++) { fn(*ptrs++...); }
+  for (index_t i = 0; i < extent; i++) {
+    fn(*ptrs++...);
+  }
 }
 
 // TODO: Try to use a variadic dims approach like for_each_index.
@@ -1549,7 +1551,9 @@ NDARRAY_HOST_DEVICE shape_of_rank<Shape::rank()> dynamic_optimize_shape(const Sh
   for (size_t i = 0; i + 1 < rank;) {
     if (can_fuse(dims[i], dims[i + 1])) {
       dims[i] = fuse(dims[i], dims[i + 1]);
-      for (size_t j = i + 1; j + 1 < rank; j++) { dims[j] = dims[j + 1]; }
+      for (size_t j = i + 1; j + 1 < rank; j++) {
+        dims[j] = dims[j + 1];
+      }
       rank--;
     } else {
       i++;
@@ -1580,7 +1584,9 @@ NDARRAY_HOST_DEVICE auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const
     dim<> dst;
   };
   std::array<copy_dims, rank> dims;
-  for (size_t i = 0; i < rank; i++) { dims[i] = {src_dims[i], dst_dims[i]}; }
+  for (size_t i = 0; i < rank; i++) {
+    dims[i] = {src_dims[i], dst_dims[i]};
+  }
 
   // Sort the dims by the dst stride.
   bubble_sort(dims.begin(), dims.end(),
@@ -1593,7 +1599,9 @@ NDARRAY_HOST_DEVICE auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const
         can_fuse(dims[i].dst, dims[i + 1].dst)) {
       dims[i].src = fuse(dims[i].src, dims[i + 1].src);
       dims[i].dst = fuse(dims[i].dst, dims[i + 1].dst);
-      for (size_t j = i + 1; j + 1 < new_rank; j++) { dims[j] = dims[j + 1]; }
+      for (size_t j = i + 1; j + 1 < new_rank; j++) {
+        dims[j] = dims[j + 1];
+      }
       new_rank--;
     } else {
       i++;

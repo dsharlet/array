@@ -19,13 +19,17 @@ namespace nda {
 
 TEST(array_default_constructor) {
   dense_array<int, 1> a({10});
-  for (int x = 0; x < 10; x++) { ASSERT_EQ(a(x), 0); }
+  for (int x = 0; x < 10; x++) {
+    ASSERT_EQ(a(x), 0);
+  }
 
   dense_array<int, 2> b({7, 3});
   ASSERT_EQ(b.width(), 7);
   ASSERT_EQ(b.height(), 3);
   for (int y = 0; y < 3; y++) {
-    for (int x = 0; x < 7; x++) { ASSERT_EQ(b(x, y), 0); }
+    for (int x = 0; x < 7; x++) {
+      ASSERT_EQ(b(x, y), 0);
+    }
   }
 
   dense_array<int, 3> c({5, 9, 3});
@@ -34,7 +38,9 @@ TEST(array_default_constructor) {
   ASSERT_EQ(c.channels(), 3);
   for (int z = 0; z < 3; z++) {
     for (int y = 0; y < 9; y++) {
-      for (int x = 0; x < 5; x++) { ASSERT_EQ(c(x, y, z), 0); }
+      for (int x = 0; x < 5; x++) {
+        ASSERT_EQ(c(x, y, z), 0);
+      }
     }
   }
 
@@ -42,7 +48,9 @@ TEST(array_default_constructor) {
   ASSERT_EQ(sparse.rows(), 5);
   ASSERT_EQ(sparse.columns(), 10);
   for (int y = 4; y < 14; y++) {
-    for (int x = -2; x < 3; x++) { ASSERT_EQ(sparse(x, y), 0); }
+    for (int x = -2; x < 3; x++) {
+      ASSERT_EQ(sparse(x, y), 0);
+    }
   }
 
   sparse.clear();
@@ -52,23 +60,31 @@ TEST(array_default_constructor) {
 
 TEST(array_fill_constructor) {
   dense_array<int, 1> a({10}, 3);
-  for (int x = 0; x < 10; x++) { ASSERT_EQ(a(x), 3); }
+  for (int x = 0; x < 10; x++) {
+    ASSERT_EQ(a(x), 3);
+  }
 
   dense_array<int, 2> b({7, 3}, 5);
   for (int y = 0; y < 3; y++) {
-    for (int x = 0; x < 7; x++) { ASSERT_EQ(b(x, y), 5); }
+    for (int x = 0; x < 7; x++) {
+      ASSERT_EQ(b(x, y), 5);
+    }
   }
 
   dense_array<int, 3> c({5, 9, 3}, 7);
   for (int z = 0; z < 3; z++) {
     for (int y = 0; y < 9; y++) {
-      for (int x = 0; x < 5; x++) { ASSERT_EQ(c(x, y, z), 7); }
+      for (int x = 0; x < 5; x++) {
+        ASSERT_EQ(c(x, y, z), 7);
+      }
     }
   }
 
   array<int, shape<dim<>, dim<>>> sparse({{-2, 5, 2}, {4, 10, 20}}, 13);
   for (int y = 4; y < 14; y++) {
-    for (int x = -2; x < 3; x++) { ASSERT_EQ(sparse(x, y), 13); }
+    for (int x = -2; x < 3; x++) {
+      ASSERT_EQ(sparse(x, y), 13);
+    }
   }
 }
 
@@ -104,19 +120,25 @@ TEST(array_assign) {
 TEST(array_fill_assign) {
   dense_array<int, 1> a;
   a.assign({10}, 3);
-  for (int x = 0; x < 10; x++) { ASSERT_EQ(a(x), 3); }
+  for (int x = 0; x < 10; x++) {
+    ASSERT_EQ(a(x), 3);
+  }
 
   dense_array<int, 2> b;
   b.assign({7, 3}, 5);
   for (int y = 0; y < 3; y++) {
-    for (int x = 0; x < 7; x++) { ASSERT_EQ(b(x, y), 5); }
+    for (int x = 0; x < 7; x++) {
+      ASSERT_EQ(b(x, y), 5);
+    }
   }
 
   dense_array<int, 3> c;
   c.assign({5, 9, 3}, 7);
   for (int z = 0; z < 3; z++) {
     for (int y = 0; y < 9; y++) {
-      for (int x = 0; x < 5; x++) { ASSERT_EQ(c(x, y, z), 7); }
+      for (int x = 0; x < 5; x++) {
+        ASSERT_EQ(c(x, y, z), 7);
+      }
     }
   }
 
@@ -126,7 +148,9 @@ TEST(array_fill_assign) {
 
   sparse.assign(sparse_shape, 13);
   for (int y = 4; y < 14; y++) {
-    for (int x = -2; x < 3; x++) { ASSERT_EQ(sparse(x, y), 13); }
+    for (int x = -2; x < 3; x++) {
+      ASSERT_EQ(sparse(x, y), 13);
+    }
   }
 }
 
@@ -175,13 +199,17 @@ TEST(sparse_array) {
 
   array<int, shape<dim<>, dim<>>> sparse(sparse_shape);
   // Fill the storage with a constant.
-  for (size_t i = 0; i < sparse_shape.flat_extent(); i++) { sparse.data()[i] = 7; }
+  for (size_t i = 0; i < sparse_shape.flat_extent(); i++) {
+    sparse.data()[i] = 7;
+  }
   // Assign a different constant.
   sparse.assign(sparse_shape, 3);
 
   // Check that we assigned all of the elements of the array.
   for (int y = 4; y < 14; y++) {
-    for (int x = -2; x < 3; x++) { ASSERT_EQ(sparse(x, y), 3); }
+    for (int x = -2; x < 3; x++) {
+      ASSERT_EQ(sparse(x, y), 3);
+    }
   }
 
   // Check that only the elements of the array were assigned.

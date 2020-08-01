@@ -23,7 +23,9 @@ namespace nda {
 TEST(sort) {
   for (int size = 0; size < 100; size++) {
     std::vector<int> unordered(size);
-    for (int& i : unordered) { i = rand() % 100; }
+    for (int& i : unordered) {
+      i = rand() % 100;
+    }
 
     std::vector<int> std_sorted(unordered);
     std::vector<int> sorted(unordered);
@@ -32,7 +34,9 @@ TEST(sort) {
     std::sort(std_sorted.begin(), std_sorted.end(), compare);
     internal::bubble_sort(sorted.begin(), sorted.end(), compare);
 
-    for (size_t i = 0; i < unordered.size(); i++) { ASSERT_EQ(std_sorted[i], sorted[i]); }
+    for (size_t i = 0; i < unordered.size(); i++) {
+      ASSERT_EQ(std_sorted[i], sorted[i]);
+    }
   }
 }
 

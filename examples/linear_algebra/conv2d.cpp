@@ -73,7 +73,9 @@ void conv2d_tiled(const Input& input, const Filter& filter, const Output& output
         }
         for (index_t y : output_tile.y()) {
           for (index_t x : output_tile.x()) {
-            for (index_t c : output_tile.c()) { output_tile(x, y, c) = accumulator(x, y, c); }
+            for (index_t c : output_tile.c()) {
+              output_tile(x, y, c) = accumulator(x, y, c);
+            }
           }
         }
       }

@@ -21,7 +21,9 @@ namespace nda {
 
 TEST(array_ref_indices) {
   int data[100];
-  for (int i = 0; i < 100; i++) { data[i] = i; }
+  for (int i = 0; i < 100; i++) {
+    data[i] = i;
+  }
 
   dense_array_ref<int, 1> ref_1d(data, {100});
   for_all_indices(ref_1d.shape(), [&](int x) { ASSERT_EQ(ref_1d(x), x); });
@@ -60,7 +62,9 @@ TEST(reinterpret) {
 
 TEST(array_ref_copy) {
   int data[100];
-  for (int i = 0; i < 100; i++) { data[i] = i; }
+  for (int i = 0; i < 100; i++) {
+    data[i] = i;
+  }
 
   array_ref_of_rank<int, 1> evens(data, {dim<>(0, 50, 2)});
   dense_array<int, 1> evens_copy = make_dense_copy(evens);

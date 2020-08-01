@@ -34,7 +34,9 @@ __attribute__((noinline)) void multiply_reduce_cols(
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
       c(i, j) = 0;
-      for (index_t k : a.j()) { c(i, j) += a(i, k) * b(k, j); }
+      for (index_t k : a.j()) {
+        c(i, j) += a(i, k) * b(k, j);
+      }
     }
   }
 }
@@ -45,7 +47,9 @@ template <typename T>
 __attribute__((noinline)) void multiply_ein_reduce_cols(
     const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   for (index_t i : c.i()) {
-    for (index_t j : c.j()) { c(i, j) = make_ein_sum<T>(ein<k>(a(i, _)) * ein<k>(b(_, j))); }
+    for (index_t j : c.j()) {
+      c(i, j) = make_ein_sum<T>(ein<k>(a(i, _)) * ein<k>(b(_, j)));
+    }
   }
 }
 
@@ -57,7 +61,9 @@ __attribute__((noinline)) void multiply_ref(
   for (int i = 0; i < M; i++) {
     for (int j = 0; j < N; j++) {
       TC sum = 0;
-      for (int k = 0; k < K; k++) { sum += a[i * K + k] * b[k * N + j]; }
+      for (int k = 0; k < K; k++) {
+        sum += a[i * K + k] * b[k * N + j];
+      }
       c[i * N + j] = sum;
     }
   }
@@ -70,9 +76,13 @@ template <typename T>
 __attribute__((noinline)) void multiply_reduce_rows(
     const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   for (index_t i : c.i()) {
-    for (index_t j : c.j()) { c(i, j) = 0; }
+    for (index_t j : c.j()) {
+      c(i, j) = 0;
+    }
     for (index_t k : a.j()) {
-      for (index_t j : c.j()) { c(i, j) += a(i, k) * b(k, j); }
+      for (index_t j : c.j()) {
+        c(i, j) += a(i, k) * b(k, j);
+      }
     }
   }
 }
@@ -92,11 +102,15 @@ template <typename T>
 __attribute__((noinline)) void multiply_reduce_matrix(
     const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   for (index_t i : c.i()) {
-    for (index_t j : c.j()) { c(i, j) = 0; }
+    for (index_t j : c.j()) {
+      c(i, j) = 0;
+    }
   }
   for (index_t k : a.j()) {
     for (index_t i : c.i()) {
-      for (index_t j : c.j()) { c(i, j) += a(i, k) * b(k, j); }
+      for (index_t j : c.j()) {
+        c(i, j) += a(i, k) * b(k, j);
+      }
     }
   }
 }
@@ -180,7 +194,9 @@ __attribute__((noinline)) void multiply_reduce_tiles(
       // Perform the matrix multiplication for this tile.
       for (index_t k : a.j()) {
         for (index_t i : c_ijo.i()) {
-          for (index_t j : c_ijo.j()) { accumulator(i, j) += a(i, k) * b(k, j); }
+          for (index_t j : c_ijo.j()) {
+            accumulator(i, j) += a(i, k) * b(k, j);
+          }
         }
       }
 
@@ -191,7 +207,9 @@ __attribute__((noinline)) void multiply_reduce_tiles(
       copy(accumulator, c_ijo);
 #else
       for (index_t i : c_ijo.i()) {
-        for (index_t j : c_ijo.j()) { c_ijo(i, j) = accumulator(i, j); }
+        for (index_t j : c_ijo.j()) {
+          c_ijo(i, j) = accumulator(i, j);
+        }
       }
 #endif
 #endif
@@ -238,7 +256,9 @@ __attribute__((noinline)) void multiply_ein_reduce_tiles(
       copy(accumulator, c_ijo);
 #else
       for (index_t i : c_ijo.i()) {
-        for (index_t j : c_ijo.j()) { c_ijo(i, j) = accumulator(i, j); }
+        for (index_t j : c_ijo.j()) {
+          c_ijo(i, j) = accumulator(i, j);
+        }
       }
 #endif
 #endif

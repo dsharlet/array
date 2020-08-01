@@ -134,7 +134,9 @@ TEST(image_chunky_copy) {
 }
 
 TEST(image_planar_copy) {
-  for (int i = 1; i <= 4; i++) { test_copy_all_types<planar_image_shape, planar_image_shape>(i); }
+  for (int i = 1; i <= 4; i++) {
+    test_copy_all_types<planar_image_shape, planar_image_shape>(i);
+  }
 }
 
 // Copying from planar to chunky is an "interleaving" operation.
