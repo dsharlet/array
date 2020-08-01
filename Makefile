@@ -3,7 +3,7 @@ CXXFLAGS := $(CXXFLAGS) -std=c++14 -Wall
 LDFLAGS := $(LDFLAGS)
 CUDA_FLAGS := --cuda-gpu-arch=sm_52 -nocudalib -nocudainc -emit-llvm
 
-DEPS := array.h einsum.h image.h matrix.h
+DEPS := array.h ein_reduce.h image.h matrix.h
 
 TEST_SRC := $(filter-out test/errors.cpp, $(wildcard test/*.cpp))
 TEST_OBJ := $(TEST_SRC:%.cpp=obj/%.o)

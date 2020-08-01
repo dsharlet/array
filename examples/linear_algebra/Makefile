@@ -2,7 +2,7 @@ CFLAGS := $(CFLAGS) -O2 -ffast-math -fstrict-aliasing -march=native
 CXXFLAGS := $(CXXFLAGS) -std=c++14 -Wall
 LDFLAGS := $(LDFLAGS)
 
-DEPS := ../../array.h ../../matrix.h ../benchmark.h ../../einsum.h
+DEPS := ../../array.h ../../matrix.h ../benchmark.h ../../ein_reduce.h
 
 bin/%: %.cpp $(DEPS)
 	mkdir -p $(@D)
