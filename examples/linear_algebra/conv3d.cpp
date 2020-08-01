@@ -41,29 +41,6 @@ void conv3d_naive(const Input& input, const Filter& filter, const Output& output
 }
 
 template <typename Input, typename Filter, typename Output>
-__attribute__((always_inline)) void conv3d(
-    const Input& input, const Filter& filter, const Output& output) {
-  typedef typename Output::value_type T;
-
-  for (index_t n : output.template dim<3>()) {
-    for (index_t y : output.template dim<2>()) {
-      fill(output(_, _, y, n), static_cast<T>(0));
-      for (index_t ci : filter.template dim<3>()) {
-        for (index_t dy : filter.template dim<2>()) {
-          for (index_t dx : filter.template dim<1>()) {
-            for (index_t x : output.template dim<1>()) {
-              for (index_t co : output.template dim<0>()) {
-                output(co, x, y, n) += filter(co, dx, dy, ci) * input(ci, x + dx, y + dy, n);
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-template <typename Input, typename Filter, typename Output>
 void conv3d_tiled(const Input& input, const Filter& filter, const Output& output) {
   typedef typename Output::value_type T;
 
@@ -80,12 +57,22 @@ void conv3d_tiled(const Input& input, const Filter& filter, const Output& output
     for (index_t y : output.template dim<2>()) {
       for (auto xo : split<tile_x>(output.template dim<1>())) {
         for (auto coo : split<tile_co>(output.template dim<0>())) {
-          // Don't slice the y, n.template dims by making them a interval here.
-          auto output_tile = output(coo, xo, r<1>(y), r<1>(n));
+          auto output_tile = output(coo, xo, y, n);
 
           // TODO: This is slow, probably due to potential aliasing that
           // we can't fix due to https://bugs.llvm.org/show_bug.cgi?id=45863
-          conv3d(input, filter, output_tile);
+          fill(output_tile(_, _), static_cast<T>(0));
+          for (index_t ci : filter.template dim<3>()) {
+            for (index_t dy : filter.template dim<2>()) {
+              for (index_t dx : filter.template dim<1>()) {
+                for (index_t x : xo) {
+                  for (index_t co : coo) {
+                    output_tile(co, x) += filter(co, dx, dy, ci) * input(ci, x + dx, y + dy, n);
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
