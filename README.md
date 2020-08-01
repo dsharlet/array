@@ -243,6 +243,106 @@ The behavior of each kind of split is different:
 Compile-time constant split factors produce ranges with compile-time extents, and shapes and arrays cropped with these ranges will have a corresponding `dim<>` with a compile-time constant extent.
 This allows potentially significant optimizations to be expressed relatively easily!
 
+### Einstein reductions
+
+The `ein_reduce.h` header provides [Einstein notation](https://en.wikipedia.org/wiki/Einstein_notation) reductions and summation helpers.
+This is a powerful tool that allows expressing a variety of array operations in a safe and performant way.
+Einstein notation expression operands are constructed using the `ein<i, j, ...>(x)` helper function.
+`x` can be any callable object, including an `array<>` or `array_ref<>`.
+The dimensions `i, j, ...` of the reduction operate are used to call `x`.
+Therefore, the number of arguments of `x` must match the number of dimensions provided to `ein`.
+Operands can be combined into larger expressions using typical binary operators.
+
+Einstein notation expressions can be evaluated using one of the following functions:
+* `ein_reduce(expression)`, evaluate an arbitrary Einstein notation `expression`.
+* `ein_sum(lhs, rhs)`, evaluate the summation `ein_reduce(lhs += rhs)`.
+* `lhs = make_ein_sum<T, i, j>(rhs)`, evaluate the summation `lhs += rhs` and return it, inferring the shape of `lhs` from `rhs`.
+
+Here are some examples of how to use these reduction operations:
+```c++
+  enum { i = 0, j = 1, k = 2, l = 3 };
+
+  // Dot product x.y:
+  float dot1 = make_ein_sum<float>(ein<i>(x), ein<i>(y));
+
+  float dot2 = 0.0f;
+  ein_reduce(ein<>(dot2) += ein<i>(x) * ein<i>(y));
+
+  float dot3 = 0.0f;
+  ein_sum(ein<i>(x) * ein<i>(y), ein<>(dot3));
+
+  // Matrix transpose:
+  ein_reduce(ein<i, j>(AT) = ein<j, i>(A));
+
+  // Matrix multiply:
+  fill(C1, 0.0f);
+  ein_reduce(ein<i, j>(C1) += ein<i, k>(A) * ein<k, j>(B));
+
+  auto C2 = make_ein_sum<float, i, j>(ein<i, k>(A) * ein<k, j>(B));
+
+  // Cross product of an array of vectors x and y:
+  // In this example, we use a function as an operand.
+  auto epsilon3 = [](index_t i, index_t j, index_t k) {
+    return sgn(j - i) * sgn(k - i) * sgn(k - j);
+  };
+  ein_reduce(ein<i, l>(crosses) += ein<i, j, k>(epsilon3) * ein<j, l>(xs) * ein<k, l>(ys));
+
+  // Maximum of each x-y plane of a 3D volume:
+  auto r = ein<k>(max_xy);
+  ein_reduce(r = max(r, ein<i, j, k>(T)));
+```
+
+These reduction operators generate loops that can be readily optimized by the compiler.
+For example, consider the cross product: if `crosses`, `xs`, and `ys` have shape `shape<dim<0, 3>, dim<>>`, the compiler will see small constant loops and unroll them, and then likely inline and evaluate `epsilon3` at compile time.
+The reductions also compose well with loop transformations like `split`.
+For example, a matrix multiplication can be tiled like so (\*):
+```c++
+  // Adjust this depending on the target architecture. For AVX2,
+  // vectors are 256-bit.
+  constexpr index_t vector_size = 32 / sizeof(float);
+
+  // We want the tiles to be big without spilling the accumulators to the stack.
+  constexpr index_t tile_rows = 3;
+  constexpr index_t tile_cols = vector_size * 3;
+
+  for (auto io : split<tile_rows>(c.i())) {
+    for (auto jo : split<tile_cols>(c.j())) {
+      auto c_ijo = c(io, jo);
+      fill(c_ijo, 0.0f);
+      ein_reduce(ein<i, j>(c_ijo) += ein<i, k>(a(io, _)) * ein<k, j>(b(_, jo)));
+    }
+  }
+```
+(\*) This doesn't generate fully performant code currently and requires a few tweaks to work around an issue in LLVM.
+See the [matrix example](examples/linear_algebra/matrix.cpp) for an explanation.
+
+A very similar example produces the following machine code on clang 11 with -O2 -ffast-math:
+```assembly
+LBB9_11:
+        vmovaps %ymm9, %ymm10
+        vmovaps %ymm8, %ymm11
+        vbroadcastss    (%r12,%rbx,4), %ymm12
+        vbroadcastss    (%r13,%rbx,4), %ymm13
+        vbroadcastss    (%r10,%rbx,4), %ymm14
+        vmovups -64(%r14), %ymm9
+        vmovups -32(%r14), %ymm8
+        vmovups (%r14), %ymm15
+        vfmadd231ps     %ymm12, %ymm9, %ymm5
+        vfmadd231ps     %ymm13, %ymm9, %ymm7
+        vfmadd213ps     %ymm10, %ymm14, %ymm9
+        vfmadd231ps     %ymm12, %ymm8, %ymm2
+        vfmadd231ps     %ymm13, %ymm8, %ymm6
+        vfmadd213ps     %ymm11, %ymm14, %ymm8
+        vfmadd231ps     %ymm12, %ymm15, %ymm1
+        vfmadd231ps     %ymm13, %ymm15, %ymm4
+        vfmadd231ps     %ymm14, %ymm15, %ymm3
+        incq    %rbx
+        addq    %rcx, %r14
+        cmpq    %rbx, %rsi
+        jne     LBB9_11
+```
+This is **30-40x** faster than a naive C implementation of nested loops on my machine, and I believe it is within a factor of 2 of the peak performance possible.
+
 ### CUDA support
 
 Most of the functions in this library are marked with `__device__`, enabling them to be used in CUDA code.
