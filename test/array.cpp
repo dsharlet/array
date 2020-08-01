@@ -18,7 +18,8 @@
 namespace nda {
 
 TEST(array_default_constructor) {
-  dense_array<int, 1> a({10});
+  // GCC 9.3 struggles to disambiguate this, clang is fine.
+  dense_array<int, 1> a(dense_shape<1>{10});
   for (int x = 0; x < 10; x++) {
     ASSERT_EQ(a(x), 0);
   }
@@ -144,7 +145,7 @@ TEST(array_fill_assign) {
 
   array<int, shape<dim<>, dim<>>> sparse;
   auto sparse_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10));
-  ASSERT(sparse_shape.flat_extent() > sparse_shape.size());
+  ASSERT_LT(sparse_shape.size(), sparse_shape.flat_extent());
 
   sparse.assign(sparse_shape, 13);
   for (int y = 4; y < 14; y++) {
@@ -195,7 +196,7 @@ TEST(array_fill_assign_scalar) {
 TEST(sparse_array) {
   auto sparse_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10));
   sparse_shape.resolve();
-  ASSERT(sparse_shape.flat_extent() > sparse_shape.size());
+  ASSERT_LT(sparse_shape.size(), sparse_shape.flat_extent());
 
   array<int, shape<dim<>, dim<>>> sparse(sparse_shape);
   // Fill the storage with a constant.

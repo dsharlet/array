@@ -32,7 +32,7 @@ TEST(make_ein_sum_diag) {
   auto a_diag = make_ein_sum<int, i>(ein<i, i>(A));
 
   ASSERT_EQ(a_diag.rank(), 1);
-  ASSERT_EQ(a_diag.size(), N);
+  ASSERT_EQ(a_diag.i().extent(), N);
   for (index_t i : A.i()) {
     ASSERT_EQ(a_diag(i), A(i, i));
   }
@@ -152,8 +152,8 @@ TEST(make_ein_sum_outer) {
   auto outer = make_ein_sum<int, i, j>(ein<i>(x) * ein<j>(y));
 
   ASSERT_EQ(outer.rank(), 2);
-  ASSERT_EQ(outer.rows(), x.size());
-  ASSERT_EQ(outer.columns(), y.size());
+  ASSERT_EQ(outer.rows(), x.i().extent());
+  ASSERT_EQ(outer.columns(), y.i().extent());
   for (index_t i : outer.i()) {
     for (index_t j : outer.j()) {
       ASSERT_EQ(outer(i, j), x(i) * y(j));
@@ -192,7 +192,7 @@ TEST(make_ein_sum_matrix_vector) {
   auto Bx = make_ein_sum<int, i>(ein<i, j>(B) * ein<j>(x));
 
   ASSERT_EQ(Bx.rank(), 1);
-  ASSERT_EQ(Bx.size(), B.rows());
+  ASSERT_EQ(Bx.i().extent(), B.rows());
   for (index_t i : Bx.i()) {
     int Bx_i = 0;
     for (index_t j : x.i()) {
@@ -223,7 +223,7 @@ TEST(make_ein_sum_sum_2d) {
   auto sum_ik = make_ein_sum<int, j>(ein<i, j, k>(T));
 
   ASSERT_EQ(sum_ik.rank(), 1);
-  ASSERT_EQ(sum_ik.size(), T.j().extent());
+  ASSERT_EQ(sum_ik.i().extent(), T.j().extent());
   for (index_t j : T.i()) {
     int sum_ik_ref = 0;
     T(_, j, _).for_each_value([&](int i) { sum_ik_ref += i; });
@@ -241,7 +241,7 @@ TEST(ein_reduce_max_2d) {
   auto r = ein<j>(max_ik);
   ein_reduce(r = max(r, ein<i, j, k>(T)));
   ASSERT_EQ(max_ik.rank(), 1);
-  ASSERT_EQ(max_ik.size(), T.j().extent());
+  ASSERT_EQ(max_ik.i().extent(), T.j().extent());
   for (index_t j : T.i()) {
     int max_ik_ref = std::numeric_limits<int>::min();
     T(_, j, _).for_each_value([&](int i) { max_ik_ref = std::max(i, max_ik_ref); });

@@ -63,7 +63,7 @@ void test_slice(index_t channels) {
 
   for (index_t c = 0; c < channels; c++) {
     auto slice = slice_channel(base, c);
-    ASSERT_EQ(slice.shape().size(), base.width() * base.height());
+    ASSERT_EQ(static_cast<index_t>(slice.shape().size()), base.width() * base.height());
     for_all_indices(slice.shape(),
         [&](int x, int y) { ASSERT_EQ(slice(x, y), pattern<int>(std::make_tuple(x, y, c))); });
 
