@@ -155,10 +155,8 @@ TEST(readme_ein_reduce) {
   vector<float> x({10});
   vector<float> y({10});
   float dot1 = make_ein_sum<float>(ein<i>(x) * ein<i>(y));
-
   float dot2 = 0.0f;
   ein_reduce(ein<>(dot2) += ein<i>(x) * ein<i>(y));
-
   float dot3 = 0.0f;
   ein_sum(ein<i>(x) * ein<i>(y), ein<>(dot3));
 
@@ -172,7 +170,6 @@ TEST(readme_ein_reduce) {
   matrix<float> C1({10, 15});
   fill(C1, 0.0f);
   ein_reduce(ein<i, j>(C1) += ein<i, k>(A) * ein<k, j>(B));
-
   auto C2 = make_ein_sum<float, i, j>(ein<i, k>(A) * ein<k, j>(B));
 
   // Cross product of an array of vectors x and y:

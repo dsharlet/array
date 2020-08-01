@@ -267,10 +267,8 @@ Here are some examples of how to use these reduction operations:
   vector<float> x({10});
   vector<float> y({10});
   float dot1 = make_ein_sum<float>(ein<i>(x) * ein<i>(y));
-
   float dot2 = 0.0f;
   ein_reduce(ein<>(dot2) += ein<i>(x) * ein<i>(y));
-
   float dot3 = 0.0f;
   ein_sum(ein<i>(x) * ein<i>(y), ein<>(dot3));
 
@@ -284,7 +282,6 @@ Here are some examples of how to use these reduction operations:
   matrix<float> C1({10, 15});
   fill(C1, 0.0f);
   ein_reduce(ein<i, j>(C1) += ein<i, k>(A) * ein<k, j>(B));
-
   auto C2 = make_ein_sum<float, i, j>(ein<i, k>(A) * ein<k, j>(B));
 
   // Cross product of an array of vectors x and y:
@@ -308,8 +305,7 @@ For example, consider the cross product: if `crosses`, `xs`, and `ys` have shape
 These reductions also compose well with loop transformations like `split`.
 For example, a matrix multiplication can be tiled like so:
 ```c++
-  // Adjust this depending on the target architecture. For AVX2,
-  // vectors are 256-bit.
+  // Adjust this depending on the target architecture. For AVX2, vectors are 256-bit.
   constexpr index_t vector_size = 32 / sizeof(float);
 
   // We want the tiles to be big without spilling the accumulators to the stack.
