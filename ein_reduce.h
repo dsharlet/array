@@ -313,7 +313,8 @@ auto ein(T& scalar) {
  * This function accepts an expression `expr` constructed using operators
  * on `ein<i, j, ...>(op)` operands. These operands describe which
  * dimensions of the reduction index should be used to address that
- * operand.
+ * operand. The rank of the reduction operation is inferred from the
+ * number of dimensions used in the expression.
  *
  * If `expr` is a reduction operator, the result must be initialized to
  * some useful value, typically the identity value for the reduction
