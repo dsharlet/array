@@ -30,6 +30,7 @@ TEST(make_ein_sum_diag) {
 
   // Make diag(A), the digonal of the matrix A.
   auto a_diag = make_ein_sum<int, i>(ein<i, i>(A));
+
   ASSERT_EQ(a_diag.rank(), 1);
   ASSERT_EQ(a_diag.size(), N);
   for (index_t i : A.i()) {
@@ -46,6 +47,7 @@ TEST(ein_reduce_diag) {
   vector<int, N> a_diag;
   // This isn't a reduction!
   ein_reduce(ein<i>(a_diag) = ein<i, i>(A));
+
   for (index_t i : A.i()) {
     ASSERT_EQ(a_diag(i), A(i, i));
   }
@@ -58,6 +60,7 @@ TEST(make_ein_sum_trace) {
 
   // Compute trace(A) = sum(diag(A))
   int tr = make_ein_sum<int>(ein<i, i>(A));
+
   int tr_ref = 0;
   for (index_t i : A.i()) {
     tr_ref += A(i, i);
@@ -74,6 +77,7 @@ TEST(make_ein_sum_dot) {
 
   // Compute the dot product x.y using an ein_sum.
   int dot = make_ein_sum<int>(ein<i>(x) * ein<i>(y));
+
   int dot_ref = 0;
   for (index_t i : x.i()) {
     dot_ref += x(i) * y(i);
@@ -93,6 +97,7 @@ TEST(ein_reduce_dot_offset) {
   // Compute the dot product (x + y).z.
   int dot = 0;
   ein_reduce(ein<>(dot) += (ein<i>(x) + ein<i>(y)) * ein<i>(z));
+
   int dot_ref = 0;
   for (index_t i : x.i()) {
     dot_ref += (x(i) + y(i)) * z(i);
@@ -123,7 +128,8 @@ TEST(ein_sum_cross) {
   // TODO: We can't infer the output shape of this, because ein<> of a function
   // doesn't provide a shape.
   matrix<int, 3, dynamic> cross({{}, count}, 0);
-  ein_sum(ein<i, j, k>(epsilon3) * ein<j, l>(x) * ein<k, l>(y), ein<i, l>(cross));
+  ein_reduce(ein<i, l>(cross) += ein<i, j, k>(epsilon3) * ein<j, l>(x) * ein<k, l>(y));
+
   ASSERT_EQ(cross.rank(), 2);
   ASSERT_EQ(cross.rows(), 3);
   ASSERT_EQ(cross.columns(), count);
@@ -144,6 +150,7 @@ TEST(make_ein_sum_outer) {
 
   // Compute the outer product x^T*y.
   auto outer = make_ein_sum<int, i, j>(ein<i>(x) * ein<j>(y));
+
   ASSERT_EQ(outer.rank(), 2);
   ASSERT_EQ(outer.rows(), x.size());
   ASSERT_EQ(outer.columns(), y.size());
@@ -165,6 +172,7 @@ TEST(ein_reduce_outer) {
   // Compute the outer product x^T*y.
   matrix<int, N, M> outer;
   ein_reduce(ein<i, j>(outer) = ein<i>(x) * ein<j>(y));
+
   for (index_t i : outer.i()) {
     for (index_t j : outer.j()) {
       ASSERT_EQ(outer(i, j), x(i) * y(j));
@@ -182,6 +190,7 @@ TEST(make_ein_sum_matrix_vector) {
 
   // Compute the matrix-vector product B*x.
   auto Bx = make_ein_sum<int, i>(ein<i, j>(B) * ein<j>(x));
+
   ASSERT_EQ(Bx.rank(), 1);
   ASSERT_EQ(Bx.size(), B.rows());
   for (index_t i : Bx.i()) {
@@ -200,6 +209,7 @@ TEST(ein_sum_sum_3d) {
   // Fully reduce T.
   int sum_ijk = 0;
   ein_sum(ein<i, j, k>(T), ein(sum_ijk));
+
   int sum_ijk_ref = 0;
   T.for_each_value([&](int i) { sum_ijk_ref += i; });
   ASSERT_EQ(sum_ijk, sum_ijk_ref);
@@ -211,6 +221,7 @@ TEST(make_ein_sum_sum_2d) {
 
   // Reduce T along the i and k dimensions, keeping j.
   auto sum_ik = make_ein_sum<int, j>(ein<i, j, k>(T));
+
   ASSERT_EQ(sum_ik.rank(), 1);
   ASSERT_EQ(sum_ik.size(), T.j().extent());
   for (index_t j : T.i()) {
@@ -226,6 +237,7 @@ TEST(ein_reduce_max_2d) {
 
   // Reduce T along the i and k dimensions, keeping j.
   auto max_ik = make_array<int>(make_shape(T.j()), std::numeric_limits<int>::min());
+
   auto r = ein<j>(max_ik);
   ein_reduce(r = max(r, ein<i, j, k>(T)));
   ASSERT_EQ(max_ik.rank(), 1);
