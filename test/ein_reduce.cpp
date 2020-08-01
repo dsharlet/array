@@ -271,13 +271,12 @@ TEST(ein_reduce_max_2d) {
   array_of_rank<int, 3> T({4, 5, 8});
   fill_pattern(T);
 
-  // Reduce T along the i and k dimensions, keeping j.
-  auto max_ik = make_array<int>(make_shape(T.j()), std::numeric_limits<int>::min());
+  dense_array<int, 1> max_ik(dense_shape<1>{T.j().extent()}, std::numeric_limits<int>::min());
 
+  // Reduce T along the i and k dimensions, using max as the reduction.
   auto r = ein<j>(max_ik);
   ein_reduce(r = max(r, ein<i, j, k>(T)));
-  ASSERT_EQ(max_ik.rank(), 1);
-  ASSERT_EQ(max_ik.i().extent(), T.j().extent());
+
   for (index_t j : T.i()) {
     int max_ik_ref = std::numeric_limits<int>::min();
     T(_, j, _).for_each_value([&](int i) { max_ik_ref = std::max(i, max_ik_ref); });
