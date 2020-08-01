@@ -327,7 +327,7 @@ auto ein(T& scalar) {
  *
  * This function does not optimize the loop ordering within each operation.
  * The goal of this function is to provide a low-overhead and expressive
- * summation that can be composed with other explicit loop transformations
+ * reduction that can be composed with other explicit loop transformations
  * to achieve good performance. The loops associated with reductions (i.e.
  * loops not associated with a dimension of the result) are executed as
  * *outermost* loops. Therefore, good performance can usually be had by:
@@ -401,8 +401,8 @@ auto make_ein_reduce_shape(const Expr& expr) {
 /** Compute an Einstein summation using `ein_sum` and return the result. The
  * `value_type` of the result will be `T`, and the result shape will be inferred
  * from the shape of the operands. The result is initialized to `init` prior to
- * computing the summation. The Einstein summation indices for the result are
- * `ResultIs...`.
+ * computing the summation. The Einstein summation indices for the result operand
+ * are `ResultIs...`.
  *
  * Examples:
  * - `trace_A = make_ein_sum<T>(ein<i, i>(A))`
