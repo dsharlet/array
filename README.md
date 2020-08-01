@@ -245,7 +245,7 @@ This allows potentially significant optimizations to be expressed relatively eas
 
 ### Einstein reductions
 
-The `ein_reduce.h` header provides [Einstein notation](https://en.wikipedia.org/wiki/Einstein_notation) reductions and summation helpers.
+The `ein_reduce.h` header provides [Einstein notation](https://en.wikipedia.org/wiki/Einstein_notation) reductions and summation helpers, similar to [np.einsum](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html) or [tf.einsum](https://www.tensorflow.org/api_docs/python/tf/einsum).
 This is a powerful tool that allows expressing a variety of array operations in a safe and performant way.
 Einstein notation expression operands are constructed using the `ein<i, j, ...>(x)` helper function.
 `x` can be any callable object, including an `array<>` or `array_ref<>`.
@@ -293,8 +293,8 @@ Here are some examples of how to use these reduction operations:
 ```
 
 These reduction operators generate loops that can be readily optimized by the compiler.
-For example, consider the cross product: if `crosses`, `xs`, and `ys` have shape `shape<dim<0, 3>, dim<>>`, the compiler will see small constant loops and unroll them, and then likely inline and evaluate `epsilon3` at compile time.
-The reductions also compose well with loop transformations like `split`.
+For example, consider the cross product: if `crosses`, `xs`, and `ys` have shape `shape<dim<0, 3>, dim<>>`, the compiler will likely be able to optimize this to similar efficiency as hand-written code.
+These reductions also compose well with loop transformations like `split`.
 For example, a matrix multiplication can be tiled like so(\*):
 ```c++
   // Adjust this depending on the target architecture. For AVX2,
