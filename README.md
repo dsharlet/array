@@ -257,7 +257,7 @@ Operands can be combined into larger expressions using typical binary operators.
 Einstein notation expressions can be evaluated using one of the following functions:
 * `ein_reduce(expression)`, evaluate an arbitrary Einstein notation `expression`.
 * `ein_sum(lhs, rhs)`, evaluate the summation `ein_reduce(lhs += rhs)`.
-* `lhs = make_ein_sum<T, i, j, ...>(rhs)`, infer the shape of `lhs` from `rhs`, evaluate the summation `lhs += rhs`, and return `lhs`. `i, j, ...` are the dimensions of the reduction operation to use for `lhs`.
+* `lhs = make_ein_sum<T, i, j, ...>(rhs)`, evaluate the summation `ein<i, j, ...>(lhs) += rhs`, and return `lhs`. The shape of `lhs` is inferred from the expression.
 
 Here are some examples using these reduction operations to compute summations:
 ```c++
