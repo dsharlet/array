@@ -1,7 +1,7 @@
 ## About
 
 This library provides a multidimensional array class for C++, with the following design goals:
-* Enable specification of array parameters as [compile-time constants](#compile-time-constant-shapes) per parameter, enabling more efficient code generation in some cases, while retaining run-time flexibility where needed.
+* Enable specification of array parameters as [compile-time constants](#compile-time-constant-shapes) per parameter, enabling more efficient code generation, while retaining run-time flexibility where needed.
 * Provide an API following the conventions of the C++ STL where possible.
 * Minimal dependencies and requirements (the library is currently a single header file, and depends only on the C++ STL).
 
@@ -248,18 +248,18 @@ This allows potentially significant optimizations to be expressed relatively eas
 ### Einstein reductions
 
 The `ein_reduce.h` header provides [Einstein notation](https://en.wikipedia.org/wiki/Einstein_notation) reductions and summation helpers, similar to [np.einsum](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html) or [tf.einsum](https://www.tensorflow.org/api_docs/python/tf/einsum).
-This is a zero-cost abstraction for generating loops that allow expressing a variety of array operations in a safe and performant way.
+These are zero-cost abstractions for describing loops that allow expressing a wide variety of array operations.
 Einstein notation expression operands are constructed using the `ein<i, j, ...>(x)` helper function, where `x` can be any callable object, including an `array<>` or `array_ref<>`.
-The dimensions `i, j, ...` of the reduction operation are used to call `x`.
+`i, j, ...` are `constexpr` integers indicating which dimensions of the reduction operation are used to evaluate `x`.
 Therefore, the number of arguments of `x` must match the number of dimensions provided to `ein`.
 Operands can be combined into larger expressions using typical binary operators.
 
 Einstein notation expressions can be evaluated using one of the following functions:
 * `ein_reduce(expression)`, evaluate an arbitrary Einstein notation `expression`.
 * `ein_sum(lhs, rhs)`, evaluate the summation `ein_reduce(lhs += rhs)`.
-* `lhs = make_ein_sum<T, i, j, ...>(rhs)`, evaluate the summation `lhs += rhs` and return it, inferring the shape of `lhs` from `rhs`. `i, j, ...` are the dimensions of the reduction operation to use for `rhs`.
+* `lhs = make_ein_sum<T, i, j, ...>(rhs)`, infer the shape of `lhs` from `rhs`, evaluate the summation `lhs += rhs`, and return `lhs`. `i, j, ...` are the dimensions of the reduction operation to use for `lhs`.
 
-Here are some examples of how to use these reduction operations to compute summations:
+Here are some examples using these reduction operations to compute summations:
 ```c++
   // Name the dimensions we use in Einstein reductions.
   enum { i = 0, j = 1, k = 2, l = 3 };
