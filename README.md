@@ -316,7 +316,7 @@ For example, a matrix multiplication can be tiled like so(\*):
 (\*) This doesn't generate performant code currently and requires a few tweaks to work around an issue in LLVM.
 See the [matrix example](examples/linear_algebra/matrix.cpp) for an explanation.
 
-A very similar example produces the following machine code on clang 11 with -O2 -ffast-math:
+A very similar example produces the following machine code using clang 11 with -O2 -ffast-math:
 ```assembly
 LBB9_11:
         vmovaps %ymm9, %ymm10
