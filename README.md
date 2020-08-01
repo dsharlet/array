@@ -294,7 +294,8 @@ We can use arbitrary functions as expression operands:
 ```
 
 These operations generally produce loop nests that are as readily optimized by the compiler as hand-written loops.
-For example, consider the cross product: if `crosses`, `xs`, and `ys` have shape `shape<dim<0, 3>, dim<>>`, the compiler will likely be able to optimize this to similar efficiency as hand-written code, by unrolling and evaluating the function at compile time.
+For example, consider the cross product: `crosses`, `xs`, and `ys` have shape `shape<dim<0, 3>, dense_dim<>>`, so the compiler will see small constant-range loops and likely be able to optimize this to similar efficiency as hand-written code, by unrolling and evaluating the function at compile time.
+The compiler will also likely be able to efficiently vectorize the `l` dimension of the `ein_reduce`, because that dimension has a constant stride 1.
 
 The expression can be another kind of reduction, or not a reduction at all:
 ```c++
