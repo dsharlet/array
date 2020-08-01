@@ -249,14 +249,14 @@ The `ein_reduce.h` header provides [Einstein notation](https://en.wikipedia.org/
 This is a powerful tool that allows expressing a variety of array operations in a safe and performant way.
 Einstein notation expression operands are constructed using the `ein<i, j, ...>(x)` helper function.
 `x` can be any callable object, including an `array<>` or `array_ref<>`.
-The dimensions `i, j, ...` of the reduction operate are used to call `x`.
+The dimensions `i, j, ...` of the reduction operation are used to call `x`.
 Therefore, the number of arguments of `x` must match the number of dimensions provided to `ein`.
 Operands can be combined into larger expressions using typical binary operators.
 
 Einstein notation expressions can be evaluated using one of the following functions:
 * `ein_reduce(expression)`, evaluate an arbitrary Einstein notation `expression`.
 * `ein_sum(lhs, rhs)`, evaluate the summation `ein_reduce(lhs += rhs)`.
-* `lhs = make_ein_sum<T, i, j>(rhs)`, evaluate the summation `lhs += rhs` and return it, inferring the shape of `lhs` from `rhs`.
+* `lhs = make_ein_sum<T, i, j, ...>(rhs)`, evaluate the summation `lhs += rhs` and return it, inferring the shape of `lhs` from `rhs`.
 
 Here are some examples of how to use these reduction operations:
 ```c++
@@ -285,7 +285,8 @@ Here are some examples of how to use these reduction operations:
   auto epsilon3 = [](index_t i, index_t j, index_t k) {
     return sgn(j - i) * sgn(k - i) * sgn(k - j);
   };
-  ein_reduce(ein<i, l>(crosses) += ein<i, j, k>(epsilon3) * ein<j, l>(xs) * ein<k, l>(ys));
+  ein_reduce(ein<i, l>(
+      crosses) += ein<i, j, k>(epsilon3) * ein<j, l>(xs) * ein<k, l>(ys));
 
   // Maximum of each x-y plane of a 3D volume:
   auto r = ein<k>(max_xy);
@@ -295,7 +296,7 @@ Here are some examples of how to use these reduction operations:
 These reduction operators generate loops that can be readily optimized by the compiler.
 For example, consider the cross product: if `crosses`, `xs`, and `ys` have shape `shape<dim<0, 3>, dim<>>`, the compiler will see small constant loops and unroll them, and then likely inline and evaluate `epsilon3` at compile time.
 The reductions also compose well with loop transformations like `split`.
-For example, a matrix multiplication can be tiled like so (\*):
+For example, a matrix multiplication can be tiled like so\*:
 ```c++
   // Adjust this depending on the target architecture. For AVX2,
   // vectors are 256-bit.
@@ -309,11 +310,12 @@ For example, a matrix multiplication can be tiled like so (\*):
     for (auto jo : split<tile_cols>(c.j())) {
       auto c_ijo = c(io, jo);
       fill(c_ijo, 0.0f);
-      ein_reduce(ein<i, j>(c_ijo) += ein<i, k>(a(io, _)) * ein<k, j>(b(_, jo)));
+      ein_reduce(
+          ein<i, j>(c_ijo) += ein<i, k>(a(io, _)) * ein<k, j>(b(_, jo)));
     }
   }
 ```
-(\*) This doesn't generate fully performant code currently and requires a few tweaks to work around an issue in LLVM.
+\* This doesn't generate performant code currently and requires a few tweaks to work around an issue in LLVM.
 See the [matrix example](examples/linear_algebra/matrix.cpp) for an explanation.
 
 A very similar example produces the following machine code on clang 11 with -O2 -ffast-math:
