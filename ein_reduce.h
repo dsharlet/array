@@ -342,15 +342,16 @@ auto ein(T& scalar) {
  *
  * Examples:
  * - `ein_reduce(ein<>(tr_A) += ein<i, i>(A))`, the trace of `A`.
- * - `ein_reduce(ein<>(dot_xy) += ein<i>(x) * ein<i>(y))`, the dot product `x*y`.
+ * - `ein_reduce(ein<>(dot) += (ein<i>(x) + ein<i>(y)) * ein<i>(z))`,
+ *   the dot product `(x + y)*z`.
  * - `ein_reduce(ein<i, j>(AB) += ein<i, k>(A) * ein<k, j>(B))`, the matrix product `A*B`
  * - `ein_reduce(ein<i>(Ax) += ein<i, j>(A) * ein<j>(x))`, the matrix-vector product `A*x`
  * - `ein_reduce(ein<i>(diag_A) = ein<i, i>(A))`, the diagonal of `A`.
  *
  * where:
  * - `A`, `B`, `AB` are matrices (rank 2 arrays)
- * - `x`, `y`, `Ax` are vectors (rank 1 arrays)
- * - `tr_A`, `dot_xy` are scalar (rank 0 arrays)
+ * - `x`, `y`, `z`, `Ax` are vectors (rank 1 arrays)
+ * - `tr_A`, `dot` are scalar (rank 0 arrays)
  * - `i`, `j`, `k` are the `constexpr` values `0, 1, 2`, respectively */
 template <class Expr, class = internal::enable_if_ein_assign<Expr>>
 NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
@@ -405,13 +406,13 @@ auto make_ein_reduce_shape(const Expr& expr) {
  *
  * Examples:
  * - `trace_A = make_ein_sum<T>(ein<i, i>(A))`
- * - `dot_xy = make_ein_sum<T>(ein<i>(x) * ein<i>(y))`
+ * - `dot = make_ein_sum<T>((ein<i>(x) + ein<i>(y)) * ein<i>(z))`
  * - `AB = make_ein_sum<T, i, j>(ein<i, k>(A) * ein<k, j>(B))`
  * - `Ax = make_ein_sum<T, i>(ein<i, j>(A) * ein<1>(x))`
  *
  * where:
  * - `A`, `B` are matrices (rank 2 arrays)
- * - `x`, `y` are vectors (rank 1 arrays)
+ * - `x`, `y`, `z` are vectors (rank 1 arrays)
  * - `i`, `j`, `k` are the `constexpr` values `0, 1, 2`, respectively
  *
  * See `ein_reduce()` for more details.
