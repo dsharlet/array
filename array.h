@@ -1441,9 +1441,7 @@ template <class Shape, class Ptr, class Fn,
     class = internal::enable_if_callable<Fn, typename std::remove_pointer<Ptr>::type&>>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order(
     const Shape& shape, Ptr base, Fn&& fn) {
-  for_each_index_in_order(shape, [=](const typename Shape::index_type& i) {
-    fn(base[shape(i)]);
-  });
+  for_each_index_in_order(shape, [=](const typename Shape::index_type& i) { fn(base[shape(i)]); });
 }
 
 /** Similar to `for_each_value_in_order`, but iterates over two arrays
@@ -1454,9 +1452,8 @@ template <class Shape, class ShapeA, class PtrA, class ShapeB, class PtrB, class
         typename std::remove_pointer<PtrB>::type&>>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order(const Shape& shape,
     const ShapeA& shape_a, PtrA base_a, const ShapeB& shape_b, PtrB base_b, Fn&& fn) {
-  for_each_index_in_order(shape, [=](const typename Shape::index_type& i) {
-    fn(base_a[shape_a(i)], base_b[shape_b(i)]);
-  });
+  for_each_index_in_order(shape,
+      [=](const typename Shape::index_type& i) { fn(base_a[shape_a(i)], base_b[shape_b(i)]); });
 }
 
 namespace internal {
