@@ -17,7 +17,7 @@ where:
 * `minN` are the mins in each dimension. The min is the value of the first in-range index in this dimension (the max is `minN + extentN - 1`).
 * `strideN` are the distances in the flat offsets between elements in each dimension.
 
-Arrays efficiently support advanced manipulations like [cropping, slicing, and splitting loops](#slicing-cropping-and-splitting), all while preserving compile-time constant parameters when possible.
+Arrays efficiently support advanced manipulations like [cropping, slicing, and splitting](#slicing-cropping-and-splitting) arrays and loops, all while preserving compile-time constant parameters when possible.
 Although it is a heavily templated library, most features do not have significant code size or compile time implications, and incorrect usage generates informative and helpful error messages.
 Typically, an issue will result in only one error message, located at the site of the problem in user code.
 
@@ -31,7 +31,7 @@ Some examples of this are:
 
 Some other features of the library are:
 * [CUDA support](#cuda-support) for use in `__device__` functions.
-* Zero-cost [Einstein reduction](#einstein-reductions) functions, enabling many kinds of reductions and other array operations to be expressed safely.
+* [Einstein reduction](#einstein-reductions) helpers, enabling many kinds of reductions and other array operations to be expressed safely.
 
 ## Usage
 
