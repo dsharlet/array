@@ -22,6 +22,9 @@
 
 using namespace nda;
 
+// Make it easier to read the generated assembly for these functions.
+#define NOINLINE __attribute__((noinline))
+
 // Useful named dimension indices for ein_reduce.
 enum { i = 0, j = 1, k = 2 };
 
@@ -29,8 +32,7 @@ enum { i = 0, j = 1, k = 2 };
 // but it is slow, primarily because of poor locality of the loads of b. The
 // reduction loop is innermost.
 template <typename T>
-__attribute__((noinline)) void multiply_reduce_cols(
-    const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+NOINLINE void multiply_reduce_cols(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
       c(i, j) = 0;
@@ -44,7 +46,7 @@ __attribute__((noinline)) void multiply_reduce_cols(
 // This implementation uses Einstein summation. This should be equivalent
 // to multiply_reduce_cols.
 template <typename T>
-__attribute__((noinline)) void multiply_ein_reduce_cols(
+NOINLINE void multiply_ein_reduce_cols(
     const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
@@ -56,8 +58,7 @@ __attribute__((noinline)) void multiply_ein_reduce_cols(
 // Similar to the above, but written in plain C. The timing of this version
 // indicates the performance overhead (if any) of the array helpers.
 template <typename TAB, typename TC>
-__attribute__((noinline)) void multiply_ref(
-    const TAB* a, const TAB* b, TC* c, int M, int K, int N) {
+NOINLINE void multiply_ref(const TAB* a, const TAB* b, TC* c, int M, int K, int N) {
   for (int i = 0; i < M; i++) {
     for (int j = 0; j < N; j++) {
       TC sum = 0;
@@ -73,8 +74,7 @@ __attribute__((noinline)) void multiply_ref(
 // loops. This avoids the locality problem for the loads from b. This also is
 // an easier loop to vectorize (it does not vectorize a reduction variable).
 template <typename T>
-__attribute__((noinline)) void multiply_reduce_rows(
-    const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+NOINLINE void multiply_reduce_rows(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
       c(i, j) = 0;
@@ -90,7 +90,7 @@ __attribute__((noinline)) void multiply_reduce_rows(
 // This implementation uses Einstein summation. This should be equivalent
 // to multiply_reduce_rows.
 template <class T>
-__attribute__((noinline)) void multiply_ein_reduce_rows(
+NOINLINE void multiply_ein_reduce_rows(
     const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   for (index_t i : c.i()) {
     fill(c(i, _), static_cast<T>(0));
@@ -99,7 +99,7 @@ __attribute__((noinline)) void multiply_ein_reduce_rows(
 }
 
 template <typename T>
-__attribute__((noinline)) void multiply_reduce_matrix(
+NOINLINE void multiply_reduce_matrix(
     const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   for (index_t i : c.i()) {
     for (index_t j : c.j()) {
@@ -118,7 +118,7 @@ __attribute__((noinline)) void multiply_reduce_matrix(
 // This implementation uses Einstein summation. This should be equivalent
 // to multiply_reduce_matrix.
 template <class T>
-__attribute__((noinline)) void multiply_ein_reduce_matrix(
+NOINLINE void multiply_ein_reduce_matrix(
     const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   fill(c, static_cast<T>(0));
   ein_reduce(ein<i, j>(c) += ein<i, k>(a) * ein<k, j>(b));
@@ -160,8 +160,7 @@ __attribute__((noinline)) void multiply_ein_reduce_matrix(
 // This appears to achieve ~70% of the peak theoretical throughput
 // of my machine.
 template <typename T>
-__attribute__((noinline)) void multiply_reduce_tiles(
-    const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
+NOINLINE void multiply_reduce_tiles(const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   // Adjust this depending on the target architecture. For AVX2,
   // vectors are 256-bit.
   constexpr index_t vector_size = 32 / sizeof(T);
@@ -221,7 +220,7 @@ __attribute__((noinline)) void multiply_reduce_tiles(
 // It only spills one accumulator register, and produces statistically identical
 // performance.
 template <typename T>
-__attribute__((noinline)) void multiply_ein_reduce_tiles(
+NOINLINE void multiply_ein_reduce_tiles(
     const_matrix_ref<T> a, const_matrix_ref<T> b, matrix_ref<T> c) {
   // Adjust this depending on the target architecture. For AVX2,
   // vectors are 256-bit.
