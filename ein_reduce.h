@@ -365,6 +365,13 @@ NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
       std::make_tuple(internal::is_operand_shape(), expr.op_b));
 
   // TODO: Try to compile-time optimize reduction_shape? :)
+  // This is maybe actually somewhat doable, simply moving the for_each_index
+  // call below into a function that could be overloaded based on the type of
+  // the shape would enable different optimizations. This function could be a
+  // member of a template parameter/parameter of this function, enabling the
+  // caller to customize the optimization. However, it's still very difficult
+  // to make useful optimizations without making some assumptions about the
+  // dimensions of the shape.
 
   // Perform the reduction.
   for_each_index(reduction_shape, [&](const index_of_rank<LoopRank>& i) { expr(i); });
