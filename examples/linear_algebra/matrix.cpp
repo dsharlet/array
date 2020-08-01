@@ -236,10 +236,10 @@ NOINLINE void multiply_ein_reduce_tiles(
       // Make a reference to this tile of the output.
       auto c_ijo = c(io, jo);
 #if 0
-      // This is slow. It would likely be fast if we could use __restrict__ on
-      // struct members: https://bugs.llvm.org/show_bug.cgi?id=45863.
+      // This scalarizes :( It would likely be fast if LLVM implemented
+      //  __restrict__: https://bugs.llvm.org/show_bug.cgi?id=45863.
       fill(c_ijo, static_cast<T>(0));
-      ein_reduce(ein<i, k>(a(io, _)), ein<k, j>(b(_, jo)), ein<i, j>(c_ijo));
+      ein_reduce(ein<i, j>(c_ijo) += ein<i, k>(a(io, _)) * ein<k, j>(b(_, jo)));
 #else
       // Define an accumulator buffer.
       T buffer[tile_rows * tile_cols] = {0};
