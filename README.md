@@ -171,7 +171,7 @@ using chunky_image_shape = shape<
 ```
 
 `strided_dim<>` is another alias for `dim<>` where the min and extent are unknown, and the stride may be a compile-time constant.
-`image.h` is a small helper library of typical image shape and object types defined using arrays, including `chunky_image_shape`.
+[`image.h`](image.h) is a small helper library of typical image shape and object types defined using arrays, including `chunky_image_shape`.
 
 Another common example is matrices indexed `(row, column)` with the column dimension stored densely:
 ```c++
@@ -200,7 +200,7 @@ small_matrix<float, 4, 4> my_small_matrix;
 // happen. sizeof(small_matrix) = sizeof(float) * 4 * 4 + (overhead)
 ```
 
-`matrix.h` is a small helper library of typical matrix shape and object types defined using arrays, including the examples above.
+[`matrix.h`](matrix.h) is a small helper library of typical matrix shape and object types defined using arrays, including the examples above.
 
 ### Slicing, cropping, and splitting
 
@@ -247,7 +247,7 @@ This allows potentially significant optimizations to be expressed relatively eas
 
 ### Einstein reductions
 
-The `ein_reduce.h` header provides [Einstein notation](https://en.wikipedia.org/wiki/Einstein_notation) reductions and summation helpers, similar to [np.einsum](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html) or [tf.einsum](https://www.tensorflow.org/api_docs/python/tf/einsum).
+The [`ein_reduce.h`](ein_reduce.h) header provides [Einstein notation](https://en.wikipedia.org/wiki/Einstein_notation) reductions and summation helpers, similar to [np.einsum](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html) or [tf.einsum](https://www.tensorflow.org/api_docs/python/tf/einsum).
 These are zero-cost abstractions for describing loops that allow expressing a wide variety of array operations.
 Einstein notation expression operands are constructed using the `ein<i, j, ...>(x)` helper function, where `x` can be any callable object, including an `array<>` or `array_ref<>`.
 `i, j, ...` are `constexpr` integers indicating which dimensions of the reduction operation are used to evaluate `x`.
