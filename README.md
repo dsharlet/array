@@ -260,6 +260,7 @@ Einstein notation expressions can be evaluated using one of the following functi
 
 Here are some examples of how to use these reduction operations:
 ```c++
+  // Name the dimensions we will use in these examples.
   enum { i = 0, j = 1, k = 2, l = 3 };
 
   // Dot product x.y:
