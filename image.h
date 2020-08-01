@@ -95,8 +95,13 @@ public:
   // the x and c dimensions.
   template <class Ptr, class Fn>
   static void for_each_value(const shape_type& s, Ptr base, Fn&& fn) {
-    dense_shape<2> opt_s({s.x().min() * Channels, s.x().extent() * Channels}, s.y());
-    for_each_value_in_order(opt_s, base, fn);
+    const index_t channels = s.c().extent();
+    if (channels == s.x().stride()) {
+      dense_shape<2> opt_s({s.x().min() * channels, s.x().extent() * channels}, s.y());
+      for_each_value_in_order(opt_s, base, fn);
+    } else {
+      for_each_value_in_order(s, base, fn);
+    }
   }
 };
 
