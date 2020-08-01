@@ -85,6 +85,42 @@ TEST(make_ein_sum_dot) {
   ASSERT_EQ(dot, dot_ref);
 }
 
+TEST(ein_reduce_transpose) {
+  constexpr index_t M = 12;
+  constexpr index_t N = 20;
+  matrix<int, M, N> A;
+  fill_pattern(A);
+
+  // Transpose A using ein_reduce.
+  matrix<int, N, M> AT;
+  ein_reduce(ein<i, j>(AT) = ein<j, i>(A));
+
+  for (index_t i : AT.i()) {
+    for (index_t j : AT.j()) {
+      ASSERT_EQ(AT(i, j), A(j, i));
+    }
+  }
+}
+
+TEST(make_ein_sum_transpose) {
+  constexpr index_t M = 12;
+  constexpr index_t N = 20;
+  matrix<int, M, N> A;
+  fill_pattern(A);
+
+  // Transpose A using an ein_sum.
+  auto AT = make_ein_sum<int, i, j>(ein<j, i>(A));
+
+  ASSERT_EQ(AT.rank(), 2);
+  ASSERT_EQ(AT.rows(), A.columns());
+  ASSERT_EQ(AT.columns(), A.rows());
+  for (index_t i : AT.i()) {
+    for (index_t j : AT.j()) {
+      ASSERT_EQ(AT(i, j), A(j, i));
+    }
+  }
+}
+
 TEST(ein_reduce_dot_offset) {
   constexpr index_t N = 40;
   vector<int, N> x;
