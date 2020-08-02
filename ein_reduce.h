@@ -203,16 +203,24 @@ auto with_stride(const std::tuple<Dims...>& dims) {
 
 // If multiple operands provide the same dim, we need to reconcile them
 // to one dim.
-template <class Dim0, class... Dims>
-auto reconcile_dim(const Dim0& dim0, const Dims&... dims) {
-  // If all dims are broadcasts, the intervals should match (the strides are
-  // zero and must match).
-  // TODO: Maybe we should always assert the intervals should match.
-  // this would catch some kinds of errors in ein_reduce expressions, but
-  // it will also require some expressions to include explicit cropping.
-  assert(any(dim0.stride() != 0, (dims.stride() != 0)...) || all(dim0 == dims...));
-  // dims... will be accessed with dim0's bounds, so check this is possible.
-  assert(all(dims.is_in_range(dim0)...));
+template <class Dim>
+const Dim& reconcile_dim(const Dim& dim) {
+  return dim;
+}
+// If you follow a compiler or runtime error here, it means that your
+// Einstein expression tries to address two dimensions that have different
+// bounds with the same loop variable.
+// TODO: It would be nice if this error would appear when constructing the
+// Einstein expression when possible, but that's really hard to do.
+template <index_t Min0, index_t Extent0, index_t Stride0, index_t Min1, index_t Extent1,
+    index_t Stride1, class... Dims, class = enable_if_compatible<Min0, Min1>,
+    class = enable_if_compatible<Extent0, Extent1>>
+auto reconcile_dim(const dim<Min0, Extent0, Stride0>& dim0, const dim<Min1, Extent1, Stride1>& dim1,
+    const Dims&... dims) {
+  assert(dim0.min() == dim1.min());
+  assert(dim0.extent() == dim1.extent());
+  // Check the rest of the dims.
+  reconcile_dim(dim1, dims...);
   return dim0;
 }
 // If we have zero dims, the user skipped a dim index, so we need a dummy
