@@ -1313,14 +1313,12 @@ NDARRAY_INLINE NDARRAY_HOST_DEVICE void for_each_value_in_order(
   fn(*std::get<0>(ptrs)...);
 }
 
-template <size_t Rank, std::enable_if_t<(Rank > 0), int> = 0>
+template <size_t Rank>
 NDARRAY_HOST_DEVICE auto make_default_dense_shape() {
+  // The inner dimension is a dense_dim, unless the shape is rank 0.
+  using inner_dim = std::conditional_t<(Rank > 0), std::tuple<dense_dim<>>, std::tuple<>>;
   return make_shape_from_tuple(
-      std::tuple_cat(std::make_tuple(dense_dim<>()), tuple_of_n<dim<>, Rank - 1>()));
-}
-template <size_t Rank, std::enable_if_t<(Rank == 0), int> = 0>
-NDARRAY_HOST_DEVICE auto make_default_dense_shape() {
-  return shape<>();
+      std::tuple_cat(inner_dim(), tuple_of_n<dim<>, std::max<size_t>(1, Rank) - 1>()));
 }
 
 template <class Shape, size_t... Is>
