@@ -16,6 +16,7 @@
 #define NDARRAY_RESAMPLE_H
 
 #include "array.h"
+#include "ein_reduce.h"
 #include "rational.h"
 
 #include <cmath>
@@ -158,39 +159,17 @@ inline kernel_array build_kernels(
 // using kernels(y) to produce out(., y, .).
 template <class TIn, class TOut>
 void resample_y(const TIn& in, const TOut& out, const kernel_array& kernels) {
+  enum { x = 0, ry = 1, c = 2 };
   for (index_t y : out.y()) {
     const dense_array<float, 1>& kernel_y = kernels(y);
-    for (index_t c : out.c()) {
-      for (index_t x : out.x()) {
-        out(x, y, c) = 0.0f;
-      }
-      for (index_t ry : kernel_y.x()) {
-        float kernel_y_ry = kernel_y(ry);
-        for (index_t x : out.x()) {
-          out(x, y, c) += in(x, ry, c) * kernel_y_ry;
-        }
-      }
-    }
-  }
-}
-
-template <class TIn, class TOut>
-void transpose(const TIn& in, const TOut& out) {
-  for (index_t c : out.c()) {
-    for (index_t y : out.y()) {
-      for (index_t x : out.x()) {
-        out(x, y, c) = in(y, x, c);
-      }
-    }
+    fill(out(_, y, _), 0.0f);
+    // TODO: Consider making reconcile_dim in ein_reduce take the intersection
+    // of the dims to avoid needing the crop of in here.
+    ein_reduce(ein<x, c>(out(_, y, _)) += ein<x, ry, c>(in(_, kernel_y.x(), _)) * ein<ry>(kernel_y));
   }
 }
 
 // TODO: Get rid of these ugly helpers. Shapes shouldn't preserve strides in some usages.
-template <index_t NewStride, index_t Min, index_t Extent, index_t Stride>
-dim<Min, Extent, NewStride> with_stride(const dim<Min, Extent, Stride>& d) {
-  return dim<Min, Extent, NewStride>(d.min(), d.extent(), NewStride);
-}
-
 template <index_t Min, index_t Extent, index_t Stride>
 dim<Min, Extent> without_stride(const dim<Min, Extent, Stride>& d) {
   return dim<Min, Extent>(d.min(), d.extent());
@@ -229,15 +208,16 @@ void resample(array_ref<TIn, ShapeIn> in, array_ref<TOut, ShapeOut> out, rationa
     internal::resample_y(in, strip.ref(), kernels_y);
 
     // Transpose the intermediate.
+    enum { x = 0, y = 1, c = 2 };
     auto strip_tr = internal::make_temp_image<TOut>(out_y.y(), in.x(), out_y.c());
-    internal::transpose(strip.cref(), strip_tr.ref());
+    ein_reduce(ein<x, y, c>(strip_tr) = ein<y, x, c>(strip));
 
     // Resample the intermediate in x.
     auto out_tr = internal::make_temp_image<TOut>(out_y.y(), out_y.x(), out_y.c());
     internal::resample_y(strip_tr.cref(), out_tr.ref(), kernels_x);
 
     // Transpose the intermediate to the output.
-    internal::transpose(out_tr.cref(), out_y);
+    ein_reduce(ein<x, y, c>(out_y) = ein<y, x, c>(out_tr));
   }
 }
 
