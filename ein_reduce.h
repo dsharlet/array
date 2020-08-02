@@ -378,7 +378,7 @@ NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
   // dimensions of the shape.
 
   // Perform the reduction.
-  for_each_index(reduction_shape, [&](const index_of_rank<LoopRank>& i) { expr(i); });
+  for_each_index_in_order(reduction_shape, expr);
 
   // Assume the expr is an assignment, and return the left-hand side.
   return expr.op_a.op;
