@@ -58,6 +58,27 @@ TEST(performance_dense_cropped_copy) {
   ASSERT_LT(copy_time, memcpy_time * 1.5);
 }
 
+TEST(performance_chunky_cropped_copy) {
+  array_of_rank<int, 3> a({{0, 100, 3}, {0, 100}, {0, 3, 1}});
+  fill_pattern(a);
+
+  array_of_rank<int, 3> b({{1, 98, 3}, {1, 98}, {0, 3, 1}});
+  double copy_time = benchmark([&]() { copy(a, b); });
+  check_pattern(b);
+
+  array_of_rank<int, 3> c(b.shape());
+  double memcpy_time = benchmark([&] {
+    for (int y : c.y()) {
+      std::memcpy(&c(c.x().min(), y, 0), &a(c.x().min(), y, 0),
+          static_cast<size_t>(c.x().extent() * c.c().extent()) * sizeof(int));
+    }
+  });
+  check_pattern(c);
+
+  // copy should be about as fast as memcpy.
+  ASSERT_LT(copy_time, memcpy_time * 1.5);
+}
+
 TEST(performance_copy) {
   array_of_rank<int, 3> a({dim<>(0, 100, 10000), dim<>(0, 100, 100), dim<>(0, 100, 1)});
   fill_pattern(a);

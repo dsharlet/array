@@ -125,8 +125,10 @@ NDARRAY_INLINE constexpr index_t is_dynamic(index_t x) { return x == dynamic; }
 
 constexpr bool is_dynamic(index_t a, index_t b) { return is_dynamic(a) || is_dynamic(b); }
 
+constexpr bool is_compatible(index_t a, index_t b) { return is_dynamic(a, b) || a == b; }
+
 template <index_t A, index_t B>
-using enable_if_compatible = std::enable_if_t<is_dynamic(A, B) || A == B>;
+using enable_if_compatible = std::enable_if_t<is_compatible(A, B)>;
 
 // Math for (possibly) static values.
 constexpr index_t static_add(index_t a, index_t b) { return is_dynamic(a, b) ? dynamic : a + b; }
@@ -1256,14 +1258,67 @@ NDARRAY_INLINE NDARRAY_HOST_DEVICE void copy_assign(const TSrc& src, TDst& dst) 
   dst = src;
 }
 
-template <size_t Rank, std::enable_if_t<(Rank > 0), int> = 0>
-NDARRAY_HOST_DEVICE auto make_default_dense_shape() {
-  return make_shape_from_tuple(
-      std::tuple_cat(std::make_tuple(dense_dim<>()), tuple_of_n<dim<>, Rank - 1>()));
+template <size_t D>
+NDARRAY_INLINE NDARRAY_HOST_DEVICE void advance() {}
+template <size_t D, class Ptr, class... Ptrs>
+NDARRAY_INLINE NDARRAY_HOST_DEVICE void advance(Ptr& ptr, Ptrs&... ptrs) {
+  std::get<0>(ptr) += std::get<D>(std::get<1>(ptr));
+  advance<D>(ptrs...);
 }
-template <size_t Rank, std::enable_if_t<(Rank == 0), int> = 0>
+
+template <class Fn, class... Ptrs>
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order_inner_dense(
+    index_t extent, Fn&& fn, Ptrs... ptrs) {
+  for (index_t i = 0; i < extent; i++) {
+    fn(*ptrs++...);
+  }
+}
+
+template <size_t, class ExtentType, class Fn, class... Ptrs>
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order_impl(
+    std::true_type, const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
+  index_t extent_d = std::get<0>(extent);
+  if (all(std::get<0>(std::get<1>(ptrs)) == 1 ...)) {
+    for_each_value_in_order_inner_dense(extent_d, fn, std::get<0>(ptrs)...);
+  } else {
+    for (index_t i = 0; i < extent_d; i++) {
+      fn(*std::get<0>(ptrs)...);
+      advance<0>(ptrs...);
+    }
+  }
+}
+
+template <size_t D, class ExtentType, class Fn, class... Ptrs>
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order_impl(
+    std::false_type, const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
+  index_t extent_d = std::get<D>(extent);
+  for (index_t i = 0; i < extent_d; i++) {
+    using is_inner_loop = std::conditional_t<D == 1, std::true_type, std::false_type>;
+    for_each_value_in_order_impl<D - 1>(is_inner_loop(), extent, fn, ptrs...);
+    advance<D>(ptrs...);
+  }
+}
+
+template <size_t D, class ExtentType, class Fn, class... Ptrs>
+NDARRAY_INLINE NDARRAY_HOST_DEVICE void for_each_value_in_order(
+    const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
+  using is_inner_loop = std::conditional_t<D == 0, std::true_type, std::false_type>;
+  for_each_value_in_order_impl<D>(is_inner_loop(), extent, fn, ptrs...);
+}
+
+// Scalar buffers are a special case.
+template <size_t D, class Fn, class... Ptrs>
+NDARRAY_INLINE NDARRAY_HOST_DEVICE void for_each_value_in_order(
+    const std::tuple<>& extent, Fn&& fn, Ptrs... ptrs) {
+  fn(*std::get<0>(ptrs)...);
+}
+
+template <size_t Rank>
 NDARRAY_HOST_DEVICE auto make_default_dense_shape() {
-  return shape<>();
+  // The inner dimension is a dense_dim, unless the shape is rank 0.
+  using inner_dim = std::conditional_t<(Rank > 0), std::tuple<dense_dim<>>, std::tuple<>>;
+  return make_shape_from_tuple(
+      std::tuple_cat(inner_dim(), tuple_of_n<dim<>, std::max<size_t>(1, Rank) - 1>()));
 }
 
 template <class Shape, size_t... Is>
@@ -1441,8 +1496,10 @@ template <class Shape, class Ptr, class Fn,
     class = internal::enable_if_callable<Fn, typename std::remove_pointer<Ptr>::type&>>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order(
     const Shape& shape, Ptr base, Fn&& fn) {
-  for_each_index_in_order(
-      shape, [=, fn = std::move(fn)](const typename Shape::index_type& i) { fn(base[shape(i)]); });
+  // TODO: This is losing compile-time constant extents and strides info
+  // (https://github.com/dsharlet/array/issues/1).
+  auto base_and_stride = std::make_tuple(base, shape.stride());
+  internal::for_each_value_in_order<Shape::rank() - 1>(shape.extent(), fn, base_and_stride);
 }
 
 /** Similar to `for_each_value_in_order`, but iterates over two arrays
@@ -1453,9 +1510,13 @@ template <class Shape, class ShapeA, class PtrA, class ShapeB, class PtrB, class
         typename std::remove_pointer<PtrB>::type&>>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order(const Shape& shape,
     const ShapeA& shape_a, PtrA base_a, const ShapeB& shape_b, PtrB base_b, Fn&& fn) {
-  for_each_index_in_order(shape, [=, fn = std::move(fn)](const typename Shape::index_type& i) {
-    fn(base_a[shape_a(i)], base_b[shape_b(i)]);
-  });
+  base_a += shape_a(shape.min());
+  base_b += shape_b(shape.min());
+  // TODO: This is losing compile-time constant extents and strides info
+  // (https://github.com/dsharlet/array/issues/1).
+  auto a = std::make_tuple(base_a, shape_a.stride());
+  auto b = std::make_tuple(base_b, shape_b.stride());
+  internal::for_each_value_in_order<Shape::rank() - 1>(shape.extent(), fn, a, b);
 }
 
 namespace internal {
@@ -1557,8 +1618,7 @@ NDARRAY_HOST_DEVICE auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const
   // Unfortunately, we can't make the rank of the resulting shape dynamic. Fill
   // the end of the array with size 1 dimensions.
   for (size_t i = new_rank; i < dims.size(); i++) {
-    dims[i] = {dim<>(0, 1, dims[i - 1].src.stride() * dims[i - 1].src.extent()),
-        dim<>(0, 1, dims[i - 1].dst.stride() * dims[i - 1].dst.extent())};
+    dims[i] = {dim<>(0, 1, 0), dim<>(0, 1, 0)};
   }
 
   for (size_t i = 0; i < dims.size(); i++) {
