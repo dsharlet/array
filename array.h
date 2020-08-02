@@ -1220,7 +1220,7 @@ NDARRAY_HOST_DEVICE auto reorder(const shape<Dims...>& shape) {
 namespace internal {
 
 template <class Fn, class Idx>
-NDARRAY_INLINE NDARRAY_HOST_DEVICE void for_each_index_in_order(Fn&& fn, const Idx& idx) {
+NDARRAY_INLINE NDARRAY_HOST_DEVICE void for_each_index_in_order_impl(Fn&& fn, const Idx& idx) {
   fn(idx);
 }
 
@@ -1231,10 +1231,10 @@ NDARRAY_INLINE NDARRAY_HOST_DEVICE void for_each_index_in_order(Fn&& fn, const I
 // However, all of these are pretty redundant with the compiler. They would
 // probably only affect unoptimized code (which might still be useful).
 template <class Fn, class OuterIdx, class Dim0, class... Dims>
-NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index_in_order(
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index_in_order_impl(
     Fn&& fn, const OuterIdx& idx, const Dim0& dim0, const Dims&... dims) {
   for (index_t i : dim0) {
-    for_each_index_in_order(fn, std::tuple_cat(std::make_tuple(i), idx), dims...);
+    for_each_index_in_order_impl(fn, std::tuple_cat(std::make_tuple(i), idx), dims...);
   }
 }
 
@@ -1243,7 +1243,7 @@ NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index_in_order(
     Fn&& fn, const Dims& dims, index_sequence<Is...>) {
   // We need to reverse the order of the dims so the last dim is
   // iterated innermost.
-  for_each_index_in_order(fn, std::tuple<>(), std::get<sizeof...(Is) - 1 - Is>(dims)...);
+  for_each_index_in_order_impl(fn, std::tuple<>(), std::get<sizeof...(Is) - 1 - Is>(dims)...);
 }
 
 template <typename TSrc, typename TDst>
