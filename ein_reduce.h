@@ -202,25 +202,17 @@ auto with_stride(const std::tuple<Dims...>& dims) {
 }
 
 // If multiple operands provide the same dim, we need to reconcile them
-// to one dim.
-template <class Dim>
-const Dim& reconcile_dim(const Dim& dim) {
-  return dim;
-}
-// If you follow a compiler or runtime error here, it means that your
+// to one dim. If you follow a compiler or runtime error here, your
 // Einstein expression tries to address two dimensions that have different
 // bounds with the same loop variable.
 // TODO: It would be nice if this error would appear when constructing the
 // Einstein expression when possible, but that's really hard to do.
-template <index_t Min0, index_t Extent0, index_t Stride0, index_t Min1, index_t Extent1,
-    index_t Stride1, class... Dims, class = enable_if_compatible<Min0, Min1>,
-    class = enable_if_compatible<Extent0, Extent1>>
-auto reconcile_dim(const dim<Min0, Extent0, Stride0>& dim0, const dim<Min1, Extent1, Stride1>& dim1,
-    const Dims&... dims) {
-  assert(dim0.min() == dim1.min());
-  assert(dim0.extent() == dim1.extent());
-  // Check the rest of the dims.
-  reconcile_dim(dim1, dims...);
+template <class Dim0, class... Dims,
+    class = std::enable_if_t<all(is_compatible(Dim0::Min, Dims::Min)...)>,
+    class = std::enable_if_t<all(is_compatible(Dim0::Extent, Dims::Extent)...)>>
+auto reconcile_dim(const Dim0& dim0, const Dims&... dims) {
+  assert(all(dim0.min() == dims.min()...));
+  assert(all(dim0.extent() == dims.extent()...));
   return dim0;
 }
 // If we have zero dims, the user skipped a dim index, so we need a dummy

@@ -165,7 +165,8 @@ void resample_y(const TIn& in, const TOut& out, const kernel_array& kernels) {
     fill(out(_, y, _), 0.0f);
     // TODO: Consider making reconcile_dim in ein_reduce take the intersection
     // of the dims to avoid needing the crop of in here.
-    ein_reduce(ein<x, c>(out(_, y, _)) += ein<x, ry, c>(in(_, kernel_y.x(), _)) * ein<ry>(kernel_y));
+    ein_reduce(
+        ein<x, c>(out(_, y, _)) += ein<x, ry, c>(in(_, kernel_y.x(), _)) * ein<ry>(kernel_y));
   }
 }
 

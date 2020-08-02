@@ -125,8 +125,10 @@ NDARRAY_INLINE constexpr index_t is_dynamic(index_t x) { return x == dynamic; }
 
 constexpr bool is_dynamic(index_t a, index_t b) { return is_dynamic(a) || is_dynamic(b); }
 
+constexpr bool is_compatible(index_t a, index_t b) { return is_dynamic(a, b) || a == b; }
+
 template <index_t A, index_t B>
-using enable_if_compatible = std::enable_if_t<is_dynamic(A, B) || A == B>;
+using enable_if_compatible = std::enable_if_t<is_compatible(A, B)>;
 
 // Math for (possibly) static values.
 constexpr index_t static_add(index_t a, index_t b) { return is_dynamic(a, b) ? dynamic : a + b; }
