@@ -341,7 +341,10 @@ TEST(array_tricky_copy) {
 
 TEST(array_for_each_value_scalar) {
   array_of_rank<int, 0> scalar;
-  scalar.for_each_value([](int& v) { v = 3; });
+  scalar.for_each_value([token = no_copy{no_copy()}](int& v) {
+    v = 3;
+    assert_used(token);
+  });
   ASSERT_EQ(scalar(), 3);
 }
 
@@ -350,7 +353,10 @@ TEST(array_for_each_value) {
   array_of_rank<int, 3> out_of_order({{0, 4, 16}, {0, 4, 1}, {0, 4, 4}});
 
   int out_of_order_counter = 0;
-  out_of_order.for_each_value([&](int& v) { v = out_of_order_counter++; });
+  out_of_order.for_each_value([&, token = no_copy{no_copy()}](int& v) {
+    v = out_of_order_counter++;
+    assert_used(token);
+  });
 
   int in_order_counter = 0;
   in_order.for_each_value([&](int& v) { v = in_order_counter++; });
