@@ -1258,6 +1258,61 @@ NDARRAY_INLINE NDARRAY_HOST_DEVICE void copy_assign(const TSrc& src, TDst& dst) 
   dst = src;
 }
 
+template <size_t D>
+NDARRAY_INLINE NDARRAY_HOST_DEVICE void advance() {}
+template <size_t D, class Ptr, class... Ptrs>
+NDARRAY_INLINE NDARRAY_HOST_DEVICE void advance(Ptr& ptr, Ptrs&... ptrs) {
+  std::get<0>(ptr) += std::get<D>(std::get<1>(ptr));
+  advance<D>(ptrs...);
+}
+
+template <class Fn, class... Ptrs>
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order_inner_dense(
+    index_t extent, Fn&& fn, Ptrs... ptrs) {
+  for (index_t i = 0; i < extent; i++) {
+    fn(*ptrs++...);
+  }
+}
+
+template <size_t, class ExtentType, class Fn, class... Ptrs>
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order_impl(
+    std::true_type, const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
+  index_t extent_d = std::get<0>(extent);
+  if (all(std::get<0>(std::get<1>(ptrs)) == 1 ...)) {
+    for_each_value_in_order_inner_dense(extent_d, fn, std::get<0>(ptrs)...);
+  } else {
+    for (index_t i = 0; i < extent_d; i++) {
+      fn(*std::get<0>(ptrs)...);
+      advance<0>(ptrs...);
+    }
+  }
+}
+
+template <size_t D, class ExtentType, class Fn, class... Ptrs>
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order_impl(
+    std::false_type, const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
+  index_t extent_d = std::get<D>(extent);
+  for (index_t i = 0; i < extent_d; i++) {
+    using is_inner_loop = std::conditional_t<D == 1, std::true_type, std::false_type>;
+    for_each_value_in_order_impl<D - 1>(is_inner_loop(), extent, fn, ptrs...);
+    advance<D>(ptrs...);
+  }
+}
+
+template <size_t D, class ExtentType, class Fn, class... Ptrs>
+NDARRAY_INLINE NDARRAY_HOST_DEVICE void for_each_value_in_order(
+    const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
+  using is_inner_loop = std::conditional_t<D == 0, std::true_type, std::false_type>;
+  for_each_value_in_order_impl<D>(is_inner_loop(), extent, fn, ptrs...);
+}
+
+// Scalar buffers are a special case.
+template <size_t D, class Fn, class... Ptrs>
+NDARRAY_INLINE NDARRAY_HOST_DEVICE void for_each_value_in_order(
+    const std::tuple<>& extent, Fn&& fn, Ptrs... ptrs) {
+  fn(*std::get<0>(ptrs)...);
+}
+
 template <size_t Rank, std::enable_if_t<(Rank > 0), int> = 0>
 NDARRAY_HOST_DEVICE auto make_default_dense_shape() {
   return make_shape_from_tuple(
@@ -1443,7 +1498,10 @@ template <class Shape, class Ptr, class Fn,
     class = internal::enable_if_callable<Fn, typename std::remove_pointer<Ptr>::type&>>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order(
     const Shape& shape, Ptr base, Fn&& fn) {
-  for_each_index_in_order(shape, [=](const typename Shape::index_type& i) { fn(base[shape(i)]); });
+  // TODO: This is losing compile-time constant extents and strides info
+  // (https://github.com/dsharlet/array/issues/1).
+  auto base_and_stride = std::make_tuple(base, shape.stride());
+  internal::for_each_value_in_order<Shape::rank() - 1>(shape.extent(), fn, base_and_stride);
 }
 
 /** Similar to `for_each_value_in_order`, but iterates over two arrays
@@ -1454,8 +1512,13 @@ template <class Shape, class ShapeA, class PtrA, class ShapeB, class PtrB, class
         typename std::remove_pointer<PtrB>::type&>>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order(const Shape& shape,
     const ShapeA& shape_a, PtrA base_a, const ShapeB& shape_b, PtrB base_b, Fn&& fn) {
-  for_each_index_in_order(shape,
-      [=](const typename Shape::index_type& i) { fn(base_a[shape_a(i)], base_b[shape_b(i)]); });
+  base_a += shape_a(shape.min());
+  base_b += shape_b(shape.min());
+  // TODO: This is losing compile-time constant extents and strides info
+  // (https://github.com/dsharlet/array/issues/1).
+  auto a = std::make_tuple(base_a, shape_a.stride());
+  auto b = std::make_tuple(base_b, shape_b.stride());
+  internal::for_each_value_in_order<Shape::rank() - 1>(shape.extent(), fn, a, b);
 }
 
 namespace internal {
