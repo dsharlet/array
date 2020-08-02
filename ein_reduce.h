@@ -323,7 +323,9 @@ auto ein(T& scalar) {
  * on `ein<i, j, ...>(op)` operands. These operands describe which
  * dimensions of the reduction index should be used to address that
  * operand. The rank of the reduction operation is inferred from the
- * number of dimensions used in the expression.
+ * number of dimensions used in the expression. The reduction operation
+ * is executed in the order of the indices, with the lowest numbered
+ * dimension executed as the innermost loop.
  *
  * If `expr` is a reduction operator, the result must be initialized to
  * some useful value, typically the identity value for the reduction
@@ -339,17 +341,9 @@ auto ein(T& scalar) {
  * This function does not optimize the loop ordering within each operation.
  * The goal of this function is to provide a low-overhead and expressive
  * reduction that can be composed with other explicit loop transformations
- * to achieve good performance. The loops associated with reductions (i.e.
- * loops not associated with a dimension of the result) are executed as
- * *outermost* loops. Therefore, good performance can usually be had by:
- * 1. Ensuring one of the dimensions of the result has a compile-time
- *    constant stride of 1 (see `dim<>`).
- * 2. Ensuring the stride 1 dimension has an extent at least as large as
- *    (preferably a multiple of) the SIMD register size of the target.
- * 3. Splitting the result into small constant-sized tiles of an
- *    appropriate number of accumulators, typically 4-20 times the SIMD
- *    register size of the target. The compiler does this automatically
- *    in many cases (e.g. dot products), and so may not be necessary.
+ * to achieve good performance. Various optimization strategies can be
+ * implemented by splitting loops appropriately and by controlling the
+ * order of the loops with the reduction indices.
  *
  * Examples:
  * - `ein_reduce(ein<>(tr_A) += ein<i, i>(A))`, the trace of `A`.

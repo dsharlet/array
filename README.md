@@ -370,8 +370,9 @@ LBB9_11:
 This is **30-40x** faster than a naive C implementation of nested loops on my machine, and I believe it is within a factor of 2 of the peak performance possible.
 
 (\*) Unfortunately, this doesn't generate performant code currently and requires a few tweaks to work around an issue in LLVM.
-See the [matrix example](examples/linear_algebra/matrix.cpp) for the example code that produces good performance.
-To summarise, it is currently necessary to perform the accumulation into a temporary buffer instead of accumulating directly into the output, and I think this will be unnecessary when LLVM fixes a [basic issue](https://bugs.llvm.org/show_bug.cgi?id=45863).
+See the [matrix example](examples/linear_algebra/matrix.cpp) for the example code that produces the above assembly.
+To summarise, it is currently necessary to perform the accumulation into a temporary buffer instead of accumulating directly into the output.
+I think this will be unnecessary when LLVM fixes a [basic issue](https://bugs.llvm.org/show_bug.cgi?id=45863).
 
 ### CUDA support
 
