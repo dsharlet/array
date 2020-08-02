@@ -1618,8 +1618,7 @@ NDARRAY_HOST_DEVICE auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const
   // Unfortunately, we can't make the rank of the resulting shape dynamic. Fill
   // the end of the array with size 1 dimensions.
   for (size_t i = new_rank; i < dims.size(); i++) {
-    dims[i] = {dim<>(0, 1, dims[i - 1].src.stride() * dims[i - 1].src.extent()),
-        dim<>(0, 1, dims[i - 1].dst.stride() * dims[i - 1].dst.extent())};
+    dims[i] = {dim<>(0, 1, 0), dim<>(0, 1, 0)};
   }
 
   for (size_t i = 0; i < dims.size(); i++) {
