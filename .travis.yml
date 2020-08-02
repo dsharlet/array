@@ -1,7 +1,9 @@
 language: cpp
 install: make
 os: linux
-compiler: clang
+compiler:
+  - clang
+  - gcc
 script:
   - make test
   - make cuda_build_test
