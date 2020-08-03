@@ -349,7 +349,7 @@ auto ein(T& scalar) {
  * - `A`, `B`, `AB` are matrices (rank 2 arrays)
  * - `x`, `y`, `z`, `Ax` are vectors (rank 1 arrays)
  * - `tr_A`, `dot` are scalar (rank 0 arrays)
- * - `i`, `j`, `k` are the `constexpr` values `0, 1, 2`, respectively */
+ * - `i`, `j`, `k` are unique constexpr integers. */
 template <class Expr, class = internal::enable_if_ein_assign<Expr>>
 NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
   constexpr index_t LoopRank = Expr::MaxIndex + 1;
@@ -410,7 +410,7 @@ auto make_ein_reduce_shape(const Expr& expr) {
  * where:
  * - `A`, `B` are matrices (rank 2 arrays)
  * - `x`, `y`, `z` are vectors (rank 1 arrays)
- * - `i`, `j`, `k` are the `constexpr` values `0, 1, 2`, respectively
+ * - `i`, `j`, `k` are unique constexpr integers.
  *
  * See `ein_reduce()` for more details.
  **/

@@ -25,9 +25,6 @@ using namespace nda;
 // Make it easier to read the generated assembly for these functions.
 #define NOINLINE __attribute__((noinline))
 
-// Useful named dimension indices for ein_reduce.
-enum { i = 0, j = 1, k = 2 };
-
 // A textbook implementation of matrix multiplication. This is very simple,
 // but it is slow, primarily because of poor locality of the loads of B. The
 // reduction loop is innermost.
@@ -48,11 +45,9 @@ NOINLINE void multiply_reduce_cols(const_matrix_ref<T> A, const_matrix_ref<T> B,
 template <typename T>
 NOINLINE void multiply_ein_reduce_cols(
     const_matrix_ref<T> A, const_matrix_ref<T> B, matrix_ref<T> C) {
-  for (index_t i : C.i()) {
-    for (index_t j : C.j()) {
-      C(i, j) = make_ein_sum<T>(ein<k>(A(i, _)) * ein<k>(B(_, j)));
-    }
-  }
+  fill(C, static_cast<T>(0));
+  enum { i = 1, j = 2, k = 0 };
+  ein_reduce(ein<i, j>(C) += ein<i, k>(A) * ein<k, j>(B));
 }
 
 // Similar to the above, but written in plain C. The timing of this version
@@ -92,10 +87,9 @@ NOINLINE void multiply_reduce_rows(const_matrix_ref<T> A, const_matrix_ref<T> B,
 template <class T>
 NOINLINE void multiply_ein_reduce_rows(
     const_matrix_ref<T> A, const_matrix_ref<T> B, matrix_ref<T> C) {
-  for (index_t i : C.i()) {
-    fill(C(i, _), static_cast<T>(0));
-    ein_reduce(ein<j>(C(i, _)) += ein<k>(A(i, _)) * ein<k, j>(B));
-  }
+  fill(C, static_cast<T>(0));
+  enum { i = 2, j = 0, k = 1 };
+  ein_reduce(ein<i, j>(C) += ein<i, k>(A) * ein<k, j>(B));
 }
 
 template <typename T>
@@ -121,6 +115,7 @@ template <class T>
 NOINLINE void multiply_ein_reduce_matrix(
     const_matrix_ref<T> A, const_matrix_ref<T> B, matrix_ref<T> C) {
   fill(C, static_cast<T>(0));
+  enum { i = 0, j = 1, k = 2 };
   ein_reduce(ein<i, j>(C) += ein<i, k>(A) * ein<k, j>(B));
 }
 
@@ -246,6 +241,7 @@ NOINLINE void multiply_ein_reduce_tiles(
       auto accumulator = make_array_ref(buffer, make_compact(C_ijo.shape()));
 
       // Perform the matrix multiplication for this tile.
+      enum { i = 0, j = 1, k = 2 };
       ein_reduce(ein<i, j>(accumulator) += ein<i, k>(A(io, _)) * ein<k, j>(B(_, jo)));
 
       // Copy the accumulators to the output.
