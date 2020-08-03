@@ -662,13 +662,13 @@ NDARRAY_INLINE NDARRAY_HOST_DEVICE index_t flat_offset_pack(
 template <class Dims, size_t... Is>
 NDARRAY_HOST_DEVICE index_t flat_min(const Dims& dims, index_sequence<Is...>) {
   return sum((std::get<Is>(dims).extent() - 1) *
-             std::min(static_cast<index_t>(0), std::get<Is>(dims).stride())...);
+             std::min<index_t>(0, std::get<Is>(dims).stride())...);
 }
 
 template <class Dims, size_t... Is>
 NDARRAY_HOST_DEVICE index_t flat_max(const Dims& dims, index_sequence<Is...>) {
   return sum((std::get<Is>(dims).extent() - 1) *
-             std::max(static_cast<index_t>(0), std::get<Is>(dims).stride())...);
+             std::max<index_t>(0, std::get<Is>(dims).stride())...);
 }
 
 // Make dims with the interval of the first parameter and the stride
@@ -810,8 +810,11 @@ NDARRAY_HOST_DEVICE index_t filter_stride(index_t stride, index_t extent, const 
 // could have without intersecting this dim.
 template <class Dim>
 NDARRAY_HOST_DEVICE index_t candidate_stride(const Dim& dim) {
-  if (is_dynamic(dim.stride())) { return std::numeric_limits<index_t>::max(); }
-  return std::max(static_cast<index_t>(1), abs(dim.stride()) * dim.extent());
+  if (is_dynamic(dim.stride())) {
+    return std::numeric_limits<index_t>::max();
+  } else {
+    return std::max<index_t>(1, abs(dim.stride()) * dim.extent());
+  }
 }
 
 // Find the best stride (the smallest) out of all possible candidate strides.
