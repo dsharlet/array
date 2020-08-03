@@ -164,11 +164,24 @@ void check_pattern(const array<T, Shape, Alloc>& a,
 // Check that two dims are equal, including the compile-time constants.
 template <index_t MinA, index_t ExtentA, index_t StrideA, index_t MinB, index_t ExtentB,
     index_t StrideB>
-void assert_dim_eq(const dim<MinA, ExtentA, StrideA>& a, const dim<MinB, ExtentB, StrideB>& b) {
+bool assert_dim_eq(const dim<MinA, ExtentA, StrideA>& a, const dim<MinB, ExtentB, StrideB>& b) {
   static_assert(MinA == MinB, "");
   static_assert(ExtentA == ExtentB, "");
   static_assert(StrideA == StrideB, "");
   ASSERT_EQ(a, b);
+  return true;
+}
+
+template <class... DimsA, class... DimsB, size_t... Is>
+void assert_shapes_eq(
+    const shape<DimsA...>& a, const shape<DimsB...>& b, internal::index_sequence<Is...>) {
+  internal::all(assert_dim_eq(a.template dim<Is>(), b.template dim<Is>())...);
+}
+
+template <class... DimsA, class... DimsB>
+void assert_shapes_eq(const shape<DimsA...>& a, const shape<DimsB...>& b) {
+  static_assert(sizeof...(DimsA) == sizeof...(DimsB), "");
+  assert_shapes_eq(a, b, internal::make_index_sequence<sizeof...(DimsA)>());
 }
 
 // Benchmark a call.

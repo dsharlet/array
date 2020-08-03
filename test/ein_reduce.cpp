@@ -29,7 +29,7 @@ TEST(make_ein_sum_diag) {
   fill_pattern(A);
 
   // Make diag(A), the digonal of the matrix A.
-  auto a_diag = make_ein_sum<int, i>(ein<i, i>(A));
+  vector<int, N> a_diag = make_ein_sum<int, i>(ein<i, i>(A));
 
   ASSERT_EQ(a_diag.rank(), 1);
   ASSERT_EQ(a_diag.i().extent(), N);
@@ -225,7 +225,7 @@ TEST(make_ein_sum_matrix_vector) {
   fill_pattern(x);
 
   // Compute the matrix-vector product B*x.
-  auto Bx = make_ein_sum<int, i>(ein<i, j>(B) * ein<j>(x));
+  vector<int, M> Bx = make_ein_sum<int, i>(ein<i, j>(B) * ein<j>(x));
 
   ASSERT_EQ(Bx.rank(), 1);
   ASSERT_EQ(Bx.i().extent(), B.rows());
@@ -256,7 +256,7 @@ TEST(make_ein_sum_sum_2d) {
   fill_pattern(T);
 
   // Reduce T along the i and k dimensions, keeping j.
-  auto sum_ik = make_ein_sum<int, j>(ein<i, j, k>(T));
+  dense_array<int, 1> sum_ik = make_ein_sum<int, j>(ein<i, j, k>(T));
 
   ASSERT_EQ(sum_ik.rank(), 1);
   ASSERT_EQ(sum_ik.i().extent(), T.j().extent());
