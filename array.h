@@ -1788,7 +1788,7 @@ template <size_t... LoopOrder, class Shape, class Fn,
     std::enable_if_t<(sizeof...(LoopOrder) == 0), int> = 0>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_all_indices(const Shape& s, Fn&& fn) {
   using index_type = typename Shape::index_type;
-  for_each_index(s, [&](const index_type& i) { internal::apply(fn, i); });
+  for_each_index(s, [fn = std::move(fn)](const index_type& i) { internal::apply(fn, i); });
 }
 template <size_t... LoopOrder, class Shape, class Fn,
     class = internal::enable_if_callable<Fn, index_of_rank<sizeof...(LoopOrder)>>,
@@ -1796,15 +1796,16 @@ template <size_t... LoopOrder, class Shape, class Fn,
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index(const Shape& s, Fn&& fn) {
   using index_type = index_of_rank<sizeof...(LoopOrder)>;
   for_each_index_in_order(reorder<LoopOrder...>(s),
-      [&](const index_type& i) { fn(internal::unshuffle<LoopOrder...>(i)); });
+      [fn = std::move(fn)](const index_type& i) { fn(internal::unshuffle<LoopOrder...>(i)); });
 }
 template <size_t... LoopOrder, class Shape, class Fn,
     class = internal::enable_if_callable<Fn, decltype(LoopOrder)...>,
     std::enable_if_t<(sizeof...(LoopOrder) != 0), int> = 0>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_all_indices(const Shape& s, Fn&& fn) {
   using index_type = index_of_rank<sizeof...(LoopOrder)>;
-  for_each_index_in_order(reorder<LoopOrder...>(s),
-      [&](const index_type& i) { internal::apply(fn, internal::unshuffle<LoopOrder...>(i)); });
+  for_each_index_in_order(reorder<LoopOrder...>(s), [fn = std::move(fn)](const index_type& i) {
+    internal::apply(fn, internal::unshuffle<LoopOrder...>(i));
+  });
 }
 
 template <class T, class Shape>
