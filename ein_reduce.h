@@ -223,10 +223,6 @@ template <class... Dims, size_t... Is>
 auto reconcile_dim(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
   return reconcile_dim(std::get<Is>(dims)...);
 }
-template <class... Dims>
-auto reconcile_dim(const std::tuple<Dims...>& dims) {
-  return reconcile_dim(dims, make_index_sequence<sizeof...(Dims)>());
-}
 
 // Get the shape of an ein_reduce operand, or an empty shape if not an array.
 template <class T, class Shape>
@@ -267,7 +263,8 @@ auto gather_dim(Kind kind, const ein_bin_op<OpA, OpB, X>& op) {
 
 template <size_t Dim, class... Ops>
 auto gather_dims(const Ops&... ops) {
-  return reconcile_dim(std::tuple_cat(gather_dim<Dim>(std::get<0>(ops), std::get<1>(ops))...));
+  auto dims = std::tuple_cat(gather_dim<Dim>(std::get<0>(ops), std::get<1>(ops))...);
+  return reconcile_dim(dims, make_index_sequence<std::tuple_size<decltype(dims)>::value>());
 }
 template <size_t... Is, class... Ops>
 auto make_ein_reduce_shape(index_sequence<Is...>, const Ops&... ops) {
