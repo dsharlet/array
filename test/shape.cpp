@@ -277,6 +277,18 @@ TEST(for_all_indices_3d_reordered) {
   ASSERT_EQ(expected_flat_offset, 120);
 }
 
+TEST(for_all_indices_2d_of_3d) {
+  shape_of_rank<3> s(3, 5, {0, 8, 1});
+  s.resolve();
+  int expected_flat_offset = 0;
+  for_all_indices<0, 1>(s, [&](int x, int y) {
+    ASSERT_EQ(s(x, y, 0), expected_flat_offset);
+    expected_flat_offset += s.x().stride();
+  });
+  // Ensure the for_all_indices loop above actually ran.
+  ASSERT_EQ(expected_flat_offset, 120);
+}
+
 TEST(for_each_index_scalar) {
   shape<> s;
   int count = 0;
@@ -287,8 +299,8 @@ TEST(for_each_index_scalar) {
 TEST(for_each_index_1d) {
   dense_shape<1> s(20);
   int expected_flat_offset = 0;
-  for_each_index(s, [&](std::tuple<int> x) {
-    ASSERT_EQ(s(x), expected_flat_offset);
+  for_each_index(s, [&](std::tuple<int> i) {
+    ASSERT_EQ(s(i), expected_flat_offset);
     expected_flat_offset++;
   });
   // Ensure the for_each_index loop above actually ran.
@@ -299,8 +311,8 @@ TEST(for_each_index_2d) {
   dense_shape<2> s(10, 4);
   s.resolve();
   int expected_flat_offset = 0;
-  for_each_index(s, [&](std::tuple<int, int> x) {
-    ASSERT_EQ(s(x), expected_flat_offset);
+  for_each_index(s, [&](std::tuple<int, int> i) {
+    ASSERT_EQ(s(i), expected_flat_offset);
     expected_flat_offset++;
   });
   // Ensure the for_each_index loop above actually ran.
@@ -311,8 +323,8 @@ TEST(for_each_index_3d) {
   dense_shape<3> s(3, 5, 8);
   s.resolve();
   int expected_flat_offset = 0;
-  for_each_index(s, [&](std::tuple<int, int, int> x) {
-    ASSERT_EQ(s(x), expected_flat_offset);
+  for_each_index(s, [&](std::tuple<int, int, int> i) {
+    ASSERT_EQ(s(i), expected_flat_offset);
     expected_flat_offset++;
   });
   // Ensure the for_each_index loop above actually ran.
@@ -323,9 +335,21 @@ TEST(for_each_index_3d_reorderd) {
   shape_of_rank<3> s(3, 5, {0, 8, 1});
   s.resolve();
   int expected_flat_offset = 0;
-  for_each_index<2, 0, 1>(s, [&](std::tuple<int, int, int> x) {
-    ASSERT_EQ(s(x), expected_flat_offset);
+  for_each_index<2, 0, 1>(s, [&](std::tuple<int, int, int> i) {
+    ASSERT_EQ(s(i), expected_flat_offset);
     expected_flat_offset++;
+  });
+  // Ensure the for_each_index loop above actually ran.
+  ASSERT_EQ(expected_flat_offset, 120);
+}
+
+TEST(for_each_index_2d_of_3d) {
+  shape_of_rank<3> s(3, 5, {0, 8, 1});
+  s.resolve();
+  int expected_flat_offset = 0;
+  for_each_index<0, 1>(s, [&](std::tuple<int, int> i) {
+    ASSERT_EQ(s(std::get<0>(i), std::get<1>(i), 0), expected_flat_offset);
+    expected_flat_offset += s.x().stride();
   });
   // Ensure the for_each_index loop above actually ran.
   ASSERT_EQ(expected_flat_offset, 120);
