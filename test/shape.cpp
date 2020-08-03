@@ -226,7 +226,11 @@ TEST(clamp) {
 TEST(for_all_indices_scalar) {
   shape<> s;
   int count = 0;
-  for_all_indices(s, [&]() { count++; });
+  move_only token;
+  for_all_indices(s, [&, token = std::move(token)]() {
+    count++;
+    assert_used(token);
+  });
   ASSERT_EQ(count, 1);
 }
 
@@ -257,9 +261,11 @@ TEST(for_all_indices_3d) {
   dense_shape<3> s(3, 5, 8);
   s.resolve();
   int expected_flat_offset = 0;
-  for_all_indices(s, [&](int x, int y, int z) {
+  move_only token;
+  for_all_indices(s, [&, token = std::move(token)](int x, int y, int z) {
     ASSERT_EQ(s(x, y, z), expected_flat_offset);
     expected_flat_offset++;
+    assert_used(token);
   });
   // Ensure the for_all_indices loop above actually ran.
   ASSERT_EQ(expected_flat_offset, 120);
@@ -269,9 +275,11 @@ TEST(for_all_indices_3d_reordered) {
   shape_of_rank<3> s(3, 5, {0, 8, 1});
   s.resolve();
   int expected_flat_offset = 0;
-  for_all_indices<2, 0, 1>(s, [&](int x, int y, int z) {
+  move_only token;
+  for_all_indices<2, 0, 1>(s, [&, token = std::move(token)](int x, int y, int z) {
     ASSERT_EQ(s(x, y, z), expected_flat_offset);
     expected_flat_offset++;
+    assert_used(token);
   });
   // Ensure the for_all_indices loop above actually ran.
   ASSERT_EQ(expected_flat_offset, 120);
@@ -292,7 +300,11 @@ TEST(for_all_indices_2d_of_3d) {
 TEST(for_each_index_scalar) {
   shape<> s;
   int count = 0;
-  for_each_index(s, [&](std::tuple<>) { count++; });
+  move_only token;
+  for_each_index(s, [&, token = std::move(token)](std::tuple<>) {
+    count++;
+    assert_used(token);
+  });
   ASSERT_EQ(count, 1);
 }
 
@@ -323,9 +335,11 @@ TEST(for_each_index_3d) {
   dense_shape<3> s(3, 5, 8);
   s.resolve();
   int expected_flat_offset = 0;
-  for_each_index(s, [&](std::tuple<int, int, int> i) {
+  move_only token;
+  for_each_index(s, [&, token = std::move(token)](std::tuple<int, int, int> i) {
     ASSERT_EQ(s(i), expected_flat_offset);
     expected_flat_offset++;
+    assert_used(token);
   });
   // Ensure the for_each_index loop above actually ran.
   ASSERT_EQ(expected_flat_offset, 120);
@@ -335,9 +349,11 @@ TEST(for_each_index_3d_reorderd) {
   shape_of_rank<3> s(3, 5, {0, 8, 1});
   s.resolve();
   int expected_flat_offset = 0;
-  for_each_index<2, 0, 1>(s, [&](std::tuple<int, int, int> i) {
+  move_only token;
+  for_each_index<2, 0, 1>(s, [&, token = std::move(token)](std::tuple<int, int, int> i) {
     ASSERT_EQ(s(i), expected_flat_offset);
     expected_flat_offset++;
+    assert_used(token);
   });
   // Ensure the for_each_index loop above actually ran.
   ASSERT_EQ(expected_flat_offset, 120);
