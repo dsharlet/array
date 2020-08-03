@@ -118,7 +118,7 @@ namespace internal {
 template <typename T>
 NDARRAY_HOST_DEVICE typename std::add_rvalue_reference<T>::type declval() noexcept;
 
-NDARRAY_INLINE NDARRAY_HOST_DEVICE index_t abs(index_t a) { return a >= 0 ? a : -a; }
+NDARRAY_INLINE constexpr index_t abs(index_t x) { return x >= 0 ? x : -x; }
 
 NDARRAY_INLINE constexpr index_t is_static(index_t x) { return x != dynamic; }
 NDARRAY_INLINE constexpr index_t is_dynamic(index_t x) { return x == dynamic; }
@@ -133,6 +133,7 @@ template <index_t A, index_t B>
 using disable_if_not_equal = std::enable_if_t<!not_equal(A, B)>;
 
 // Math for (possibly) static values.
+constexpr index_t static_abs(index_t x) { return is_dynamic(x) ? dynamic : abs(x); }
 constexpr index_t static_add(index_t a, index_t b) { return is_dynamic(a, b) ? dynamic : a + b; }
 constexpr index_t static_sub(index_t a, index_t b) { return is_dynamic(a, b) ? dynamic : a - b; }
 constexpr index_t static_mul(index_t a, index_t b) { return is_dynamic(a, b) ? dynamic : a * b; }
@@ -1321,9 +1322,48 @@ NDARRAY_HOST_DEVICE auto make_dense_shape(const Shape& dims, index_sequence<Is..
       dim<>(std::get<Is + 1>(dims).min(), std::get<Is + 1>(dims).extent())...);
 }
 
-template <class Shape, size_t... Is>
-NDARRAY_HOST_DEVICE Shape without_strides(const Shape& s, index_sequence<Is...>) {
-  return {{s.template dim<Is>().min(), s.template dim<Is>().extent()}...};
+template <index_t CurrentStride>
+NDARRAY_HOST_DEVICE auto make_compact_dims() {
+  return std::tuple<>();
+}
+
+template <index_t CurrentStride, index_t Min, index_t Extent, index_t Stride, class... Dims>
+NDARRAY_HOST_DEVICE auto make_compact_dims(
+    const dim<Min, Extent, Stride>& dim0, const Dims&... dims) {
+  // We already know the stride of this dimension.
+  return std::tuple_cat(std::make_tuple(dim<Min, Extent, Stride>(dim0.min(), dim0.extent())),
+      make_compact_dims<CurrentStride>(dims...));
+}
+
+template <index_t CurrentStride, index_t Min, index_t Extent, class... Dims>
+NDARRAY_HOST_DEVICE auto make_compact_dims(const dim<Min, Extent>& dim0, const Dims&... dims) {
+  // If we know the extent of this dimension, we can also provide
+  // a constant stride for the next dimension.
+  constexpr index_t NextStride = is_static(Extent) ? static_mul(CurrentStride, Extent) : dynamic;
+  // Give this dimension the current stride, and don't give it a
+  // runtime stride. If CurrentStride is static, that will be the
+  // stride. If not, it will be dynamic, and resolved later.
+  return std::tuple_cat(std::make_tuple(dim<Min, Extent, CurrentStride>(dim0.min(), dim0.extent())),
+      make_compact_dims<NextStride>(dims...));
+}
+
+template <class Dims, size_t... Is>
+NDARRAY_HOST_DEVICE auto make_compact_dims(const Dims& dims, index_sequence<Is...>) {
+  // Currently, the algorithm is:
+  // - If any dimension has a static stride greater than one, don't give any
+  //   static strides.
+  // - If all dimensions are dynamic, use 1 as the next stride.
+  // - If a dimension has static stride 1, use its Extent as the next stride.
+  // This is very conservative, but the only thing I can figure out how to
+  // express as constexpr with C++14 that doesn't risk doing dumb things.
+  constexpr index_t MinStride =
+      variadic_max(std::tuple_element<Is, Dims>::type::Stride == 1
+                       ? static_abs(std::tuple_element<Is, Dims>::type::Extent)
+                       : dynamic...);
+  constexpr bool AnyStrideGreaterThanOne = any((std::tuple_element<Is, Dims>::type::Stride > 1)...);
+  constexpr bool AllDynamic = all(is_dynamic(std::tuple_element<Is, Dims>::type::Stride)...);
+  constexpr index_t NextStride = AnyStrideGreaterThanOne ? dynamic : (AllDynamic ? 1 : MinStride);
+  return make_compact_dims<NextStride>(std::get<Is>(dims)...);
 }
 
 template <index_t Min, index_t Extent, index_t Stride, class DimSrc>
@@ -1427,18 +1467,20 @@ NDARRAY_HOST_DEVICE auto make_dense(const shape<Dims...>& s) {
 }
 inline auto make_dense(const shape<>& s) { return s; }
 
-/** Replace the strides of `s` with minimal strides, as determined by
- * the `shape::resolve` algorithm. The strides of `s` are replaced with
- * a possibly different order, even if the shape is already compact.
+/** Attempt to make both the compile-time and run-time strides of `s`
+ * compact such that there is no padding between dimensions. Only dynamic
+ * strides are potentially replaced with static strides, existing
+ * compile-time strides are not modified. Run-time strides are then
+ * populated using the `shape::resolve` algorithm.
  *
  * The resulting shape may not have `Shape::is_compact` return `true`
- * if the shape has non-compact compile-time constant strides. */
+ * if the shape has existing non-compact compile-time constant strides. */
 template <class Shape>
-NDARRAY_HOST_DEVICE Shape make_compact(const Shape& s) {
-  Shape without_strides =
-      internal::without_strides(s, internal::make_index_sequence<Shape::rank()>());
-  without_strides.resolve();
-  return without_strides;
+NDARRAY_HOST_DEVICE auto make_compact(const Shape& s) {
+  auto static_compact = make_shape_from_tuple(
+      internal::make_compact_dims(s.dims(), internal::make_index_sequence<Shape::rank()>()));
+  static_compact.resolve();
+  return static_compact;
 }
 
 /** Returns `true` if a shape `src` can be assigned to a shape of type

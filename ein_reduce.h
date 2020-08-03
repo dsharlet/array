@@ -391,7 +391,6 @@ template <size_t... ResultIs, class Expr, class = internal::enable_if_ein_op<Exp
 auto make_ein_reduce_shape(const Expr& expr) {
   auto result_shape = internal::make_ein_reduce_shape(internal::index_sequence<ResultIs...>(),
       std::make_tuple(internal::is_inferred_shape(), expr));
-  // TODO: This would really benefit from addressing https://github.com/dsharlet/array/issues/31
   return make_compact(result_shape);
 }
 
