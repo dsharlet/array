@@ -1923,7 +1923,7 @@ public:
   NDARRAY_HOST_DEVICE const auto& dim() const {
     return shape_.template dim<D>();
   }
-  size_type size() const { return shape_.size(); }
+  NDARRAY_HOST_DEVICE size_type size() const { return shape_.size(); }
   NDARRAY_HOST_DEVICE bool empty() const { return base() != nullptr ? shape_.empty() : true; }
   NDARRAY_HOST_DEVICE bool is_compact() const { return shape_.is_compact(); }
 
@@ -1989,7 +1989,7 @@ public:
   NDARRAY_HOST_DEVICE operator const_array_ref<T, Shape>() const { return cref(); }
 
   /** Implicit conversion to `T` for scalar shaped array_refs. */
-  operator reference() const {
+  NDARRAY_HOST_DEVICE operator reference() const {
     static_assert(rank() == 0, "Cannot convert non-scalar array to scalar.");
     return *base_;
   }
