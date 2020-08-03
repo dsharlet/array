@@ -226,7 +226,8 @@ TEST(clamp) {
 TEST(for_all_indices_scalar) {
   shape<> s;
   int count = 0;
-  for_all_indices(s, [&, token = no_copy{no_copy()}]() {
+  move_only token;
+  for_all_indices(s, [&, token = std::move(token)]() {
     count++;
     assert_used(token);
   });
@@ -260,7 +261,8 @@ TEST(for_all_indices_3d) {
   dense_shape<3> s(3, 5, 8);
   s.resolve();
   int expected_flat_offset = 0;
-  for_all_indices(s, [&, token = no_copy{no_copy()}](int x, int y, int z) {
+  move_only token;
+  for_all_indices(s, [&, token = std::move(token)](int x, int y, int z) {
     ASSERT_EQ(s(x, y, z), expected_flat_offset);
     expected_flat_offset++;
     assert_used(token);
@@ -273,7 +275,8 @@ TEST(for_all_indices_3d_reordered) {
   shape_of_rank<3> s(3, 5, {0, 8, 1});
   s.resolve();
   int expected_flat_offset = 0;
-  for_all_indices<2, 0, 1>(s, [&, token = no_copy{no_copy()}](int x, int y, int z) {
+  move_only token;
+  for_all_indices<2, 0, 1>(s, [&, token = std::move(token)](int x, int y, int z) {
     ASSERT_EQ(s(x, y, z), expected_flat_offset);
     expected_flat_offset++;
     assert_used(token);
@@ -297,7 +300,8 @@ TEST(for_all_indices_2d_of_3d) {
 TEST(for_each_index_scalar) {
   shape<> s;
   int count = 0;
-  for_each_index(s, [&, token = no_copy{no_copy()}](std::tuple<>) {
+  move_only token;
+  for_each_index(s, [&, token = std::move(token)](std::tuple<>) {
     count++;
     assert_used(token);
   });
@@ -331,7 +335,8 @@ TEST(for_each_index_3d) {
   dense_shape<3> s(3, 5, 8);
   s.resolve();
   int expected_flat_offset = 0;
-  for_each_index(s, [&, token = no_copy{no_copy()}](std::tuple<int, int, int> i) {
+  move_only token;
+  for_each_index(s, [&, token = std::move(token)](std::tuple<int, int, int> i) {
     ASSERT_EQ(s(i), expected_flat_offset);
     expected_flat_offset++;
     assert_used(token);
@@ -344,7 +349,8 @@ TEST(for_each_index_3d_reorderd) {
   shape_of_rank<3> s(3, 5, {0, 8, 1});
   s.resolve();
   int expected_flat_offset = 0;
-  for_each_index<2, 0, 1>(s, [&, token = no_copy{no_copy()}](std::tuple<int, int, int> i) {
+  move_only token;
+  for_each_index<2, 0, 1>(s, [&, token = std::move(token)](std::tuple<int, int, int> i) {
     ASSERT_EQ(s(i), expected_flat_offset);
     expected_flat_offset++;
     assert_used(token);

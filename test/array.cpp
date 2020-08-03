@@ -341,7 +341,8 @@ TEST(array_tricky_copy) {
 
 TEST(array_for_each_value_scalar) {
   array_of_rank<int, 0> scalar;
-  scalar.for_each_value([token = no_copy{no_copy()}](int& v) {
+  move_only token;
+  scalar.for_each_value([token = std::move(token)](int& v) {
     v = 3;
     assert_used(token);
   });
@@ -353,7 +354,8 @@ TEST(array_for_each_value) {
   array_of_rank<int, 3> out_of_order({{0, 4, 16}, {0, 4, 1}, {0, 4, 4}});
 
   int out_of_order_counter = 0;
-  out_of_order.for_each_value([&, token = no_copy{no_copy()}](int& v) {
+  move_only token;
+  out_of_order.for_each_value([&, token = std::move(token)](int& v) {
     v = out_of_order_counter++;
     assert_used(token);
   });

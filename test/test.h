@@ -207,12 +207,12 @@ __attribute__((noinline)) T not_constant(T x) {
 }
 
 // This type generates compiler errors if it is copied.
-struct no_copy {
-  no_copy() = default;
-  no_copy(no_copy&&) = default;
-  no_copy& operator=(no_copy&&) = default;
-  no_copy(const no_copy&) = delete;
-  no_copy& operator=(const no_copy&) = delete;
+struct move_only {
+  move_only() = default;
+  move_only(move_only&&) = default;
+  move_only& operator=(move_only&&) = default;
+  move_only(const move_only&) = delete;
+  move_only& operator=(const move_only&) = delete;
 };
 
 } // namespace nda
