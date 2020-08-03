@@ -208,8 +208,8 @@ auto with_stride(const std::tuple<Dims...>& dims) {
 // TODO: It would be nice if this error would appear when constructing the
 // Einstein expression when possible, but that's really hard to do.
 template <class Dim0, class... Dims,
-    class = std::enable_if_t<all(is_compatible(Dim0::Min, Dims::Min)...)>,
-    class = std::enable_if_t<all(is_compatible(Dim0::Extent, Dims::Extent)...)>>
+    class = std::enable_if_t<!any(not_equal(Dim0::Min, Dims::Min)...)>,
+    class = std::enable_if_t<!any(not_equal(Dim0::Extent, Dims::Extent)...)>>
 auto reconcile_dim(const Dim0& dim0, const Dims&... dims) {
   assert(all(dim0.min() == dims.min()...));
   assert(all(dim0.extent() == dims.extent()...));

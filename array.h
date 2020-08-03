@@ -125,10 +125,12 @@ NDARRAY_INLINE constexpr index_t is_dynamic(index_t x) { return x == dynamic; }
 
 constexpr bool is_dynamic(index_t a, index_t b) { return is_dynamic(a) || is_dynamic(b); }
 
-constexpr bool is_compatible(index_t a, index_t b) { return is_dynamic(a, b) || a == b; }
+// Returns true if a and b are statically not equal, but they may still be
+// dynamically not equal even if this returns false.
+constexpr bool not_equal(index_t a, index_t b) { return is_static(a) && is_static(b) && a != b; }
 
 template <index_t A, index_t B>
-using enable_if_compatible = std::enable_if_t<is_compatible(A, B)>;
+using disable_if_not_equal = std::enable_if_t<!not_equal(A, B)>;
 
 // Math for (possibly) static values.
 constexpr index_t static_add(index_t a, index_t b) { return is_dynamic(a, b) ? dynamic : a + b; }
@@ -245,13 +247,13 @@ public:
    * with different compile-time template parameters. `other.min()` and
    * `other.extent()` must be compatible with `Min` and `Extent`, respectively. */
   template <index_t CopyMin, index_t CopyExtent,
-      class = internal::enable_if_compatible<Min, CopyMin>,
-      class = internal::enable_if_compatible<Extent, CopyExtent>>
+      class = internal::disable_if_not_equal<Min, CopyMin>,
+      class = internal::disable_if_not_equal<Extent, CopyExtent>>
   NDARRAY_HOST_DEVICE interval(const interval<CopyMin, CopyExtent>& other)
       : interval(other.min(), other.extent()) {}
   template <index_t CopyMin, index_t CopyExtent,
-      class = internal::enable_if_compatible<Min, CopyMin>,
-      class = internal::enable_if_compatible<Extent, CopyExtent>>
+      class = internal::disable_if_not_equal<Min, CopyMin>,
+      class = internal::disable_if_not_equal<Extent, CopyExtent>>
   NDARRAY_HOST_DEVICE interval& operator=(const interval<CopyMin, CopyExtent>& other) {
     set_min(other.min());
     set_extent(other.extent());
@@ -398,15 +400,15 @@ public:
    * `other.extent()`, and `other.stride()` must be compatible with `Min`,
    * `Extent`, and `Stride`, respectively. */
   template <index_t CopyMin, index_t CopyExtent, index_t CopyStride,
-      class = internal::enable_if_compatible<Min, CopyMin>,
-      class = internal::enable_if_compatible<Extent, CopyExtent>,
-      class = internal::enable_if_compatible<Stride, CopyStride>>
+      class = internal::disable_if_not_equal<Min, CopyMin>,
+      class = internal::disable_if_not_equal<Extent, CopyExtent>,
+      class = internal::disable_if_not_equal<Stride, CopyStride>>
   NDARRAY_HOST_DEVICE dim(const dim<CopyMin, CopyExtent, CopyStride>& other)
       : dim(other.min(), other.extent(), other.stride()) {}
   template <index_t CopyMin, index_t CopyExtent, index_t CopyStride,
-      class = internal::enable_if_compatible<Min, CopyMin>,
-      class = internal::enable_if_compatible<Extent, CopyExtent>,
-      class = internal::enable_if_compatible<Stride, CopyStride>>
+      class = internal::disable_if_not_equal<Min, CopyMin>,
+      class = internal::disable_if_not_equal<Extent, CopyExtent>,
+      class = internal::disable_if_not_equal<Stride, CopyStride>>
   NDARRAY_HOST_DEVICE dim& operator=(const dim<CopyMin, CopyExtent, CopyStride>& other) {
     set_min(other.min());
     set_extent(other.extent());
