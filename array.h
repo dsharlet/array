@@ -794,18 +794,11 @@ NDARRAY_HOST_DEVICE bool is_stride_ok(index_t stride, index_t extent, const Dim&
   return false;
 }
 
-template <class AllDims, size_t... Is>
-NDARRAY_HOST_DEVICE bool is_stride_ok(
-    index_t stride, index_t extent, const AllDims& all_dims, index_sequence<Is...>) {
-  return all(is_stride_ok(stride, extent, std::get<Is>(all_dims))...);
-}
-
 // Replace strides that are not OK with values that cannot be the
 // smallest stride.
-template <class AllDims>
-NDARRAY_HOST_DEVICE index_t filter_stride(index_t stride, index_t extent, const AllDims& all_dims) {
-  constexpr size_t rank = std::tuple_size<AllDims>::value;
-  if (is_stride_ok(stride, extent, all_dims, make_index_sequence<rank>())) {
+template <class... Dims>
+NDARRAY_HOST_DEVICE index_t filter_stride(index_t stride, index_t extent, const Dims&... dims) {
+  if (all(is_stride_ok(stride, extent, dims)...)) {
     return stride;
   } else {
     return std::numeric_limits<index_t>::max();
@@ -821,11 +814,10 @@ NDARRAY_HOST_DEVICE index_t candidate_stride(const Dim& dim) {
 }
 
 // Find the best stride (the smallest) out of all possible candidate strides.
-template <class AllDims, size_t... Is>
-NDARRAY_HOST_DEVICE index_t find_stride(
-    index_t extent, const AllDims& all_dims, index_sequence<Is...>) {
-  return variadic_min(filter_stride(1, extent, all_dims),
-      filter_stride(candidate_stride(std::get<Is>(all_dims)), extent, all_dims)...);
+template <class Dims, size_t... Is>
+NDARRAY_HOST_DEVICE index_t find_stride(index_t extent, const Dims& dims, index_sequence<Is...>) {
+  return variadic_min(filter_stride(1, extent, std::get<Is>(dims)...),
+      filter_stride(candidate_stride(std::get<Is>(dims)), extent, std::get<Is>(dims)...)...);
 }
 
 // Replace unknown dynamic strides for each dimension, starting with the first dimension.
