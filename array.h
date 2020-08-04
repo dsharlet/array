@@ -973,6 +973,9 @@ public:
 private:
   dims_type dims_;
 
+  // We use this a lot here. Make an alias for it.
+  using rank_indices = decltype(internal::make_index_sequence<std::tuple_size<dims_type>::value>());
+
   // TODO: This should use std::is_constructible<dims_type, std::tuple<OtherDims...>>
   // but it is broken on some compilers (https://github.com/dsharlet/array/issues/20).
   template <class... OtherDims>
@@ -1031,32 +1034,29 @@ public:
    * Examples:
    * - `{{0, 5}, {0, 10}}` -> `{{0, 5, 1}, {0, 10, 5}}`
    * - `{{0, 5}, {0, 10}, {0, 3, 1}}` -> `{{0, 5, 3}, {0, 10, 15}, {0, 3, 1}}` */
-  NDARRAY_HOST_DEVICE void resolve() {
-    internal::resolve_unknown_strides(dims_, internal::make_index_sequence<rank()>());
-  }
+  NDARRAY_HOST_DEVICE void resolve() { internal::resolve_unknown_strides(dims_, rank_indices()); }
 
   /** Check if all strides of the shape are known. */
   NDARRAY_HOST_DEVICE bool is_resolved() const {
-    return internal::is_resolved(dims_, internal::make_index_sequence<rank()>());
+    return internal::is_resolved(dims_, rank_indices());
   }
 
   /** Returns `true` if the indices or intervals `args` are in interval of this shape. */
   template <class... Args, class = enable_if_same_rank<Args...>>
   NDARRAY_HOST_DEVICE bool is_in_range(const std::tuple<Args...>& args) const {
-    return internal::is_in_range(dims_, args, internal::make_index_sequence<rank()>());
+    return internal::is_in_range(dims_, args, rank_indices());
   }
   template <class... Args, class = enable_if_same_rank<Args...>>
   NDARRAY_HOST_DEVICE bool is_in_range(Args... args) const {
-    return internal::is_in_range(
-        dims_, std::make_tuple(args...), internal::make_index_sequence<rank()>());
+    return internal::is_in_range(dims_, std::make_tuple(args...), rank_indices());
   }
 
   /** Compute the flat offset of the index `indices`. */
   NDARRAY_HOST_DEVICE index_t operator()(const index_type& indices) const {
-    return internal::flat_offset_tuple(dims_, indices, internal::make_index_sequence<rank()>());
+    return internal::flat_offset_tuple(dims_, indices, rank_indices());
   }
   NDARRAY_HOST_DEVICE index_t operator[](const index_type& indices) const {
-    return internal::flat_offset_tuple(dims_, indices, internal::make_index_sequence<rank()>());
+    return internal::flat_offset_tuple(dims_, indices, rank_indices());
   }
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_indices<Args...>>
   NDARRAY_HOST_DEVICE index_t operator()(Args... indices) const {
@@ -1068,10 +1068,8 @@ public:
    * will not have this dimension. The rest of the dimensions are cropped. */
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   NDARRAY_HOST_DEVICE auto operator()(const std::tuple<Args...>& args) const {
-    auto new_dims =
-        internal::intervals_with_strides(args, dims_, internal::make_index_sequence<rank()>());
-    auto new_dims_no_slices =
-        internal::skip_slices(new_dims, args, internal::make_index_sequence<rank()>());
+    auto new_dims = internal::intervals_with_strides(args, dims_, rank_indices());
+    auto new_dims_no_slices = internal::skip_slices(new_dims, args, rank_indices());
     return make_shape_from_tuple(new_dims_no_slices);
   }
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
@@ -1105,28 +1103,20 @@ public:
   NDARRAY_HOST_DEVICE dims_type& dims() { return dims_; }
   NDARRAY_HOST_DEVICE const dims_type& dims() const { return dims_; }
 
-  NDARRAY_HOST_DEVICE index_type min() const {
-    return internal::mins(dims(), internal::make_index_sequence<rank()>());
-  }
-  NDARRAY_HOST_DEVICE index_type max() const {
-    return internal::maxs(dims(), internal::make_index_sequence<rank()>());
-  }
+  NDARRAY_HOST_DEVICE index_type min() const { return internal::mins(dims(), rank_indices()); }
+  NDARRAY_HOST_DEVICE index_type max() const { return internal::maxs(dims(), rank_indices()); }
   NDARRAY_HOST_DEVICE index_type extent() const {
-    return internal::extents(dims(), internal::make_index_sequence<rank()>());
+    return internal::extents(dims(), rank_indices());
   }
   NDARRAY_HOST_DEVICE index_type stride() const {
-    return internal::strides(dims(), internal::make_index_sequence<rank()>());
+    return internal::strides(dims(), rank_indices());
   }
 
   /** Compute the min, max, or extent of the flat offsets of this shape.
    * This is the extent of the valid interval of values returned by `operator()`
    * or `operator[]`. */
-  NDARRAY_HOST_DEVICE index_t flat_min() const {
-    return internal::flat_min(dims_, internal::make_index_sequence<rank()>());
-  }
-  NDARRAY_HOST_DEVICE index_t flat_max() const {
-    return internal::flat_max(dims_, internal::make_index_sequence<rank()>());
-  }
+  NDARRAY_HOST_DEVICE index_t flat_min() const { return internal::flat_min(dims_, rank_indices()); }
+  NDARRAY_HOST_DEVICE index_t flat_max() const { return internal::flat_max(dims_, rank_indices()); }
   NDARRAY_HOST_DEVICE size_type flat_extent() const {
     index_t e = flat_max() - flat_min() + 1;
     return e < 0 ? 0 : static_cast<size_type>(e);
@@ -1134,7 +1124,7 @@ public:
 
   /** Compute the total number of indices in this shape. */
   NDARRAY_HOST_DEVICE size_type size() const {
-    index_t s = internal::product(extent(), internal::make_index_sequence<rank()>());
+    index_t s = internal::product(extent(), rank_indices());
     return s < 0 ? 0 : static_cast<size_type>(s);
   }
 
