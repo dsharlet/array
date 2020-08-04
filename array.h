@@ -1552,7 +1552,7 @@ NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order(
     const Shape& shape, Ptr base, Fn&& fn) {
   // TODO: This is losing compile-time constant extents and strides info
   // (https://github.com/dsharlet/array/issues/1).
-  auto base_and_stride = std::make_tuple(base, shape.stride());
+  auto base_and_stride = std::make_pair(base, shape.stride());
   internal::for_each_value_in_order<Shape::rank() - 1>(shape.extent(), fn, base_and_stride);
 }
 
@@ -1568,8 +1568,8 @@ NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order(const Shape& sha
   base_b += shape_b(shape.min());
   // TODO: This is losing compile-time constant extents and strides info
   // (https://github.com/dsharlet/array/issues/1).
-  auto a = std::make_tuple(base_a, shape_a.stride());
-  auto b = std::make_tuple(base_b, shape_b.stride());
+  auto a = std::make_pair(base_a, shape_a.stride());
+  auto b = std::make_pair(base_b, shape_b.stride());
   internal::for_each_value_in_order<Shape::rank() - 1>(shape.extent(), fn, a, b);
 }
 

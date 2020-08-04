@@ -396,8 +396,8 @@ NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
   // is present. If not, this selects one of the operand dimensions, which are
   // given stride 0.
   auto reduction_shape = internal::make_ein_reduce_shape(internal::make_index_sequence<LoopRank>(),
-      std::make_tuple(internal::is_result_shape(), expr.op_a),
-      std::make_tuple(internal::is_operand_shape(), expr.op_b));
+      std::make_pair(internal::is_result_shape(), expr.op_a),
+      std::make_pair(internal::is_operand_shape(), expr.op_b));
 
   // TODO: Try to compile-time optimize reduction_shape? :)
   // This is maybe actually somewhat doable, simply moving the for_each_index
@@ -427,7 +427,7 @@ NDARRAY_UNIQUE auto ein_sum(const Result& result, const Expr& expr) {
 template <size_t... ResultIs, class Expr, class = internal::enable_if_ein_op<Expr>>
 auto make_ein_reduce_shape(const Expr& expr) {
   auto result_shape = internal::make_ein_reduce_shape(internal::index_sequence<ResultIs...>(),
-      std::make_tuple(internal::is_inferred_shape(), expr));
+      std::make_pair(internal::is_inferred_shape(), expr));
   return make_compact(result_shape);
 }
 
