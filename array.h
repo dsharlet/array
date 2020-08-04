@@ -1363,7 +1363,7 @@ template <index_t CurrentStride, index_t Min, index_t Extent, class... Dims>
 NDARRAY_HOST_DEVICE auto make_compact_dims(const dim<Min, Extent>& dim0, const Dims&... dims) {
   // If we know the extent of this dimension, we can also provide
   // a constant stride for the next dimension.
-  constexpr index_t NextStride = is_static(Extent) ? static_mul(CurrentStride, Extent) : dynamic;
+  constexpr index_t NextStride = static_mul(CurrentStride, Extent);
   // Give this dimension the current stride, and don't give it a
   // runtime stride. If CurrentStride is static, that will be the
   // stride. If not, it will be dynamic, and resolved later.
