@@ -160,7 +160,7 @@ TEST(readme_ein_reduce) {
   float dot2 = 0.0f;
   ein_reduce(ein(dot2) += ein<i>(x) * ein<i>(y));
   float dot3 = 0.0f;
-  ein_sum(ein<i>(x) * ein<i>(y), ein(dot3));
+  ein_sum(ein(dot3), ein<i>(x) * ein<i>(y));
 
   // Matrix multiply C1 = C2 = A*B:
   matrix<float> A({10, 10});
