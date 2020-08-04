@@ -266,7 +266,7 @@ TEST(ein_sum_sum_3d) {
 
   // Fully reduce T.
   int sum_ijk = 0;
-  ein_sum(-ein<i, j, k>(T), ein(sum_ijk));
+  ein_sum(ein(sum_ijk), -ein<i, j, k>(T));
 
   int sum_ijk_ref = 0;
   T.for_each_value([&](int i) { sum_ijk_ref -= i; });

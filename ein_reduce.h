@@ -420,7 +420,7 @@ NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
  * expression via `ein_reduce(result += expr)`. */
 template <class Expr, class Result, class = internal::enable_if_ein_op<Expr>,
     class = internal::enable_if_ein_op<Result>>
-NDARRAY_UNIQUE auto ein_sum(const Expr& expr, const Result& result) {
+NDARRAY_UNIQUE auto ein_sum(const Result& result, const Expr& expr) {
   return ein_reduce(result += expr);
 }
 
@@ -432,7 +432,7 @@ auto make_ein_reduce_shape(const Expr& expr) {
   return make_compact(result_shape);
 }
 
-/** Compute an Einstein summation using `ein_sum` and return the result. The
+/** Compute an Einstein summation using `ein_reduce` and return the result. The
  * `value_type` of the result will be `T`, and the result shape will be inferred
  * from the shape of the operands. The result is initialized to `init` prior to
  * computing the summation. The Einstein summation indices for the result operand
