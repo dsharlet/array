@@ -1256,7 +1256,7 @@ NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index_in_order_impl(
 }
 
 template <class Dims, class Fn, size_t... Is>
-NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index_in_order(
+NDARRAY_INLINE NDARRAY_HOST_DEVICE void for_each_index_in_order(
     Fn&& fn, const Dims& dims, index_sequence<Is...>) {
   // We need to reverse the order of the dims so the last dim is
   // iterated innermost.
