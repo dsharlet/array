@@ -59,7 +59,7 @@ void for_each_image_index(const Shape& s, Fn&& fn) {
   for (index_t y : s.y()) {
     for (index_t x : s.x()) {
       for (index_t c : s.c()) {
-        fn(std::make_tuple(x, y, c));
+        fn(std::tuple<index_t, index_t, index_t>(x, y, c));
       }
     }
   }

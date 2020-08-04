@@ -62,7 +62,7 @@ template <class Shape, class Fn>
 void for_each_matrix_index(const Shape& s, Fn&& fn) {
   for (index_t i : s.i()) {
     for (index_t j : s.j()) {
-      fn(std::make_tuple(i, j));
+      fn(std::tuple<index_t, index_t>(i, j));
     }
   }
 }

@@ -1223,7 +1223,7 @@ template <class Fn, class OuterIdx, class Dim0>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index_in_order_impl(
     Fn&& fn, const OuterIdx& idx, const Dim0& dim0) {
   for (index_t i : dim0) {
-    fn(std::tuple_cat(std::make_tuple(i), idx));
+    fn(std::tuple_cat(std::tuple<index_t>(i), idx));
   }
 }
 
@@ -1232,7 +1232,7 @@ NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index_in_order_impl(
     Fn&& fn, const OuterIdx& idx, const Dim0& dim0, const Dim1& dim1) {
   for (index_t i : dim0) {
     for (index_t j : dim1) {
-      fn(std::tuple_cat(std::make_tuple(j, i), idx));
+      fn(std::tuple_cat(std::tuple<index_t, index_t>(j, i), idx));
     }
   }
 }
@@ -1241,7 +1241,7 @@ template <class Fn, class OuterIdx, class Dim0, class... Dims>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index_in_order_impl(
     Fn&& fn, const OuterIdx& idx, const Dim0& dim0, const Dims&... dims) {
   for (index_t i : dim0) {
-    for_each_index_in_order_impl(fn, std::tuple_cat(std::make_tuple(i), idx), dims...);
+    for_each_index_in_order_impl(fn, std::tuple_cat(std::tuple<index_t>(i), idx), dims...);
   }
 }
 
@@ -1250,7 +1250,7 @@ NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index_in_order_impl(
     Fn&& fn, const OuterIdx& idx, const Dim0& dim0, const Dim1& dim1, const Dims&... dims) {
   for (index_t i : dim0) {
     for (index_t j : dim1) {
-      for_each_index_in_order_impl(fn, std::tuple_cat(std::make_tuple(j, i), idx), dims...);
+      for_each_index_in_order_impl(fn, std::tuple_cat(std::tuple<index_t, index_t>(j, i), idx), dims...);
     }
   }
 }
@@ -1347,7 +1347,7 @@ NDARRAY_HOST_DEVICE auto make_dense_shape(const Shape& dims, index_sequence<Is..
 }
 
 template <index_t CurrentStride>
-NDARRAY_HOST_DEVICE auto make_compact_dims() {
+NDARRAY_HOST_DEVICE std::tuple<> make_compact_dims() {
   return std::tuple<>();
 }
 
@@ -1437,8 +1437,8 @@ NDARRAY_INLINE NDARRAY_HOST_DEVICE auto get_or_empty(const T& t) {
   return std::make_tuple(std::get<I>(t));
 }
 template <size_t I, class T, std::enable_if_t<(I >= std::tuple_size<T>::value), int> = 0>
-NDARRAY_INLINE NDARRAY_HOST_DEVICE auto get_or_empty(const T& t) {
-  return std::make_tuple();
+NDARRAY_INLINE NDARRAY_HOST_DEVICE std::tuple<> get_or_empty(const T& t) {
+  return std::tuple<>();
 }
 
 // Perform the inverse of a shuffle with indices Is...

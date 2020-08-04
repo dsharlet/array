@@ -246,7 +246,7 @@ auto with_stride(const std::tuple<Dims...>& dims) {
 template <class Dim0, class... Dims,
     class = std::enable_if_t<!any(not_equal(Dim0::Min, Dims::Min)...)>,
     class = std::enable_if_t<!any(not_equal(Dim0::Extent, Dims::Extent)...)>>
-auto reconcile_dim(const Dim0& dim0, const Dims&... dims) {
+const Dim0& reconcile_dim(const Dim0& dim0, const Dims&... dims) {
   assert(all(dim0.min() == dims.min()...));
   assert(all(dim0.extent() == dims.extent()...));
   return dim0;
@@ -266,7 +266,7 @@ const auto& dims_of(const array_ref<T, Shape>& op) {
   return op.shape().dims();
 }
 template <class T>
-auto dims_of(const T& op) {
+std::tuple<> dims_of(const T& op) {
   return std::tuple<>();
 }
 
