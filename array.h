@@ -1433,18 +1433,18 @@ constexpr size_t index_of() {
 // Similar to std::get, but returns a one-element tuple if I is
 // in bounds, or an empty tuple if not.
 template <size_t I, class T, std::enable_if_t<(I < std::tuple_size<T>::value), int> = 0>
-NDARRAY_INLINE NDARRAY_HOST_DEVICE auto get_tuple(const T& t) {
+NDARRAY_INLINE NDARRAY_HOST_DEVICE auto get_or_empty(const T& t) {
   return std::make_tuple(std::get<I>(t));
 }
 template <size_t I, class T, std::enable_if_t<(I >= std::tuple_size<T>::value), int> = 0>
-NDARRAY_INLINE NDARRAY_HOST_DEVICE auto get_tuple(const T& t) {
+NDARRAY_INLINE NDARRAY_HOST_DEVICE auto get_or_empty(const T& t) {
   return std::make_tuple();
 }
 
 // Perform the inverse of a shuffle with indices Is...
 template <size_t... Is, class T, size_t... Js>
 NDARRAY_HOST_DEVICE auto unshuffle(const T& t, index_sequence<Js...>) {
-  return std::tuple_cat(get_tuple<index_of<Js, Is...>()>(t)...);
+  return std::tuple_cat(get_or_empty<index_of<Js, Is...>()>(t)...);
 }
 template <size_t... Is, class... Ts>
 NDARRAY_HOST_DEVICE auto unshuffle(const std::tuple<Ts...>& t) {

@@ -279,17 +279,17 @@ class is_operand_shape {};
 template <size_t Dim, class Dims, size_t... Is>
 auto gather_dim(is_result_shape, const ein_op<Dims, Is...>& op) {
   // If this is part of the result, we want to keep its strides.
-  return get_tuple<index_of<Dim, Is...>()>(dims_of(op.op));
+  return get_or_empty<index_of<Dim, Is...>()>(dims_of(op.op));
 }
 template <size_t Dim, class Dims, size_t... Is>
 auto gather_dim(is_inferred_shape, const ein_op<Dims, Is...>& op) {
   // For inferred shapes, we want shapes without any constexpr strides, so it can be reshaped.
-  return get_tuple<index_of<Dim, Is...>()>(with_stride<dynamic>(dims_of(op.op)));
+  return get_or_empty<index_of<Dim, Is...>()>(with_stride<dynamic>(dims_of(op.op)));
 }
 template <size_t Dim, class Dims, size_t... Is>
 auto gather_dim(is_operand_shape, const ein_op<Dims, Is...>& op) {
   // If this is an operand shape, we want all of its dimensions to be stride 0.
-  return get_tuple<index_of<Dim, Is...>()>(with_stride<0>(dims_of(op.op)));
+  return get_or_empty<index_of<Dim, Is...>()>(with_stride<0>(dims_of(op.op)));
 }
 
 template <size_t Dim, class Kind, class Op, class X>
@@ -426,8 +426,8 @@ NDARRAY_UNIQUE auto ein_sum(const Result& result, const Expr& expr) {
 /** Infer the shape of the result of `make_ein_reduce`. */
 template <size_t... ResultIs, class Expr, class = internal::enable_if_ein_op<Expr>>
 auto make_ein_reduce_shape(const Expr& expr) {
-  auto result_shape = internal::make_ein_reduce_shape(internal::index_sequence<ResultIs...>(),
-      std::make_pair(internal::is_inferred_shape(), expr));
+  auto result_shape = internal::make_ein_reduce_shape(
+      internal::index_sequence<ResultIs...>(), std::make_pair(internal::is_inferred_shape(), expr));
   return make_compact(result_shape);
 }
 
