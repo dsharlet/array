@@ -86,6 +86,12 @@
 #define NDARRAY_HOST_DEVICE
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+#define NDARRAY_RESTRICT __restrict__
+#else
+#define NDARRAY_RESTRICT
+#endif
+
 namespace nda {
 
 using size_t = std::size_t;
@@ -1266,7 +1272,7 @@ NDARRAY_INLINE NDARRAY_HOST_DEVICE void advance(Ptr& ptr, Ptrs&... ptrs) {
 
 template <class Fn, class... Ptrs>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order_inner_dense(
-    index_t extent, Fn&& fn, Ptrs... ptrs) {
+    index_t extent, Fn&& fn, Ptrs NDARRAY_RESTRICT... ptrs) {
   for (index_t i = 0; i < extent; i++) {
     fn(*ptrs++...);
   }
