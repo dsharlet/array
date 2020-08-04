@@ -661,14 +661,14 @@ NDARRAY_INLINE NDARRAY_HOST_DEVICE index_t flat_offset_pack(
 // Computes one more than the sum of the offsets of the last index in every dim.
 template <class Dims, size_t... Is>
 NDARRAY_HOST_DEVICE index_t flat_min(const Dims& dims, index_sequence<Is...>) {
-  return sum((std::get<Is>(dims).extent() - 1) *
-             std::min<index_t>(0, std::get<Is>(dims).stride())...);
+  return sum(
+      (std::get<Is>(dims).extent() - 1) * std::min<index_t>(0, std::get<Is>(dims).stride())...);
 }
 
 template <class Dims, size_t... Is>
 NDARRAY_HOST_DEVICE index_t flat_max(const Dims& dims, index_sequence<Is...>) {
-  return sum((std::get<Is>(dims).extent() - 1) *
-             std::max<index_t>(0, std::get<Is>(dims).stride())...);
+  return sum(
+      (std::get<Is>(dims).extent() - 1) * std::max<index_t>(0, std::get<Is>(dims).stride())...);
 }
 
 // Make dims with the interval of the first parameter and the stride
