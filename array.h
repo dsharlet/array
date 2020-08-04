@@ -1237,17 +1237,41 @@ NDARRAY_INLINE NDARRAY_HOST_DEVICE void for_each_index_in_order_impl(Fn&& fn, co
   fn(idx);
 }
 
-// TODO: We could add some overloads here that help generate better code:
-// - Special case for dim<0, 1> placeholder loops.
-// - Overload for >1 loop at a time.
-// - Maybe small constant loops get unrolled.
-// However, all of these are pretty redundant with the compiler. They would
-// probably only affect unoptimized code (which might still be useful).
+// These multiple dim at a time overloads help reduce pre-optimization
+// code size.
+template <class Fn, class OuterIdx, class Dim0>
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index_in_order_impl(
+    Fn&& fn, const OuterIdx& idx, const Dim0& dim0) {
+  for (index_t i : dim0) {
+    fn(std::tuple_cat(std::make_tuple(i), idx));
+  }
+}
+
+template <class Fn, class OuterIdx, class Dim0, class Dim1>
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index_in_order_impl(
+    Fn&& fn, const OuterIdx& idx, const Dim0& dim0, const Dim1& dim1) {
+  for (index_t i : dim0) {
+    for (index_t j : dim1) {
+      fn(std::tuple_cat(std::make_tuple(j, i), idx));
+    }
+  }
+}
+
 template <class Fn, class OuterIdx, class Dim0, class... Dims>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index_in_order_impl(
     Fn&& fn, const OuterIdx& idx, const Dim0& dim0, const Dims&... dims) {
   for (index_t i : dim0) {
     for_each_index_in_order_impl(fn, std::tuple_cat(std::make_tuple(i), idx), dims...);
+  }
+}
+
+template <class Fn, class OuterIdx, class Dim0, class Dim1, class... Dims>
+NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index_in_order_impl(
+    Fn&& fn, const OuterIdx& idx, const Dim0& dim0, const Dim1& dim1, const Dims&... dims) {
+  for (index_t i : dim0) {
+    for (index_t j : dim1) {
+      for_each_index_in_order_impl(fn, std::tuple_cat(std::make_tuple(j, i), idx), dims...);
+    }
   }
 }
 
