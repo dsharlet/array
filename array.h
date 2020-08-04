@@ -2143,15 +2143,15 @@ private:
   }
   void copy_construct(const array& other) {
     assert(base_ || shape_.empty());
-    assert(shape_ == other.shape());
-    copy_shape_traits_type::for_each_value(other.shape(), other.base(), shape_, base_,
+    assert(shape_ == other.shape_);
+    copy_shape_traits_type::for_each_value(other.shape_, other.base_, shape_, base_,
         [&](const_reference src, reference dst) { alloc_traits::construct(alloc_, &dst, src); });
   }
   void move_construct(array& other) {
     assert(base_ || shape_.empty());
-    assert(shape_ == other.shape());
+    assert(shape_ == other.shape_);
     copy_shape_traits_type::for_each_value(
-        other.shape(), other.base(), shape_, base_, [&](reference src, reference dst) {
+        other.shape_, other.base_, shape_, base_, [&](reference src, reference dst) {
           alloc_traits::construct(alloc_, &dst, std::move(src));
         });
   }
@@ -2235,11 +2235,11 @@ public:
    * is then reallocated if necessary, and each element in the array is copy
    * constructed from other. */
   array& operator=(const array& other) {
-    if (base_ == other.base()) {
+    if (base_ == other.base_) {
       if (base_) {
-        assert(shape_ == other.shape());
+        assert(shape_ == other.shape_);
       } else {
-        shape_ = other.shape();
+        shape_ = other.shape_;
         assert(shape_.empty());
       }
       return *this;
@@ -2260,9 +2260,9 @@ public:
    * move-assigned from `other`. */
   array& operator=(array&& other) {
     using std::swap;
-    if (base_ == other.base()) {
+    if (base_ == other.base_) {
       if (base_) {
-        assert(shape_ == other.shape());
+        assert(shape_ == other.shape_);
       } else {
         swap(shape_, other.shape_);
         assert(shape_.empty());
@@ -2291,39 +2291,39 @@ public:
    * array is destroyed, reallocated if necessary, and then each element is
    * copy- or move-constructed from `other`. */
   void assign(const array& other) {
-    if (base_ == other.base()) {
+    if (base_ == other.base_) {
       if (base_) {
-        assert(shape_ == other.shape());
+        assert(shape_ == other.shape_);
       } else {
-        shape_ = other.shape();
+        shape_ = other.shape_;
         assert(shape_.empty());
       }
       return;
     }
-    if (shape_ == other.shape()) {
+    if (shape_ == other.shape_) {
       destroy();
     } else {
       deallocate();
-      shape_ = other.shape();
+      shape_ = other.shape_;
       allocate();
     }
     copy_construct(other);
   }
   void assign(array&& other) {
-    if (base_ == other.base()) {
+    if (base_ == other.base_) {
       if (base_) {
-        assert(shape_ == other.shape());
+        assert(shape_ == other.shape_);
       } else {
-        shape_ = other.shape();
+        shape_ = other.shape_;
         assert(shape_.empty());
       }
       return;
     }
-    if (shape_ == other.shape()) {
+    if (shape_ == other.shape_) {
       destroy();
     } else {
       deallocate();
-      shape_ = other.shape();
+      shape_ = other.shape_;
       allocate();
     }
     move_construct(other);
@@ -2442,7 +2442,7 @@ public:
     Shape intersection =
         internal::clamp(new_shape.dims(), shape_.dims(), internal::make_index_sequence<rank()>());
     pointer intersection_base =
-        internal::pointer_add(new_array.base(), new_shape(intersection.min()));
+        internal::pointer_add(new_array.base_, new_shape(intersection.min()));
     copy_shape_traits_type::for_each_value(
         shape_, base_, intersection, intersection_base, internal::move_assign<T, T>);
 
