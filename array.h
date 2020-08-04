@@ -1732,22 +1732,6 @@ public:
   }
 };
 
-template <>
-class shape_traits<shape<>> {
-public:
-  using shape_type = shape<>;
-
-  template <class Fn>
-  NDARRAY_HOST_DEVICE static void for_each_index(const shape<>&, Fn&& fn) {
-    fn(std::tuple<>());
-  }
-
-  template <class Ptr, class Fn>
-  NDARRAY_HOST_DEVICE static void for_each_value(const shape<>&, Ptr base, Fn&& fn) {
-    fn(*base);
-  }
-};
-
 /** Copy shape traits enable some behaviors to be customized on a pairwise shape
  * basis for copies. */
 template <class ShapeSrc, class ShapeDst>
