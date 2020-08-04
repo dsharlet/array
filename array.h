@@ -275,28 +275,28 @@ public:
   NDARRAY_INLINE NDARRAY_HOST_DEVICE void set_extent(index_t extent) { extent_ = extent; }
 
   /** Get or set the last index in this interval. */
-  NDARRAY_INLINE NDARRAY_HOST_DEVICE index_t max() const { return min() + extent() - 1; }
-  NDARRAY_INLINE NDARRAY_HOST_DEVICE void set_max(index_t max) { set_extent(max - min() + 1); }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE index_t max() const { return min_ + extent_ - 1; }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE void set_max(index_t max) { set_extent(max - min_ + 1); }
 
   /** Returns true if `at` is within the interval `[min(), max()]`. */
   NDARRAY_INLINE NDARRAY_HOST_DEVICE bool is_in_range(index_t at) const {
-    return min() <= at && at <= max();
+    return min_ <= at && at <= max();
   }
   /** Returns true if `at.min()` and `at.max()` are both within the interval
    * `[min(), max()]`. */
   template <index_t OtherMin, index_t OtherExtent>
   NDARRAY_INLINE NDARRAY_HOST_DEVICE bool is_in_range(
       const interval<OtherMin, OtherExtent>& at) const {
-    return min() <= at.min() && at.max() <= max();
+    return min_ <= at.min() && at.max() <= max();
   }
   template <index_t OtherMin, index_t OtherExtent, index_t OtherStride>
   NDARRAY_INLINE NDARRAY_HOST_DEVICE bool is_in_range(
       const dim<OtherMin, OtherExtent, OtherStride>& at) const {
-    return min() <= at.min() && at.max() <= max();
+    return min_ <= at.min() && at.max() <= max();
   }
 
   /** Make an iterator referring to the first index in this interval. */
-  NDARRAY_HOST_DEVICE index_iterator begin() const { return index_iterator(min()); }
+  NDARRAY_HOST_DEVICE index_iterator begin() const { return index_iterator(min_); }
   /** Make an iterator referring to one past the last index in this interval. */
   NDARRAY_HOST_DEVICE index_iterator end() const { return index_iterator(max() + 1); }
 
@@ -304,7 +304,7 @@ public:
    * same indices. */
   template <index_t OtherMin, index_t OtherExtent>
   NDARRAY_HOST_DEVICE bool operator==(const interval<OtherMin, OtherExtent>& other) const {
-    return min() == other.min() && extent() == other.extent();
+    return min_ == other.min() && extent_ == other.extent();
   }
   template <index_t OtherMin, index_t OtherExtent>
   NDARRAY_HOST_DEVICE bool operator!=(const interval<OtherMin, OtherExtent>& other) const {
@@ -369,13 +369,17 @@ NDARRAY_HOST_DEVICE index_t clamp(index_t x, const Range& r) {
  * mapping directly. Values not in the interval `[min, min + extent)` are considered
  * to be out of bounds. */
 template <index_t Min_ = dynamic, index_t Extent_ = dynamic, index_t Stride_ = dynamic>
-class dim : private interval<Min_, Extent_> {
-protected:
-  internal::constexpr_index<Stride_> stride_;
-
+class dim : protected interval<Min_, Extent_> {
 public:
   using base_range = interval<Min_, Extent_>;
 
+protected:
+  internal::constexpr_index<Stride_> stride_;
+
+  using base_range::extent_;
+  using base_range::min_;
+
+public:
   using base_range::Extent;
   using base_range::Max;
   using base_range::Min;
@@ -440,14 +444,14 @@ public:
 
   /** Offset of the index `at` in this dim in the flat array. */
   NDARRAY_INLINE NDARRAY_HOST_DEVICE index_t flat_offset(index_t at) const {
-    return (at - min()) * stride();
+    return (at - min_) * stride_;
   }
 
   /** Two dim objects are considered equal if their mins, extents, and strides
    * are equal. */
   template <index_t OtherMin, index_t OtherExtent, index_t OtherStride>
   NDARRAY_HOST_DEVICE bool operator==(const dim<OtherMin, OtherExtent, OtherStride>& other) const {
-    return min() == other.min() && extent() == other.extent() && stride() == other.stride();
+    return min_ == other.min() && extent_ == other.extent() && stride_ == other.stride();
   }
   template <index_t OtherMin, index_t OtherExtent, index_t OtherStride>
   NDARRAY_HOST_DEVICE bool operator!=(const dim<OtherMin, OtherExtent, OtherStride>& other) const {
@@ -608,6 +612,9 @@ using enable_if_applicable = decltype(apply(internal::declval<Fn>(), internal::d
 
 // Some variadic reduction helpers.
 NDARRAY_INLINE constexpr index_t sum() { return 0; }
+NDARRAY_INLINE constexpr index_t sum(index_t x0) { return x0; }
+NDARRAY_INLINE constexpr index_t sum(index_t x0, index_t x1) { return x0 + x1; }
+NDARRAY_INLINE constexpr index_t sum(index_t x0, index_t x1, index_t x2) { return x0 + x1 + x2; }
 template <class... Rest>
 NDARRAY_INLINE constexpr index_t sum(index_t first, Rest... rest) {
   return first + sum(rest...);
