@@ -1644,7 +1644,7 @@ NDARRAY_HOST_DEVICE shape_of_rank<Shape::rank()> dynamic_optimize_shape(const Sh
   // Unfortunately, we can't make the rank of the resulting shape smaller. Fill
   // the end of the array with size 1 dimensions.
   for (size_t i = rank; i < dims.size(); i++) {
-    dims[i] = dim<>(0, 1, dims[i - 1].stride() * dims[i - 1].extent());
+    dims[i] = dim<>(0, 1, 0);
   }
 
   return shape_of_rank<Shape::rank()>(array_to_tuple(dims));
