@@ -168,12 +168,11 @@ struct ein_binary_op : public ein_op_base<Derived> {
   };                                                                                               \
   NDARRAY_MAKE_EIN_BINARY_HELPERS(name, op)
 
-#define NDARRAY_MAKE_EIN_BINARY_FN(name, fn, is_assign_)                                           \
+#define NDARRAY_MAKE_EIN_BINARY_FN(name, fn)                                                       \
   template <class OpA, class OpB>                                                                  \
   struct name : public ein_binary_op<OpA, OpB, name<OpA, OpB>> {                                   \
     using base = ein_binary_op<OpA, OpB, name>;                                                    \
     name(const OpA& a, const OpB& b) : base(a, b) {}                                               \
-    using is_assign = is_assign_;                                                                  \
     template <class Idx>                                                                           \
     NDARRAY_INLINE auto operator()(const Idx& i) const {                                           \
       return fn(base::op_a(i), base::op_b(i));                                                     \
@@ -186,8 +185,8 @@ NDARRAY_MAKE_EIN_BINARY_OP(ein_op_add, +, std::false_type);
 NDARRAY_MAKE_EIN_BINARY_OP(ein_op_sub, -, std::false_type);
 NDARRAY_MAKE_EIN_BINARY_OP(ein_op_mul, *, std::false_type);
 NDARRAY_MAKE_EIN_BINARY_OP(ein_op_div, /, std::false_type);
-NDARRAY_MAKE_EIN_BINARY_FN(ein_op_min, std::min, std::false_type);
-NDARRAY_MAKE_EIN_BINARY_FN(ein_op_max, std::max, std::false_type);
+NDARRAY_MAKE_EIN_BINARY_FN(ein_op_min, std::min);
+NDARRAY_MAKE_EIN_BINARY_FN(ein_op_max, std::max);
 
 NDARRAY_MAKE_EIN_BINARY_OP(ein_op_assign, =, std::true_type);
 NDARRAY_MAKE_EIN_BINARY_OP(ein_op_add_assign, +=, std::true_type);
@@ -198,7 +197,7 @@ NDARRAY_MAKE_EIN_BINARY_OP(ein_op_mul_assign, *=, std::true_type);
 #undef NDARRAY_MAKE_EIN_BINARY_OP
 #undef NDARRAY_MAKE_EIN_BINARY_HELPERS
 
-}  // namespace internal
+} // namespace internal
 
 /** Cast an Einstein summation operand to a different type `Type`.
  * The cast is performed using `static_cast<Type>`. */
@@ -221,8 +220,8 @@ namespace internal {
 
 // Let these be found via ADL too.
 using nda::cast;
-using nda::min;
 using nda::max;
+using nda::min;
 
 // Helper to reinterpret a dim/shape with a new stride.
 template <index_t NewStride, index_t Min, index_t Extent, index_t Stride>
