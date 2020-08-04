@@ -1262,13 +1262,17 @@ NDARRAY_INLINE NDARRAY_HOST_DEVICE void copy_assign(const TSrc& src, TDst& dst) 
   dst = src;
 }
 
-template <size_t D>
-NDARRAY_INLINE NDARRAY_HOST_DEVICE void advance() {}
-template <size_t D, class Ptr, class... Ptrs>
-NDARRAY_INLINE NDARRAY_HOST_DEVICE void advance(Ptr& ptr, Ptrs&... ptrs) {
-  std::get<0>(ptr) += std::get<D>(std::get<1>(ptr));
-  advance<D>(ptrs...);
+template <size_t D, class Ptr0>
+NDARRAY_INLINE NDARRAY_HOST_DEVICE void advance(Ptr0& ptr0) {
+  std::get<0>(ptr0) += std::get<D>(std::get<1>(ptr0));
 }
+template <size_t D, class Ptr0, class Ptr1>
+NDARRAY_INLINE NDARRAY_HOST_DEVICE void advance(Ptr0& ptr0, Ptr1& ptr1) {
+  std::get<0>(ptr0) += std::get<D>(std::get<1>(ptr0));
+  std::get<0>(ptr1) += std::get<D>(std::get<1>(ptr1));
+}
+// If we ever need other than 1- or 2-way for_each_value, add a variadic
+// version of advance.
 
 template <class Fn, class... Ptrs>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order_inner_dense(
