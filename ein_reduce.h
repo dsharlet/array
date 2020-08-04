@@ -43,11 +43,13 @@ using enable_if_ein_assign =
 template <class Derived>
 struct ein_op_base {
   using is_ein_op = std::true_type;
+  using is_assign = std::false_type;
 
   // We need to be able to get the derived type when creating binary operations using
   // this operation as an operand.
   const Derived& derived() const { return *static_cast<const Derived*>(this); }
 
+  auto operator-() const { return make_ein_op_negate(derived()); }
   template <class T, class = enable_if_ein_op<T>>
   auto operator+(const T& r) const {
     return make_ein_op_add(derived(), r);
@@ -72,8 +74,6 @@ template <class Op, size_t... Is>
 struct ein_op : public ein_op_base<ein_op<Op, Is...>> {
   Op op;
   ein_op(const Op& op) : op(op) {}
-
-  using is_assign = std::false_type;
 
   // The largest dimension used by this operand.
   static constexpr index_t MaxIndex = sizeof...(Is) == 0 ? -1 : variadic_max(Is...);
@@ -105,26 +105,60 @@ struct ein_op : public ein_op_base<ein_op<Op, Is...>> {
   }
 };
 
+// A unary operation on an Einstein operand.
+template <class Op, class Derived>
+struct ein_unary_op : public ein_op_base<Derived> {
+  Op op;
+  ein_unary_op(const Op& op) : op(op) {}
+  static constexpr index_t MaxIndex = Op::MaxIndex;
+};
+
+// Unary negate.
+template <class Op>
+struct ein_negate_op : public ein_unary_op<Op, ein_negate_op<Op>> {
+  using base = ein_unary_op<Op, ein_negate_op<Op>>;
+  ein_negate_op(const Op& op) : base(op) {}
+  template <class Idx>
+  NDARRAY_INLINE auto operator()(const Idx& i) const {
+    return -base::op(i);
+  }
+};
+
+template <class Op>
+auto make_ein_op_negate(const Op& op) {
+  return ein_negate_op<Op>(op);
+}
+
+// Cast to a different type.
+template <class Type, class Op>
+struct ein_cast_op : public ein_unary_op<Op, ein_cast_op<Type, Op>> {
+  using base = ein_unary_op<Op, ein_cast_op<Type, Op>>;
+  ein_cast_op(const Op& op) : base(op) {}
+  template <class Idx>
+  NDARRAY_INLINE auto operator()(const Idx& i) const {
+    return static_cast<Type>(base::op(i));
+  }
+};
+
 // A binary operation of two operands.
 template <class OpA, class OpB, class Derived>
-struct ein_bin_op : public ein_op_base<Derived> {
+struct ein_binary_op : public ein_op_base<Derived> {
   OpA op_a;
   OpB op_b;
-  ein_bin_op(const OpA& a, const OpB& b) : op_a(a), op_b(b) {}
-  using is_ein_op = std::true_type;
+  ein_binary_op(const OpA& a, const OpB& b) : op_a(a), op_b(b) {}
   static constexpr index_t MaxIndex = std::max(OpA::MaxIndex, OpB::MaxIndex);
 };
 
-#define NDARRAY_MAKE_EIN_BIN_HELPERS(name, op)                                                     \
+#define NDARRAY_MAKE_EIN_BINARY_HELPERS(name, op)                                                  \
   template <class OpA, class OpB>                                                                  \
   auto make_##name(const OpA& a, const OpB& b) {                                                   \
     return name<OpA, OpB>(a, b);                                                                   \
   }
 
-#define NDARRAY_MAKE_EIN_BIN_OP(name, op, is_assign_)                                              \
+#define NDARRAY_MAKE_EIN_BINARY_OP(name, op, is_assign_)                                           \
   template <class OpA, class OpB>                                                                  \
-  struct name : public ein_bin_op<OpA, OpB, name<OpA, OpB>> {                                      \
-    using base = ein_bin_op<OpA, OpB, name>;                                                       \
+  struct name : public ein_binary_op<OpA, OpB, name<OpA, OpB>> {                                   \
+    using base = ein_binary_op<OpA, OpB, name>;                                                    \
     name(const OpA& a, const OpB& b) : base(a, b) {}                                               \
     using is_assign = is_assign_;                                                                  \
     template <class Idx>                                                                           \
@@ -132,12 +166,12 @@ struct ein_bin_op : public ein_op_base<Derived> {
       return base::op_a(i) op base::op_b(i);                                                       \
     }                                                                                              \
   };                                                                                               \
-  NDARRAY_MAKE_EIN_BIN_HELPERS(name, op)
+  NDARRAY_MAKE_EIN_BINARY_HELPERS(name, op)
 
-#define NDARRAY_MAKE_EIN_BIN_FN(name, fn, is_assign_)                                              \
+#define NDARRAY_MAKE_EIN_BINARY_FN(name, fn, is_assign_)                                           \
   template <class OpA, class OpB>                                                                  \
-  struct name : public ein_bin_op<OpA, OpB, name<OpA, OpB>> {                                      \
-    using base = ein_bin_op<OpA, OpB, name>;                                                       \
+  struct name : public ein_binary_op<OpA, OpB, name<OpA, OpB>> {                                   \
+    using base = ein_binary_op<OpA, OpB, name>;                                                    \
     name(const OpA& a, const OpB& b) : base(a, b) {}                                               \
     using is_assign = is_assign_;                                                                  \
     template <class Idx>                                                                           \
@@ -145,33 +179,50 @@ struct ein_bin_op : public ein_op_base<Derived> {
       return fn(base::op_a(i), base::op_b(i));                                                     \
     }                                                                                              \
   };                                                                                               \
-  NDARRAY_MAKE_EIN_BIN_HELPERS(name, op)
+  NDARRAY_MAKE_EIN_BINARY_HELPERS(name, op)
 
 // Define the expression types for the operations we support.
-NDARRAY_MAKE_EIN_BIN_OP(ein_op_add, +, std::false_type);
-NDARRAY_MAKE_EIN_BIN_OP(ein_op_sub, -, std::false_type);
-NDARRAY_MAKE_EIN_BIN_OP(ein_op_mul, *, std::false_type);
-NDARRAY_MAKE_EIN_BIN_OP(ein_op_div, /, std::false_type);
-NDARRAY_MAKE_EIN_BIN_FN(ein_op_min, std::min, std::false_type);
-NDARRAY_MAKE_EIN_BIN_FN(ein_op_max, std::max, std::false_type);
+NDARRAY_MAKE_EIN_BINARY_OP(ein_op_add, +, std::false_type);
+NDARRAY_MAKE_EIN_BINARY_OP(ein_op_sub, -, std::false_type);
+NDARRAY_MAKE_EIN_BINARY_OP(ein_op_mul, *, std::false_type);
+NDARRAY_MAKE_EIN_BINARY_OP(ein_op_div, /, std::false_type);
+NDARRAY_MAKE_EIN_BINARY_FN(ein_op_min, std::min, std::false_type);
+NDARRAY_MAKE_EIN_BINARY_FN(ein_op_max, std::max, std::false_type);
 
-NDARRAY_MAKE_EIN_BIN_OP(ein_op_assign, =, std::true_type);
-NDARRAY_MAKE_EIN_BIN_OP(ein_op_add_assign, +=, std::true_type);
-NDARRAY_MAKE_EIN_BIN_OP(ein_op_sub_assign, -=, std::true_type);
-NDARRAY_MAKE_EIN_BIN_OP(ein_op_mul_assign, *=, std::true_type);
+NDARRAY_MAKE_EIN_BINARY_OP(ein_op_assign, =, std::true_type);
+NDARRAY_MAKE_EIN_BINARY_OP(ein_op_add_assign, +=, std::true_type);
+NDARRAY_MAKE_EIN_BINARY_OP(ein_op_sub_assign, -=, std::true_type);
+NDARRAY_MAKE_EIN_BINARY_OP(ein_op_mul_assign, *=, std::true_type);
 
-#undef NDARRAY_MAKE_EIN_BIN_FN
-#undef NDARRAY_MAKE_EIN_BIN_OP
-#undef NDARRAY_MAKE_EIN_BIN_HELPERS
+#undef NDARRAY_MAKE_EIN_BINARY_FN
+#undef NDARRAY_MAKE_EIN_BINARY_OP
+#undef NDARRAY_MAKE_EIN_BINARY_HELPERS
 
+}  // namespace internal
+
+/** Cast an Einstein summation operand to a different type `Type`.
+ * The cast is performed using `static_cast<Type>`. */
+template <class Type, class Op>
+auto cast(const internal::ein_op_base<Op>& op) {
+  return internal::ein_cast_op<Type, Op>(op.derived());
+}
+
+/** The min or max of two Einstein summation operands. */
 template <class OpA, class OpB>
-auto min(const OpA& a, const OpB& b) {
-  return make_ein_op_min(a, b);
+auto min(const internal::ein_op_base<OpA>& a, const internal::ein_op_base<OpB>& b) {
+  return internal::make_ein_op_min(a.derived(), b.derived());
 }
 template <class OpA, class OpB>
-auto max(const OpA& a, const OpB& b) {
-  return make_ein_op_max(a, b);
+auto max(const internal::ein_op_base<OpA>& a, const internal::ein_op_base<OpB>& b) {
+  return internal::make_ein_op_max(a.derived(), b.derived());
 }
+
+namespace internal {
+
+// Let these be found via ADL too.
+using nda::cast;
+using nda::min;
+using nda::max;
 
 // Helper to reinterpret a dim/shape with a new stride.
 template <index_t NewStride, index_t Min, index_t Extent, index_t Stride>
@@ -242,8 +293,12 @@ auto gather_dim(is_operand_shape, const ein_op<Dims, Is...>& op) {
   return get_tuple<index_of<Dim, Is...>()>(with_stride<0>(dims_of(op.op)));
 }
 
+template <size_t Dim, class Kind, class Op, class X>
+auto gather_dim(Kind kind, const ein_unary_op<Op, X>& op) {
+  return gather_dim<Dim>(kind, op.op);
+}
 template <size_t Dim, class Kind, class OpA, class OpB, class X>
-auto gather_dim(Kind kind, const ein_bin_op<OpA, OpB, X>& op) {
+auto gather_dim(Kind kind, const ein_binary_op<OpA, OpB, X>& op) {
   return std::tuple_cat(gather_dim<Dim>(kind, op.op_a), gather_dim<Dim>(kind, op.op_b));
 }
 

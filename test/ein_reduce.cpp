@@ -238,16 +238,38 @@ TEST(make_ein_sum_matrix_vector) {
   }
 }
 
+TEST(make_ein_sum_matrix_vector_integer) {
+  constexpr index_t M = 50;
+  constexpr index_t N = 64;
+  matrix<char, M, N> B;
+  vector<char, N> x;
+  fill_pattern(B);
+  fill_pattern(x);
+
+  // Compute the matrix-vector product B*x.
+  vector<int, M> Bx = make_ein_sum<int, i>(cast<short>(ein<i, j>(B)) * cast<short>(ein<j>(x)));
+
+  ASSERT_EQ(Bx.rank(), 1);
+  ASSERT_EQ(Bx.i().extent(), B.rows());
+  for (index_t i : Bx.i()) {
+    int Bx_i = 0;
+    for (index_t j : x.i()) {
+      Bx_i += static_cast<short>(B(i, j)) * static_cast<short>(x(j));
+    }
+    ASSERT_EQ(Bx(i), Bx_i);
+  }
+}
+
 TEST(ein_sum_sum_3d) {
   array_of_rank<int, 3> T({4, 5, 8});
   fill_pattern(T);
 
   // Fully reduce T.
   int sum_ijk = 0;
-  ein_sum(ein<i, j, k>(T), ein(sum_ijk));
+  ein_sum(-ein<i, j, k>(T), ein(sum_ijk));
 
   int sum_ijk_ref = 0;
-  T.for_each_value([&](int i) { sum_ijk_ref += i; });
+  T.for_each_value([&](int i) { sum_ijk_ref -= i; });
   ASSERT_EQ(sum_ijk, sum_ijk_ref);
 }
 
