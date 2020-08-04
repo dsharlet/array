@@ -40,72 +40,9 @@ using enable_if_ein_assign =
 // due to overwhemling the compiler's ability to do CSE and other optimziations. In
 // the case of Einstein reductions, the expressions will usually be very small...
 
-// A leaf operand of an Einstein reduction expression. The Is... indicate the
-// dimension of the reduction to use to address this operand.
-template <class Op, size_t... Is>
-struct ein_op {
-  Op op;
-
+template <class Derived>
+struct ein_op_base {
   using is_ein_op = std::true_type;
-  using is_assign = std::false_type;
-
-  // The largest dimension used by this operand.
-  static constexpr index_t MaxIndex = sizeof...(Is) == 0 ? -1 : variadic_max(Is...);
-
-  // auto doesn't work here because it doesn't include the reference type of operator() when we
-  // need it, but it writing it includes it when we can't, e.g. if op(...) doesn't return a
-  // reference.
-  template <class Idx>
-  NDARRAY_INLINE decltype(op(Is...)) operator()(const Idx& i) const {
-    return op(std::get<Is>(i)...);
-  }
-
-  template <class T, class = enable_if_ein_op<T>>
-  auto operator+(const T& r) const {
-    return make_ein_op_add(*this, r);
-  }
-  template <class T, class = enable_if_ein_op<T>>
-  auto operator-(const T& r) const {
-    return make_ein_op_sub(*this, r);
-  }
-  template <class T, class = enable_if_ein_op<T>>
-  auto operator*(const T& r) const {
-    return make_ein_op_mul(*this, r);
-  }
-  template <class T, class = enable_if_ein_op<T>>
-  auto operator/(const T& r) const {
-    return make_ein_op_div(*this, r);
-  }
-
-  template <class T, class = enable_if_ein_op<T>>
-  auto operator=(const T& r) const {
-    return make_ein_op_assign(*this, r);
-  }
-  template <class T, class = enable_if_ein_op<T>>
-  auto operator+=(const T& r) const {
-    return make_ein_op_add_assign(*this, r);
-  }
-  template <class T, class = enable_if_ein_op<T>>
-  auto operator-=(const T& r) const {
-    return make_ein_op_sub_assign(*this, r);
-  }
-  template <class T, class = enable_if_ein_op<T>>
-  auto operator*=(const T& r) const {
-    return make_ein_op_mul_assign(*this, r);
-  }
-};
-
-// A binary operation of two operands.
-template <class OpA, class OpB, class Derived>
-struct ein_bin_op {
-  OpA op_a;
-  OpB op_b;
-
-  ein_bin_op(const OpA& a, const OpB& b) : op_a(a), op_b(b) {}
-
-  using is_ein_op = std::true_type;
-
-  static constexpr index_t MaxIndex = std::max(OpA::MaxIndex, OpB::MaxIndex);
 
   // We need to be able to get the derived type when creating binary operations using
   // this operation as an operand.
@@ -127,6 +64,55 @@ struct ein_bin_op {
   auto operator/(const T& r) const {
     return make_ein_op_div(derived(), r);
   }
+};
+
+// A leaf operand of an Einstein reduction expression. The Is... indicate the
+// dimension of the reduction to use to address this operand.
+template <class Op, size_t... Is>
+struct ein_op : public ein_op_base<ein_op<Op, Is...>> {
+  Op op;
+  ein_op(const Op& op) : op(op) {}
+
+  using is_assign = std::false_type;
+
+  // The largest dimension used by this operand.
+  static constexpr index_t MaxIndex = sizeof...(Is) == 0 ? -1 : variadic_max(Is...);
+
+  // auto doesn't work here because it doesn't include the reference type of operator() when we
+  // need it, but it writing it includes it when we can't, e.g. if op(...) doesn't return a
+  // reference.
+  template <class Idx>
+  NDARRAY_INLINE decltype(op(Is...)) operator()(const Idx& i) const {
+    return op(std::get<Is>(i)...);
+  }
+
+  // Only ein_op has assignment operators.
+  template <class T, class = enable_if_ein_op<T>>
+  auto operator=(const T& r) const {
+    return make_ein_op_assign(*this, r);
+  }
+  template <class T, class = enable_if_ein_op<T>>
+  auto operator+=(const T& r) const {
+    return make_ein_op_add_assign(*this, r);
+  }
+  template <class T, class = enable_if_ein_op<T>>
+  auto operator-=(const T& r) const {
+    return make_ein_op_sub_assign(*this, r);
+  }
+  template <class T, class = enable_if_ein_op<T>>
+  auto operator*=(const T& r) const {
+    return make_ein_op_mul_assign(*this, r);
+  }
+};
+
+// A binary operation of two operands.
+template <class OpA, class OpB, class Derived>
+struct ein_bin_op : public ein_op_base<Derived> {
+  OpA op_a;
+  OpB op_b;
+  ein_bin_op(const OpA& a, const OpB& b) : op_a(a), op_b(b) {}
+  using is_ein_op = std::true_type;
+  static constexpr index_t MaxIndex = std::max(OpA::MaxIndex, OpB::MaxIndex);
 };
 
 #define NDARRAY_MAKE_EIN_BIN_HELPERS(name, op)                                                     \
