@@ -960,11 +960,11 @@ public:
 
   using size_type = size_t;
 
+  // We use this a lot here. Make an alias for it.
+  using dim_indices = decltype(internal::make_index_sequence<std::tuple_size<dims_type>::value>());
+
 private:
   dims_type dims_;
-
-  // We use this a lot here. Make an alias for it.
-  using rank_indices = decltype(internal::make_index_sequence<std::tuple_size<dims_type>::value>());
 
   // TODO: This should use std::is_constructible<dims_type, std::tuple<OtherDims...>>
   // but it is broken on some compilers (https://github.com/dsharlet/array/issues/20).
@@ -1024,33 +1024,33 @@ public:
    * Examples:
    * - `{{0, 5}, {0, 10}}` -> `{{0, 5, 1}, {0, 10, 5}}`
    * - `{{0, 5}, {0, 10}, {0, 3, 1}}` -> `{{0, 5, 3}, {0, 10, 15}, {0, 3, 1}}` */
-  NDARRAY_HOST_DEVICE void resolve() { internal::resolve_unknown_strides(dims_, rank_indices()); }
+  NDARRAY_HOST_DEVICE void resolve() { internal::resolve_unknown_strides(dims_, dim_indices()); }
 
   /** Check if all strides of the shape are known. */
   NDARRAY_HOST_DEVICE bool is_resolved() const {
-    return internal::is_resolved(dims_, rank_indices());
+    return internal::is_resolved(dims_, dim_indices());
   }
 
   /** Returns `true` if the indices or intervals `args` are in interval of this shape. */
   template <class... Args, class = enable_if_same_rank<Args...>>
   NDARRAY_HOST_DEVICE bool is_in_range(const std::tuple<Args...>& args) const {
-    return internal::is_in_range(dims_, args, rank_indices());
+    return internal::is_in_range(dims_, args, dim_indices());
   }
   template <class... Args, class = enable_if_same_rank<Args...>>
   NDARRAY_HOST_DEVICE bool is_in_range(Args... args) const {
-    return internal::is_in_range(dims_, std::make_tuple(args...), rank_indices());
+    return internal::is_in_range(dims_, std::make_tuple(args...), dim_indices());
   }
 
   /** Compute the flat offset of the index `indices`. */
   NDARRAY_HOST_DEVICE index_t operator()(const index_type& indices) const {
-    return internal::flat_offset(dims_, indices, rank_indices());
+    return internal::flat_offset(dims_, indices, dim_indices());
   }
   NDARRAY_HOST_DEVICE index_t operator[](const index_type& indices) const {
-    return internal::flat_offset(dims_, indices, rank_indices());
+    return internal::flat_offset(dims_, indices, dim_indices());
   }
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_indices<Args...>>
   NDARRAY_HOST_DEVICE index_t operator()(Args... indices) const {
-    return internal::flat_offset(dims_, std::make_tuple(indices...), rank_indices());
+    return internal::flat_offset(dims_, std::make_tuple(indices...), dim_indices());
   }
 
   /** Create a new shape from this shape using a indices or intervals `args`.
@@ -1058,8 +1058,8 @@ public:
    * will not have this dimension. The rest of the dimensions are cropped. */
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   NDARRAY_HOST_DEVICE auto operator()(const std::tuple<Args...>& args) const {
-    auto new_dims = internal::intervals_with_strides(args, dims_, rank_indices());
-    auto new_dims_no_slices = internal::skip_slices(new_dims, args, rank_indices());
+    auto new_dims = internal::intervals_with_strides(args, dims_, dim_indices());
+    auto new_dims_no_slices = internal::skip_slices(new_dims, args, dim_indices());
     return make_shape_from_tuple(new_dims_no_slices);
   }
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
@@ -1093,20 +1093,16 @@ public:
   NDARRAY_HOST_DEVICE dims_type& dims() { return dims_; }
   NDARRAY_HOST_DEVICE const dims_type& dims() const { return dims_; }
 
-  NDARRAY_HOST_DEVICE index_type min() const { return internal::mins(dims(), rank_indices()); }
-  NDARRAY_HOST_DEVICE index_type max() const { return internal::maxs(dims(), rank_indices()); }
-  NDARRAY_HOST_DEVICE index_type extent() const {
-    return internal::extents(dims(), rank_indices());
-  }
-  NDARRAY_HOST_DEVICE index_type stride() const {
-    return internal::strides(dims(), rank_indices());
-  }
+  NDARRAY_HOST_DEVICE index_type min() const { return internal::mins(dims(), dim_indices()); }
+  NDARRAY_HOST_DEVICE index_type max() const { return internal::maxs(dims(), dim_indices()); }
+  NDARRAY_HOST_DEVICE index_type extent() const { return internal::extents(dims(), dim_indices()); }
+  NDARRAY_HOST_DEVICE index_type stride() const { return internal::strides(dims(), dim_indices()); }
 
   /** Compute the min, max, or extent of the flat offsets of this shape.
    * This is the extent of the valid interval of values returned by `operator()`
    * or `operator[]`. */
-  NDARRAY_HOST_DEVICE index_t flat_min() const { return internal::flat_min(dims_, rank_indices()); }
-  NDARRAY_HOST_DEVICE index_t flat_max() const { return internal::flat_max(dims_, rank_indices()); }
+  NDARRAY_HOST_DEVICE index_t flat_min() const { return internal::flat_min(dims_, dim_indices()); }
+  NDARRAY_HOST_DEVICE index_t flat_max() const { return internal::flat_max(dims_, dim_indices()); }
   NDARRAY_HOST_DEVICE size_type flat_extent() const {
     index_t e = flat_max() - flat_min() + 1;
     return e < 0 ? 0 : static_cast<size_type>(e);
@@ -1114,7 +1110,7 @@ public:
 
   /** Compute the total number of indices in this shape. */
   NDARRAY_HOST_DEVICE size_type size() const {
-    index_t s = internal::product(extent(), rank_indices());
+    index_t s = internal::product(extent(), dim_indices());
     return s < 0 ? 0 : static_cast<size_type>(s);
   }
 
@@ -1250,7 +1246,8 @@ NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index_in_order_impl(
     Fn&& fn, const OuterIdx& idx, const Dim0& dim0, const Dim1& dim1, const Dims&... dims) {
   for (index_t i : dim0) {
     for (index_t j : dim1) {
-      for_each_index_in_order_impl(fn, std::tuple_cat(std::tuple<index_t, index_t>(j, i), idx), dims...);
+      for_each_index_in_order_impl(
+          fn, std::tuple_cat(std::tuple<index_t, index_t>(j, i), idx), dims...);
     }
   }
 }
@@ -1495,8 +1492,8 @@ inline auto make_dense(const shape<>& s) { return s; }
  * if the shape has existing non-compact compile-time constant strides. */
 template <class Shape>
 NDARRAY_HOST_DEVICE auto make_compact(const Shape& s) {
-  auto static_compact = make_shape_from_tuple(
-      internal::make_compact_dims(s.dims(), internal::make_index_sequence<Shape::rank()>()));
+  auto static_compact =
+      make_shape_from_tuple(internal::make_compact_dims(s.dims(), typename Shape::dim_indices()));
   static_compact.resolve();
   return static_compact;
 }
@@ -1506,8 +1503,7 @@ NDARRAY_HOST_DEVICE auto make_compact(const Shape& s) {
 template <class ShapeDst, class ShapeSrc,
     class = internal::enable_if_shapes_compatible<ShapeSrc, ShapeDst>>
 NDARRAY_HOST_DEVICE bool is_compatible(const ShapeSrc& src) {
-  return internal::is_shape_compatible(
-      ShapeDst(), src, internal::make_index_sequence<ShapeSrc::rank()>());
+  return internal::is_shape_compatible(ShapeDst(), src, typename ShapeSrc::dim_indices());
 }
 
 /** Convert a shape `src` to shape type `ShapeDst`. This explicit conversion
@@ -1520,7 +1516,7 @@ template <class ShapeDst, class ShapeSrc,
     class = internal::enable_if_shapes_explicitly_compatible<ShapeDst, ShapeSrc>>
 NDARRAY_HOST_DEVICE ShapeDst convert_shape(const ShapeSrc& src) {
   return internal::convert_dims<typename ShapeDst::dims_type>(
-      src.dims(), internal::make_index_sequence<ShapeDst::rank()>());
+      src.dims(), typename ShapeDst::dim_indices());
 }
 
 /** Test if a shape `src` can be explicitly converted to a shape of type
@@ -1528,8 +1524,7 @@ NDARRAY_HOST_DEVICE ShapeDst convert_shape(const ShapeSrc& src) {
 template <class ShapeDst, class ShapeSrc,
     class = internal::enable_if_shapes_explicitly_compatible<ShapeSrc, ShapeDst>>
 NDARRAY_HOST_DEVICE bool is_explicitly_compatible(const ShapeSrc& src) {
-  return internal::is_shape_compatible(
-      ShapeDst(), src, internal::make_index_sequence<ShapeSrc::rank()>());
+  return internal::is_shape_compatible(ShapeDst(), src, typename ShapeSrc::dim_indices());
 }
 
 /** Iterate over all indices in the shape, calling a function `fn` for each set
@@ -1543,8 +1538,7 @@ NDARRAY_HOST_DEVICE bool is_explicitly_compatible(const ShapeSrc& src) {
 template <class Shape, class Fn,
     class = internal::enable_if_callable<Fn, typename Shape::index_type>>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index_in_order(const Shape& shape, Fn&& fn) {
-  internal::for_each_index_in_order(
-      fn, shape.dims(), internal::make_index_sequence<Shape::rank()>());
+  internal::for_each_index_in_order(fn, shape.dims(), typename Shape::dim_indices());
 }
 template <class Shape, class Ptr, class Fn,
     class = internal::enable_if_callable<Fn, typename std::remove_pointer<Ptr>::type&>>
@@ -2440,7 +2434,7 @@ public:
 
     // Move the common elements to the new array.
     Shape intersection =
-        internal::clamp(new_shape.dims(), shape_.dims(), internal::make_index_sequence<rank()>());
+        internal::clamp(new_shape.dims(), shape_.dims(), typename Shape::dim_indices());
     pointer intersection_base =
         internal::pointer_add(new_array.base_, new_shape(intersection.min()));
     copy_shape_traits_type::for_each_value(
