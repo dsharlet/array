@@ -315,7 +315,7 @@ TEST(array_dense_copy) {
   fill_pattern(source);
   ASSERT(!source.is_compact());
 
-  dense_array<int, 3> dense_copy = make_dense_copy(source);
+  dense_array<int, 3> dense_copy = make_compact_copy(source);
   ASSERT(dense_copy.is_compact());
   check_pattern(dense_copy);
 }
@@ -325,7 +325,7 @@ TEST(array_dense_move) {
   fill_pattern(source);
   ASSERT(!source.is_compact());
 
-  dense_array<int, 3> dense_move = make_dense_move(source);
+  dense_array<int, 3> dense_move = make_compact_move(source);
   ASSERT(dense_move.is_compact());
   check_pattern(dense_move);
 }
@@ -417,7 +417,7 @@ TEST(array_negative_strides) {
   ASSERT_EQ(a.x().stride(), 3);
   for_all_indices(a.shape(), [&](int x, int y) { a(x, y) = y; });
 
-  dense_array<int, 2> b = make_dense_copy(a);
+  dense_array<int, 2> b = make_compact_copy(a);
   for_each_index(b.shape(),
       [&](const dense_array<int, 2>::index_type& i) { ASSERT_EQ(b(i), std::get<1>(i)); });
 }

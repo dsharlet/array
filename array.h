@@ -1319,12 +1319,6 @@ NDARRAY_HOST_DEVICE auto make_default_dense_shape() {
       std::tuple_cat(inner_dim(), tuple_of_n<dim<>, std::max<size_t>(1, Rank) - 1>()));
 }
 
-template <class Shape, size_t... Is>
-NDARRAY_HOST_DEVICE auto make_dense_shape(const Shape& dims, index_sequence<Is...>) {
-  return make_shape(dense_dim<>(std::get<0>(dims).min(), std::get<0>(dims).extent()),
-      dim<>(std::get<Is + 1>(dims).min(), std::get<Is + 1>(dims).extent())...);
-}
-
 template <index_t CurrentStride>
 NDARRAY_HOST_DEVICE auto make_compact_dims() {
   return std::tuple<>();
@@ -1462,19 +1456,14 @@ using shape_of_rank = decltype(make_shape_from_tuple(internal::tuple_of_n<dim<>,
 template <size_t Rank>
 using dense_shape = decltype(internal::make_default_dense_shape<Rank>());
 
-/** Make a `dense_shape` with the same mins and extents as `s`. */
-template <class... Dims>
-NDARRAY_HOST_DEVICE auto make_dense(const shape<Dims...>& s) {
-  constexpr size_t rank = sizeof...(Dims);
-  return internal::make_dense_shape(s.dims(), internal::make_index_sequence<rank - 1>());
-}
-inline auto make_dense(const shape<>& s) { return s; }
-
 /** Attempt to make both the compile-time and run-time strides of `s`
  * compact such that there is no padding between dimensions. Only dynamic
  * strides are potentially replaced with static strides, existing
  * compile-time strides are not modified. Run-time strides are then
  * populated using the `shape::resolve` algorithm.
+ *
+ * For a shape without any existing constant strides, this will return
+ * an instance of `dense_shape<Shape::rank()>`.
  *
  * The resulting shape may not have `Shape::is_compact` return `true`
  * if the shape has existing non-compact compile-time constant strides. */
@@ -2588,18 +2577,6 @@ auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const ShapeDst& shape,
   return make_copy(src.cref(), shape, alloc);
 }
 
-/** Make a copy of the `src` array or array_ref with a dense shape of the same
- * rank as `src`. */
-template <class T, class ShapeSrc,
-    class Alloc = std::allocator<typename std::remove_const<T>::type>>
-auto make_dense_copy(const array_ref<T, ShapeSrc>& src, const Alloc& alloc = Alloc()) {
-  return make_copy(src, make_dense(src.shape()), alloc);
-}
-template <class T, class ShapeSrc, class AllocSrc, class AllocDst = AllocSrc>
-auto make_dense_copy(const array<T, ShapeSrc, AllocSrc>& src, const AllocDst& alloc = AllocDst()) {
-  return make_dense_copy(src.cref(), alloc);
-}
-
 /** Make a copy of the `src` array or array_ref with a compact version of `src`s
  * shape. */
 template <class T, class Shape, class Alloc = std::allocator<typename std::remove_const<T>::type>>
@@ -2668,21 +2645,6 @@ auto make_move(array<T, Shape, Alloc>&& src, const Shape& shape, const Alloc& al
   } else {
     return make_move(src.ref(), shape, alloc);
   }
-}
-
-/** Make a copy of the `src` array or array_ref with a dense shape of the same
- * rank as `src`. The elements of `src` are moved to the result. */
-template <class T, class Shape, class Alloc = std::allocator<T>>
-auto make_dense_move(const array_ref<T, Shape>& src, const Alloc& alloc = Alloc()) {
-  return make_move(src, make_dense(src.shape()), alloc);
-}
-template <class T, class Shape, class AllocSrc, class AllocDst = AllocSrc>
-auto make_dense_move(array<T, Shape, AllocSrc>& src, const AllocDst& alloc = AllocDst()) {
-  return make_dense_move(src.ref(), alloc);
-}
-template <class T, class Shape, class Alloc>
-auto make_dense_move(array<T, Shape, Alloc>&& src, const Alloc& alloc = Alloc()) {
-  return make_move(src, make_dense(src.shape()), alloc);
 }
 
 /** Make a copy of the `src` array or array_ref with a compact version of `src`'s
