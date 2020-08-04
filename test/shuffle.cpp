@@ -18,6 +18,11 @@
 namespace nda {
 namespace internal {
 
+template <size_t... Is, class T>
+auto shuffle(const T& t) {
+  return std::make_tuple(std::get<Is>(t)...);
+}
+
 TEST(shuffle_1_of_3) {
   auto t = std::make_tuple(0, 1, 2);
   auto shuffled0 = shuffle<0>(t);

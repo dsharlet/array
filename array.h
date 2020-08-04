@@ -1438,12 +1438,6 @@ NDARRAY_HOST_DEVICE auto clamp(const DimsA& a, const DimsB& b, index_sequence<Is
   return make_shape(clamp_dims(std::get<Is>(a), std::get<Is>(b))...);
 }
 
-// Shuffle a tuple with indices Is...
-template <size_t... Is, class T>
-NDARRAY_HOST_DEVICE auto shuffle(const T& t) {
-  return std::make_tuple(std::get<Is>(t)...);
-}
-
 // Return where the index I appears in Is...
 template <size_t I>
 constexpr size_t index_of() {
