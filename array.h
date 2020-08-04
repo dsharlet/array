@@ -2724,12 +2724,12 @@ void fill(array<T, Shape, Alloc>& dst, const T& value) {
  * `g`. The order in which `g` is called is the same as
  * `shape_traits<Shape>::for_each_value`. */
 template <class T, class Shape, class Generator, class = internal::enable_if_callable<Generator>>
-NDARRAY_HOST_DEVICE void generate(const array_ref<T, Shape>& dst, Generator g) {
-  dst.for_each_value([g](T& i) { i = g(); });
+NDARRAY_HOST_DEVICE void generate(const array_ref<T, Shape>& dst, Generator&& g) {
+  dst.for_each_value([g = std::move(g)](T& i) { i = g(); });
 }
 template <class T, class Shape, class Alloc, class Generator,
     class = internal::enable_if_callable<Generator>>
-void generate(array<T, Shape, Alloc>& dst, Generator g) {
+void generate(array<T, Shape, Alloc>& dst, Generator&& g) {
   generate(dst.ref(), g);
 }
 

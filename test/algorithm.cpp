@@ -103,7 +103,8 @@ TEST(algorithm_copy_scalar) {
 
 TEST(algorithm_move_scalar) {
   array_of_rank<int, 0> a;
-  generate(a, rand);
+  move_only token;
+  generate(a, [token = std::move(token)]() { return rand(); });
 
   array_of_rank<int, 0> b;
   copy(a, b);
