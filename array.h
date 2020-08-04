@@ -656,19 +656,9 @@ constexpr bool any(Bools... bools) {
 
 // Computes the sum of the offsets of a list of dims and indices.
 template <class Dims, class Indices, size_t... Is>
-NDARRAY_HOST_DEVICE index_t flat_offset_tuple(
+NDARRAY_HOST_DEVICE index_t flat_offset(
     const Dims& dims, const Indices& indices, index_sequence<Is...>) {
   return sum(std::get<Is>(dims).flat_offset(std::get<Is>(indices))...);
-}
-
-template <size_t D, class Dims>
-NDARRAY_INLINE NDARRAY_HOST_DEVICE index_t flat_offset_pack(const Dims& dims) {
-  return 0;
-}
-template <size_t D, class Dims, class... Indices>
-NDARRAY_INLINE NDARRAY_HOST_DEVICE index_t flat_offset_pack(
-    const Dims& dims, index_t i0, Indices... indices) {
-  return std::get<D>(dims).flat_offset(i0) + flat_offset_pack<D + 1>(dims, indices...);
 }
 
 // Computes one more than the sum of the offsets of the last index in every dim.
@@ -1053,14 +1043,14 @@ public:
 
   /** Compute the flat offset of the index `indices`. */
   NDARRAY_HOST_DEVICE index_t operator()(const index_type& indices) const {
-    return internal::flat_offset_tuple(dims_, indices, rank_indices());
+    return internal::flat_offset(dims_, indices, rank_indices());
   }
   NDARRAY_HOST_DEVICE index_t operator[](const index_type& indices) const {
-    return internal::flat_offset_tuple(dims_, indices, rank_indices());
+    return internal::flat_offset(dims_, indices, rank_indices());
   }
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_indices<Args...>>
   NDARRAY_HOST_DEVICE index_t operator()(Args... indices) const {
-    return internal::flat_offset_pack<0>(dims_, indices...);
+    return internal::flat_offset(dims_, std::make_tuple(indices...), rank_indices());
   }
 
   /** Create a new shape from this shape using a indices or intervals `args`.
