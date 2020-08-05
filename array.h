@@ -601,14 +601,15 @@ NDARRAY_INLINE NDARRAY_HOST_DEVICE auto apply(Fn&& fn, const Args& args, index_s
 }
 template <class Fn, class... Args>
 NDARRAY_INLINE NDARRAY_HOST_DEVICE auto apply(Fn&& fn, const std::tuple<Args...>& args)
-    -> decltype(apply(fn, args, make_index_sequence<sizeof...(Args)>())) {
-  return apply(fn, args, make_index_sequence<sizeof...(Args)>());
+    -> decltype(internal::apply(fn, args, make_index_sequence<sizeof...(Args)>())) {
+  return internal::apply(fn, args, make_index_sequence<sizeof...(Args)>());
 }
 
 template <class Fn, class... Args>
 using enable_if_callable = decltype(internal::declval<Fn>()(internal::declval<Args>()...));
 template <class Fn, class Args>
-using enable_if_applicable = decltype(apply(internal::declval<Fn>(), internal::declval<Args>()));
+using enable_if_applicable =
+    decltype(internal::apply(internal::declval<Fn>(), internal::declval<Args>()));
 
 // Some variadic reduction helpers.
 NDARRAY_INLINE constexpr index_t sum() { return 0; }
