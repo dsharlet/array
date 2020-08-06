@@ -247,8 +247,18 @@ template <class Dim0, class... Dims,
     class = std::enable_if_t<!any(not_equal(Dim0::Min, Dims::Min)...)>,
     class = std::enable_if_t<!any(not_equal(Dim0::Extent, Dims::Extent)...)>>
 const Dim0& reconcile_dim(const Dim0& dim0, const Dims&... dims) {
-  assert(all(dim0.min() == dims.min()...));
-  assert(all(dim0.extent() == dims.extent()...));
+  if (dim0.stride() != 0) {
+    // If the first dim is an output dimension, just require the other dims
+    // to be in-bounds. This is a slightly relaxed requirement compared to the
+    // compile-time constraints.
+    assert(all(dims.is_in_range(dim0)...));
+  } else {
+    // If this is a reduction dimension, all of the dims must match. For
+    // example, this is the constraint that checks that the inner dimensions of
+    // a matrix multiplication are compatible.
+    assert(all(dim0.min() == dims.min()...));
+    assert(all(dim0.extent() == dims.extent()...));
+  }
   return dim0;
 }
 // If we have zero dims, the user skipped a dim index, so we need a dummy
