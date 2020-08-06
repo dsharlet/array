@@ -67,7 +67,7 @@ TEST(array_ref_copy) {
   }
 
   array_ref_of_rank<int, 1> evens(data, {dim<>(0, 50, 2)});
-  dense_array<int, 1> evens_copy = make_dense_copy(evens);
+  dense_array<int, 1> evens_copy = make_compact_copy(evens);
   for (int i = 0; i < 50; i++) {
     ASSERT_EQ(evens(i), i * 2);
     ASSERT_EQ(evens_copy(i), i * 2);
