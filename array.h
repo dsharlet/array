@@ -1176,11 +1176,11 @@ public:
 
   /** A shape is equal to another shape if the dim objects of each
    * dimension from both shapes are equal. */
-  template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
+  template <class... OtherDims, class = enable_if_same_rank<OtherDims...>>
   NDARRAY_HOST_DEVICE bool operator==(const shape<OtherDims...>& other) const {
     return dims_ == other.dims();
   }
-  template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
+  template <class... OtherDims, class = enable_if_same_rank<OtherDims...>>
   NDARRAY_HOST_DEVICE bool operator!=(const shape<OtherDims...>& other) const {
     return dims_ != other.dims();
   }
@@ -1941,12 +1941,14 @@ public:
   /** Pointer to the element at the min index of the shape. */
   NDARRAY_HOST_DEVICE pointer base() const { return base_; }
 
-  /** Pointer to the element at the beginning of the flat array. */
+  /** Pointer to the element at the beginning of the flat array. This is
+   * equivalent to `base()` if all of the strides of the shape are positive. */
   NDARRAY_HOST_DEVICE pointer data() const {
     return internal::pointer_add(base_, shape_.flat_min());
   }
 
   /** Shape of this array_ref. */
+  NDARRAY_HOST_DEVICE Shape& shape() { return shape_; }
   NDARRAY_HOST_DEVICE const Shape& shape() const { return shape_; }
 
   template <size_t D, class = enable_if_dim<D>>
@@ -2382,7 +2384,8 @@ public:
   pointer base() { return base_; }
   const_pointer base() const { return base_; }
 
-  /** Pointer to the element at the beginning of the flat array. */
+  /** Pointer to the element at the beginning of the flat array. This is
+   * equivalent to `base()` if all of the strides of the shape are positive. */
   pointer data() { return internal::pointer_add(base_, shape_.flat_min()); }
   const_pointer data() const { return internal::pointer_add(base_, shape_.flat_min()); }
 
