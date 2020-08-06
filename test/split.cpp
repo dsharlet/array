@@ -15,7 +15,34 @@
 #include "array.h"
 #include "test.h"
 
+#include <vector>
+
 namespace nda {
+
+TEST(split_iterator_increment) {
+  std::vector<interval<>> range;
+  std::vector<interval<>> pre;
+  std::vector<interval<>> post;
+
+  interval<> test(0, 10);
+  auto test_split = split<3>(interval<>(0, 10));
+  for (auto i : test_split) {
+    range.push_back(i);
+  }
+  for (auto i = std::begin(test_split); i != std::end(test_split); ++i) {
+    pre.push_back(*i);
+  }
+  for (auto i = std::begin(test_split); i != std::end(test_split); i++) {
+    post.push_back(*i);
+  }
+
+  ASSERT_EQ(pre.size(), range.size());
+  ASSERT_EQ(post.size(), range.size());
+  for (size_t i = 0; i < range.size(); i++) {
+    ASSERT_EQ(pre[i], range[i]);
+    ASSERT_EQ(post[i], range[i]);
+  }
+}
 
 // Test compile-time constant splits that divide the extents of an array.
 TEST(split_even_constant) {

@@ -518,8 +518,8 @@ public:
     return *this;
   }
   NDARRAY_HOST_DEVICE split_iterator operator++(int) {
-    split_iterator<InnerExtent> result(i);
-    ++result;
+    split_iterator<InnerExtent> result(*this);
+    ++*this;
     return result;
   }
 };

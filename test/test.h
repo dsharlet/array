@@ -53,6 +53,20 @@ std::ostream& operator<<(std::ostream& s, const std::tuple<Ts...>& t) {
   return s;
 }
 
+template <index_t Min, index_t Extent>
+std::ostream& operator<<(std::ostream& s, const interval<Min, Extent>& i) {
+  s << "dim<";
+  if (internal::is_static(Extent)) {
+    ostream_comma_separated_list(s, Min, Extent);
+  } else if (internal::is_static(Min)) {
+    s << Min;
+  }
+  s << ">(";
+  ostream_comma_separated_list(s, i.min(), i.extent());
+  s << ")";
+  return s;
+}
+
 template <index_t Min, index_t Extent, index_t Stride>
 std::ostream& operator<<(std::ostream& s, const dim<Min, Extent, Stride>& d) {
   s << "dim<";
