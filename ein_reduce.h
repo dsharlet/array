@@ -247,8 +247,9 @@ template <class Dim0, class... Dims,
     class = std::enable_if_t<!any(not_equal(Dim0::Min, Dims::Min)...)>,
     class = std::enable_if_t<!any(not_equal(Dim0::Extent, Dims::Extent)...)>>
 const Dim0& reconcile_dim(const Dim0& dim0, const Dims&... dims) {
-  assert(all(dim0.min() == dims.min()...));
-  assert(all(dim0.extent() == dims.extent()...));
+  // This is a bit relaxed compared to the compile-time bounds, and enables
+  // using ein_reduce to produce a subset of an output with the full inputs.
+  assert(all(dims.is_in_range(dim0)...));
   return dim0;
 }
 // If we have zero dims, the user skipped a dim index, so we need a dummy
