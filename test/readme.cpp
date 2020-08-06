@@ -153,14 +153,12 @@ TEST(readme_ein_reduce) {
   // Name the dimensions we use in Einstein reductions.
   enum { i = 0, j = 1, k = 2, l = 3 };
 
-  // Dot product dot1 = dot2 = dot3 = x.y:
+  // Dot product dot1 = dot2 = x.y:
   vector<float> x({10});
   vector<float> y({10});
   float dot1 = make_ein_sum<float>(ein<i>(x) * ein<i>(y));
   float dot2 = 0.0f;
   ein_reduce(ein(dot2) += ein<i>(x) * ein<i>(y));
-  float dot3 = 0.0f;
-  ein_sum(ein(dot3), ein<i>(x) * ein<i>(y));
 
   // Matrix multiply C1 = C2 = A*B:
   matrix<float> A({10, 10});

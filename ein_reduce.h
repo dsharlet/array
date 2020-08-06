@@ -415,14 +415,6 @@ NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
   return expr.op_a.op;
 }
 
-/** Wrapper for `ein_reduce` computing the sum of the operand operand
- * expression via `ein_reduce(result += expr)`. */
-template <class Expr, class Result, class = internal::enable_if_ein_op<Expr>,
-    class = internal::enable_if_ein_op<Result>>
-NDARRAY_UNIQUE auto ein_sum(const Result& result, const Expr& expr) {
-  return ein_reduce(result += expr);
-}
-
 /** Infer the shape of the result of `make_ein_reduce`. */
 template <size_t... ResultIs, class Expr, class = internal::enable_if_ein_op<Expr>>
 auto make_ein_reduce_shape(const Expr& expr) {
