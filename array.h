@@ -578,8 +578,8 @@ NDARRAY_HOST_DEVICE internal::split_iterator_range<InnerExtent> split(
 template <index_t Min, index_t Extent>
 NDARRAY_HOST_DEVICE internal::split_iterator_range<> split(
     const interval<Min, Extent>& v, index_t inner_extent) {
-  return {{interval<>(v.min(), inner_extent), v.max()},
-      {interval<>(v.max() + 1, inner_extent), v.max()}};
+  return {{interval<>(v.min(), std::min(inner_extent, v.extent())), v.max()},
+      {interval<>(v.max() + 1, 0), v.max()}};
 }
 template <index_t Min, index_t Extent, index_t Stride>
 NDARRAY_HOST_DEVICE internal::split_iterator_range<> split(
