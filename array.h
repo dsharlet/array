@@ -617,8 +617,8 @@ NDARRAY_INLINE constexpr index_t sum(index_t x0) { return x0; }
 NDARRAY_INLINE constexpr index_t sum(index_t x0, index_t x1) { return x0 + x1; }
 NDARRAY_INLINE constexpr index_t sum(index_t x0, index_t x1, index_t x2) { return x0 + x1 + x2; }
 template <class... Rest>
-NDARRAY_INLINE constexpr index_t sum(index_t first, Rest... rest) {
-  return first + sum(rest...);
+NDARRAY_INLINE constexpr index_t sum(index_t x0, index_t x1, index_t x2, index_t x3, Rest... rest) {
+  return x0 + x1 + x2 + x3 + sum(rest...);
 }
 
 NDARRAY_INLINE constexpr int product() { return 1; }
@@ -1569,14 +1569,27 @@ NDARRAY_INLINE NDARRAY_HOST_DEVICE dim<> fuse(const dim<>& inner, const dim<>& o
       inner.min() + outer.min() * inner.extent(), inner.extent() * outer.extent(), inner.stride());
 }
 
+struct copy_dims {
+  dim<> src;
+  dim<> dst;
+};
+
+inline bool operator<(const dim<>& l, const dim<>& r) {
+  return l.stride() < r.stride();
+}
+
+inline bool operator<(const copy_dims& l, const copy_dims& r) {
+  return l.dst.stride() < r.dst.stride();
+}
+
 // We need a sort that only needs to deal with very small lists,
 // and extra complexity here is costly in code size/compile time.
 // This is a rare job for bubble sort!
-template <class Iterator, class Compare>
-NDARRAY_HOST_DEVICE void bubble_sort(Iterator begin, Iterator end, Compare&& comp) {
+template <class Iterator>
+NDARRAY_HOST_DEVICE void bubble_sort(Iterator begin, Iterator end) {
   for (Iterator i = begin; i != end; ++i) {
     for (Iterator j = i; j != end; ++j) {
-      if (comp(*j, *i)) { std::swap(*i, *j); }
+      if (*j < *i) { std::swap(*i, *j); }
     }
   }
 }
@@ -1588,8 +1601,7 @@ NDARRAY_HOST_DEVICE shape_of_rank<Shape::rank()> dynamic_optimize_shape(const Sh
   auto dims = internal::tuple_to_array<dim<>>(shape.dims());
 
   // Sort the dims by stride.
-  bubble_sort(dims.begin(), dims.end(),
-      [](const dim<>& l, const dim<>& r) { return l.stride() < r.stride(); });
+  bubble_sort(dims.begin(), dims.end());
 
   // Find dimensions that are contiguous and fuse them.
   size_t rank = dims.size();
@@ -1624,18 +1636,13 @@ NDARRAY_HOST_DEVICE auto dynamic_optimize_copy_shapes(const ShapeSrc& src, const
   auto src_dims = internal::tuple_to_array<dim<>>(src.dims());
   auto dst_dims = internal::tuple_to_array<dim<>>(dst.dims());
 
-  struct copy_dims {
-    dim<> src;
-    dim<> dst;
-  };
   std::array<copy_dims, rank> dims;
   for (size_t i = 0; i < rank; i++) {
     dims[i] = {src_dims[i], dst_dims[i]};
   }
 
   // Sort the dims by the dst stride.
-  bubble_sort(dims.begin(), dims.end(),
-      [](const copy_dims& l, const copy_dims& r) { return l.dst.stride() < r.dst.stride(); });
+  bubble_sort(dims.begin(), dims.end());
 
   // Find dimensions that are contiguous and fuse them.
   size_t new_rank = dims.size();

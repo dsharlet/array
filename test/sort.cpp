@@ -30,9 +30,8 @@ TEST(sort) {
     std::vector<int> std_sorted(unordered);
     std::vector<int> sorted(unordered);
 
-    auto compare = [](int a, int b) { return a < b; };
-    std::sort(std_sorted.begin(), std_sorted.end(), compare);
-    internal::bubble_sort(sorted.begin(), sorted.end(), compare);
+    std::sort(std_sorted.begin(), std_sorted.end());
+    internal::bubble_sort(sorted.begin(), sorted.end());
 
     for (size_t i = 0; i < unordered.size(); i++) {
       ASSERT_EQ(std_sorted[i], sorted[i]);
