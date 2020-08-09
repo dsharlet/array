@@ -24,7 +24,6 @@ TEST(split_iterator_increment) {
   std::vector<interval<>> pre;
   std::vector<interval<>> post;
 
-  interval<> test(0, 10);
   auto test_split = split<3>(interval<>(0, 10));
   for (auto i : test_split) {
     range.push_back(i);
@@ -36,11 +35,20 @@ TEST(split_iterator_increment) {
     post.push_back(*i);
   }
 
-  ASSERT_EQ(pre.size(), range.size());
-  ASSERT_EQ(post.size(), range.size());
-  for (size_t i = 0; i < range.size(); i++) {
-    ASSERT_EQ(pre[i], range[i]);
-    ASSERT_EQ(post[i], range[i]);
+  std::vector<interval<>> reference = {
+      {0, 3},
+      {3, 3},
+      {6, 3},
+      {7, 3},
+  };
+
+  ASSERT_EQ(range.size(), reference.size());
+  ASSERT_EQ(pre.size(), reference.size());
+  ASSERT_EQ(post.size(), reference.size());
+  for (size_t i = 0; i < reference.size(); i++) {
+    ASSERT_EQ(range[i], reference[i]);
+    ASSERT_EQ(pre[i], reference[i]);
+    ASSERT_EQ(post[i], reference[i]);
   }
 }
 
