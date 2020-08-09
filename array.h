@@ -1574,9 +1574,7 @@ struct copy_dims {
   dim<> dst;
 };
 
-inline bool operator<(const dim<>& l, const dim<>& r) {
-  return l.stride() < r.stride();
-}
+inline bool operator<(const dim<>& l, const dim<>& r) { return l.stride() < r.stride(); }
 
 inline bool operator<(const copy_dims& l, const copy_dims& r) {
   return l.dst.stride() < r.dst.stride();
