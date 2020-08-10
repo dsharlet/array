@@ -21,8 +21,6 @@
 
 #include "array.h"
 
-#include <iostream>
-
 namespace nda {
 
 namespace internal {
