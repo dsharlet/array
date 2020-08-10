@@ -21,6 +21,8 @@
 
 #include "array.h"
 
+#include <iostream>
+
 namespace nda {
 
 namespace internal {
@@ -73,7 +75,7 @@ struct ein_op_base {
 template <class Op, size_t... Is>
 struct ein_op : public ein_op_base<ein_op<Op, Is...>> {
   Op op;
-  ein_op(const Op& op) : op(op) {}
+  ein_op(Op op) : op(std::move(op)) {}
 
   // The largest dimension used by this operand.
   static constexpr index_t MaxIndex = sizeof...(Is) == 0 ? -1 : variadic_max(Is...);
@@ -108,7 +110,7 @@ struct ein_op : public ein_op_base<ein_op<Op, Is...>> {
 // A unary operation on an Einstein operand.
 template <class Op, class Derived>
 struct ein_unary_op : public ein_op_base<Derived> {
-  Op op;
+  const Op& op;
   ein_unary_op(const Op& op) : op(op) {}
   static constexpr index_t MaxIndex = Op::MaxIndex;
 };
@@ -143,8 +145,8 @@ struct ein_cast_op : public ein_unary_op<Op, ein_cast_op<Type, Op>> {
 // A binary operation of two operands.
 template <class OpA, class OpB, class Derived>
 struct ein_binary_op : public ein_op_base<Derived> {
-  OpA op_a;
-  OpB op_b;
+  const OpA& op_a;
+  const OpB& op_b;
   ein_binary_op(const OpA& a, const OpB& b) : op_a(a), op_b(b) {}
   static constexpr index_t MaxIndex = std::max(OpA::MaxIndex, OpB::MaxIndex);
 };
@@ -223,20 +225,6 @@ using nda::cast;
 using nda::max;
 using nda::min;
 
-// Helper to reinterpret a dim/shape with a new stride.
-template <index_t NewStride, index_t Min, index_t Extent, index_t Stride>
-auto with_stride(const dim<Min, Extent, Stride>& d) {
-  return dim<Min, Extent, NewStride>(d.min(), d.extent());
-}
-template <index_t NewStride, class... Dims, size_t... Is>
-auto with_stride(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
-  return std::make_tuple(with_stride<NewStride>(std::get<Is>(dims))...);
-}
-template <index_t NewStride, class... Dims>
-auto with_stride(const std::tuple<Dims...>& dims) {
-  return with_stride<NewStride>(dims, make_index_sequence<sizeof...(Dims)>());
-}
-
 // If multiple operands provide the same dim, we need to reconcile them
 // to one dim. If you follow a compiler or runtime error here, your
 // Einstein expression tries to address two dimensions that have different
@@ -246,7 +234,7 @@ auto with_stride(const std::tuple<Dims...>& dims) {
 template <class Dim0, class... Dims,
     class = std::enable_if_t<!any(not_equal(Dim0::Min, Dims::Min)...)>,
     class = std::enable_if_t<!any(not_equal(Dim0::Extent, Dims::Extent)...)>>
-const Dim0& reconcile_dim(const Dim0& dim0, const Dims&... dims) {
+NDARRAY_UNIQUE const Dim0& reconcile_dim(const Dim0& dim0, const Dims&... dims) {
   if (dim0.stride() != 0) {
     // If the first dim is an output dimension, just require the other dims
     // to be in-bounds. This is a slightly relaxed requirement compared to the
@@ -266,18 +254,33 @@ const Dim0& reconcile_dim(const Dim0& dim0, const Dims&... dims) {
 inline dim<0, 1, 0> reconcile_dim() { return {}; }
 
 template <class... Dims, size_t... Is>
-auto reconcile_dim(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
+NDARRAY_UNIQUE auto reconcile_dim(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
   return reconcile_dim(std::get<Is>(dims)...);
+}
+template <class... Dims>
+NDARRAY_UNIQUE auto reconcile_dim(const std::tuple<Dims...>& dims) {
+  return reconcile_dim(dims, make_index_sequence<sizeof...(Dims)>());
 }
 
 // Get the shape of an ein_reduce operand, or an empty shape if not an array.
 template <class T, class Shape>
-const auto& dims_of(const array_ref<T, Shape>& op) {
+NDARRAY_UNIQUE const auto& dims_of(const array_ref<T, Shape>& op) {
   return op.shape().dims();
 }
 template <class T>
-std::tuple<> dims_of(const T& op) {
+NDARRAY_UNIQUE std::tuple<> dims_of(const T& op) {
   return std::tuple<>();
+}
+
+// Helper to reinterpret a dim/shape with a new stride.
+template <index_t NewStride, index_t Min, index_t Extent, index_t Stride>
+NDARRAY_UNIQUE auto with_stride(const std::tuple<dim<Min, Extent, Stride>>& maybe_dim) {
+  const dim<Min, Extent, Stride>& d = std::get<0>(maybe_dim);
+  return std::make_tuple(dim<Min, Extent, NewStride>(d.min(), d.extent()));
+}
+template <index_t NewStride>
+NDARRAY_UNIQUE std::tuple<> with_stride(std::tuple<> maybe_dim) {
+  return maybe_dim;
 }
 
 // These types are flags that let us overload behavior based on these 3 options.
@@ -287,38 +290,38 @@ class is_operand_shape {};
 
 // Get a dim from an operand, depending on the intended use of the shape.
 template <size_t Dim, class Dims, size_t... Is>
-auto gather_dim(is_result_shape, const ein_op<Dims, Is...>& op) {
+NDARRAY_UNIQUE auto gather_dims(is_result_shape, const ein_op<Dims, Is...>& op) {
   // If this is part of the result, we want to keep its strides.
   return get_or_empty<index_of<Dim, Is...>()>(dims_of(op.op));
 }
 template <size_t Dim, class Dims, size_t... Is>
-auto gather_dim(is_inferred_shape, const ein_op<Dims, Is...>& op) {
+NDARRAY_UNIQUE auto gather_dims(is_inferred_shape, const ein_op<Dims, Is...>& op) {
   // For inferred shapes, we want shapes without any constexpr strides, so it can be reshaped.
-  return get_or_empty<index_of<Dim, Is...>()>(with_stride<dynamic>(dims_of(op.op)));
+  return with_stride<dynamic>(get_or_empty<index_of<Dim, Is...>()>(dims_of(op.op)));
 }
 template <size_t Dim, class Dims, size_t... Is>
-auto gather_dim(is_operand_shape, const ein_op<Dims, Is...>& op) {
+NDARRAY_UNIQUE auto gather_dims(is_operand_shape, const ein_op<Dims, Is...>& op) {
   // If this is an operand shape, we want all of its dimensions to be stride 0.
-  return get_or_empty<index_of<Dim, Is...>()>(with_stride<0>(dims_of(op.op)));
+  return with_stride<0>(get_or_empty<index_of<Dim, Is...>()>(dims_of(op.op)));
 }
 
 template <size_t Dim, class Kind, class Op, class X>
-auto gather_dim(Kind kind, const ein_unary_op<Op, X>& op) {
-  return gather_dim<Dim>(kind, op.op);
+NDARRAY_UNIQUE auto gather_dims(Kind kind, const ein_unary_op<Op, X>& op) {
+  return gather_dims<Dim>(kind, op.op);
 }
 template <size_t Dim, class Kind, class OpA, class OpB, class X>
-auto gather_dim(Kind kind, const ein_binary_op<OpA, OpB, X>& op) {
-  return std::tuple_cat(gather_dim<Dim>(kind, op.op_a), gather_dim<Dim>(kind, op.op_b));
+NDARRAY_UNIQUE auto gather_dims(Kind kind, const ein_binary_op<OpA, OpB, X>& op) {
+  return std::tuple_cat(gather_dims<Dim>(kind, op.op_a), gather_dims<Dim>(kind, op.op_b));
 }
 
-template <size_t Dim, class... Ops>
-auto gather_dims(const Ops&... ops) {
-  auto dims = std::tuple_cat(gather_dim<Dim>(std::get<0>(ops), std::get<1>(ops))...);
-  return reconcile_dim(dims, make_index_sequence<std::tuple_size<decltype(dims)>::value>());
+template <size_t Dim, class Kind0, class Op0, class Kind1, class Op1>
+NDARRAY_UNIQUE auto gather_dims(Kind0 kind0, const Op0& op0, Kind1 kind1, const Op1& op1) {
+  return std::tuple_cat(gather_dims<Dim>(kind0, op0), gather_dims<Dim>(kind1, op1));
 }
-template <size_t... Is, class... Ops>
-auto make_ein_reduce_shape(index_sequence<Is...>, const Ops&... ops) {
-  return make_shape(gather_dims<Is>(ops...)...);
+template <size_t... Is, class... KindAndOps>
+NDARRAY_UNIQUE auto make_ein_reduce_shape(
+    index_sequence<Is...>, const KindAndOps&... kind_and_ops) {
+  return make_shape(reconcile_dim(gather_dims<Is>(kind_and_ops...))...);
 }
 
 } // namespace internal
@@ -331,7 +334,7 @@ auto make_ein_reduce_shape(index_sequence<Is...>, const Ops&... ops) {
  * arguments of `a`. See `ein_reduce()` for more details. */
 template <size_t... Is, class Op, class = internal::enable_if_callable<Op, decltype(Is)...>>
 auto ein(Op op) {
-  return internal::ein_op<Op, Is...>{op};
+  return internal::ein_op<Op, Is...>(std::move(op));
 }
 template <size_t... Is, class T, class Shape, class Alloc,
     class = std::enable_if_t<sizeof...(Is) == Shape::rank()>>
@@ -406,8 +409,7 @@ NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
   // is present. If not, this selects one of the operand dimensions, which are
   // given stride 0.
   auto reduction_shape = internal::make_ein_reduce_shape(internal::make_index_sequence<LoopRank>(),
-      std::make_pair(internal::is_result_shape(), expr.op_a),
-      std::make_pair(internal::is_operand_shape(), expr.op_b));
+      internal::is_result_shape(), expr.op_a, internal::is_operand_shape(), expr.op_b);
 
   // TODO: Try to compile-time optimize reduction_shape? :)
   // This is maybe actually somewhat doable, simply moving the for_each_index
@@ -429,7 +431,7 @@ NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
 template <size_t... ResultIs, class Expr, class = internal::enable_if_ein_op<Expr>>
 auto make_ein_reduce_shape(const Expr& expr) {
   auto result_shape = internal::make_ein_reduce_shape(
-      internal::index_sequence<ResultIs...>(), std::make_pair(internal::is_inferred_shape(), expr));
+      internal::index_sequence<ResultIs...>(), internal::is_inferred_shape(), expr);
   return make_compact(result_shape);
 }
 

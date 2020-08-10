@@ -1,4 +1,4 @@
-CFLAGS := $(CFLAGS) -O2 -ffast-math -fstrict-aliasing -march=native
+CFLAGS := $(CFLAGS) -O2 -march=native -ffast-math -fstrict-aliasing -fno-exceptions -DNDEBUG
 CXXFLAGS := $(CXXFLAGS) -std=c++14 -Wall
 LDFLAGS := $(LDFLAGS)
 

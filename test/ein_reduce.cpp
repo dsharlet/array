@@ -334,4 +334,17 @@ TEST(ein_reduce_dft) {
   }
 }
 
+TEST(ein_reduce_no_copy) {
+  constexpr index_t N = 30;
+
+  move_only token;
+  auto non_copyable_f = [token = std::move(token)](int i) { return i; };
+  vector<int, N> sum;
+  ein_reduce(ein<i>(sum) = cast<int>(-ein<i>(std::move(non_copyable_f))));
+
+  for (index_t i : sum.x()) {
+    ASSERT_EQ(sum(i), -i);
+  }
+}
+
 } // namespace nda
