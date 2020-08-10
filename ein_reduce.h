@@ -272,11 +272,14 @@ NDARRAY_UNIQUE std::tuple<> dims_of(const T& op) {
   return std::tuple<>();
 }
 
-// Helper to reinterpret a dim/shape with a new stride.
+// Helper to reinterpret a dim with a new stride.
 template <index_t NewStride, index_t Min, index_t Extent, index_t Stride>
-NDARRAY_UNIQUE auto with_stride(const std::tuple<dim<Min, Extent, Stride>>& maybe_dim) {
-  const dim<Min, Extent, Stride>& d = std::get<0>(maybe_dim);
-  return std::make_tuple(dim<Min, Extent, NewStride>(d.min(), d.extent()));
+NDARRAY_UNIQUE auto with_stride(const dim<Min, Extent, Stride>& d) {
+  return dim<Min, Extent, NewStride>(d.min(), d.extent());
+}
+template <index_t NewStride, class Dim>
+NDARRAY_UNIQUE auto with_stride(const std::tuple<Dim>& maybe_dim) {
+  return std::make_tuple(with_stride<NewStride>(std::get<0>(maybe_dim)));
 }
 template <index_t NewStride>
 NDARRAY_UNIQUE std::tuple<> with_stride(std::tuple<> maybe_dim) {
