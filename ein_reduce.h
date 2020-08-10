@@ -249,7 +249,7 @@ NDARRAY_INLINE const Dim0& reconcile_dim(const Dim0& dim0, const Dims&... dims) 
 }
 // If we have zero dims, the user skipped a dim index, so we need a dummy
 // loop.
-inline dim<0, 1, 0> reconcile_dim() { return {}; }
+NDARRAY_INLINE dim<0, 1, 0> reconcile_dim() { return {}; }
 
 template <class... Dims, size_t... Is>
 NDARRAY_INLINE auto reconcile_dim(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
