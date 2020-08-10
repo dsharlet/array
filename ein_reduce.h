@@ -234,7 +234,7 @@ using nda::min;
 template <class Dim0, class... Dims,
     class = std::enable_if_t<!any(not_equal(Dim0::Min, Dims::Min)...)>,
     class = std::enable_if_t<!any(not_equal(Dim0::Extent, Dims::Extent)...)>>
-NDARRAY_UNIQUE const Dim0& reconcile_dim(const Dim0& dim0, const Dims&... dims) {
+NDARRAY_INLINE const Dim0& reconcile_dim(const Dim0& dim0, const Dims&... dims) {
   if (dim0.stride() != 0) {
     // If the first dim is an output dimension, just require the other dims
     // to be in-bounds. This is a slightly relaxed requirement compared to the
@@ -254,35 +254,35 @@ NDARRAY_UNIQUE const Dim0& reconcile_dim(const Dim0& dim0, const Dims&... dims) 
 inline dim<0, 1, 0> reconcile_dim() { return {}; }
 
 template <class... Dims, size_t... Is>
-NDARRAY_UNIQUE auto reconcile_dim(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
+NDARRAY_INLINE auto reconcile_dim(const std::tuple<Dims...>& dims, index_sequence<Is...>) {
   return reconcile_dim(std::get<Is>(dims)...);
 }
 template <class... Dims>
-NDARRAY_UNIQUE auto reconcile_dim(const std::tuple<Dims...>& dims) {
+NDARRAY_INLINE auto reconcile_dim(const std::tuple<Dims...>& dims) {
   return reconcile_dim(dims, make_index_sequence<sizeof...(Dims)>());
 }
 
 // Get the shape of an ein_reduce operand, or an empty shape if not an array.
 template <class T, class Shape>
-NDARRAY_UNIQUE const auto& dims_of(const array_ref<T, Shape>& op) {
+NDARRAY_INLINE const auto& dims_of(const array_ref<T, Shape>& op) {
   return op.shape().dims();
 }
 template <class T>
-NDARRAY_UNIQUE std::tuple<> dims_of(const T& op) {
+NDARRAY_INLINE std::tuple<> dims_of(const T& op) {
   return std::tuple<>();
 }
 
 // Helper to reinterpret a dim with a new stride.
 template <index_t NewStride, index_t Min, index_t Extent, index_t Stride>
-NDARRAY_UNIQUE auto with_stride(const dim<Min, Extent, Stride>& d) {
+NDARRAY_INLINE auto with_stride(const dim<Min, Extent, Stride>& d) {
   return dim<Min, Extent, NewStride>(d.min(), d.extent());
 }
 template <index_t NewStride, class Dim>
-NDARRAY_UNIQUE auto with_stride(const std::tuple<Dim>& maybe_dim) {
+NDARRAY_INLINE auto with_stride(const std::tuple<Dim>& maybe_dim) {
   return std::make_tuple(with_stride<NewStride>(std::get<0>(maybe_dim)));
 }
 template <index_t NewStride>
-NDARRAY_UNIQUE std::tuple<> with_stride(std::tuple<> maybe_dim) {
+NDARRAY_INLINE std::tuple<> with_stride(std::tuple<> maybe_dim) {
   return maybe_dim;
 }
 
@@ -293,32 +293,32 @@ class is_operand_shape {};
 
 // Get a dim from an operand, depending on the intended use of the shape.
 template <size_t Dim, class Dims, size_t... Is>
-NDARRAY_UNIQUE auto gather_dims(is_result_shape, const ein_op<Dims, Is...>& op) {
+NDARRAY_INLINE auto gather_dims(is_result_shape, const ein_op<Dims, Is...>& op) {
   // If this is part of the result, we want to keep its strides.
   return get_or_empty<index_of<Dim, Is...>()>(dims_of(op.op));
 }
 template <size_t Dim, class Dims, size_t... Is>
-NDARRAY_UNIQUE auto gather_dims(is_inferred_shape, const ein_op<Dims, Is...>& op) {
+NDARRAY_INLINE auto gather_dims(is_inferred_shape, const ein_op<Dims, Is...>& op) {
   // For inferred shapes, we want shapes without any constexpr strides, so it can be reshaped.
   return with_stride<dynamic>(get_or_empty<index_of<Dim, Is...>()>(dims_of(op.op)));
 }
 template <size_t Dim, class Dims, size_t... Is>
-NDARRAY_UNIQUE auto gather_dims(is_operand_shape, const ein_op<Dims, Is...>& op) {
+NDARRAY_INLINE auto gather_dims(is_operand_shape, const ein_op<Dims, Is...>& op) {
   // If this is an operand shape, we want all of its dimensions to be stride 0.
   return with_stride<0>(get_or_empty<index_of<Dim, Is...>()>(dims_of(op.op)));
 }
 
 template <size_t Dim, class Kind, class Op, class X>
-NDARRAY_UNIQUE auto gather_dims(Kind kind, const ein_unary_op<Op, X>& op) {
+NDARRAY_INLINE auto gather_dims(Kind kind, const ein_unary_op<Op, X>& op) {
   return gather_dims<Dim>(kind, op.op);
 }
 template <size_t Dim, class Kind, class OpA, class OpB, class X>
-NDARRAY_UNIQUE auto gather_dims(Kind kind, const ein_binary_op<OpA, OpB, X>& op) {
+NDARRAY_INLINE auto gather_dims(Kind kind, const ein_binary_op<OpA, OpB, X>& op) {
   return std::tuple_cat(gather_dims<Dim>(kind, op.op_a), gather_dims<Dim>(kind, op.op_b));
 }
 
 template <size_t Dim, class Kind0, class Op0, class Kind1, class Op1>
-NDARRAY_UNIQUE auto gather_dims(Kind0 kind0, const Op0& op0, Kind1 kind1, const Op1& op1) {
+NDARRAY_INLINE auto gather_dims(Kind0 kind0, const Op0& op0, Kind1 kind1, const Op1& op1) {
   return std::tuple_cat(gather_dims<Dim>(kind0, op0), gather_dims<Dim>(kind1, op1));
 }
 template <size_t... Is, class... KindAndOps>
