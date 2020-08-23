@@ -2794,7 +2794,7 @@ auto reorder(const array<T, OldShape, Allocator>& a) {
  * automatic storage, and a fallback base allocator. For allocations, the
  * allocator uses the buffer if it is large enough and not already allocated,
  * otherwise it uses the base allocator. */
-template <class T, size_t N, size_t Alignment = sizeof(T), class BaseAlloc = std::allocator<T>>
+template <class T, size_t N, size_t Alignment = alignof(T), class BaseAlloc = std::allocator<T>>
 class auto_allocator {
   alignas(Alignment) char buffer[N * sizeof(T)];
   bool allocated;
