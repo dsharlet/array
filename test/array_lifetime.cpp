@@ -20,14 +20,15 @@ namespace nda {
 
 typedef shape<dim<>, dim<>> LifetimeShape;
 static LifetimeShape lifetime_shape(dim<>(-2, 5, 2), dim<>(4, 10, 20));
-static LifetimeShape lifetime_subshape(dim<>(-1, 4, 2), dim<>(5, 8, 20));
+static LifetimeShape lifetime_subshape(dim<>(-1, 4, 2), dim<>(5, 7, 20));
 
 template <typename Alloc>
 using lifetime_array = array<lifetime_counter, LifetimeShape, Alloc>;
 
-// Run all of these tests with 3 allocators:
+// Run all of these tests with 4 allocators:
 typedef std::allocator<lifetime_counter> std_alloc;
-typedef auto_allocator<lifetime_counter, 256> auto_alloc;
+typedef auto_allocator<lifetime_counter, 256> auto_alloc_big;
+typedef auto_allocator<lifetime_counter, 32> auto_alloc_small;
 
 class custom_alloc {
 public:
@@ -57,7 +58,8 @@ void test_default_init_lifetime() {
 TEST(array_default_init_lifetime) {
   test_default_init_lifetime<std_alloc>();
   test_default_init_lifetime<custom_alloc>();
-  test_default_init_lifetime<auto_alloc>();
+  test_default_init_lifetime<auto_alloc_big>();
+  test_default_init_lifetime<auto_alloc_small>();
 }
 
 template <typename Alloc>
@@ -73,7 +75,8 @@ void test_default_init_constant_lifetime() {
 TEST(array_default_init_constant_lifetime) {
   test_default_init_constant_lifetime<std_alloc>();
   test_default_init_constant_lifetime<custom_alloc>();
-  test_default_init_constant_lifetime<auto_alloc>();
+  test_default_init_constant_lifetime<auto_alloc_big>();
+  test_default_init_constant_lifetime<auto_alloc_small>();
 }
 
 template <typename Alloc>
@@ -87,7 +90,8 @@ void test_copy_init_lifetime() {
 TEST(array_copy_init_lifetime) {
   test_copy_init_lifetime<std_alloc>();
   test_copy_init_lifetime<custom_alloc>();
-  test_copy_init_lifetime<auto_alloc>();
+  test_copy_init_lifetime<auto_alloc_big>();
+  test_copy_init_lifetime<auto_alloc_small>();
 }
 
 template <typename Alloc>
@@ -110,7 +114,8 @@ void test_copy_lifetime() {
 TEST(array_copy_lifetime) {
   test_copy_lifetime<std_alloc>();
   test_copy_lifetime<custom_alloc>();
-  test_copy_lifetime<auto_alloc>();
+  test_copy_lifetime<auto_alloc_big>();
+  test_copy_lifetime<auto_alloc_small>();
 }
 
 template <typename Alloc>
@@ -145,7 +150,8 @@ void test_move_lifetime(bool alloc_movable = true) {
 TEST(array_move_lifetime) {
   test_move_lifetime<std_alloc>();
   test_move_lifetime<custom_alloc>();
-  test_move_lifetime<auto_alloc>(false);
+  test_move_lifetime<auto_alloc_big>(false);
+  test_move_lifetime<auto_alloc_small>();
 }
 
 template <typename Alloc>
@@ -170,7 +176,8 @@ void test_move_alloc_lifetime(bool alloc_movable = true) {
 TEST(array_move_alloc_lifetime) {
   test_move_alloc_lifetime<std_alloc>();
   test_move_alloc_lifetime<custom_alloc>();
-  test_move_alloc_lifetime<auto_alloc>(false);
+  test_move_alloc_lifetime<auto_alloc_big>(false);
+  test_move_alloc_lifetime<auto_alloc_small>();
 }
 
 template <typename Alloc>
@@ -188,7 +195,8 @@ void test_copy_assign_lifetime() {
 TEST(array_copy_assign_lifetime) {
   test_copy_assign_lifetime<std_alloc>();
   test_copy_assign_lifetime<custom_alloc>();
-  test_copy_assign_lifetime<auto_alloc>();
+  test_copy_assign_lifetime<auto_alloc_big>();
+  test_copy_assign_lifetime<auto_alloc_small>();
 }
 
 template <typename Alloc>
@@ -214,7 +222,8 @@ void test_move_assign_lifetime(bool alloc_movable = true) {
 TEST(array_move_assign_lifetime) {
   test_move_assign_lifetime<std_alloc>();
   test_move_assign_lifetime<custom_alloc>();
-  test_move_assign_lifetime<auto_alloc>(false);
+  test_move_assign_lifetime<auto_alloc_big>(false);
+  test_move_assign_lifetime<auto_alloc_small>();
 }
 
 template <typename Alloc>
@@ -229,7 +238,8 @@ void test_clear_lifetime() {
 TEST(array_clear_lifetime) {
   test_clear_lifetime<std_alloc>();
   test_clear_lifetime<custom_alloc>();
-  test_clear_lifetime<auto_alloc>();
+  test_clear_lifetime<auto_alloc_big>();
+  test_clear_lifetime<auto_alloc_small>();
 }
 
 template <typename Alloc>
@@ -261,7 +271,8 @@ void test_reshape_lifetime(bool alloc_movable = true) {
 TEST(array_reshape_lifetime) {
   test_reshape_lifetime<std_alloc>();
   test_reshape_lifetime<custom_alloc>();
-  test_reshape_lifetime<auto_alloc>(false);
+  test_reshape_lifetime<auto_alloc_big>(false);
+  test_reshape_lifetime<auto_alloc_small>();
 }
 
 template <typename Alloc>
@@ -285,7 +296,8 @@ void test_swap_lifetime(bool alloc_movable = true) {
 TEST(array_swap_lifetime) {
   test_swap_lifetime<std_alloc>();
   test_swap_lifetime<custom_alloc>();
-  test_swap_lifetime<auto_alloc>(false);
+  test_swap_lifetime<auto_alloc_big>(false);
+  test_swap_lifetime<auto_alloc_small>();
 }
 
 template <typename Alloc>
@@ -337,7 +349,8 @@ void test_lifetime_leaks() {
 TEST(array_lifetime_leaks) {
   test_lifetime_leaks<std_alloc>();
   test_lifetime_leaks<custom_alloc>();
-  test_lifetime_leaks<auto_alloc>();
+  test_lifetime_leaks<auto_alloc_big>();
+  test_lifetime_leaks<auto_alloc_small>();
 }
 
 TEST(array_lifetime_uninitialized) {

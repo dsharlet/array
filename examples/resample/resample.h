@@ -95,7 +95,8 @@ namespace internal {
 
 // An array of kernels is not just a 2D array, because each kernel may
 // have different bounds.
-using kernel_array = dense_array<dense_array<float, 1>, 1>;
+using kernel_allocator = auto_allocator<float, 16>;
+using kernel_array = dense_array<dense_array<float, 1, kernel_allocator>, 1>;
 
 // Build kernels for each index in a dim 'out' to sample from a dim 'in'.
 // The kernels are guaranteed not to read out of bounds of 'in'.
@@ -143,7 +144,7 @@ inline kernel_array build_kernels(
     index_t extent = max - min + 1;
     assert(extent > 0);
     assert(sum > 0.0f);
-    dense_array<float, 1> kernel_x({{min, extent}});
+    dense_array<float, 1, kernel_allocator> kernel_x({{min, extent}});
     for (index_t rx : kernel_x.x()) {
       kernel_x(rx) = buffer(rx) / sum;
     }
@@ -161,7 +162,7 @@ template <class TIn, class TOut>
 void resample_y(const TIn& in, const TOut& out, const kernel_array& kernels) {
   enum { x = 0, ry = 1, c = 2 };
   for (index_t y : out.y()) {
-    const dense_array<float, 1>& kernel_y = kernels(y);
+    const auto& kernel_y = kernels(y);
     fill(out(_, y, _), 0.0f);
     // TODO: Consider making reconcile_dim in ein_reduce take the intersection
     // of the dims to avoid needing the crop of in here.

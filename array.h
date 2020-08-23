@@ -49,14 +49,8 @@
     assert(!m);                                                                                    \
     abort();                                                                                       \
   } while (0)
-#define NDARRAY_THROW_BAD_ALLOC()                                                                  \
-  do {                                                                                             \
-    assert(!"bad alloc");                                                                          \
-    abort();                                                                                       \
-  } while (0)
 #else
 #define NDARRAY_THROW_OUT_OF_RANGE(m) throw std::out_of_range(m)
-#define NDARRAY_THROW_BAD_ALLOC() throw std::bad_alloc();
 #endif
 
 // Some things in this header are unbearably slow without optimization if they
@@ -2796,14 +2790,15 @@ auto reorder(const array<T, OldShape, Allocator>& a) {
   return reinterpret_shape(a, reorder<DimIndices...>(a.shape()));
 }
 
-/** Allocator satisfying the `std::allocator` interface which allocates memory
- * from a buffer with automatic storage. This can only be used with containers
- * that have a maximum of one concurrent live allocation, which is the case for
- * `array`. */
-template <class T, size_t N, size_t Alignment = sizeof(T)>
+/** Allocator satisfying the `std::allocator` interface that owns a buffer with
+ * automatic storage, and a fallback base allocator. For allocations, the
+ * allocator uses the buffer if it is large enough and not already allocated,
+ * otherwise it uses the base allocator. */
+template <class T, size_t N, size_t Alignment = sizeof(T), class BaseAlloc = std::allocator<T>>
 class auto_allocator {
   alignas(Alignment) char buffer[N * sizeof(T)];
   bool allocated;
+  BaseAlloc alloc;
 
 public:
   using value_type = T;
@@ -2817,32 +2812,52 @@ public:
   }
 
   auto_allocator() : allocated(false) {}
-  template <class U, size_t U_N>
-  constexpr auto_allocator(const auto_allocator<U, U_N>&) noexcept : allocated(false) {}
+  template <class U, size_t U_N, size_t U_A, class U_BaseAlloc>
+  constexpr auto_allocator(const auto_allocator<U, U_N, U_A, U_BaseAlloc>&) noexcept
+      : allocated(false) {}
   // These constructors/assignment operators are workarounds for a C++
   // STL implementation not respecting the propagate typedefs or the
   // 'select_on_...' function. (https://github.com/dsharlet/array/issues/7)
-  auto_allocator(const auto_allocator&) noexcept : allocated(false) {}
-  auto_allocator(auto_allocator&&) noexcept : allocated(false) {}
-  auto_allocator& operator=(const auto_allocator&) { return *this; }
-  auto_allocator& operator=(auto_allocator&&) { return *this; }
+  auto_allocator(const auto_allocator& copy) noexcept : allocated(false), alloc(copy.alloc) {}
+  auto_allocator(auto_allocator&& move) noexcept : allocated(false), alloc(std::move(move.alloc)) {}
+  auto_allocator& operator=(const auto_allocator& copy) {
+    alloc = copy.alloc;
+    return *this;
+  }
+  auto_allocator& operator=(auto_allocator&& move) {
+    alloc = std::move(move.alloc);
+    return *this;
+  }
 
   value_type* allocate(size_t n) {
-    if (allocated) NDARRAY_THROW_BAD_ALLOC();
-    if (n > N) NDARRAY_THROW_BAD_ALLOC();
-    allocated = true;
-    return reinterpret_cast<value_type*>(&buffer[0]);
+    if (!allocated && n <= N) {
+      allocated = true;
+      return reinterpret_cast<value_type*>(&buffer[0]);
+    } else {
+      return std::allocator_traits<BaseAlloc>::allocate(alloc, n);
+    }
   }
-  void deallocate(value_type*, size_t) noexcept { allocated = false; }
+  void deallocate(value_type* ptr, size_t n) noexcept {
+    if (ptr == reinterpret_cast<value_type*>(&buffer[0])) {
+      assert(allocated);
+      allocated = false;
+    } else {
+      std::allocator_traits<BaseAlloc>::deallocate(alloc, ptr, n);
+    }
+  }
 
   template <class U, size_t U_N, size_t U_A>
   friend bool operator==(const auto_allocator& a, const auto_allocator<U, U_N, U_A>& b) {
-    return &a.buffer[0] == &b.buffer[0];
+    if (a.allocated || b.allocated) {
+      return &a.buffer[0] == &b.buffer[0];
+    } else {
+      return a.alloc == b.alloc;
+    }
   }
 
   template <class U, size_t U_N, size_t U_A>
   friend bool operator!=(const auto_allocator& a, const auto_allocator<U, U_N, U_A>& b) {
-    return &a.buffer[0] != &b.buffer[0];
+    return !(a == b);
   }
 };
 
