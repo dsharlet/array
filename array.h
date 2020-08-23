@@ -34,25 +34,6 @@
 #include <tuple>
 #include <type_traits>
 
-// If we have __has_feature, automatically disable exceptions.
-#ifdef __has_feature
-#if !__has_feature(cxx_exceptions)
-#ifndef NDARRAY_NO_EXCEPTIONS
-#define NDARRAY_NO_EXCEPTIONS
-#endif
-#endif
-#endif
-
-#ifdef NDARRAY_NO_EXCEPTIONS
-#define NDARRAY_THROW_OUT_OF_RANGE(m)                                                              \
-  do {                                                                                             \
-    assert(!m);                                                                                    \
-    abort();                                                                                       \
-  } while (0)
-#else
-#define NDARRAY_THROW_OUT_OF_RANGE(m) throw std::out_of_range(m)
-#endif
-
 // Some things in this header are unbearably slow without optimization if they
 // don't get inlined.
 #if defined(__GNUC__)
@@ -2533,9 +2514,8 @@ template <class TSrc, class TDst, class ShapeSrc, class ShapeDst,
     class = internal::enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
 void copy(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDst, ShapeDst>& dst) {
   if (dst.shape().empty()) { return; }
-  if (!src.shape().is_in_range(dst.shape().min()) || !src.shape().is_in_range(dst.shape().max())) {
-    NDARRAY_THROW_OUT_OF_RANGE("dst indices out of interval of src");
-  }
+
+  assert(src.shape().is_in_range(dst.shape().min()) && src.shape().is_in_range(dst.shape().max()));
 
   copy_shape_traits<ShapeSrc, ShapeDst>::for_each_value(
       src.shape(), src.base(), dst.shape(), dst.base(), internal::copy_assign<TSrc, TDst>);
@@ -2591,9 +2571,8 @@ template <class TSrc, class TDst, class ShapeSrc, class ShapeDst,
     class = internal::enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
 void move(const array_ref<TSrc, ShapeSrc>& src, const array_ref<TDst, ShapeDst>& dst) {
   if (dst.shape().empty()) { return; }
-  if (!src.shape().is_in_range(dst.shape().min()) || !src.shape().is_in_range(dst.shape().max())) {
-    NDARRAY_THROW_OUT_OF_RANGE("dst indices out of interval of src");
-  }
+
+  assert(src.shape().is_in_range(dst.shape().min()) && src.shape().is_in_range(dst.shape().max()));
 
   copy_shape_traits<ShapeSrc, ShapeDst>::for_each_value(
       src.shape(), src.base(), dst.shape(), dst.base(), internal::move_assign<TSrc, TDst>);

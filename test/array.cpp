@@ -262,15 +262,6 @@ TEST(array_copy) {
   ASSERT_EQ(b.shape(), e.shape());
   check_pattern(e);
 
-#ifndef NDARRAY_NO_EXCEPTIONS
-  try {
-    // The destination wants indices out of interval of the source.
-    array_of_rank<int, 3> f({5, 5, 6});
-    copy(a, f);
-    ASSERT(false);
-  } catch (const std::out_of_range&) {}
-#endif
-
   dense_array<int, 3> g({{1, 2}, {1, 3}, {1, 4}});
   copy(a, g);
   check_pattern(g);
@@ -295,15 +286,6 @@ TEST(array_move) {
   dense_array<int, 3> e = make_move(a, b.shape());
   ASSERT_EQ(b.shape(), e.shape());
   check_pattern(e);
-
-#ifndef NDARRAY_NO_EXCEPTIONS
-  try {
-    // The destination wants indices out of interval of the source.
-    array_of_rank<int, 3> f({5, 5, 6});
-    move(a, f);
-    ASSERT(false);
-  } catch (const std::out_of_range&) {}
-#endif
 
   dense_array<int, 3> g({4, {1, 2}, 5});
   move(a, g);

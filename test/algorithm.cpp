@@ -29,25 +29,12 @@ TEST(algorithm_equal) {
   ASSERT(!equal(a1, b));
 }
 
-#ifndef NDARRAY_NO_EXCEPTIONS
-const int copy_crop_tests[] = {0, 1, -1};
-#define TRY try
-#define CATCH_OUT_OF_RANGE                                                                         \
-  catch (std::out_of_range&) {                                                                     \
-  }
-#else
-const int copy_crop_tests[] = {0, 1};
-#define TRY
-#define CATCH_OUT_OF_RANGE
-#endif
-
 TEST(algorithm_copy) {
   array_of_rank<int, 2> a({10, 20});
   generate(a, rand);
 
-  int succeeded = 0;
-  for (int crop_min : copy_crop_tests) {
-    for (int crop_max : copy_crop_tests) {
+  for (int crop_min : {0, 1}) {
+    for (int crop_max : {0, 1}) {
       int x_min = a.shape().x().min() + crop_min;
       int x_max = a.shape().x().max() - crop_max;
       int y_min = a.shape().y().min() + crop_min;
@@ -55,24 +42,18 @@ TEST(algorithm_copy) {
       shape_of_rank<2> b_shape({{x_min, x_max - x_min + 1}, {y_min, y_max - y_min + 1}});
       array_of_rank<int, 2> b(b_shape);
 
-      TRY {
-        copy(a, b);
-        ASSERT(equal(a(b.x(), b.y()), b));
-        succeeded++;
-      }
-      CATCH_OUT_OF_RANGE;
+      copy(a, b);
+      ASSERT(equal(a(b.x(), b.y()), b));
     }
   }
-  ASSERT_EQ(succeeded, 4);
 }
 
 TEST(algorithm_move) {
   array_of_rank<int, 2> a({10, 20});
   generate(a, rand);
 
-  int succeeded = 0;
-  for (int crop_min : copy_crop_tests) {
-    for (int crop_max : copy_crop_tests) {
+  for (int crop_min : {0, 1}) {
+    for (int crop_max : {0, 1}) {
       int x_min = a.shape().x().min() + crop_min;
       int x_max = a.shape().x().max() - crop_max;
       int y_min = a.shape().y().min() + crop_min;
@@ -80,16 +61,11 @@ TEST(algorithm_move) {
       shape_of_rank<2> b_shape({{x_min, x_max - x_min + 1}, {y_min, y_max - y_min + 1}});
       array_of_rank<int, 2> b(b_shape);
 
-      TRY {
-        move(a, b);
-        // The lifetime of moved elements is tested in array_lifetime.cpp.
-        ASSERT(equal(a(b.x(), b.y()), b));
-        succeeded++;
-      }
-      CATCH_OUT_OF_RANGE;
+      move(a, b);
+      // The lifetime of moved elements is tested in array_lifetime.cpp.
+      ASSERT(equal(a(b.x(), b.y()), b));
     }
   }
-  ASSERT_EQ(succeeded, 4);
 }
 
 TEST(algorithm_copy_scalar) {
