@@ -334,6 +334,8 @@ TEST(ein_reduce_dft) {
   }
 }
 
+#if 0
+// TODO: https://github.com/dsharlet/array/issues/42
 TEST(ein_reduce_no_copy) {
   constexpr index_t N = 30;
 
@@ -346,5 +348,6 @@ TEST(ein_reduce_no_copy) {
     ASSERT_EQ(sum(i), -i);
   }
 }
+#endif
 
 } // namespace nda

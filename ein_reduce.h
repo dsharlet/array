@@ -108,7 +108,7 @@ struct ein_op : public ein_op_base<ein_op<Op, Is...>> {
 // A unary operation on an Einstein operand.
 template <class Op, class Derived>
 struct ein_unary_op : public ein_op_base<Derived> {
-  const Op& op;
+  Op op;
   ein_unary_op(const Op& op) : op(op) {}
   static constexpr index_t MaxIndex = Op::MaxIndex;
 };
@@ -143,8 +143,8 @@ struct ein_cast_op : public ein_unary_op<Op, ein_cast_op<Type, Op>> {
 // A binary operation of two operands.
 template <class OpA, class OpB, class Derived>
 struct ein_binary_op : public ein_op_base<Derived> {
-  const OpA& op_a;
-  const OpB& op_b;
+  OpA op_a;
+  OpB op_b;
   ein_binary_op(const OpA& a, const OpB& b) : op_a(a), op_b(b) {}
   static constexpr index_t MaxIndex = std::max(OpA::MaxIndex, OpB::MaxIndex);
 };
