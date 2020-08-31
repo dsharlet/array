@@ -69,15 +69,11 @@ int main(int argc, const char** argv) {
     if (!wildcard_match(filter, i.first.c_str())) continue;
 
     std::cout << i.first << " ";
-#ifndef NDARRAY_NO_EXCEPTIONS
     try {
-#endif
       i.second();
       std::cout << "passed" << std::endl;
       passed++;
-#ifndef NDARRAY_NO_EXCEPTIONS
     } catch (const std::exception& e) { std::cout << "failed: " << e.what() << std::endl; }
-#endif
     total++;
   }
   std::cout << passed << " of " << total << " tests passed, " << tests().size() - total

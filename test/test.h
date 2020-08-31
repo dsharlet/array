@@ -106,12 +106,7 @@ public:
   assert_stream(bool condition, const std::string& check) : fail_(!condition) { msg_ << check; }
   ~assert_stream() noexcept(false) {
     if (fail_) {
-#ifdef NDARRAY_NO_EXCEPTIONS
-      std::cout << msg_.str() << std::endl;
-      exit(-1);
-#else
       throw std::runtime_error(msg_.str());
-#endif
     }
   }
 
