@@ -13,7 +13,6 @@ bin/%: %.cpp $(DEPS)
 clean:
 	rm -rf obj/* bin/*
 
-test: bin/matrix bin/conv2d bin/conv3d
+test: bin/matrix bin/conv2d_relu
 	bin/matrix
-	bin/conv2d
-	bin/conv3d
+	bin/conv2d_relu

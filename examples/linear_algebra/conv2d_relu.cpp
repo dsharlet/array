@@ -20,13 +20,15 @@
 
 using namespace nda;
 
-template <typename Input, typename Filter, typename Output>
-void conv3d_naive(const Input& input, const Filter& filter, const Output& output) {
+template <typename Input, typename Filter, typename Bias, typename Output>
+void conv2d_naive(const Input& input, const Filter& filter, const Bias& bias, const Output& output) {
+  typedef typename Output::value_type T;
   for (index_t n : output.template dim<3>()) {
     for (index_t y : output.template dim<2>()) {
       for (index_t x : output.template dim<1>()) {
         for (index_t co : output.template dim<0>()) {
-          output(co, x, y, n) = 0;
+          output(co, x, y, n) = bias(co);
+
           for (index_t ci : filter.template dim<3>()) {
             for (index_t dy : filter.template dim<2>()) {
               for (index_t dx : filter.template dim<1>()) {
@@ -34,14 +36,17 @@ void conv3d_naive(const Input& input, const Filter& filter, const Output& output
               }
             }
           }
+
+          // ReLU
+          output(co, x, y, n) = std::max<T>(output(co, x, y, n), 0);
         }
       }
     }
   }
 }
 
-template <typename Input, typename Filter, typename Output>
-void conv3d_tiled(const Input& input, const Filter& filter, const Output& output) {
+template <typename Input, typename Filter, typename Bias, typename Output>
+void conv2d_tiled(const Input& input, const Filter& filter, const Bias& bias, const Output& output) {
   typedef typename Output::value_type T;
 
   // Adjust this depending on the target architecture. For AVX2,
@@ -61,7 +66,9 @@ void conv3d_tiled(const Input& input, const Filter& filter, const Output& output
 
           // TODO: This is slow, probably due to potential aliasing that
           // we can't fix due to https://bugs.llvm.org/show_bug.cgi?id=45863
-          fill(output_tile(_, _), static_cast<T>(0));
+          for (index_t co : coo) {
+            fill(output_tile(co, _), bias(co));
+          }
           for (index_t ci : filter.template dim<3>()) {
             for (index_t dy : filter.template dim<2>()) {
               for (index_t dx : filter.template dim<1>()) {
@@ -71,6 +78,13 @@ void conv3d_tiled(const Input& input, const Filter& filter, const Output& output
                   }
                 }
               }
+            }
+          }
+
+          // ReLU
+          for (index_t x : xo) {
+            for (index_t co : coo) {
+              output_tile(co, x) = std::max<T>(0, output_tile(co, x));
             }
           }
         }
@@ -92,6 +106,7 @@ int main(int, const char**) {
 
   auto input = make_array<float>(tensor_shape<CI, W + 2, H + 2, N>());
   auto filter = make_array<float>(tensor_shape<CO, 3, 3, CI>());
+  auto bias = make_array<float>(shape<dense_dim<0, CO>>());
 
   // 'for_each_value' calls the given function with a reference to
   // each value in the array. Use this to randomly initialize the
@@ -100,15 +115,16 @@ int main(int, const char**) {
   std::uniform_real_distribution<float> uniform(0, 1);
   generate(input, [&]() { return uniform(rng); });
   generate(filter, [&]() { return uniform(rng); });
+  generate(bias, [&]() { return uniform(rng); });
 
   auto naive_output = make_array<float>(tensor_shape<CO, W, H, N>());
   double naive_time =
-      benchmark([&]() { conv3d_naive(input.cref(), filter.cref(), naive_output.ref()); });
+      benchmark([&]() { conv2d_naive(input.cref(), filter.cref(), bias.cref(), naive_output.ref()); });
   std::cout << "naive time: " << naive_time * 1e3 << " ms" << std::endl;
 
   auto tiled_output = make_array<float>(tensor_shape<CO, W, H, N>());
   double tiled_time =
-      benchmark([&]() { conv3d_tiled(input.cref(), filter.cref(), tiled_output.ref()); });
+      benchmark([&]() { conv2d_tiled(input.cref(), filter.cref(), bias.cref(), tiled_output.ref()); });
   std::cout << "tiled time: " << tiled_time * 1e3 << " ms" << std::endl;
 
   const float epsilon = 1e-4f;
