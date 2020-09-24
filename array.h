@@ -1862,7 +1862,7 @@ public:
   /** Shallow copy or assign an array_ref with a different shape type. */
   template <class OtherShape, class = enable_if_shape_compatible<OtherShape>>
   NDARRAY_HOST_DEVICE array_ref(const array_ref<T, OtherShape>& other)
-      : array_ref(other.base(), other.shape()) {}
+      : base_(other.base()), shape_(other.shape()) {}
   template <class OtherShape, class = enable_if_shape_compatible<OtherShape>>
   NDARRAY_HOST_DEVICE array_ref& operator=(const array_ref<T, OtherShape>& other) {
     base_ = other.base();
