@@ -1790,13 +1790,18 @@ NDARRAY_HOST_DEVICE array_ref<T, Shape> make_array_ref(T* base, const Shape& sha
 
 namespace internal {
 
+template <class T, class Shape>
+NDARRAY_HOST_DEVICE array_ref<T, Shape> make_array_ref_no_resolve(T* base, const Shape& shape) {
+  return {base, shape, std::false_type()};
+}
+
 template <class T, class Shape, class... Args>
 NDARRAY_HOST_DEVICE auto make_array_ref_at(
     T base, const Shape& shape, const std::tuple<Args...>& args) {
   auto new_shape = shape(args);
   auto new_mins = mins_of_intervals(args, shape.dims(), make_index_sequence<sizeof...(Args)>());
   auto old_min_offset = shape(new_mins);
-  return make_array_ref(internal::pointer_add(base, old_min_offset), new_shape);
+  return make_array_ref_no_resolve(internal::pointer_add(base, old_min_offset), new_shape);
 }
 
 } // namespace internal
@@ -1853,6 +1858,9 @@ public:
     shape_.resolve();
   }
 
+  NDARRAY_HOST_DEVICE array_ref(pointer base, const Shape& shape, std::false_type /*resolve*/)
+      : base_(base), shape_(shape) {}
+
   /** Shallow copy or assign an array_ref. */
   NDARRAY_HOST_DEVICE array_ref(const array_ref& other) = default;
   NDARRAY_HOST_DEVICE array_ref(array_ref&& other) = default;
@@ -1862,7 +1870,7 @@ public:
   /** Shallow copy or assign an array_ref with a different shape type. */
   template <class OtherShape, class = enable_if_shape_compatible<OtherShape>>
   NDARRAY_HOST_DEVICE array_ref(const array_ref<T, OtherShape>& other)
-      : base_(other.base()), shape_(other.shape()) {}
+      : array_ref(other.base(), other.shape(), std::false_type()) {}
   template <class OtherShape, class = enable_if_shape_compatible<OtherShape>>
   NDARRAY_HOST_DEVICE array_ref& operator=(const array_ref<T, OtherShape>& other) {
     base_ = other.base();
