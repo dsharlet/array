@@ -59,6 +59,20 @@ TEST(array_default_constructor) {
   sparse.clear();
 }
 
+TEST(array_static_convertibility) {
+  using A0 = array_of_rank<int, 0>;
+  using A3 = array_of_rank<int, 3>;
+
+  static_assert(std::is_convertible<A0&, int&>::value,
+                "rank-0 array should be convertible to scalar element");
+  static_assert(std::is_convertible<const A0&, const int&>::value,
+                "rank-0 array should be convertible to scalar element");
+  static_assert(!std::is_convertible<A3&, int&>::value,
+                "rank-3 array should not be convertible to element");
+  static_assert(!std::is_convertible<const A3&, const int&>::value,
+                "rank-3 array should not be convertible to element");
+}
+
 TEST(array_fill_constructor) {
   dense_array<int, 1> a({10}, 3);
   for (int x = 0; x < 10; x++) {

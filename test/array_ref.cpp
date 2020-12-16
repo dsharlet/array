@@ -172,6 +172,18 @@ TEST(array_ref_explicit_conversion) {
   ASSERT_EQ(dense_null_ref_embedded.template dim<4>().extent(), 1);
 }
 
+TEST(array_ref_static_convertibilty) {
+  using AR0 = array_ref_of_rank<int, 0>;
+  using AR3 = array_ref_of_rank<int, 3>;
+
+  static_assert(std::is_convertible<AR0&, int&>::value,
+                "rank-0 array_ref should be convertible to scalar element");
+  static_assert(std::is_convertible<const AR0&, int&>::value,
+                "rank-0 array_ref should be convertible to scalar element");
+  static_assert(!std::is_convertible<AR3&, int&>::value,
+                "rank-3 array_ref should not be convertible to element");
+}
+
 TEST(array_ref_crop_slice) {
   array<int, shape<dense_dim<0>, dim<>>> a({8, 9});
   fill_pattern(a);

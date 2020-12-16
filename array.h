@@ -2002,8 +2002,8 @@ public:
   NDARRAY_HOST_DEVICE operator const_array_ref<T, Shape>() const { return cref(); }
 
   /** Implicit conversion to `T` for scalar shaped array_refs. */
+  template <std::size_t R = rank(), typename = std::enable_if_t<R == 0>>
   NDARRAY_HOST_DEVICE operator reference() const {
-    static_assert(rank() == 0, "Cannot convert non-scalar array to scalar.");
     return *base_;
   }
 
@@ -2479,12 +2479,12 @@ public:
   operator const_array_ref<T, Shape>() const { return cref(); }
 
   /** Implicit conversion to `T` for scalar shaped arrays. */
+  template <std::size_t R = rank(), typename = std::enable_if_t<R == 0>>
   operator reference() {
-    static_assert(rank() == 0, "Cannot convert non-scalar array to scalar.");
     return *base_;
   }
+  template <std::size_t R = rank(), typename = std::enable_if_t<R == 0>>
   operator const_reference() const {
-    static_assert(rank() == 0, "Cannot convert non-scalar array to scalar.");
     return *base_;
   }
 };
