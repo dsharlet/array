@@ -103,6 +103,8 @@ void for_all_indices_permute_too_few_indices() {
   for_all_indices<0, 1>(s, [](int) {});
 }
 
+void array_ref_not_scalar_conversion() { int scalar = ref; }
+
 void array_ref_at_too_many_indices() { ref(0, 1, 2); }
 
 void array_ref_at_too_few_indices() { ref(0); }
@@ -114,6 +116,8 @@ void array_ref_for_each_value_bad_type() {
 void array_ref_for_each_value_too_many_args() {
   ref.for_each_value([&](int i, int j) {});
 }
+
+void array_not_scalar_conversion() { int scalar = a; }
 
 void array_at_too_many_indices() { a(0, 1, 2, 3); }
 
