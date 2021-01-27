@@ -1,0 +1,6 @@
+build --cxxopt=-std=c++17 --cxxopt=-stdlib=libc++
+
+# tests/performance.cpp only passes in optimized builds.
+# TODO(dsharlet,jiawen): Investigate how to pass
+# -O2 -ffast-math -fstrict-aliasing -march=native to bazel.
+test -c opt --cxxopt=-std=c++17 --cxxopt=-stdlib=libc++
