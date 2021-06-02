@@ -881,6 +881,11 @@ NDARRAY_HOST_DEVICE T convert_dims(const U& u, internal::index_sequence<Is...>) 
   return std::make_tuple(convert_dim<Is, T>(u)...);
 }
 
+template <size_t DstRank, class U, size_t... Is>
+NDARRAY_HOST_DEVICE bool is_trivial_slice(const U& u, internal::index_sequence<Is...>) {
+  return all((Is < DstRank || std::get<Is>(u).extent() == 1)...);
+}
+
 constexpr index_t factorial(index_t x) { return x == 1 ? 1 : x * factorial(x - 1); }
 
 // The errors that result from not satisfying this check are probably hell,
@@ -1480,6 +1485,8 @@ NDARRAY_HOST_DEVICE bool is_compatible(const ShapeSrc& src) {
 template <class ShapeDst, class ShapeSrc,
     class = internal::enable_if_shapes_explicitly_compatible<ShapeDst, ShapeSrc>>
 NDARRAY_HOST_DEVICE ShapeDst convert_shape(const ShapeSrc& src) {
+  assert(internal::is_trivial_slice<ShapeDst::rank()>(
+      src.dims(), typename ShapeSrc::dim_indices()));
   return internal::convert_dims<typename ShapeDst::dims_type>(
       src.dims(), typename ShapeDst::dim_indices());
 }
@@ -2757,6 +2764,8 @@ const_array_ref<T, NewShape> reinterpret_shape(
  * for trivial `T`. */
 template <typename NewShape, typename T, typename Shape, typename Alloc>
 array<T, NewShape, Alloc> move_reinterpret_shape(array<T, Shape, Alloc>&& from, const NewShape& new_shape, index_t offset = 0) {
+  // TODO: Use enable_if to implement this check. It is difficult to do due to
+  // the friend declaration.
   static_assert(std::is_trivial<T>::value, "move_reinterpret_shape is broken for non-trivial types.");
   assert(new_shape.is_subset_of(from.shape(), offset));
   array<T, NewShape, Alloc> result;
