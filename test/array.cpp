@@ -418,4 +418,15 @@ TEST(array_negative_strides) {
       [&](const dense_array<int, 2>::index_type& i) { ASSERT_EQ(b(i), std::get<1>(i)); });
 }
 
+TEST(array_move_reinterpret_shape) {
+  array_of_rank<int, 3> a({9, {0, 5, 10}, 1});
+  fill_pattern(a);
+
+  auto b = move_reinterpret_shape<shape_of_rank<2>>(std::move(a));
+  check_pattern(b);
+
+  a = move_reinterpret_shape<shape_of_rank<3>>(std::move(b));
+  check_pattern(a);
+}
+
 } // namespace nda

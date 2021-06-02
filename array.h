@@ -2182,6 +2182,7 @@ public:
       swap(shape_, other.shape_);
     }
   }
+
   ~array() { deallocate(); }
 
   // Let's choose not to provide array(const array_ref&) constructors. This is
@@ -2487,6 +2488,11 @@ public:
   operator const_reference() const {
     return *base_;
   }
+
+  template <typename NewShape, typename T2, typename Shape2, typename Alloc2>
+  friend array<T2, NewShape, Alloc2> move_reinterpret_shape(array<T2, Shape2, Alloc2>&& from, const NewShape& new_shape, index_t offset);
+  template <typename NewShape, typename T2, typename Shape2, typename Alloc2>
+  friend array<T2, NewShape, Alloc2> move_reinterpret_shape(array<T2, Shape2, Alloc2>&& from, index_t offset);
 };
 
 /** An array type with an arbitrary shape of rank `Rank`. */
@@ -2744,6 +2750,35 @@ template <class NewShape, class T, class OldShape, class Allocator>
 const_array_ref<T, NewShape> reinterpret_shape(
     const array<T, OldShape, Allocator>& a, const NewShape& new_shape, index_t offset = 0) {
   return reinterpret_shape(a.cref(), new_shape, offset);
+}
+
+/** Move an array `from` to a new array, reinterpreting the shape of the array
+ * to `new_shape`, with a base pointer offset `offset`. This is only available
+ * for trivial `T`. */
+template <typename NewShape, typename T, typename Shape, typename Alloc>
+array<T, NewShape, Alloc> move_reinterpret_shape(array<T, Shape, Alloc>&& from, const NewShape& new_shape, index_t offset = 0) {
+  static_assert(std::is_trivial<T>::value, "move_reinterpret_shape is broken for non-trivial types.");
+  assert(new_shape.is_subset_of(from.shape(), offset));
+  array<T, NewShape, Alloc> result;
+  assert(result.alloc_ == from.get_allocator());
+
+  using std::swap;
+  swap(result.buffer_, from.buffer_);
+  swap(result.buffer_size_, from.buffer_size_);
+  swap(result.base_, from.base_);
+  result.shape_ = new_shape;
+  from.shape_ = Shape();
+  result.base_ += offset;
+
+  return std::move(result);
+}
+/** Move an array `from` to a new array, reinterpreting the shape of the array
+ * to `convert_shape<NewShape>(from.shape())`. This is only available for
+ * trivial `T`. */
+template <typename NewShape, typename T, typename Shape, typename Alloc>
+array<T, NewShape, Alloc> move_reinterpret_shape(array<T, Shape, Alloc>&& from, index_t offset = 0) {
+  NewShape new_shape = convert_shape<NewShape>(from.shape());
+  return move_reinterpret_shape(std::move(from), new_shape, offset);
 }
 
 /** Reinterpret the shape of the array or array_ref `a` to be transposed
