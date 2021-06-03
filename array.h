@@ -881,9 +881,11 @@ NDARRAY_HOST_DEVICE T convert_dims(const U& u, internal::index_sequence<Is...>) 
   return std::make_tuple(convert_dim<Is, T>(u)...);
 }
 
-template <size_t DstRank, class U, size_t... Is>
-NDARRAY_HOST_DEVICE bool is_trivial_slice(const U& u, internal::index_sequence<Is...>) {
-  return all((Is < DstRank || std::get<Is>(u).extent() == 1)...);
+// Check that the dimensions in src_dims are either copied to the dst shape (not sliced),
+// or are trivial slices (they are extent 1).
+template <size_t DstRank, class SrcDims, size_t... Is>
+NDARRAY_HOST_DEVICE bool is_trivial_slice(const SrcDims& src_dims, internal::index_sequence<Is...>) {
+  return all((Is < DstRank || std::get<Is>(src_dims).extent() == 1)...);
 }
 
 constexpr index_t factorial(index_t x) { return x == 1 ? 1 : x * factorial(x - 1); }
@@ -2496,10 +2498,11 @@ public:
     return *base_;
   }
 
-  template <typename NewShape, typename T2, typename Shape2, typename Alloc2>
-  friend array<T2, NewShape, Alloc2> move_reinterpret_shape(array<T2, Shape2, Alloc2>&& from, const NewShape& new_shape, index_t offset);
-  template <typename NewShape, typename T2, typename Shape2, typename Alloc2>
-  friend array<T2, NewShape, Alloc2> move_reinterpret_shape(array<T2, Shape2, Alloc2>&& from, index_t offset);
+  // We can't shadow T or Alloc here.
+  template <typename NewShape, typename T2, typename OldShape, typename Alloc2>
+  friend array<T2, NewShape, Alloc2> move_reinterpret_shape(array<T2, OldShape, Alloc2>&& from, const NewShape& new_shape, index_t offset);
+  template <typename NewShape, typename T2, typename OldShape, typename Alloc2>
+  friend array<T2, NewShape, Alloc2> move_reinterpret_shape(array<T2, OldShape, Alloc2>&& from, index_t offset);
 };
 
 /** An array type with an arbitrary shape of rank `Rank`. */
@@ -2762,8 +2765,8 @@ const_array_ref<T, NewShape> reinterpret_shape(
 /** Move an array `from` to a new array, reinterpreting the shape of the array
  * to `new_shape`, with a base pointer offset `offset`. This is only available
  * for trivial `T`. */
-template <typename NewShape, typename T, typename Shape, typename Alloc>
-array<T, NewShape, Alloc> move_reinterpret_shape(array<T, Shape, Alloc>&& from, const NewShape& new_shape, index_t offset = 0) {
+template <typename NewShape, typename T, typename OldShape, typename Alloc>
+array<T, NewShape, Alloc> move_reinterpret_shape(array<T, OldShape, Alloc>&& from, const NewShape& new_shape, index_t offset = 0) {
   // TODO: Use enable_if to implement this check. It is difficult to do due to
   // the friend declaration.
   static_assert(std::is_trivial<T>::value, "move_reinterpret_shape is broken for non-trivial types.");
@@ -2776,16 +2779,16 @@ array<T, NewShape, Alloc> move_reinterpret_shape(array<T, Shape, Alloc>&& from, 
   swap(result.buffer_size_, from.buffer_size_);
   swap(result.base_, from.base_);
   result.shape_ = new_shape;
-  from.shape_ = Shape();
+  from.shape_ = OldShape();
   result.base_ += offset;
 
-  return std::move(result);
+  return result;
 }
 /** Move an array `from` to a new array, reinterpreting the shape of the array
  * to `convert_shape<NewShape>(from.shape())`. This is only available for
  * trivial `T`. */
-template <typename NewShape, typename T, typename Shape, typename Alloc>
-array<T, NewShape, Alloc> move_reinterpret_shape(array<T, Shape, Alloc>&& from, index_t offset = 0) {
+template <typename NewShape, typename T, typename OldShape, typename Alloc>
+array<T, NewShape, Alloc> move_reinterpret_shape(array<T, OldShape, Alloc>&& from, index_t offset = 0) {
   NewShape new_shape = convert_shape<NewShape>(from.shape());
   return move_reinterpret_shape(std::move(from), new_shape, offset);
 }
