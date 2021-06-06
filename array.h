@@ -2500,9 +2500,11 @@ public:
 
   // We can't shadow T or Alloc here.
   template <typename NewShape, typename T2, typename OldShape, typename Alloc2>
-  friend array<T2, NewShape, Alloc2> move_reinterpret_shape(array<T2, OldShape, Alloc2>&& from, const NewShape& new_shape, index_t offset);
+  friend array<T2, NewShape, Alloc2> move_reinterpret_shape(
+      array<T2, OldShape, Alloc2>&& from, const NewShape& new_shape, index_t offset);
   template <typename NewShape, typename T2, typename OldShape, typename Alloc2>
-  friend array<T2, NewShape, Alloc2> move_reinterpret_shape(array<T2, OldShape, Alloc2>&& from, index_t offset);
+  friend array<T2, NewShape, Alloc2> move_reinterpret_shape(
+      array<T2, OldShape, Alloc2>&& from, index_t offset);
 };
 
 /** An array type with an arbitrary shape of rank `Rank`. */
@@ -2766,7 +2768,8 @@ const_array_ref<T, NewShape> reinterpret_shape(
  * to `new_shape`, with a base pointer offset `offset`. This is only available
  * for trivial `T`. */
 template <typename NewShape, typename T, typename OldShape, typename Alloc>
-array<T, NewShape, Alloc> move_reinterpret_shape(array<T, OldShape, Alloc>&& from, const NewShape& new_shape, index_t offset = 0) {
+array<T, NewShape, Alloc> move_reinterpret_shape(
+    array<T, OldShape, Alloc>&& from, const NewShape& new_shape, index_t offset = 0) {
   // TODO: Use enable_if to implement this check. It is difficult to do due to
   // the friend declaration.
   static_assert(std::is_trivial<T>::value, "move_reinterpret_shape is broken for non-trivial types.");
@@ -2788,7 +2791,8 @@ array<T, NewShape, Alloc> move_reinterpret_shape(array<T, OldShape, Alloc>&& fro
  * to `convert_shape<NewShape>(from.shape())`. This is only available for
  * trivial `T`. */
 template <typename NewShape, typename T, typename OldShape, typename Alloc>
-array<T, NewShape, Alloc> move_reinterpret_shape(array<T, OldShape, Alloc>&& from, index_t offset = 0) {
+array<T, NewShape, Alloc> move_reinterpret_shape(
+    array<T, OldShape, Alloc>&& from, index_t offset = 0) {
   NewShape new_shape = convert_shape<NewShape>(from.shape());
   return move_reinterpret_shape(std::move(from), new_shape, offset);
 }
