@@ -327,7 +327,7 @@ For example, a matrix multiplication can be tiled like so:
   constexpr index_t vector_size = 32 / sizeof(float);
 
   // We want the tiles to be big without spilling the accumulators to the stack.
-  constexpr index_t tile_rows = 3;
+  constexpr index_t tile_rows = 4;
   constexpr index_t tile_cols = vector_size * 3;
 
   for (auto io : split<tile_rows>(C.i())) {
@@ -341,30 +341,35 @@ For example, a matrix multiplication can be tiled like so:
 
 This generates the following machine code(\*) for the inner loop using clang 11 with -O2 -ffast-math:
 ```assembly
-LBB9_11:
-        vmovaps %ymm9, %ymm10
-        vmovaps %ymm8, %ymm11
-        vbroadcastss    (%r12,%rbx,4), %ymm12
-        vbroadcastss    (%r13,%rbx,4), %ymm13
-        vbroadcastss    (%r10,%rbx,4), %ymm14
-        vmovups -64(%r14), %ymm9
-        vmovups -32(%r14), %ymm8
-        vmovups (%r14), %ymm15
-        vfmadd231ps     %ymm12, %ymm9, %ymm5
-        vfmadd231ps     %ymm13, %ymm9, %ymm7
-        vfmadd213ps     %ymm10, %ymm14, %ymm9
-        vfmadd231ps     %ymm12, %ymm8, %ymm2
-        vfmadd231ps     %ymm13, %ymm8, %ymm6
-        vfmadd213ps     %ymm11, %ymm14, %ymm8
-        vfmadd231ps     %ymm12, %ymm15, %ymm1
-        vfmadd231ps     %ymm13, %ymm15, %ymm4
-        vfmadd231ps     %ymm14, %ymm15, %ymm3
-        incq    %rbx
-        addq    %rcx, %r14
-        cmpq    %rbx, %rsi
-        jne     LBB9_11
+LBB8_7:
+  vmovaps %ymm12, %ymm13
+  vmovaps %ymm11, %ymm14
+  vbroadcastss  (%r13,%rcx,4), %ymm15
+  vmovups -64(%r9,%rdi,4), %ymm12
+  vmovups -32(%r9,%rdi,4), %ymm11
+  vmovups (%r9,%rdi,4), %ymm0
+  vfmadd231ps %ymm15, %ymm12, %ymm10
+  vfmadd231ps %ymm15, %ymm11, %ymm9
+  vfmadd231ps %ymm15, %ymm0, %ymm8
+  vbroadcastss  (%r14,%rcx,4), %ymm15
+  vfmadd231ps %ymm15, %ymm12, %ymm7
+  vfmadd231ps %ymm15, %ymm11, %ymm6
+  vfmadd231ps %ymm15, %ymm0, %ymm5
+  vbroadcastss  (%rsi,%rcx,4), %ymm15
+  vfmadd231ps %ymm15, %ymm12, %ymm4
+  vfmadd231ps %ymm15, %ymm11, %ymm3
+  vfmadd231ps %ymm15, %ymm0, %ymm2
+  vbroadcastss  (%rax,%rcx,4), %ymm15
+  vfmadd213ps %ymm13, %ymm15, %ymm12
+  vfmadd213ps %ymm14, %ymm15, %ymm11
+  vfmadd231ps %ymm15, %ymm0, %ymm1
+  incq  %rcx
+  addq  %rbx, %rdi
+  cmpq  %rcx, %rdx
+  jne LBB8_7
 ```
-This is **30-40x** faster than a naive C implementation of nested loops on my machine, and I believe it is within a factor of 2 of the peak performance possible.
+This is **40-50x** faster than a naive C implementation of nested loops on my machine, and it should be within a factor of
+2 of the peak possible performance.
 
 (\*) Unfortunately, this doesn't generate performant code currently and requires a few tweaks to work around an issue in LLVM.
 See the [matrix example](examples/linear_algebra/matrix.cpp) for the example code that produces the above assembly.
