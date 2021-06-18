@@ -287,7 +287,8 @@ public:
   }
 };
 
-/** An alias of `interval` with a fixed extent and dynamic min. */
+/** An alias of `interval` with a fixed extent and dynamic min. This is useful
+ * as the inner part of a `split` with a fixed extent. */
 template <index_t Extent>
 using fixed_interval = interval<dynamic, Extent>;
 
@@ -901,7 +902,7 @@ using enable_if_permutation = std::enable_if_t<sizeof...(Is) == Rank && all(Is <
 template <class... Dims>
 class shape;
 
-/** Helper function to make a tuple from a variadic list of `dims...`. */
+/** Helper function to make a shape from a variadic list of `dims...`. */
 template <class... Dims>
 NDARRAY_HOST_DEVICE auto make_shape(Dims... dims) {
   return shape<Dims...>(dims...);
