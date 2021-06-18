@@ -1899,7 +1899,7 @@ public:
     return base_[shape_(indices...)];
   }
 
-  /** Create an `array_ref` from this array_ref using a indices or intervals
+  /** Create an `array_ref` from this array_ref using indices or intervals
    * `args`. Dimensions corresponding to indices in `args` are sliced, i.e.
    * the result will not have this dimension. The rest of the dimensions are
    * cropped. */
@@ -2328,7 +2328,7 @@ public:
     return base_[shape_(indices...)];
   }
 
-  /** Create an `array_ref` from this array using a indices or intervals `args`.
+  /** Create an `array_ref` from this array using indices or intervals `args`.
    * Dimensions corresponding to indices in `args` are sliced, i.e. the result
    * will not have this dimension. The rest of the dimensions are cropped. */
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
