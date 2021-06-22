@@ -1266,11 +1266,12 @@ NDARRAY_INLINE NDARRAY_HOST_DEVICE void advance(Ptr0& ptr0, Ptr1& ptr1) {
 // If we ever need other than 1- or 2-way for_each_value, add a variadic
 // version of advance.
 
-template <class Fn, class... Ptrs>
+template <class Fn, class Ptr0, class... Ptrs>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order_inner_dense(
-    index_t extent, Fn&& fn, Ptrs NDARRAY_RESTRICT... ptrs) {
-  for (index_t i = 0; i < extent; i++) {
-    fn(*ptrs++...);
+    index_t extent, Fn&& fn, Ptr0 NDARRAY_RESTRICT ptr0, Ptrs NDARRAY_RESTRICT... ptrs) {
+  Ptr0 end = ptr0 + extent;
+  while (ptr0 < end) {
+    fn(*ptr0++, *ptrs++...);
   }
 }
 
