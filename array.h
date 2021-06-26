@@ -1481,8 +1481,10 @@ NDARRAY_HOST_DEVICE bool is_compatible(const ShapeSrc& src) {
 }
 
 /** Convert a shape `src` to shape type `ShapeDst`. This explicit conversion
- * allows converting a low rank shape to a higher ranked shape, where new
- * dimensions have min 0 and extent 1. */
+ * allows converting a low rank shape to a higher ranked shape where new
+ * dimensions have min 0 and extent 1, and it allows converting a high rank
+ * shape to a lower rank shape if the dimensions being sliced are trivial
+ * (they have extent one). */
 // TODO: Consider enabling this kind of conversion implicitly. It is hard to
 // do without constructor overload ambiguity problems, and I'm also not sure
 // it's a good idea.
@@ -2028,7 +2030,7 @@ public:
   }
 };
 
-/** array_ref with an arbitrary shape of `Rank`. */
+/** array_ref with an arbitrary shape of rank `Rank`. */
 template <class T, size_t Rank>
 using array_ref_of_rank = array_ref<T, shape_of_rank<Rank>>;
 template <class T, size_t Rank>
@@ -2513,11 +2515,11 @@ public:
 template <class T, size_t Rank, class Alloc = std::allocator<T>>
 using array_of_rank = array<T, shape_of_rank<Rank>, Alloc>;
 
-/** An array type with a shape `dense_shape<Rank>`. */
+/** An array type with shape `dense_shape<Rank>`. */
 template <class T, size_t Rank, class Alloc = std::allocator<T>>
 using dense_array = array<T, dense_shape<Rank>, Alloc>;
 
-/** Make a new array with shape `shape`, allocated using `alloc`. */
+/** Make a new array with shape `shape`, allocated using the allocator `alloc`. */
 template <class T, class Shape, class Alloc = std::allocator<T>,
     class = internal::enable_if_allocator<Alloc>>
 auto make_array(const Shape& shape, const Alloc& alloc = Alloc()) {
@@ -2536,7 +2538,7 @@ void swap(array<T, Shape, Alloc>& a, array<T, Shape, Alloc>& b) {
 }
 
 /** Copy the contents of the `src` array or array_ref to the `dst` array or
- * array_ref. The interval of the shape of `dst` will be copied, and must be in
+ * array_ref. The elements in the shape of `dst` will be copied, and must be in
  * bounds of `src`. */
 template <class TSrc, class TDst, class ShapeSrc, class ShapeDst,
     class = internal::enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
@@ -2581,7 +2583,7 @@ auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const ShapeDst& shape,
   return make_copy(src.cref(), shape, alloc);
 }
 
-/** Make a copy of the `src` array or array_ref with a compact version of `src`s
+/** Make a copy of the `src` array or array_ref with a compact version of `src`'s
  * shape. */
 template <class T, class Shape, class Alloc = std::allocator<typename std::remove_const<T>::type>>
 auto make_compact_copy(const array_ref<T, Shape>& src, const Alloc& alloc = Alloc()) {
@@ -2665,7 +2667,7 @@ auto make_compact_move(array<T, Shape, Alloc>&& src, const Alloc& alloc = Alloc(
   return make_move(src, make_compact(src.shape()), alloc);
 }
 
-/** Fill `dst` array or array_ref by copy-assigning `value`. */
+/** Fill the `dst` array or array_ref by copy-assigning `value`. */
 template <class T, class Shape>
 NDARRAY_HOST_DEVICE void fill(const array_ref<T, Shape>& dst, const T& value) {
   dst.for_each_value([value](T& i) { i = value; });
@@ -2675,8 +2677,8 @@ void fill(array<T, Shape, Alloc>& dst, const T& value) {
   fill(dst.ref(), value);
 }
 
-/** Fill `dst` array or array_ref with the result of calling a generator
- * `g`. The order in which `g` is called is the same as
+/** Fill the `dst` array or array_ref with the result of calling a generator
+ * function `g`. The order in which `g` is called is the same as
  * `shape_traits<Shape>::for_each_value`. */
 template <class T, class Shape, class Generator, class = internal::enable_if_callable<Generator>>
 NDARRAY_HOST_DEVICE void generate(const array_ref<T, Shape>& dst, Generator&& g) {
@@ -2716,7 +2718,7 @@ bool equal(const array<TA, ShapeA, AllocA>& a, const array<TB, ShapeB, AllocB>& 
 }
 
 /** Convert the shape of the array or array_ref `a` to a new type of shape
- * `NewShape`. The new shape is constructed from `a.shape()`. */
+ * `NewShape`. The new shape is copy constructed from `a.shape()`. */
 template <class NewShape, class T, class OldShape>
 NDARRAY_HOST_DEVICE array_ref<T, NewShape> convert_shape(const array_ref<T, OldShape>& a) {
   return array_ref<T, NewShape>(a.base(), convert_shape<NewShape>(a.shape()));
@@ -2731,7 +2733,7 @@ const_array_ref<T, NewShape> convert_shape(const array<T, OldShape, Allocator>& 
 }
 
 /** Reinterpret the array or array_ref `a` of type `T` to have a different type
- * `U`. The size of `T` must be equal to the size of `U`. */
+ * `U`. `sizeof(T)` must be equal to `sizeof(U)`. */
 template <class U, class T, class Shape, class = std::enable_if_t<sizeof(T) == sizeof(U)>>
 NDARRAY_HOST_DEVICE array_ref<U, Shape> reinterpret(const array_ref<T, Shape>& a) {
   return array_ref<U, Shape>(reinterpret_cast<U*>(a.base()), a.shape());
@@ -2768,7 +2770,8 @@ const_array_ref<T, NewShape> reinterpret_shape(
 
 /** Move an array `from` to a new array, reinterpreting the shape of the array
  * to `new_shape`, with a base pointer offset `offset`. This is only available
- * for trivial `T`. */
+ * for trivial `T`, because it does not guarantee that newly accessible elements
+ * are constructed, or newly inaccessible elements are destructed. */
 template <typename NewShape, typename T, typename OldShape, typename Alloc>
 array<T, NewShape, Alloc> move_reinterpret_shape(
     array<T, OldShape, Alloc>&& from, const NewShape& new_shape, index_t offset = 0) {
@@ -2789,9 +2792,6 @@ array<T, NewShape, Alloc> move_reinterpret_shape(
 
   return result;
 }
-/** Move an array `from` to a new array, reinterpreting the shape of the array
- * to `convert_shape<NewShape>(from.shape())`. This is only available for
- * trivial `T`. */
 template <typename NewShape, typename T, typename OldShape, typename Alloc>
 array<T, NewShape, Alloc> move_reinterpret_shape(
     array<T, OldShape, Alloc>&& from, index_t offset = 0) {
@@ -2903,7 +2903,7 @@ public:
 
 /** Allocator satisfying the `std::allocator` interface that is a wrapper
  * around another allocator `BaseAlloc`, and skips default construction.
- * Using this allocator can be dangerous. It is only safe to use when
+ * Using this allocator can be dangerous, t is only safe to use when
  * `BaseAlloc::value_type` is a trivial type. */
 template <class BaseAlloc>
 class uninitialized_allocator : public BaseAlloc {
