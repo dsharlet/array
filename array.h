@@ -1083,8 +1083,8 @@ public:
   NDARRAY_HOST_DEVICE index_type stride() const { return internal::strides(dims(), dim_indices()); }
 
   /** Compute the min, max, or extent of the flat offsets of this shape.
-   * This is the extent of the valid interval of values returned by `operator()`
-   * or `operator[]`. */
+   * This is the min, max, or extent of the valid interval of values returned
+   * by `operator()` or `operator[]`. */
   NDARRAY_HOST_DEVICE index_t flat_min() const { return internal::flat_min(dims_, dim_indices()); }
   NDARRAY_HOST_DEVICE index_t flat_max() const { return internal::flat_max(dims_, dim_indices()); }
   NDARRAY_HOST_DEVICE size_type flat_extent() const {
@@ -1178,8 +1178,8 @@ public:
  * dimensions.
  *
  * Examples:
- * - `transpose<2, 0, 1>(s_3d) == make_shape(s.z(), s.y(), s.x())`
- * - `reorder<1, 2>(s_4d) == make_shape(s.y(), s.z())` */
+ * - `transpose<2, 0, 1>(s) == make_shape(s.z(), s.y(), s.x())`
+ * - `reorder<1, 2>(s) == make_shape(s.y(), s.z())` */
 template <size_t... DimIndices, class... Dims,
     class = internal::enable_if_permutation<sizeof...(Dims), DimIndices...>>
 NDARRAY_HOST_DEVICE auto transpose(const shape<Dims...>& shape) {
