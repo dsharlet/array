@@ -33,6 +33,8 @@ Some other features of the library are:
 * [CUDA support](#cuda-support) for use in `__device__` functions.
 * [Einstein reduction](#einstein-reductions) helpers, enabling many kinds of reductions and other array operations to be expressed safely.
 
+For more detailed documentation, see the generated [documentation](https://dsharlet.github.io/array/files.html).
+
 ## Usage
 
 ### Shapes
