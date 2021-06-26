@@ -2,8 +2,23 @@ language: cpp
 install: make
 os: linux
 compiler: clang
+
+addons:
+  apt:
+    packages:
+      - doxygen
+
 script:
   - make test
   - make cuda_build_test
   - make -C examples/linear_algebra test
   - make -C examples/resample benchmark
+  - doxygen Doxyfile
+
+deploy:
+  provider: pages
+  skip_cleanup: true
+  local_dir: docs/html
+  github_token: $GH_REPO_TOKEN
+  on:
+    branch: master
