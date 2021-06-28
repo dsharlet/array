@@ -409,13 +409,24 @@ TEST(array_reshape_3d) {
 }
 
 TEST(array_negative_strides) {
+  // Test with a negative stride in y.
   array_of_rank<int, 2> a({{0, 10, 3}, {0, 3, -1}});
-  ASSERT_EQ(a.x().stride(), 3);
-  for_all_indices(a.shape(), [&](int x, int y) { a(x, y) = y; });
+  fill_pattern(a);
 
-  dense_array<int, 2> b = make_compact_copy(a);
-  for_each_index(b.shape(),
-      [&](const dense_array<int, 2>::index_type& i) { ASSERT_EQ(b(i), std::get<1>(i)); });
+  // Test with a negative stride in x.
+  array_of_rank<int, 2> b({{0, 20, -1}, {0, 10}});
+  ASSERT_EQ(b.y().stride(), 20);
+  fill_pattern(b);
+
+  // Check that making a copy with positive strides preserves
+  // the contents of the array.
+  dense_array<int, 2> a_compact = make_compact_copy(a);
+  ASSERT_LT(0, a_compact.y().stride());
+  check_pattern(a_compact);
+
+  dense_array<int, 2> b_compact = make_compact_copy(b);
+  ASSERT_EQ(b_compact.x().stride(), 1);
+  check_pattern(b_compact);
 }
 
 TEST(array_move_reinterpret_shape) {
