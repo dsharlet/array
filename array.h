@@ -1067,8 +1067,8 @@ public:
 
   /** Get a specific dim of this shape with a runtime dimension index `d`.
    * This will lose knowledge of any compile-time constant dimension
-   * attributes. */
-  NDARRAY_HOST_DEVICE nda::dim<> dim(size_t d) const {
+   * attributes, and it is not a reference to the original dimension. */
+  NDARRAY_HOST_DEVICE const nda::dim<> dim(size_t d) const {
     assert(d < rank());
     return internal::tuple_to_array<nda::dim<>>(dims_)[d];
   }

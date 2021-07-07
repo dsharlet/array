@@ -81,6 +81,10 @@ void shape_operator_eq_different_rank() {
   s == s2;
 }
 
+void shape_modify_runtime_dim() {
+  s.dim(1).set_min(0);
+}
+
 void is_compatible_different_dims() { is_compatible<shape_of_rank<3>>(s); }
 
 void for_each_index_indices() {
