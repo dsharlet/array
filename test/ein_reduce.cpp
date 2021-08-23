@@ -306,6 +306,24 @@ TEST(ein_reduce_max_2d) {
   }
 }
 
+TEST(ein_reduce_max_2d_carray) {
+  array_of_rank<int, 3> T({4, 5, 8});
+  fill_pattern(T);
+
+  int max_ik[5];
+  std::fill(std::begin(max_ik), std::end(max_ik), std::numeric_limits<int>::min());
+
+  // Reduce T along the i and k dimensions, using max as the reduction.
+  auto r = ein<j>(max_ik);
+  ein_reduce(r = max(r, ein<i, j, k>(T)));
+
+  for (index_t j : T.i()) {
+    int max_ik_ref = std::numeric_limits<int>::min();
+    T(_, j, _).for_each_value([&](int i) { max_ik_ref = std::max(i, max_ik_ref); });
+    ASSERT_EQ(max_ik[j], max_ik_ref);
+  }
+}
+
 template <index_t N>
 std::complex<float> W(float j, float k) {
   static const float pi = std::acos(-1.0f);
