@@ -2152,14 +2152,22 @@ public:
 
   /** Construct an array with a particular `shape`, allocated by `alloc`. All
    * elements in the array are copy-constructed from `value`. */
-  array(const Shape& shape, const T& value, const Alloc& alloc = Alloc()) : array(alloc) {
+  array(const Shape& shape, const T& value, const Alloc& alloc) : array(alloc) {
+    assign(shape, value);
+  }
+  array(const Shape& shape, const T& value) : array() {
     assign(shape, value);
   }
 
   /** Construct an array with a particular `shape`, allocated by `alloc`, with
    * default constructed elements. */
-  explicit array(const Shape& shape, const Alloc& alloc = Alloc())
+  explicit array(const Shape& shape, const Alloc& alloc)
       : alloc_(alloc), buffer_(nullptr), buffer_size_(0), base_(nullptr), shape_(shape) {
+    allocate();
+    construct();
+  }
+  explicit array(const Shape& shape)
+      : buffer_(nullptr), buffer_size_(0), base_(nullptr), shape_(shape) {
     allocate();
     construct();
   }
