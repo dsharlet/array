@@ -361,13 +361,13 @@ auto ein(T& scalar) {
 /** Define an Einstein summation operand for a pointer and size. */
 template <size_t I0, class T>
 auto ein(T* x, size_t N) {
-  return ein<I0>(make_array_ref(&x[0], dense_shape<1>(static_cast<index_t>(N))));
+  return ein<I0>(make_array_ref(&x[0], shape<dim<0, dynamic, 1>>(static_cast<index_t>(N))));
 }
 
 /** Define an Einstein summation operand for a C array. */
 template <size_t I0, class T, size_t N>
 auto ein(T (&x)[N]) {
-  return ein<I0>(&x[0], N);
+  return ein<I0>(make_array_ref(&x[0], shape<dim<0, N, 1>>()));
 }
 
 /** Compute an Einstein reduction. This function allows one to specify
