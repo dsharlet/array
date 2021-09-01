@@ -38,15 +38,15 @@ using const_image_ref = image_ref<const T>;
  * than the number of channels, to allow for padding pixels to a convenient
  * alignment. This is a common image storage format used by many programs
  * working with images. */
-template <index_t Channels = dynamic, index_t ChannelStride = Channels>
-using chunky_image_shape = shape<strided_dim<ChannelStride>, dim<>, dense_dim<0, Channels>>;
-template <class T, index_t Channels = dynamic, index_t ChannelStride = Channels,
+template <index_t Channels = dynamic, index_t XStride = Channels>
+using chunky_image_shape = shape<strided_dim<XStride>, dim<>, dense_dim<0, Channels>>;
+template <class T, index_t Channels = dynamic, index_t XStride = Channels,
     class Alloc = std::allocator<T>>
-using chunky_image = array<T, chunky_image_shape<Channels, ChannelStride>, Alloc>;
-template <class T, index_t Channels = dynamic, index_t ChannelStride = Channels>
-using chunky_image_ref = array_ref<T, chunky_image_shape<Channels, ChannelStride>>;
-template <class T, index_t Channels = dynamic, index_t ChannelStride = Channels>
-using const_chunky_image_ref = chunky_image_ref<const T, Channels, ChannelStride>;
+using chunky_image = array<T, chunky_image_shape<Channels, XStride>, Alloc>;
+template <class T, index_t Channels = dynamic, index_t XStride = Channels>
+using chunky_image_ref = array_ref<T, chunky_image_shape<Channels, XStride>>;
+template <class T, index_t Channels = dynamic, index_t XStride = Channels>
+using const_chunky_image_ref = chunky_image_ref<const T, Channels, XStride>;
 
 /** Calls `fn` for each index in an image shape `s`. c is the innermost
  * dimension of the loop nest. */
@@ -65,10 +65,10 @@ void for_each_image_index(const Shape& s, Fn&& fn) {
   }
 }
 
-template <index_t Channels, index_t ChannelStride>
-class shape_traits<chunky_image_shape<Channels, ChannelStride>> {
+template <index_t Channels, index_t XStride>
+class shape_traits<chunky_image_shape<Channels, XStride>> {
 public:
-  typedef chunky_image_shape<Channels, ChannelStride> shape_type;
+  typedef chunky_image_shape<Channels, XStride> shape_type;
 
   template <class Fn>
   static void for_each_index(const shape_type& s, Fn&& fn) {
@@ -92,7 +92,7 @@ public:
     for_each_image_index(s, fn);
   }
 
-  // When Channels == ChannelStride, we can implement for_each_value by fusing
+  // When Channels == XStride, we can implement for_each_value by fusing
   // the x and c dimensions.
   template <class Ptr, class Fn>
   static void for_each_value(const shape_type& s, Ptr base, Fn&& fn) {
