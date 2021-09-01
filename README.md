@@ -165,11 +165,12 @@ A dimension with unknown min and extent, and stride 1, is common enough that it 
 There are other common examples that are easy to support.
 A very common array is an image where 3-channel RGB or 4-channel RGBA pixels are stored together in a 'chunky' format.
 ```c++
-template <int Channels, int PixelStride = Channels>
+template <int Channels, int XStride = Channels>
 using chunky_image_shape = shape<
-    strided_dim</*Stride=*/PixelStride>,
+    strided_dim</*Stride=*/XStride>,
     dim<>,
     dense_dim</*Min=*/0, /*Extent=*/Channels>>;
+array<uint8_t, chunky_image_shape<3>> my_chunky_image({1920, 1080, {}});
 ```
 
 `strided_dim<>` is another alias for `dim<>` where the min and extent are unknown, and the stride may be a compile-time constant.

@@ -17,6 +17,7 @@
 #include "test.h"
 
 #include <complex>
+#include <cstdint>
 
 namespace nda {
 
@@ -24,9 +25,10 @@ namespace nda {
 // to copy-paste them.
 
 // Define a compile-time "chunky" image shape.
-template <int Channels, int PixelStride = Channels>
+template <int Channels, int XStride = Channels>
 using chunky_image_shape =
-    shape<strided_dim</*Stride=*/PixelStride>, dim<>, dense_dim</*Min=*/0, /*Extent=*/Channels>>;
+    shape<strided_dim</*Stride=*/XStride>, dim<>, dense_dim</*Min=*/0, /*Extent=*/Channels>>;
+array<uint8_t, chunky_image_shape<3>> my_chunky_image({1920, 1080, {}});
 
 // Define a compile-time small matrix type, with the array data in
 // automatic storage.
