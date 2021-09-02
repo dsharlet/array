@@ -156,7 +156,7 @@ TEST(image_deinterleave) {
 }
 
 TEST(image_chunky_padded) {
-  chunky_image<int, 4> src({40, 30, 4});
+  chunky_image<int, 4> src({40, 30, {}});
   fill_pattern(src);
   chunky_image<int, 4> dest(src.shape(), 5);
 
@@ -188,7 +188,7 @@ TEST(image_overload_shape) {
   overload_shape(planar);
   overload_shape(chunky);
 
-  chunky_image<int, 3> chunky3({10, 20, 3});
+  chunky_image<int, 3> chunky3({10, 20, {}});
   general_chunky(chunky3.cref());
 }
 
@@ -196,8 +196,8 @@ void overload_chunky(const chunky_image_ref<const int, 1>&) {}
 void overload_chunky(const chunky_image_ref<const int, 3>&) {}
 
 TEST(image_overload_chunky) {
-  chunky_image<int, 1> chunky1({10, 20, 1});
-  chunky_image<int, 3> chunky3({10, 20, 3});
+  chunky_image<int, 1> chunky1({10, 20, {}});
+  chunky_image<int, 3> chunky3({10, 20, {}});
 
   overload_chunky(chunky1);
   overload_chunky(chunky3);
