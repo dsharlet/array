@@ -175,6 +175,8 @@ struct ein_binary_op : public ein_op_base<Derived> {
     name(const OpA& a, const OpB& b) : base(a, b) {}                                               \
     template <class Idx>                                                                           \
     NDARRAY_INLINE auto operator()(const Idx& i) const {                                           \
+      using std::min;                                                                              \
+      using std::max;                                                                              \
       return fn(base::op_a(i), base::op_b(i));                                                     \
     }                                                                                              \
   };                                                                                               \
@@ -185,8 +187,8 @@ NDARRAY_MAKE_EIN_BINARY_OP(ein_op_add, +, std::false_type);
 NDARRAY_MAKE_EIN_BINARY_OP(ein_op_sub, -, std::false_type);
 NDARRAY_MAKE_EIN_BINARY_OP(ein_op_mul, *, std::false_type);
 NDARRAY_MAKE_EIN_BINARY_OP(ein_op_div, /, std::false_type);
-NDARRAY_MAKE_EIN_BINARY_FN(ein_op_min, std::min);
-NDARRAY_MAKE_EIN_BINARY_FN(ein_op_max, std::max);
+NDARRAY_MAKE_EIN_BINARY_FN(ein_op_min, min);
+NDARRAY_MAKE_EIN_BINARY_FN(ein_op_max, max);
 
 NDARRAY_MAKE_EIN_BINARY_OP(ein_op_assign, =, std::true_type);
 NDARRAY_MAKE_EIN_BINARY_OP(ein_op_add_assign, +=, std::true_type);
