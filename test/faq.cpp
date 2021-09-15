@@ -20,8 +20,8 @@
 
 namespace nda {
 
-TEST(faq_carray) {
-  // Q: How do I declare an array with the same memory layout as a C
+TEST(faq_c_array) {
+  // Q: How do I declare an `array` with the same memory layout as a C
   // multidimensional array?
 
   // A: The ordering of the dimensions in memory is reversed relative to
@@ -32,20 +32,20 @@ TEST(faq_carray) {
   constexpr int width = 5;
   constexpr int height = 4;
   constexpr int depth = 3;
-  std::tuple<int, int, int> carray[depth][height][width];
+  std::tuple<int, int, int> c_array[depth][height][width];
   for (int z = 0; z < depth; z++) {
     for (int y = 0; y < height; y++) {
       for (int x = 0; x < width; x++) {
-        carray[z][y][x] = std::make_tuple(x, y, z);
+        c_array[z][y][x] = std::make_tuple(x, y, z);
       }
     }
   }
 
-  // Now we can create an array_ref of this carray, and check that
+  // Now we can create an array_ref of this c_array, and check that
   // the coordinates map to the same location:
-  dense_array_ref<std::tuple<int, int, int>, 3> carray_ref(&carray[0][0][0], {width, height, depth});
-  for_each_index(carray_ref.shape(), [&](std::tuple<int, int, int> i) {
-    ASSERT_EQ(carray_ref[i], i);
+  dense_array_ref<std::tuple<int, int, int>, 3> c_array_ref(&c_array[0][0][0], {width, height, depth});
+  for_each_index(c_array_ref.shape(), [&](std::tuple<int, int, int> i) {
+    ASSERT_EQ(c_array_ref[i], i);
   });
 
   // Q: That array generates less efficient code than my C array!
@@ -60,10 +60,80 @@ TEST(faq_carray) {
 
   // Now we can create an array_ref of this C array, and check that
   // the coordinates map to the same location:
-  array_ref<std::tuple<int, int, int>, CArrayShape> carray_ref_fixed(&carray[0][0][0]);
-  for_each_index(carray_ref_fixed.shape(), [&](std::tuple<int, int, int> i) {
-    ASSERT_EQ(carray_ref_fixed[i], i);
+  array_ref<std::tuple<int, int, int>, CArrayShape> c_array_ref_fixed(&c_array[0][0][0]);
+  for_each_index(c_array_ref_fixed.shape(), [&](std::tuple<int, int, int> i) {
+    ASSERT_EQ(c_array_ref_fixed[i], i);
   });
+}
+
+TEST(faq_reshape) {
+  // Q: How do I resize or change the shape of an already constructed array?
+
+  // A: There are several options, with different behaviors. First, we can use
+  // `array::reshape`, which changes the shape of an array while moving the
+  // elements of the intersection of the old shape and new shape to the new
+  // array:
+  dense_array<int, 2> a({3, 4});
+  for_all_indices(a.shape(), [&](int x, int y) {
+    a(x, y) = y * 3 + x;
+  });
+  for (auto y : a.y()) {
+    for (auto x : a.x()) {
+      std::cout << a(x, y) << " ";
+    }
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;
+  // Output:
+  // 0 1 2
+  // 3 4 5
+  // 6 7 8
+  // 9 10 11
+
+  a.reshape({2, 6});
+  for (auto y : a.y()) {
+    for (auto x : a.x()) {
+      std::cout << a(x, y) << " ";
+    }
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;
+  // Output:
+  // 0 1
+  // 3 4
+  // 6 7
+  // 9 10
+  // 0 0
+  // 0 0
+
+  // A: We can also reinterpret the shape of an existing array using `array::set_shape`:
+  a.set_shape({4, 3});
+  for (auto y : a.y()) {
+    for (auto x : a.x()) {
+      std::cout << a(x, y) << " ";
+    }
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;
+  // Output:
+  // 0 1 3 4
+  // 6 7 9 10
+  // 0 0 0 0
+
+  // A: We can also use `reinterpret_shape` to make a new `array_ref` with the
+  // new shape:
+  auto a_reshaped = reinterpret_shape(a, dense_shape<2>{4, 3});
+  ASSERT(a_reshaped == a);
+
+  // Q: `array`'s move constructor requires the source array to have the same
+  // shape type. How do I move ownership to an array of a different shape type?
+
+  // A: The helper function `move_reinterpret_shape` does this:
+  array_of_rank<int, 3> source({3, 4, 5});
+  dense_array<int, 3> dest = move_reinterpret_shape<dense_shape<3>>(std::move(source));
+
+  // This can fail at runtime if the source shape is not compatible with the
+  // destination shape.
 }
 
 TEST(faq_crop) {
@@ -94,18 +164,6 @@ TEST(faq_crop) {
   // optimizations of algorithms.
 }
 
-TEST(faq_move_reinterpret_shape) {
-  // Q: array's move constructor requires the source array to have the same
-  // shape type. How do I move ownership to an array of a different shape type?
-
-  // A: The helper function move_reinterpret_shape does this:
-  array_of_rank<int, 3> source({3, 4, 5});
-  dense_array<int, 3> dest = move_reinterpret_shape<dense_shape<3>>(std::move(source));
-
-  // This can fail at runtime if the source shape is not compatible with the
-  // destination shape.
-}
-
 TEST(faq_stack_allocation) {
   // Q: How do I allocate an array on the stack?
 
@@ -128,7 +186,7 @@ TEST(faq_stack_allocation) {
 }
 
 TEST(faq_no_initialization) {
-  // Q: When I declare an array, the memory is being initialized. I'd rather
+  // Q: When I declare an `array`, the memory is being initialized. I'd rather
   // not incur the cost of initialization, how can I avoid this?
 
   // A: Use `uninitialized_std_allocator<>` as the allocator for your arrays.
