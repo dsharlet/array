@@ -15,9 +15,6 @@
 #include "array.h"
 #include "test.h"
 
-#include <complex>
-#include <cstdint>
-
 namespace nda {
 
 TEST(faq_c_array) {
@@ -42,27 +39,11 @@ TEST(faq_c_array) {
   }
 
   // Now we can create an array_ref of this c_array, and check that
-  // the coordinates map to the same location:
+  // the coordinates map to the same location, indicating that we used
+  // the same convention to determine strides as the C compiler:
   dense_array_ref<std::tuple<int, int, int>, 3> c_array_ref(&c_array[0][0][0], {width, height, depth});
   for_each_index(c_array_ref.shape(), [&](std::tuple<int, int, int> i) {
     ASSERT_EQ(c_array_ref[i], i);
-  });
-
-  // Q: That array generates less efficient code than my C array!
-
-  // A: To match the generated code from C, we need to give the
-  // compiler more information, like the C array declaration does.
-
-  // This C array is equivalent to the following shape, fully known at
-  // compile time:
-  using CArrayShape =
-      shape<dense_dim<0, width>, dim<0, height, width>, dim<0, depth, width*height>>;
-
-  // Now we can create an array_ref of this C array, and check that
-  // the coordinates map to the same location:
-  array_ref<std::tuple<int, int, int>, CArrayShape> c_array_ref_fixed(&c_array[0][0][0]);
-  for_each_index(c_array_ref_fixed.shape(), [&](std::tuple<int, int, int> i) {
-    ASSERT_EQ(c_array_ref_fixed[i], i);
   });
 }
 
@@ -72,7 +53,7 @@ TEST(faq_reshape) {
   // A: There are several options, with different behaviors. First, we can use
   // `array::reshape`, which changes the shape of an array while moving the
   // elements of the intersection of the old shape and new shape to the new
-  // array:
+  // array, similar to `std::vector::resize`:
   dense_array<int, 2> a({3, 4});
   for_all_indices(a.shape(), [&](int x, int y) {
     a(x, y) = y * 3 + x;
@@ -85,10 +66,10 @@ TEST(faq_reshape) {
   }
   std::cout << std::endl;
   // Output:
-  // 0 1 2
-  // 3 4 5
-  // 6 7 8
-  // 9 10 11
+  //   0 1 2
+  //   3 4 5
+  //   6 7 8
+  //   9 10 11
 
   a.reshape({2, 6});
   for (auto y : a.y()) {
@@ -99,14 +80,17 @@ TEST(faq_reshape) {
   }
   std::cout << std::endl;
   // Output:
-  // 0 1
-  // 3 4
-  // 6 7
-  // 9 10
-  // 0 0
-  // 0 0
+  //   0 1
+  //   3 4
+  //   6 7
+  //   9 10
+  //   0 0
+  //   0 0
+  // Observe that the right column of the original array has been lost, and
+  // two default-constructed rows have been added to the bottom of the array.
 
-  // A: We can also reinterpret the shape of an existing array using `array::set_shape`:
+  // A: We can also reinterpret the shape of an existing array using
+  // `array::set_shape`:
   a.set_shape({4, 3});
   for (auto y : a.y()) {
     for (auto x : a.x()) {
@@ -116,9 +100,11 @@ TEST(faq_reshape) {
   }
   std::cout << std::endl;
   // Output:
-  // 0 1 3 4
-  // 6 7 9 10
-  // 0 0 0 0
+  //   0 1 3 4
+  //   6 7 9 10
+  //   0 0 0 0
+  // Observe that this has not removed or added any values from the array, the
+  // underlying memory has simply be reinterpreted as a different array.
 
   // A: We can also use `reinterpret_shape` to make a new `array_ref` with the
   // new shape:
@@ -128,7 +114,8 @@ TEST(faq_reshape) {
   // Q: `array`'s move constructor requires the source array to have the same
   // shape type. How do I move ownership to an array of a different shape type?
 
-  // A: The helper function `move_reinterpret_shape` does this:
+  // A: The helper function `move_reinterpret_shape` combines move construction
+  // with `reinterpret_shape`:
   array_of_rank<int, 3> source({3, 4, 5});
   dense_array<int, 3> dest = move_reinterpret_shape<dense_shape<3>>(std::move(source));
 
@@ -154,7 +141,7 @@ TEST(faq_crop) {
   }
 
   // This differs from most alternative libraries. To match this behavior,
-  // the min of the resulting cropped array needs to be changed to 0:
+  // the `min` of the resulting cropped array needs to be changed to 0:
   cropped.shape().dim<0>().set_min(0);
   for (int i = crop_begin; i < crop_end; i++) {
     ASSERT_EQ(array(i), cropped(i - crop_begin));
@@ -190,10 +177,8 @@ TEST(faq_no_initialization) {
   // not incur the cost of initialization, how can I avoid this?
 
   // A: Use `uninitialized_std_allocator<>` as the allocator for your arrays.
-
-  // Define an allocator that will not default construct the values.
   using UninitialiezdAllocator = uninitialized_std_allocator<int>;
-  dense_array<int, 3, UninitialiezdAllocator> stack_array({2, 5, 10});
+  dense_array<int, 3, UninitialiezdAllocator> uninitialized_array({2, 5, 10});
 }
 
 } // namespace nda
