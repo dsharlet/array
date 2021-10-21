@@ -1045,7 +1045,7 @@ public:
   }
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   NDARRAY_HOST_DEVICE auto operator()(Args... args) const {
-    return operator()(std::make_tuple(args...));
+    return operator[](std::make_tuple(args...));
   }
 
   /** Get a specific dim `D` of this shape. */
