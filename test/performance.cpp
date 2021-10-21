@@ -106,7 +106,7 @@ TEST(performance_copy) {
 TEST(performance_for_each_value) {
   array_of_rank<int, 12> a({2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2});
   double loop_time = benchmark([&]() {
-    for_each_index(a.shape(), [&](const array_of_rank<int, 12>::index_type& i) { a(i) = 3; });
+    for_each_index(a.shape(), [&](const array_of_rank<int, 12>::index_type& i) { a[i] = 3; });
   });
   assert_used(a);
 

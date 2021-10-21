@@ -129,9 +129,9 @@ int main(int, const char**) {
 
   const float epsilon = 1e-4f;
   for_each_index(naive_output.shape(), [&](const index_of_rank<4>& i) {
-    if (std::abs(naive_output(i) - tiled_output(i)) > epsilon) {
-      std::cout << "naive_output(i) = " << naive_output(i)
-                << " != tiled_output(i) = " << tiled_output(i) << std::endl;
+    if (std::abs(naive_output[i] - tiled_output[i]) > epsilon) {
+      std::cout << "naive_output(i) = " << naive_output[i]
+                << " != tiled_output(i) = " << tiled_output[i] << std::endl;
     }
   });
 

@@ -78,7 +78,7 @@ public:
   template <class Ptr, class Fn>
   static void for_each_value(const shape_type& s, Ptr base, Fn&& fn) {
     for_each_image_index(
-        s, [=, fn = std::move(fn)](const typename shape_type::index_type& i) { fn(base[s(i)]); });
+        s, [=, fn = std::move(fn)](const typename shape_type::index_type& i) { fn(base[s[i]]); });
   }
 };
 

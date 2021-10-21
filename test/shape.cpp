@@ -61,7 +61,7 @@ TEST(shape_2d_negative_stride) {
   dense_dim<> x(0, 10);
   dim<> y(0, 5, -x.extent());
   shape<dense_dim<>, dim<>> s(x, y);
-  index_t flat_min = s(s.min());
+  index_t flat_min = s[s.min()];
   index_t flat_max = flat_min;
   for (int i : y) {
     for (int j : x) {
@@ -312,7 +312,7 @@ TEST(for_each_index_1d) {
   dense_shape<1> s(20);
   int expected_flat_offset = 0;
   for_each_index(s, [&](std::tuple<int> i) {
-    ASSERT_EQ(s(i), expected_flat_offset);
+    ASSERT_EQ(s[i], expected_flat_offset);
     expected_flat_offset++;
   });
   // Ensure the for_each_index loop above actually ran.
@@ -324,7 +324,7 @@ TEST(for_each_index_2d) {
   s.resolve();
   int expected_flat_offset = 0;
   for_each_index(s, [&](std::tuple<int, int> i) {
-    ASSERT_EQ(s(i), expected_flat_offset);
+    ASSERT_EQ(s[i], expected_flat_offset);
     expected_flat_offset++;
   });
   // Ensure the for_each_index loop above actually ran.
@@ -337,7 +337,7 @@ TEST(for_each_index_3d) {
   int expected_flat_offset = 0;
   move_only token;
   for_each_index(s, [&, token = std::move(token)](std::tuple<int, int, int> i) {
-    ASSERT_EQ(s(i), expected_flat_offset);
+    ASSERT_EQ(s[i], expected_flat_offset);
     expected_flat_offset++;
     assert_used(token);
   });
@@ -351,7 +351,7 @@ TEST(for_each_index_3d_reorderd) {
   int expected_flat_offset = 0;
   move_only token;
   for_each_index<2, 0, 1>(s, [&, token = std::move(token)](std::tuple<int, int, int> i) {
-    ASSERT_EQ(s(i), expected_flat_offset);
+    ASSERT_EQ(s[i], expected_flat_offset);
     expected_flat_offset++;
     assert_used(token);
   });
@@ -532,7 +532,7 @@ void test_number_theory(Shape s) {
 
   std::vector<int> addresses(static_cast<size_t>(s.flat_extent()), 0);
   for_each_index(s, [&](const typename Shape::index_type& i) {
-    addresses[static_cast<size_t>(s(i) - s.flat_min())] += 1;
+    addresses[static_cast<size_t>(s[i] - s.flat_min())] += 1;
   });
   bool is_compact = std::all_of(addresses.begin(), addresses.end(), [](int c) { return c >= 1; });
   bool is_one_to_one =

@@ -149,7 +149,7 @@ T pattern(const IndexType& indices, const IndexType& offset = IndexType()) {
 template <class T, class Shape>
 void fill_pattern(const array_ref<T, Shape>& a, int seed = 0) {
   for_each_index(
-      a.shape(), [&](const typename Shape::index_type& i) { a(i) = pattern<T>(i) + seed; });
+      a.shape(), [&](const typename Shape::index_type& i) { a[i] = pattern<T>(i) + seed; });
 }
 template <class T, class Shape>
 void fill_pattern(array<T, Shape>& a, int seed = 0) {
@@ -161,7 +161,7 @@ template <class T, class Shape>
 void check_pattern(const array_ref<T, Shape>& a,
     const typename Shape::index_type& offset = typename Shape::index_type()) {
   for_each_index(a.shape(), [&](const typename Shape::index_type& i) {
-    ASSERT_EQ(a(i), pattern<T>(i, offset)) << "i=" << i << ", offset=" << offset;
+    ASSERT_EQ(a[i], pattern<T>(i, offset)) << "i=" << i << ", offset=" << offset;
   });
 }
 template <class T, class Shape, class Alloc>

@@ -1026,9 +1026,6 @@ public:
   }
 
   /** Compute the flat offset of the index `indices`. */
-  NDARRAY_HOST_DEVICE index_t operator()(const index_type& indices) const {
-    return internal::flat_offset(dims_, indices, dim_indices());
-  }
   NDARRAY_HOST_DEVICE index_t operator[](const index_type& indices) const {
     return internal::flat_offset(dims_, indices, dim_indices());
   }
@@ -1041,18 +1038,14 @@ public:
    * Dimensions corresponding to indices in `args` are sliced, i.e. the result
    * will not have this dimension. The rest of the dimensions are cropped. */
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
-  NDARRAY_HOST_DEVICE auto operator()(const std::tuple<Args...>& args) const {
+  NDARRAY_HOST_DEVICE auto operator[](const std::tuple<Args...>& args) const {
     auto new_dims = internal::intervals_with_strides(args, dims_, dim_indices());
     auto new_dims_no_slices = internal::skip_slices(new_dims, args, dim_indices());
     return make_shape_from_tuple(new_dims_no_slices);
   }
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
-  NDARRAY_HOST_DEVICE auto operator[](const std::tuple<Args...>& args) const {
-    return operator()(args);
-  }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   NDARRAY_HOST_DEVICE auto operator()(Args... args) const {
-    return operator()(std::make_tuple(args...));
+    return operator[](std::make_tuple(args...));
   }
 
   /** Get a specific dim `D` of this shape. */
@@ -1536,8 +1529,8 @@ template <class Shape, class ShapeA, class PtrA, class ShapeB, class PtrB, class
         typename std::remove_pointer<PtrB>::type&>>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order(const Shape& shape,
     const ShapeA& shape_a, PtrA base_a, const ShapeB& shape_b, PtrB base_b, Fn&& fn) {
-  base_a += shape_a(shape.min());
-  base_b += shape_b(shape.min());
+  base_a += shape_a[shape.min()];
+  base_b += shape_b[shape.min()];
   // TODO: This is losing compile-time constant extents and strides info
   // (https://github.com/dsharlet/array/issues/1).
   auto a = std::make_pair(base_a, shape_a.stride());
@@ -1811,9 +1804,9 @@ NDARRAY_HOST_DEVICE array_ref<T, Shape> make_array_ref_no_resolve(T* base, const
 template <class T, class Shape, class... Args>
 NDARRAY_HOST_DEVICE auto make_array_ref_at(
     T base, const Shape& shape, const std::tuple<Args...>& args) {
-  auto new_shape = shape(args);
+  auto new_shape = shape[args];
   auto new_mins = mins_of_intervals(args, shape.dims(), make_index_sequence<sizeof...(Args)>());
-  auto old_min_offset = shape(new_mins);
+  auto old_min_offset = shape[new_mins];
   return make_array_ref_no_resolve(internal::pointer_add(base, old_min_offset), new_shape);
 }
 
@@ -1892,11 +1885,8 @@ public:
   }
 
   /** Get a reference to the element at `indices`. */
-  NDARRAY_HOST_DEVICE reference operator()(const index_type& indices) const {
-    return base_[shape_(indices)];
-  }
   NDARRAY_HOST_DEVICE reference operator[](const index_type& indices) const {
-    return base_[shape_(indices)];
+    return base_[shape_[indices]];
   }
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_indices<Args...>>
   NDARRAY_HOST_DEVICE reference operator()(Args... indices) const {
@@ -1907,10 +1897,6 @@ public:
    * `args`. Dimensions corresponding to indices in `args` are sliced, i.e.
    * the result will not have this dimension. The rest of the dimensions are
    * cropped. */
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
-  NDARRAY_HOST_DEVICE auto operator()(const std::tuple<Args...>& args) const {
-    return internal::make_array_ref_at(base_, shape_, args);
-  }
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   NDARRAY_HOST_DEVICE auto operator[](const std::tuple<Args...>& args) const {
     return internal::make_array_ref_at(base_, shape_, args);
@@ -2327,10 +2313,8 @@ public:
   const Alloc& get_allocator() const { return alloc_; }
 
   /** Get a reference to the element at `indices`. */
-  reference operator()(const index_type& indices) { return base_[shape_(indices)]; }
-  reference operator[](const index_type& indices) { return base_[shape_(indices)]; }
-  const_reference operator()(const index_type& indices) const { return base_[shape_(indices)]; }
-  const_reference operator[](const index_type& indices) const { return base_[shape_(indices)]; }
+  reference operator[](const index_type& indices) { return base_[shape_[indices]]; }
+  const_reference operator[](const index_type& indices) const { return base_[shape_[indices]]; }
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_indices<Args...>>
   reference operator()(Args... indices) {
     return base_[shape_(indices...)];
@@ -2344,20 +2328,12 @@ public:
    * Dimensions corresponding to indices in `args` are sliced, i.e. the result
    * will not have this dimension. The rest of the dimensions are cropped. */
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
-  auto operator()(const std::tuple<Args...>& args) {
-    return internal::make_array_ref_at(base_, shape_, args);
-  }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   auto operator[](const std::tuple<Args...>& args) {
     return internal::make_array_ref_at(base_, shape_, args);
   }
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   auto operator()(Args... args) {
     return internal::make_array_ref_at(base_, shape_, std::make_tuple(args...));
-  }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
-  auto operator()(const std::tuple<Args...>& args) const {
-    return internal::make_array_ref_at(base_, shape_, args);
   }
   template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
   auto operator[](const std::tuple<Args...>& args) const {
@@ -2423,7 +2399,7 @@ public:
     Shape intersection =
         internal::clamp(new_shape.dims(), shape_.dims(), typename Shape::dim_indices());
     pointer intersection_base =
-        internal::pointer_add(new_array.base_, new_shape(intersection.min()));
+        internal::pointer_add(new_array.base_, new_shape[intersection.min()]);
     copy_shape_traits_type::for_each_value(
         shape_, base_, intersection, intersection_base, internal::move_assign<T, T>);
 
