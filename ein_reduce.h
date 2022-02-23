@@ -146,7 +146,7 @@ struct ein_binary_op : public ein_op_base<Derived> {
   OpA op_a;
   OpB op_b;
   ein_binary_op(const OpA& a, const OpB& b) : op_a(a), op_b(b) {}
-  static constexpr index_t MaxIndex = std::max(OpA::MaxIndex, OpB::MaxIndex);
+  static constexpr index_t MaxIndex = internal::max(OpA::MaxIndex, OpB::MaxIndex);
 };
 
 #define NDARRAY_MAKE_EIN_BINARY_HELPERS(name, op)                                                  \
@@ -175,8 +175,8 @@ struct ein_binary_op : public ein_op_base<Derived> {
     name(const OpA& a, const OpB& b) : base(a, b) {}                                               \
     template <class Idx>                                                                           \
     NDARRAY_INLINE auto operator()(const Idx& i) const {                                           \
-      using std::min;                                                                              \
-      using std::max;                                                                              \
+      using internal::min;                                                                              \
+      using internal::max;                                                                              \
       return fn(base::op_a(i), base::op_b(i));                                                     \
     }                                                                                              \
   };                                                                                               \
