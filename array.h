@@ -19,6 +19,7 @@
 #ifndef NDARRAY_ARRAY_H
 #define NDARRAY_ARRAY_H
 
+#include <algorithm>
 #include <array>
 // TODO(jiawen): CUDA *should* support assert on device. This might be due to the fact that we are
 // not depending on the CUDA toolkit.
