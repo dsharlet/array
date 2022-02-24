@@ -19,7 +19,6 @@
 #ifndef NDARRAY_ARRAY_H
 #define NDARRAY_ARRAY_H
 
-#include <algorithm>
 #include <array>
 // TODO(jiawen): CUDA *should* support assert on device. This might be due to the fact that we are
 // not depending on the CUDA toolkit.
@@ -153,6 +152,17 @@ public:
   }
   NDARRAY_INLINE NDARRAY_HOST_DEVICE operator index_t() const { return value_; }
 };
+
+// Defined here to avoid pulling in <algorithm>.
+template <typename T>
+constexpr const T& max(const T& a, const T& b) {
+  return (a < b) ? b : a;
+}
+
+template <typename T>
+constexpr const T& min(const T& a, const T& b) {
+  return (b < a) ? b : a;
+}
 
 } // namespace internal
 
@@ -327,7 +337,7 @@ NDARRAY_HOST_DEVICE index_iterator end(const interval<Min, Extent>& d) {
 
 /** Clamp `x` to the interval [min, max]. */
 NDARRAY_INLINE NDARRAY_HOST_DEVICE index_t clamp(index_t x, index_t min, index_t max) {
-  return std::min(std::max(x, min), max);
+  return internal::min(internal::max(x, min), max);
 }
 
 /** Clamp `x` to the range described by an object `r` with a `min()` and
@@ -489,7 +499,7 @@ public:
       // When the extent of the inner split is not a compile-time constant,
       // we can just modify the extent.
       i.set_min(i.min() + i.extent());
-      index_t max = std::min(i.max(), outer_max);
+      index_t max = min(i.max(), outer_max);
       i.set_extent(max - i.min() + 1);
     }
     return *this;
@@ -555,8 +565,8 @@ NDARRAY_HOST_DEVICE internal::split_iterator_range<InnerExtent> split(
 template <index_t Min, index_t Extent>
 NDARRAY_HOST_DEVICE internal::split_iterator_range<> split(
     const interval<Min, Extent>& v, index_t inner_extent) {
-  return {{interval<>(v.min(), std::min(inner_extent, v.extent())), v.max()},
-      {interval<>(v.max() + 1, 0), v.max()}};
+  return {{interval<>(v.min(), internal::min(inner_extent, v.extent())), v.max()},
+          {interval<>(v.max() + 1, 0), v.max()}};
 }
 template <index_t Min, index_t Extent, index_t Stride>
 NDARRAY_HOST_DEVICE internal::split_iterator_range<> split(
@@ -607,13 +617,13 @@ NDARRAY_INLINE constexpr T product(T first, Rest... rest) {
 NDARRAY_INLINE constexpr index_t variadic_min() { return std::numeric_limits<index_t>::max(); }
 template <class... Rest>
 NDARRAY_INLINE constexpr index_t variadic_min(index_t first, Rest... rest) {
-  return std::min(first, variadic_min(rest...));
+  return min(first, variadic_min(rest...));
 }
 
 NDARRAY_INLINE constexpr index_t variadic_max() { return std::numeric_limits<index_t>::min(); }
 template <class... Rest>
 NDARRAY_INLINE constexpr index_t variadic_max(index_t first, Rest... rest) {
-  return std::max(first, variadic_max(rest...));
+  return max(first, variadic_max(rest...));
 }
 
 // Computes the product of the extents of the dims.
@@ -642,14 +652,14 @@ NDARRAY_HOST_DEVICE index_t flat_offset(
 // Computes one more than the sum of the offsets of the last index in every dim.
 template <class Dims, size_t... Is>
 NDARRAY_HOST_DEVICE index_t flat_min(const Dims& dims, index_sequence<Is...>) {
-  return sum(
-      (std::get<Is>(dims).extent() - 1) * std::min<index_t>(0, std::get<Is>(dims).stride())...);
+  return sum((std::get<Is>(dims).extent() - 1) *
+             min<index_t>(0, std::get<Is>(dims).stride())...);
 }
 
 template <class Dims, size_t... Is>
 NDARRAY_HOST_DEVICE index_t flat_max(const Dims& dims, index_sequence<Is...>) {
-  return sum(
-      (std::get<Is>(dims).extent() - 1) * std::max<index_t>(0, std::get<Is>(dims).stride())...);
+  return sum((std::get<Is>(dims).extent() - 1) *
+             internal::max<index_t>(0, std::get<Is>(dims).stride())...);
 }
 
 // Make dims with the interval of the first parameter and the stride
@@ -794,7 +804,7 @@ NDARRAY_HOST_DEVICE index_t candidate_stride(const Dim& dim) {
   if (is_dynamic(dim.stride())) {
     return std::numeric_limits<index_t>::max();
   } else {
-    return std::max<index_t>(1, abs(dim.stride()) * dim.extent());
+    return max<index_t>(1, abs(dim.stride()) * dim.extent());
   }
 }
 
@@ -1312,8 +1322,8 @@ template <size_t Rank>
 NDARRAY_HOST_DEVICE auto make_default_dense_shape() {
   // The inner dimension is a dense_dim, unless the shape is rank 0.
   using inner_dim = std::conditional_t<(Rank > 0), std::tuple<dense_dim<>>, std::tuple<>>;
-  return make_shape_from_tuple(
-      std::tuple_cat(inner_dim(), tuple_of_n<dim<>, std::max<size_t>(1, Rank) - 1>()));
+  return make_shape_from_tuple(std::tuple_cat(
+      inner_dim(), tuple_of_n<dim<>, max<size_t>(1, Rank) - 1>()));
 }
 
 template <index_t CurrentStride>
@@ -1377,8 +1387,8 @@ NDARRAY_HOST_DEVICE auto clamp_dims(const DimA& a, const DimB& b) {
   constexpr index_t Min = static_max(DimA::Min, DimB::Min);
   constexpr index_t Max = static_min(DimA::Max, DimB::Max);
   constexpr index_t Extent = static_add(static_sub(Max, Min), 1);
-  index_t min = std::max(a.min(), b.min());
-  index_t max = std::min(a.max(), b.max());
+  index_t min = internal::max(a.min(), b.min());
+  index_t max = internal::min(a.max(), b.max());
   index_t extent = max - min + 1;
   return dim<Min, Extent, DimA::Stride>(min, extent, a.stride());
 }

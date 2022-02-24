@@ -152,10 +152,10 @@ Shape crop_image_shape(Shape s, index_t x0, index_t y0, index_t x1, index_t y1,
 template <class T, class Shape>
 array_ref<T, Shape> crop(const array_ref<T, Shape>& im, index_t x0, index_t y0, index_t x1,
     index_t y1, crop_origin origin = crop_origin::crop) {
-  x0 = std::max(x0, im.x().min());
-  y0 = std::max(y0, im.y().min());
-  x1 = std::min(x1, im.x().max() + 1);
-  y1 = std::min(y1, im.y().max() + 1);
+  x0 = internal::max(x0, im.x().min());
+  y0 = internal::max(y0, im.y().min());
+  x1 = internal::min(x1, im.x().max() + 1);
+  y1 = internal::min(y1, im.y().max() + 1);
   Shape cropped_shape = crop_image_shape(im.shape(), x0, y0, x1, y1, origin);
   index_t c0 = im.c().min();
   T* base = im.base() != nullptr ? &im(x0, y0, c0) : nullptr;
