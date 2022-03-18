@@ -15,6 +15,7 @@
 #include "test.h"
 
 #include <iostream>
+#include <ostream>
 #include <vector>
 
 namespace {
@@ -69,6 +70,7 @@ int main(int argc, const char** argv) {
     if (!wildcard_match(filter, i.first.c_str())) continue;
 
     std::cout << i.first << " ";
+    std::flush(std::cout);
     try {
       i.second();
       std::cout << "passed" << std::endl;

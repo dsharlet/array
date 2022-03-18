@@ -78,6 +78,23 @@ TEST(array_ref_copy) {
   ASSERT_EQ(scalar(), scalar_copy());
 }
 
+TEST(array_ref_incompatible_shape) {
+  // Uncomment to see the errors.
+  {
+    array_ref<int, nda::shape_of_rank<1>> src(nullptr, {{0, 10, 2}});
+    // Error converting dim 0: expected static stride 1, got 2
+    // array_ref<int, nda::shape<nda::fixed_dim<nda::dynamic, 1>>> dst(src);
+  }
+
+  {
+    array_ref<int, nda::shape<nda::fixed_dim<10, nda::dynamic>,
+                              nda::fixed_dim<2, nda::dynamic>>> dst;
+    array_ref<int, nda::shape_of_rank<2>> src(nullptr, {{0, 10}, {0, 3}});
+    // Error converting dim 1: expected static extent 2, got 3
+    // dst = src;
+  }
+}
+
 TEST(array_ref_empty) {
   dense_array_ref<int, 1> null_ref(nullptr, {10});
   ASSERT(null_ref.empty());
