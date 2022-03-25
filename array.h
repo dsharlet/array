@@ -2028,7 +2028,9 @@ using dense_array_ref = array_ref<T, dense_shape<Rank>>;
 template <class T, size_t Rank>
 using const_dense_array_ref = dense_array_ref<const T, Rank>;
 
-/** A multi-dimensional array container that owns an allocation of memory. */
+/** A multi-dimensional array container that owns an allocation of memory. `Alloc` is
+ * an allocator that can be an STL allocator type such as `std::allocator`. However,
+ * unlike STL allocators, it may be stateful. */
 template <class T, class Shape, class Alloc = std::allocator<T>>
 class array {
 public:
@@ -2815,10 +2817,13 @@ auto reorder(const array<T, OldShape, Allocator>& a) {
   return reinterpret_shape(a, reorder<DimIndices...>(a.shape()));
 }
 
-/** Allocator satisfying the `std::allocator` interface that owns a buffer with
- * automatic storage, and a fallback base allocator. For allocations, the
- * allocator uses the buffer if it is large enough and not already allocated,
- * otherwise it uses the base allocator. */
+/** Allocator for use with `array` that owns a buffer with automatic storage,
+ * and a fallback base allocator. When allocating memory, this allocator uses
+ * the buffer if it is large enough and not already allocated, otherwise it
+ * uses the base allocator.
+ *
+ * While this allocator appears to be compatible with `std::allocator`, it is
+ * not safe to use with STL containers. */
 template <class T, size_t N, size_t Alignment = alignof(T), class BaseAlloc = std::allocator<T>>
 class auto_allocator {
   alignas(Alignment) char buffer[N * sizeof(T)];
