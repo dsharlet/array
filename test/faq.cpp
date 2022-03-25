@@ -177,8 +177,8 @@ TEST(faq_no_initialization) {
   // not incur the cost of initialization, how can I avoid this?
 
   // A: Use `uninitialized_std_allocator<>` as the allocator for your arrays.
-  using UninitialiezdAllocator = uninitialized_std_allocator<int>;
-  dense_array<int, 3, UninitialiezdAllocator> uninitialized_array({2, 5, 10});
+  using UninitializedAllocator = uninitialized_std_allocator<int>;
+  dense_array<int, 3, UninitializedAllocator> uninitialized_array({2, 5, 10});
 }
 
 } // namespace nda
