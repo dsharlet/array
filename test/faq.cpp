@@ -21,8 +21,9 @@ TEST(faq_c_array) {
   // Q: How do I declare an `array` with the same memory layout as a C
   // multidimensional array?
 
-  // A: The ordering of the dimensions in memory is reversed relative to
-  // the declaration order.
+  // A: In C, the last dimension is the "innermost" dimension, the dimension
+  // with the smallest stride. In `array`, the first dimension is the innermost
+  // dimension, i.e. Fortran ordering.
 
   // To demonstrate this, we can construct a 3-dimensional array in C,
   // where each element of the array is equal to its indices:
