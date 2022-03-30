@@ -917,25 +917,25 @@ template <size_t Rank, size_t... Is>
 using enable_if_permutation = std::enable_if_t<sizeof...(Is) == Rank && all(Is < Rank...) &&
                                                product((Is + 2)...) == factorial(Rank + 1)>;
 
-template <index_t DimIndex, class DimDst, class DimSrc>
-NDARRAY_HOST_DEVICE void assert_dim_compatible(const DimSrc& src) {
+template <class DimDst, class DimSrc>
+NDARRAY_HOST_DEVICE void assert_dim_compatible(size_t dim_index, const DimSrc& src) {
   bool compatible = true;
   if (is_static(DimDst::Min) && !is_dynamic(src.min()) && src.min() != DimDst::Min) {
-    NDARRAY_PRINT_ERR("Error converting dim " NDARRAY_INDEX_T_FMT ": expected static min "
+    NDARRAY_PRINT_ERR("Error converting dim %zu: expected static min "
                       NDARRAY_INDEX_T_FMT ", got " NDARRAY_INDEX_T_FMT "\n",
-                      DimIndex, DimDst::Min, src.min());
+                      dim_index, DimDst::Min, src.min());
     compatible = false;
   }
   if (is_static(DimDst::Extent) && !is_dynamic(src.extent()) && src.extent() != DimDst::Extent) {
-    NDARRAY_PRINT_ERR("Error converting dim " NDARRAY_INDEX_T_FMT ": expected static extent "
+    NDARRAY_PRINT_ERR("Error converting dim %zu: expected static extent "
                       NDARRAY_INDEX_T_FMT ", got " NDARRAY_INDEX_T_FMT "\n",
-                      DimIndex, DimDst::Extent, src.extent());
+                      dim_index, DimDst::Extent, src.extent());
     compatible = false;
   }
   if (is_static(DimDst::Stride) && !is_dynamic(src.stride()) && src.stride() != DimDst::Stride) {
-    NDARRAY_PRINT_ERR("Error converting dim " NDARRAY_INDEX_T_FMT ": expected static stride "
+    NDARRAY_PRINT_ERR("Error converting dim %zu: expected static stride "
                       NDARRAY_INDEX_T_FMT ", got " NDARRAY_INDEX_T_FMT "\n",
-                      DimIndex, DimDst::Stride, src.stride());
+                      dim_index, DimDst::Stride, src.stride());
     compatible = false;
   }
   assert(compatible);
@@ -945,8 +945,8 @@ NDARRAY_HOST_DEVICE void assert_dim_compatible(const DimSrc& src) {
 template <class DimsDst, class DimsSrc, size_t... Is>
 NDARRAY_HOST_DEVICE void assert_dims_compatible(const DimsSrc& src, index_sequence<Is...>) {
   // This is ugly, in C++17, we'd use a fold  expression over the comma operator (f(), ...).
-  int unused[] = {(assert_dim_compatible<Is, typename std::tuple_element<Is, DimsDst>::type>(
-      nda::dim<>(std::get<Is>(src))), 0)...};
+  int unused[] = {(assert_dim_compatible<typename std::tuple_element<Is, DimsDst>::type>(
+      Is, nda::dim<>(std::get<Is>(src))), 0)...};
   (void) unused;
 }
 
