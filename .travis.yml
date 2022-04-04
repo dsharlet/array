@@ -1,13 +1,14 @@
 language: cpp
 install: make
 os: linux
+dist: focal
 compiler: clang
 
 addons:
   apt:
     packages:
       - doxygen
-
+      - clang-12
 script:
   - make test
   - make cuda_build_test
