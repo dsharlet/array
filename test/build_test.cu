@@ -12,7 +12,8 @@
 // For some reason, this doesn't compile when it's size_t.
 __device__ void* malloc(int size);
 __device__ void free(void* p);
-
+template<typename... Args>
+__device__ int printf(const char* format, Args...);
 #endif  // defined(__CUDA__)
 
 #include "array.h"

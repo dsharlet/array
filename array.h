@@ -951,10 +951,11 @@ NDARRAY_HOST_DEVICE void assert_dims_compatible(const DimsSrc& src, index_sequen
 }
 
 template <class DimsDst, class DimsSrc>
-NDARRAY_HOST_DEVICE void assert_dims_compatible(const DimsSrc& src) {
+NDARRAY_HOST_DEVICE const DimsSrc& assert_dims_compatible(const DimsSrc& src) {
 #ifndef NDEBUG
   assert_dims_compatible<DimsDst>(src, make_index_sequence<std::tuple_size<DimsDst>::value>());
 #endif
+  return src;
 }
 
 } // namespace internal
@@ -1034,10 +1035,8 @@ public:
   // TODO: This is a bit messy, but necessary to avoid ambiguous default
   // constructors when Dims is empty.
   template <size_t N = sizeof...(Dims), class = std::enable_if_t<(N > 0)>>
-  NDARRAY_HOST_DEVICE shape(const Dims&... dims) {
-    internal::assert_dims_compatible<dims_type>(std::make_tuple(dims...));
-    dims_ = std::make_tuple(dims...);
-  }
+  NDARRAY_HOST_DEVICE shape(const Dims&... dims)
+      : dims_(internal::assert_dims_compatible<dims_type>(std::make_tuple(dims...))) {}
   NDARRAY_HOST_DEVICE shape(const shape&) = default;
   NDARRAY_HOST_DEVICE shape(shape&&) = default;
   NDARRAY_HOST_DEVICE shape& operator=(const shape&) = default;
@@ -1047,21 +1046,16 @@ public:
    * different type. Each dim must be compatible with the corresponding
    * dim of this shape. */
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
-  NDARRAY_HOST_DEVICE shape(const std::tuple<OtherDims...>& other) {
-    internal::assert_dims_compatible<dims_type>(other);
-    dims_ = other;
-  }
+  NDARRAY_HOST_DEVICE shape(const std::tuple<OtherDims...>& other)
+      : dims_(internal::assert_dims_compatible<dims_type>(other)) {}
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
   NDARRAY_HOST_DEVICE shape(OtherDims... other_dims) : shape(std::make_tuple(other_dims...)) {}
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
-  NDARRAY_HOST_DEVICE shape(const shape<OtherDims...>& other) {
-    internal::assert_dims_compatible<dims_type>(other.dims());
-    dims_ = other.dims();
-  }
+  NDARRAY_HOST_DEVICE shape(const shape<OtherDims...>& other)
+      : dims_(internal::assert_dims_compatible<dims_type>(other.dims())) {}
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
   NDARRAY_HOST_DEVICE shape& operator=(const shape<OtherDims...>& other) {
-    internal::assert_dims_compatible<dims_type>(other.dims());
-    dims_ = other.dims();
+    dims_ = internal::assert_dims_compatible<dims_type>(other.dims());
     return *this;
   }
 
