@@ -7,7 +7,6 @@ addons:
   apt:
     packages:
       - doxygen
-
 script:
   - make test
   - make cuda_build_test

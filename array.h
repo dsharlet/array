@@ -29,6 +29,7 @@
 #include <cassert>
 #endif
 
+#include <cstdio>
 #include <limits>
 #include <memory>
 #include <tuple>
@@ -67,6 +68,12 @@
 #define NDARRAY_RESTRICT
 #endif
 
+#if defined(__CUDA__)
+#define NDARRAY_PRINT_ERR(...) printf(__VA_ARGS__)
+#else
+#define NDARRAY_PRINT_ERR(...) fprintf(stderr, __VA_ARGS__)
+#endif
+
 namespace nda {
 
 using size_t = std::size_t;
@@ -75,8 +82,10 @@ using size_t = std::size_t;
  * optimize address arithmetic, because it has the same size as a pointer. */
 #ifdef NDARRAY_INT_INDICES
 using index_t = int;
+#define NDARRAY_INDEX_T_FMT "%d"
 #else
 using index_t = std::ptrdiff_t;
+#define NDARRAY_INDEX_T_FMT "%td"
 #endif
 
 /** This value indicates a compile-time constant parameter is an unknown value,
@@ -908,6 +917,47 @@ template <size_t Rank, size_t... Is>
 using enable_if_permutation = std::enable_if_t<sizeof...(Is) == Rank && all(Is < Rank...) &&
                                                product((Is + 2)...) == factorial(Rank + 1)>;
 
+template <class DimDst, class DimSrc>
+NDARRAY_HOST_DEVICE void assert_dim_compatible(size_t dim_index, const DimSrc& src) {
+  bool compatible = true;
+  if (is_static(DimDst::Min) && !is_dynamic(src.min()) && src.min() != DimDst::Min) {
+    NDARRAY_PRINT_ERR("Error converting dim %zu: expected static min "
+                      NDARRAY_INDEX_T_FMT ", got " NDARRAY_INDEX_T_FMT "\n",
+                      dim_index, DimDst::Min, src.min());
+    compatible = false;
+  }
+  if (is_static(DimDst::Extent) && !is_dynamic(src.extent()) && src.extent() != DimDst::Extent) {
+    NDARRAY_PRINT_ERR("Error converting dim %zu: expected static extent "
+                      NDARRAY_INDEX_T_FMT ", got " NDARRAY_INDEX_T_FMT "\n",
+                      dim_index, DimDst::Extent, src.extent());
+    compatible = false;
+  }
+  if (is_static(DimDst::Stride) && !is_dynamic(src.stride()) && src.stride() != DimDst::Stride) {
+    NDARRAY_PRINT_ERR("Error converting dim %zu: expected static stride "
+                      NDARRAY_INDEX_T_FMT ", got " NDARRAY_INDEX_T_FMT "\n",
+                      dim_index, DimDst::Stride, src.stride());
+    compatible = false;
+  }
+  assert(compatible);
+  (void) compatible;
+}
+
+template <class DimsDst, class DimsSrc, size_t... Is>
+NDARRAY_HOST_DEVICE void assert_dims_compatible(const DimsSrc& src, index_sequence<Is...>) {
+  // This is ugly, in C++17, we'd use a fold  expression over the comma operator (f(), ...).
+  int unused[] = {(assert_dim_compatible<typename std::tuple_element<Is, DimsDst>::type>(
+      Is, nda::dim<>(std::get<Is>(src))), 0)...};
+  (void) unused;
+}
+
+template <class DimsDst, class DimsSrc>
+NDARRAY_HOST_DEVICE const DimsSrc& assert_dims_compatible(const DimsSrc& src) {
+#ifndef NDEBUG
+  assert_dims_compatible<DimsDst>(src, make_index_sequence<std::tuple_size<DimsDst>::value>());
+#endif
+  return src;
+}
+
 } // namespace internal
 
 template <class... Dims>
@@ -985,7 +1035,8 @@ public:
   // TODO: This is a bit messy, but necessary to avoid ambiguous default
   // constructors when Dims is empty.
   template <size_t N = sizeof...(Dims), class = std::enable_if_t<(N > 0)>>
-  NDARRAY_HOST_DEVICE shape(const Dims&... dims) : dims_(dims...) {}
+  NDARRAY_HOST_DEVICE shape(const Dims&... dims)
+      : dims_(internal::assert_dims_compatible<dims_type>(std::make_tuple(dims...))) {}
   NDARRAY_HOST_DEVICE shape(const shape&) = default;
   NDARRAY_HOST_DEVICE shape(shape&&) = default;
   NDARRAY_HOST_DEVICE shape& operator=(const shape&) = default;
@@ -995,14 +1046,16 @@ public:
    * different type. Each dim must be compatible with the corresponding
    * dim of this shape. */
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
-  NDARRAY_HOST_DEVICE shape(const std::tuple<OtherDims...>& other) : dims_(other) {}
+  NDARRAY_HOST_DEVICE shape(const std::tuple<OtherDims...>& other)
+      : dims_(internal::assert_dims_compatible<dims_type>(other)) {}
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
-  NDARRAY_HOST_DEVICE shape(OtherDims... other_dims) : dims_(other_dims...) {}
+  NDARRAY_HOST_DEVICE shape(OtherDims... other_dims) : shape(std::make_tuple(other_dims...)) {}
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
-  NDARRAY_HOST_DEVICE shape(const shape<OtherDims...>& other) : dims_(other.dims()) {}
+  NDARRAY_HOST_DEVICE shape(const shape<OtherDims...>& other)
+      : dims_(internal::assert_dims_compatible<dims_type>(other.dims())) {}
   template <class... OtherDims, class = enable_if_dims_compatible<OtherDims...>>
   NDARRAY_HOST_DEVICE shape& operator=(const shape<OtherDims...>& other) {
-    dims_ = other.dims();
+    dims_ = internal::assert_dims_compatible<dims_type>(other.dims());
     return *this;
   }
 
