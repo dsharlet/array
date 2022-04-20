@@ -2092,7 +2092,9 @@ using dense_array_ref = array_ref<T, dense_shape<Rank>>;
 template <class T, size_t Rank>
 using const_dense_array_ref = dense_array_ref<const T, Rank>;
 
-/** A multi-dimensional array container that owns an allocation of memory. */
+/** A multi-dimensional array container that owns an allocation of memory. `Alloc` is
+ * an allocator that can be an STL allocator type such as `std::allocator`. However,
+ * unlike STL allocators, it may be stateful. */
 template <class T, class Shape, class Alloc = std::allocator<T>>
 class array {
 public:
@@ -2474,9 +2476,9 @@ public:
    * by `offset`. This function is disabled for non-trivial types, because it
    * does not call the destructor or constructor for newly inaccessible or newly
    * accessible elements, respectively. */
-  void set_shape(const Shape& new_shape, index_t offset = 0) {
+  void set_shape(Shape new_shape, index_t offset = 0) {
     static_assert(std::is_trivial<value_type>::value, "set_shape is broken for non-trivial types.");
-    assert(new_shape.is_resolved());
+    new_shape.resolve();
     assert(new_shape.is_subset_of(shape_, -offset));
     shape_ = new_shape;
     base_ = internal::pointer_add(base_, offset);
@@ -2801,7 +2803,8 @@ const_array_ref<U, Shape> reinterpret(const array<T, Shape, Alloc>& a) {
  * `new_shape`, with a base pointer offset `offset`. */
 template <class NewShape, class T, class OldShape>
 NDARRAY_HOST_DEVICE array_ref<T, NewShape> reinterpret_shape(
-    const array_ref<T, OldShape>& a, const NewShape& new_shape, index_t offset = 0) {
+    const array_ref<T, OldShape>& a, NewShape new_shape, index_t offset = 0) {
+  new_shape.resolve();
   assert(new_shape.is_subset_of(a.shape(), -offset));
   return array_ref<T, NewShape>(a.base() + offset, new_shape);
 }
@@ -2878,10 +2881,13 @@ auto reorder(const array<T, OldShape, Allocator>& a) {
   return reinterpret_shape(a, reorder<DimIndices...>(a.shape()));
 }
 
-/** Allocator satisfying the `std::allocator` interface that owns a buffer with
- * automatic storage, and a fallback base allocator. For allocations, the
- * allocator uses the buffer if it is large enough and not already allocated,
- * otherwise it uses the base allocator. */
+/** Allocator for use with `array` that owns a buffer with automatic storage,
+ * and a fallback base allocator. When allocating memory, this allocator uses
+ * the buffer if it is large enough and not already allocated, otherwise it
+ * uses the base allocator.
+ *
+ * While this allocator appears to be compatible with `std::allocator`, it is
+ * not safe to use with STL containers. */
 template <class T, size_t N, size_t Alignment = alignof(T), class BaseAlloc = std::allocator<T>>
 class auto_allocator {
   alignas(Alignment) char buffer[N * sizeof(T)];
