@@ -106,7 +106,7 @@ namespace internal {
 // Workaround CUDA not supporting std::declval.
 // https://stackoverflow.com/questions/31969644/compilation-error-with-nvcc-and-c11-need-minimal-failing-example
 template <typename T>
-NDARRAY_HOST_DEVICE typename std::add_rvalue_reference<T>::type declval() noexcept;
+NDARRAY_HOST_DEVICE typename std::add_rvalue_reference_t<T> declval() noexcept;
 
 NDARRAY_INLINE constexpr index_t abs(index_t x) { return x >= 0 ? x : -x; }
 
@@ -830,7 +830,7 @@ NDARRAY_HOST_DEVICE void resolve_unknown_strides(AllDims& all_dims) {}
 template <class AllDims, class Dim0, class... Dims>
 NDARRAY_HOST_DEVICE void resolve_unknown_strides(AllDims& all_dims, Dim0& dim0, Dims&... dims) {
   if (is_dynamic(dim0.stride())) {
-    constexpr size_t rank = std::tuple_size<AllDims>::value;
+    constexpr size_t rank = std::tuple_size_v<AllDims>;
     dim0.set_stride(find_stride(dim0.extent(), all_dims, make_index_sequence<rank>()));
   }
   resolve_unknown_strides(all_dims, dims...);
@@ -878,7 +878,7 @@ template <class T>
 struct all_of_any_type<T> : std::true_type {};
 template <class... Ts, class Arg, class... Args>
 struct all_of_any_type<std::tuple<Ts...>, Arg, Args...> {
-  static constexpr bool value = any(std::is_constructible<Ts, Arg>::value...) &&
+  static constexpr bool value = any(std::is_constructible_v<Ts, Arg>...) &&
                                 all_of_any_type<std::tuple<Ts...>, Args...>::value;
 };
 
@@ -905,7 +905,8 @@ NDARRAY_HOST_DEVICE T convert_dims(const U& u, internal::index_sequence<Is...>) 
 // Check that the dimensions in src_dims are either copied to the dst shape (not sliced),
 // or are trivial slices (they are extent 1).
 template <size_t DstRank, class SrcDims, size_t... Is>
-NDARRAY_HOST_DEVICE bool is_trivial_slice(const SrcDims& src_dims, internal::index_sequence<Is...>) {
+NDARRAY_HOST_DEVICE bool is_trivial_slice(
+    const SrcDims& src_dims, internal::index_sequence<Is...>) {
   return all((Is < DstRank || std::get<Is>(src_dims).extent() == 1)...);
 }
 
@@ -995,7 +996,7 @@ public:
   using dims_type = std::tuple<Dims...>;
 
   /** Number of dims in this shape. */
-  static constexpr size_t rank() { return std::tuple_size<dims_type>::value; }
+  static constexpr size_t rank() { return std::tuple_size_v<dims_type>; }
 
   /** A shape is scalar if its rank is 0. */
   static constexpr bool is_scalar() { return rank() == 0; }
@@ -1006,7 +1007,7 @@ public:
   using size_type = size_t;
 
   // We use this a lot here. Make an alias for it.
-  using dim_indices = decltype(internal::make_index_sequence<std::tuple_size<dims_type>::value>());
+  using dim_indices = decltype(internal::make_index_sequence<std::tuple_size_v<dims_type>>());
 
 private:
   dims_type dims_;
@@ -1414,11 +1415,11 @@ NDARRAY_HOST_DEVICE auto make_compact_dims(const Dims& dims, index_sequence<Is..
   // This is very conservative, but the only thing I can figure out how to
   // express as constexpr with C++14 that doesn't risk doing dumb things.
   constexpr index_t MinStride =
-      variadic_max(std::tuple_element<Is, Dims>::type::Stride == 1
-                       ? static_abs(std::tuple_element<Is, Dims>::type::Extent)
+      variadic_max(std::tuple_element_t<Is, Dims>::Stride == 1
+                       ? static_abs(std::tuple_element_t<Is, Dims>::Extent)
                        : dynamic...);
-  constexpr bool AnyStrideGreaterThanOne = any((std::tuple_element<Is, Dims>::type::Stride > 1)...);
-  constexpr bool AllDynamic = all(is_dynamic(std::tuple_element<Is, Dims>::type::Stride)...);
+  constexpr bool AnyStrideGreaterThanOne = any((std::tuple_element_t<Is, Dims>::Stride > 1)...);
+  constexpr bool AllDynamic = all(is_dynamic(std::tuple_element_t<Is, Dims>::Stride)...);
   constexpr index_t NextStride = AnyStrideGreaterThanOne ? dynamic : (AllDynamic ? 1 : MinStride);
   return make_compact_dims<NextStride>(std::get<Is>(dims)...);
 }
@@ -1465,11 +1466,11 @@ constexpr size_t index_of() {
 
 // Similar to std::get, but returns a one-element tuple if I is
 // in bounds, or an empty tuple if not.
-template <size_t I, class T, std::enable_if_t<(I < std::tuple_size<T>::value), int> = 0>
+template <size_t I, class T, std::enable_if_t<(I < std::tuple_size_v<T>), int> = 0>
 NDARRAY_INLINE NDARRAY_HOST_DEVICE auto get_or_empty(const T& t) {
   return std::make_tuple(std::get<I>(t));
 }
-template <size_t I, class T, std::enable_if_t<(I >= std::tuple_size<T>::value), int> = 0>
+template <size_t I, class T, std::enable_if_t<(I >= std::tuple_size_v<T>), int> = 0>
 NDARRAY_INLINE NDARRAY_HOST_DEVICE std::tuple<> get_or_empty(const T& t) {
   return std::tuple<>();
 }
@@ -1485,8 +1486,7 @@ NDARRAY_HOST_DEVICE auto unshuffle(const std::tuple<Ts...>& t) {
 }
 
 template <class ShapeDst, class ShapeSrc>
-using enable_if_shapes_compatible =
-    std::enable_if_t<std::is_constructible<ShapeDst, ShapeSrc>::value>;
+using enable_if_shapes_compatible = std::enable_if_t<std::is_constructible_v<ShapeDst, ShapeSrc>>;
 
 template <class ShapeDst, class ShapeSrc>
 using enable_if_shapes_explicitly_compatible =
@@ -1548,8 +1548,8 @@ NDARRAY_HOST_DEVICE bool is_compatible(const ShapeSrc& src) {
 template <class ShapeDst, class ShapeSrc,
     class = internal::enable_if_shapes_explicitly_compatible<ShapeDst, ShapeSrc>>
 NDARRAY_HOST_DEVICE ShapeDst convert_shape(const ShapeSrc& src) {
-  assert(internal::is_trivial_slice<ShapeDst::rank()>(
-      src.dims(), typename ShapeSrc::dim_indices()));
+  assert(
+      internal::is_trivial_slice<ShapeDst::rank()>(src.dims(), typename ShapeSrc::dim_indices()));
   return internal::convert_dims<typename ShapeDst::dims_type>(
       src.dims(), typename ShapeDst::dim_indices());
 }
@@ -1576,7 +1576,7 @@ NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index_in_order(const Shape& sha
   internal::for_each_index_in_order(fn, shape.dims(), typename Shape::dim_indices());
 }
 template <class Shape, class Ptr, class Fn,
-    class = internal::enable_if_callable<Fn, typename std::remove_pointer<Ptr>::type&>>
+    class = internal::enable_if_callable<Fn, typename std::remove_pointer_t<Ptr>&>>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order(
     const Shape& shape, Ptr base, Fn&& fn) {
   // TODO: This is losing compile-time constant extents and strides info
@@ -1589,8 +1589,8 @@ NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order(
  * simultaneously. `shape` defines the loop nest, while `shape_a` and `shape_b`
  * define the memory layout of `base_a` and `base_b`. */
 template <class Shape, class ShapeA, class PtrA, class ShapeB, class PtrB, class Fn,
-    class = internal::enable_if_callable<Fn, typename std::remove_pointer<PtrA>::type&,
-        typename std::remove_pointer<PtrB>::type&>>
+    class = internal::enable_if_callable<Fn, typename std::remove_pointer_t<PtrA>&,
+        typename std::remove_pointer_t<PtrB>&>>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order(const Shape& shape,
     const ShapeA& shape_a, PtrA base_a, const ShapeB& shape_b, PtrB base_b, Fn&& fn) {
   base_a += shape_a[shape.min()];
@@ -2205,9 +2205,7 @@ public:
   array(const Shape& shape, const T& value, const Alloc& alloc) : array(alloc) {
     assign(shape, value);
   }
-  array(const Shape& shape, const T& value) : array() {
-    assign(shape, value);
-  }
+  array(const Shape& shape, const T& value) : array() { assign(shape, value); }
 
   /** Construct an array with a particular `shape`, allocated by `alloc`, with
    * default constructed elements. */
@@ -2475,7 +2473,7 @@ public:
    * does not call the destructor or constructor for newly inaccessible or newly
    * accessible elements, respectively. */
   void set_shape(const Shape& new_shape, index_t offset = 0) {
-    static_assert(std::is_trivial<value_type>::value, "set_shape is broken for non-trivial types.");
+    static_assert(std::is_trivial_v<value_type>, "set_shape is broken for non-trivial types.");
     assert(new_shape.is_resolved());
     assert(new_shape.is_subset_of(shape_, -offset));
     shape_ = new_shape;
@@ -2616,7 +2614,7 @@ void copy(const array<TSrc, ShapeSrc, AllocSrc>& src, array<TDst, ShapeDst, Allo
 
 /** Make a copy of the `src` array or array_ref with a new shape `shape`. */
 template <class T, class ShapeSrc, class ShapeDst,
-    class Alloc = std::allocator<typename std::remove_const<T>::type>,
+    class Alloc = std::allocator<typename std::remove_const_t<T>>,
     class = internal::enable_if_shapes_copy_compatible<ShapeDst, ShapeSrc>>
 auto make_copy(
     const array_ref<T, ShapeSrc>& src, const ShapeDst& shape, const Alloc& alloc = Alloc()) {
@@ -2633,7 +2631,7 @@ auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const ShapeDst& shape,
 
 /** Make a copy of the `src` array or array_ref with a compact version of `src`'s
  * shape. */
-template <class T, class Shape, class Alloc = std::allocator<typename std::remove_const<T>::type>>
+template <class T, class Shape, class Alloc = std::allocator<typename std::remove_const_t<T>>>
 auto make_compact_copy(const array_ref<T, Shape>& src, const Alloc& alloc = Alloc()) {
   return make_copy(src, make_compact(src.shape()), alloc);
 }
@@ -2825,7 +2823,7 @@ array<T, NewShape, Alloc> move_reinterpret_shape(
     array<T, OldShape, Alloc>&& from, const NewShape& new_shape, index_t offset = 0) {
   // TODO: Use enable_if to implement this check. It is difficult to do due to
   // the friend declaration.
-  static_assert(std::is_trivial<T>::value, "move_reinterpret_shape is broken for non-trivial types.");
+  static_assert(std::is_trivial_v<T>, "move_reinterpret_shape is broken for non-trivial types.");
   assert(new_shape.is_subset_of(from.shape(), offset));
   array<T, NewShape, Alloc> result;
   assert(result.alloc_ == from.get_allocator());
@@ -2998,13 +2996,13 @@ public:
 
 /** Allocator equivalent to `std::allocator<T>` that does not default
  * construct values. */
-template <class T, class = std::enable_if_t<std::is_trivial<T>::value>>
+template <class T, class = std::enable_if_t<std::is_trivial_v<T>>>
 using uninitialized_std_allocator = uninitialized_allocator<std::allocator<T>>;
 
 /** Allocator equivalent to `auto_allocator<T, N, Alignment>` that
  * does not default construct values. */
 template <class T, size_t N, size_t Alignment = sizeof(T),
-    class = std::enable_if_t<std::is_trivial<T>::value>>
+    class = std::enable_if_t<std::is_trivial_v<T>>>
 using uninitialized_auto_allocator = uninitialized_allocator<auto_allocator<T, N, Alignment>>;
 
 } // namespace nda
