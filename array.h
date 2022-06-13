@@ -2614,6 +2614,20 @@ void copy(const array<TSrc, ShapeSrc, AllocSrc>& src, array<TDst, ShapeDst, Allo
   copy(src.cref(), dst.ref());
 }
 
+/** Make a copy of the `src` array or array_ref with a new allocator `alloc`. */
+template <class T, class ShapeSrc,
+    class Alloc = std::allocator<typename std::remove_const<T>::type>>
+auto make_copy(const array_ref<T, ShapeSrc>& src, const Alloc& alloc = Alloc()) {
+  array<typename std::allocator_traits<Alloc>::value_type, ShapeSrc, Alloc> dst(src.shape(), alloc);
+  copy(src, dst);
+  return dst;
+}
+template <class T, class ShapeSrc, class AllocSrc, class AllocDst = AllocSrc,
+    class = internal::enable_if_allocator<AllocDst>>
+auto make_copy(const array<T, ShapeSrc, AllocSrc>& src, const AllocDst& alloc = AllocDst()) {
+  return make_copy(src.cref(), alloc);
+}
+
 /** Make a copy of the `src` array or array_ref with a new shape `shape`. */
 template <class T, class ShapeSrc, class ShapeDst,
     class Alloc = std::allocator<typename std::remove_const<T>::type>,
