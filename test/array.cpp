@@ -279,6 +279,27 @@ TEST(array_copy) {
   dense_array<int, 3> g({{1, 2}, {1, 3}, {1, 4}});
   copy(a, g);
   check_pattern(g);
+
+  array_of_rank<int, 3> h = make_copy(a);
+  check_pattern(h);
+
+  array_of_rank<int, 3, uninitialized_std_allocator<int>> h_uninitialized =
+      make_copy(a, uninitialized_std_allocator<int>());
+  check_pattern(h_uninitialized);
+
+  array_of_rank<int, 3> i = make_copy(a.ref());
+  check_pattern(i);
+
+  array_of_rank<int, 3, uninitialized_std_allocator<int>> i_uninitialized =
+      make_copy(a.ref(), uninitialized_std_allocator<int>());
+  check_pattern(i_uninitialized);
+
+  array_of_rank<int, 3> j = make_copy(a.cref());
+  check_pattern(i);
+
+  array_of_rank<int, 3, uninitialized_std_allocator<int>> j_uninitialized =
+      make_copy(a.cref(), uninitialized_std_allocator<int>());
+  check_pattern(j_uninitialized);
 }
 
 TEST(array_move) {
