@@ -1587,7 +1587,12 @@ NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order(
 
 /** Similar to `for_each_value_in_order`, but iterates over two arrays
  * simultaneously. `shape` defines the loop nest, while `shape_a` and `shape_b`
- * define the memory layout of `base_a` and `base_b`. */
+ * define the memory layout of `base_a` and `base_b`.
+ *
+ * The min and extent of arrays a and b must be contained in `shape`, otherwise
+ * values may be read out of bounds. No bounds checking is done in this
+ * function; only `shape_a` and `shape_b`'s strides are considered.
+ */
 template <class Shape, class ShapeA, class PtrA, class ShapeB, class PtrB, class Fn,
     class = internal::enable_if_callable<Fn, typename std::remove_pointer<PtrA>::type&,
         typename std::remove_pointer<PtrB>::type&>>
