@@ -2756,20 +2756,8 @@ void generate(array<T, Shape, Alloc>& dst, Generator&& g) {
  * called is the same as `shape_traits<Shape>::for_each_index`. */
 template <typename T, typename Shape, class Fn>
 NDARRAY_HOST_DEVICE void transform_index(const array_ref<T, Shape>& dst, Fn&& fn) {
-  // In C++17 mode, support `transform_index` with rank 0. This is a rare corner case and more
-  // trouble than it is worth to implement in C++14.
-#if __cplusplus >= 201703L
-  // Handle the corner case of a scalar array_ref because std::tuple<> != void.
-  if constexpr (Shape::rank() == 0) {
-    dst() = fn();
-  } else {
-    using index_type = typename Shape::index_type;
-    for_each_index(dst.shape(), [&, fn = std::move(fn)](index_type idx) { dst[idx] = fn(idx); });
-  }
-#else
   using index_type = typename Shape::index_type;
   for_each_index(dst.shape(), [&, fn = std::move(fn)](index_type idx) { dst[idx] = fn(idx); });
-#endif // __cplusplus >= 201703L
 }
 template <typename T, typename Shape, class Fn>
 void transform_index(array<T, Shape>& dst, Fn&& fn) {

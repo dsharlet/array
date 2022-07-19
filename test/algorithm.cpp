@@ -89,7 +89,8 @@ TEST(algorithm_move_scalar) {
 
 namespace {
 
-int pattern_0d() { return 8; }
+int pattern_0d(std::tuple<>) { return -11; }
+int pattern_0d_unpacked() { return 8; }
 
 int pattern_1d(std::tuple<index_t> x) { return 2 * std::get<0>(x); }
 int pattern_1d_unpacked(index_t x) { return 3 * x; }
@@ -108,15 +109,13 @@ TEST(transform_index) {
   // 0D.
   array_of_rank<int, 0> a_0d;
 
-#if __cplusplus >= 201703L
   transform_index(a_0d, pattern_0d);
-  ASSERT(a_0d() == 8);
+  ASSERT(a_0d() == -11);
 
-  transform_index(a_0d.ref(), [] { return 6; });
-  ASSERT(a_0d() == 6);
-#endif // __cplusplus >= 201703L
+  transform_index(a_0d, [](std::tuple<>) { return 150; });
+  ASSERT(a_0d() == 150);
 
-  transform_indices(a_0d, pattern_0d);
+  transform_indices(a_0d, pattern_0d_unpacked);
   ASSERT(a_0d() == 8);
 
   transform_indices(a_0d.ref(), [] { return 10; });
