@@ -12,6 +12,7 @@ cc_library(
 cc_test(
     name = "array_test",
     srcs = [
+        "test/algorithm.cpp",
         "test/array.cpp",
         "test/ein_reduce.cpp",
         "test/image.cpp",

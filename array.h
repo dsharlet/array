@@ -575,7 +575,7 @@ template <index_t Min, index_t Extent>
 NDARRAY_HOST_DEVICE internal::split_iterator_range<> split(
     const interval<Min, Extent>& v, index_t inner_extent) {
   return {{interval<>(v.min(), internal::min(inner_extent, v.extent())), v.max()},
-          {interval<>(v.max() + 1, 0), v.max()}};
+      {interval<>(v.max() + 1, 0), v.max()}};
 }
 template <index_t Min, index_t Extent, index_t Stride>
 NDARRAY_HOST_DEVICE internal::split_iterator_range<> split(
@@ -661,8 +661,7 @@ NDARRAY_HOST_DEVICE index_t flat_offset(
 // Computes one more than the sum of the offsets of the last index in every dim.
 template <class Dims, size_t... Is>
 NDARRAY_HOST_DEVICE index_t flat_min(const Dims& dims, index_sequence<Is...>) {
-  return sum((std::get<Is>(dims).extent() - 1) *
-             min<index_t>(0, std::get<Is>(dims).stride())...);
+  return sum((std::get<Is>(dims).extent() - 1) * min<index_t>(0, std::get<Is>(dims).stride())...);
 }
 
 template <class Dims, size_t... Is>
@@ -905,7 +904,8 @@ NDARRAY_HOST_DEVICE T convert_dims(const U& u, internal::index_sequence<Is...>) 
 // Check that the dimensions in src_dims are either copied to the dst shape (not sliced),
 // or are trivial slices (they are extent 1).
 template <size_t DstRank, class SrcDims, size_t... Is>
-NDARRAY_HOST_DEVICE bool is_trivial_slice(const SrcDims& src_dims, internal::index_sequence<Is...>) {
+NDARRAY_HOST_DEVICE bool is_trivial_slice(
+    const SrcDims& src_dims, internal::index_sequence<Is...>) {
   return all((Is < DstRank || std::get<Is>(src_dims).extent() == 1)...);
 }
 
@@ -921,33 +921,34 @@ template <class DimDst, class DimSrc>
 NDARRAY_HOST_DEVICE void assert_dim_compatible(size_t dim_index, const DimSrc& src) {
   bool compatible = true;
   if (is_static(DimDst::Min) && !is_dynamic(src.min()) && src.min() != DimDst::Min) {
-    NDARRAY_PRINT_ERR("Error converting dim %zu: expected static min "
-                      NDARRAY_INDEX_T_FMT ", got " NDARRAY_INDEX_T_FMT "\n",
-                      dim_index, DimDst::Min, src.min());
+    NDARRAY_PRINT_ERR("Error converting dim %zu: expected static min " NDARRAY_INDEX_T_FMT
+                      ", got " NDARRAY_INDEX_T_FMT "\n",
+        dim_index, DimDst::Min, src.min());
     compatible = false;
   }
   if (is_static(DimDst::Extent) && !is_dynamic(src.extent()) && src.extent() != DimDst::Extent) {
-    NDARRAY_PRINT_ERR("Error converting dim %zu: expected static extent "
-                      NDARRAY_INDEX_T_FMT ", got " NDARRAY_INDEX_T_FMT "\n",
-                      dim_index, DimDst::Extent, src.extent());
+    NDARRAY_PRINT_ERR("Error converting dim %zu: expected static extent " NDARRAY_INDEX_T_FMT
+                      ", got " NDARRAY_INDEX_T_FMT "\n",
+        dim_index, DimDst::Extent, src.extent());
     compatible = false;
   }
   if (is_static(DimDst::Stride) && !is_dynamic(src.stride()) && src.stride() != DimDst::Stride) {
-    NDARRAY_PRINT_ERR("Error converting dim %zu: expected static stride "
-                      NDARRAY_INDEX_T_FMT ", got " NDARRAY_INDEX_T_FMT "\n",
-                      dim_index, DimDst::Stride, src.stride());
+    NDARRAY_PRINT_ERR("Error converting dim %zu: expected static stride " NDARRAY_INDEX_T_FMT
+                      ", got " NDARRAY_INDEX_T_FMT "\n",
+        dim_index, DimDst::Stride, src.stride());
     compatible = false;
   }
   assert(compatible);
-  (void) compatible;
+  (void)compatible;
 }
 
 template <class DimsDst, class DimsSrc, size_t... Is>
 NDARRAY_HOST_DEVICE void assert_dims_compatible(const DimsSrc& src, index_sequence<Is...>) {
   // This is ugly, in C++17, we'd use a fold  expression over the comma operator (f(), ...).
   int unused[] = {(assert_dim_compatible<typename std::tuple_element<Is, DimsDst>::type>(
-      Is, nda::dim<>(std::get<Is>(src))), 0)...};
-  (void) unused;
+                       Is, nda::dim<>(std::get<Is>(src))),
+      0)...};
+  (void)unused;
 }
 
 template <class DimsDst, class DimsSrc>
@@ -1375,8 +1376,8 @@ template <size_t Rank>
 NDARRAY_HOST_DEVICE auto make_default_dense_shape() {
   // The inner dimension is a dense_dim, unless the shape is rank 0.
   using inner_dim = std::conditional_t<(Rank > 0), std::tuple<dense_dim<>>, std::tuple<>>;
-  return make_shape_from_tuple(std::tuple_cat(
-      inner_dim(), tuple_of_n<dim<>, max<size_t>(1, Rank) - 1>()));
+  return make_shape_from_tuple(
+      std::tuple_cat(inner_dim(), tuple_of_n<dim<>, max<size_t>(1, Rank) - 1>()));
 }
 
 template <index_t CurrentStride>
@@ -1548,8 +1549,8 @@ NDARRAY_HOST_DEVICE bool is_compatible(const ShapeSrc& src) {
 template <class ShapeDst, class ShapeSrc,
     class = internal::enable_if_shapes_explicitly_compatible<ShapeDst, ShapeSrc>>
 NDARRAY_HOST_DEVICE ShapeDst convert_shape(const ShapeSrc& src) {
-  assert(internal::is_trivial_slice<ShapeDst::rank()>(
-      src.dims(), typename ShapeSrc::dim_indices()));
+  assert(
+      internal::is_trivial_slice<ShapeDst::rank()>(src.dims(), typename ShapeSrc::dim_indices()));
   return internal::convert_dims<typename ShapeDst::dims_type>(
       src.dims(), typename ShapeDst::dim_indices());
 }
@@ -2205,9 +2206,7 @@ public:
   array(const Shape& shape, const T& value, const Alloc& alloc) : array(alloc) {
     assign(shape, value);
   }
-  array(const Shape& shape, const T& value) : array() {
-    assign(shape, value);
-  }
+  array(const Shape& shape, const T& value) : array() { assign(shape, value); }
 
   /** Construct an array with a particular `shape`, allocated by `alloc`, with
    * default constructed elements. */
@@ -2752,6 +2751,45 @@ void generate(array<T, Shape, Alloc>& dst, Generator&& g) {
   generate(dst.ref(), g);
 }
 
+/** Fill the `dst` array or array_ref with the result of calling a "pattern
+ * function" `fn`, which takes a single shape::index_type argument. The order in which `fn` is
+ * called is the same as `shape_traits<Shape>::for_each_index`. */
+template <typename T, typename Shape, class Fn>
+NDARRAY_HOST_DEVICE void transform_index(const array_ref<T, Shape>& dst, Fn&& fn) {
+  // In C++17 mode, support `transform_index` with rank 0. This is a rare corner case and more
+  // trouble than it is worth to implement in C++14.
+#if __cplusplus >= 201703L
+  // Handle the corner case of a scalar array_ref because std::tuple<> != void.
+  if constexpr (Shape::rank() == 0) {
+    dst() = fn();
+  } else {
+    using index_type = typename Shape::index_type;
+    for_each_index(dst.shape(), [&, fn = std::move(fn)](index_type idx) { dst[idx] = fn(idx); });
+  }
+#else
+  using index_type = typename Shape::index_type;
+  for_each_index(dst.shape(), [&, fn = std::move(fn)](index_type idx) { dst[idx] = fn(idx); });
+#endif // __cplusplus >= 201703L
+}
+template <typename T, typename Shape, class Fn>
+void transform_index(array<T, Shape>& dst, Fn&& fn) {
+  transform_index(dst.ref(), fn);
+}
+
+/** Fill the `dst` array or array_ref with the result of calling a "pattern
+ * function" `fn`, which takes as as many index_t arguments as there are dimensions in `dst`. The
+ * order in which `fn` is called is the same as `shape_traits<Shape>::for_each_index`. */
+template <typename T, typename Shape, class Fn>
+NDARRAY_HOST_DEVICE void transform_indices(const array_ref<T, Shape>& dst, Fn&& fn) {
+  using index_type = typename Shape::index_type;
+  for_each_index(dst.shape(),
+      [&, fn = std::move(fn)](index_type idx) { dst[idx] = internal::apply(fn, idx); });
+}
+template <typename T, typename Shape, class Fn>
+void transform_indices(array<T, Shape>& dst, Fn&& fn) {
+  transform_indices(dst.ref(), fn);
+}
+
 /** Check if two array or array_refs have equal contents. */
 template <class TA, class ShapeA, class TB, class ShapeB>
 NDARRAY_HOST_DEVICE bool equal(const array_ref<TA, ShapeA>& a, const array_ref<TB, ShapeB>& b) {
@@ -2839,7 +2877,8 @@ array<T, NewShape, Alloc> move_reinterpret_shape(
     array<T, OldShape, Alloc>&& from, const NewShape& new_shape, index_t offset = 0) {
   // TODO: Use enable_if to implement this check. It is difficult to do due to
   // the friend declaration.
-  static_assert(std::is_trivial<T>::value, "move_reinterpret_shape is broken for non-trivial types.");
+  static_assert(
+      std::is_trivial<T>::value, "move_reinterpret_shape is broken for non-trivial types.");
   assert(new_shape.is_subset_of(from.shape(), offset));
   array<T, NewShape, Alloc> result;
   assert(result.alloc_ == from.get_allocator());
