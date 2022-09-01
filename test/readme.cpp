@@ -156,8 +156,8 @@ TEST(readme_ein_reduce) {
   enum { i = 0, j = 1, k = 2, l = 3 };
 
   // Dot product dot1 = dot2 = x.y:
-  vector<float> x({10});
-  vector<float> y({10});
+  vector<float> x({10}, 0.0f);
+  vector<float> y({10}, 0.0f);
   float dot1 = make_ein_sum<float>(ein<i>(x) * ein<i>(y));
   float dot2 = 0.0f;
   ein_reduce(ein(dot2) += ein<i>(x) * ein<i>(y));
@@ -184,7 +184,7 @@ TEST(readme_ein_reduce) {
 
   // Maximum of each x-y plane of a 3D volume:
   dense_array<float, 3> T({8, 12, 20});
-  dense_array<float, 1> max_xy({20});
+  dense_array<float, 1> max_xy({20}, 0.0f);
   auto r = ein<k>(max_xy);
   ein_reduce(r = max(r, ein<i, j, k>(T)));
 
