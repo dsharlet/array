@@ -2821,8 +2821,9 @@ const_array_ref<U, Shape> reinterpret(const array<T, Shape, Alloc>& a) {
 template <class NewShape, class T, class OldShape>
 NDARRAY_HOST_DEVICE array_ref<T, NewShape> reinterpret_shape(
     const array_ref<T, OldShape>& a, const NewShape& new_shape, index_t offset = 0) {
-  assert(new_shape.is_subset_of(a.shape(), -offset));
-  return array_ref<T, NewShape>(a.base() + offset, new_shape);
+  array_ref<T, NewShape> result(a.base() + offset, new_shape);
+  assert(result.shape().is_subset_of(a.shape(), -offset));
+  return result;
 }
 template <class NewShape, class T, class OldShape, class Allocator>
 array_ref<T, NewShape> reinterpret_shape(
