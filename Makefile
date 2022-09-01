@@ -1,4 +1,4 @@
-CFLAGS := $(CFLAGS) -O2 -ffast-math -fstrict-aliasing
+CFLAGS := $(CFLAGS) -O2 -ffast-math -fstrict-aliasing -fPIE
 CXXFLAGS := $(CXXFLAGS) -std=c++14 -Wall
 LDFLAGS := $(LDFLAGS)
 
