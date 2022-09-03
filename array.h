@@ -1357,15 +1357,18 @@ NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_value_in_order_impl(
   }
 }
 
-template <size_t D, class ExtentType, class Fn, class... Ptrs>
+template <size_t D, class ExtentType, class Fn, class... Ptrs,
+    std::enable_if_t<(D < std::tuple_size<ExtentType>::value), int> = 0>
 NDARRAY_INLINE NDARRAY_HOST_DEVICE void for_each_value_in_order(
     const ExtentType& extent, Fn&& fn, Ptrs... ptrs) {
   using is_inner_loop = std::conditional_t<D == 0, std::true_type, std::false_type>;
   for_each_value_in_order_impl<D>(is_inner_loop(), extent, fn, ptrs...);
 }
 
-// Scalar buffers are a special case.
-template <size_t D, class Fn, class... Ptrs>
+// Scalar buffers are a special case. The enable_if here (and above) are a workaround for a bug in
+// old versions of GCC that causes this overload to be ambiguous.
+template <size_t D, class Fn, class... Ptrs,
+    std::enable_if_t<(D == -1), int> = 0>
 NDARRAY_INLINE NDARRAY_HOST_DEVICE void for_each_value_in_order(
     const std::tuple<>& extent, Fn&& fn, Ptrs... ptrs) {
   fn(*std::get<0>(ptrs)...);
@@ -1387,20 +1390,15 @@ NDARRAY_HOST_DEVICE std::tuple<> make_compact_dims() {
 template <index_t CurrentStride, index_t Min, index_t Extent, index_t Stride, class... Dims>
 NDARRAY_HOST_DEVICE auto make_compact_dims(
     const dim<Min, Extent, Stride>& dim0, const Dims&... dims) {
-  // We already know the stride of this dimension.
-  return std::tuple_cat(std::make_tuple(dim<Min, Extent, Stride>(dim0.min(), dim0.extent())),
-      make_compact_dims<CurrentStride>(dims...));
-}
 
-template <index_t CurrentStride, index_t Min, index_t Extent, class... Dims>
-NDARRAY_HOST_DEVICE auto make_compact_dims(const dim<Min, Extent>& dim0, const Dims&... dims) {
   // If we know the extent of this dimension, we can also provide
   // a constant stride for the next dimension.
   constexpr index_t NextStride = static_mul(CurrentStride, Extent);
-  // Give this dimension the current stride, and don't give it a
-  // runtime stride. If CurrentStride is static, that will be the
-  // stride. If not, it will be dynamic, and resolved later.
-  return std::tuple_cat(std::make_tuple(dim<Min, Extent, CurrentStride>(dim0.min(), dim0.extent())),
+  // Give this dimension the current stride if we don't have one already,
+  // and don't give it a runtime stride. If CurrentStride is static, that
+  // will be the stride. If not, it will be dynamic, and resolved later.
+  constexpr index_t NewStride = is_static(Stride) ? Stride : CurrentStride;
+  return std::tuple_cat(std::make_tuple(dim<Min, Extent, NewStride>(dim0.min(), dim0.extent())),
       make_compact_dims<NextStride>(dims...));
 }
 
