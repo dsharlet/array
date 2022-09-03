@@ -1527,6 +1527,10 @@ NDARRAY_HOST_DEVICE auto make_compact(const Shape& s) {
   return static_compact;
 }
 
+/** A `shape` where all extents and strides are constant. */
+template <index_t... Extents>
+using fixed_dense_shape = decltype(make_shape_from_tuple(internal::make_compact_dims<1>(dim<0, Extents>()...)));
+
 /** Returns `true` if a shape `src` can be assigned to a shape of type
  * `ShapeDst` without error. */
 template <class ShapeDst, class ShapeSrc,
