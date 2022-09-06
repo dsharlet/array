@@ -526,6 +526,12 @@ TEST(shape_make_compact) {
   assert_shapes_eq(make_compact(s6), s6_compact);
 }
 
+TEST(shape_fixed_dense) { 
+  shape<dim<0, 2, 1>, dim<0, 3, 2>, dim<0, 4, 6>, dim<0, 5, 24>> s1;
+  fixed_dense_shape<2, 3, 4, 5> s1_fixed;
+  assert_shapes_eq(s1, s1_fixed);
+}
+
 template <typename Shape>
 void test_number_theory(Shape s) {
   s.resolve();
