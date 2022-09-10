@@ -2442,6 +2442,7 @@ public:
   const auto& dim() const {
     return shape_.template dim<D>();
   }
+  const nda::dim<> dim(size_t d) const { return shape_.dim(d); }
   size_type size() const { return shape_.size(); }
   bool empty() const { return shape_.empty(); }
   bool is_compact() const { return shape_.is_compact(); }
