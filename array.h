@@ -2762,7 +2762,8 @@ void generate(array<T, Shape, Alloc>& dst, Generator&& g) {
 template <typename T, typename Shape, class Fn>
 NDARRAY_HOST_DEVICE void transform_index(const array_ref<T, Shape>& dst, Fn&& fn) {
   using index_type = typename Shape::index_type;
-  for_each_index(dst.shape(), [&, fn = std::move(fn)](index_type idx) { dst[idx] = fn(idx); });
+  for_each_index(
+      dst.shape(), [&, fn = std::move(fn)](const index_type& idx) { dst[idx] = fn(idx); });
 }
 template <typename T, typename Shape, class Fn>
 void transform_index(array<T, Shape>& dst, Fn&& fn) {
@@ -2776,7 +2777,7 @@ template <typename T, typename Shape, class Fn>
 NDARRAY_HOST_DEVICE void transform_indices(const array_ref<T, Shape>& dst, Fn&& fn) {
   using index_type = typename Shape::index_type;
   for_each_index(dst.shape(),
-      [&, fn = std::move(fn)](index_type idx) { dst[idx] = internal::apply(fn, idx); });
+      [&, fn = std::move(fn)](const index_type& idx) { dst[idx] = internal::apply(fn, idx); });
 }
 template <typename T, typename Shape, class Fn>
 void transform_indices(array<T, Shape>& dst, Fn&& fn) {
