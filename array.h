@@ -2006,6 +2006,7 @@ public:
   NDARRAY_HOST_DEVICE const auto& dim() const {
     return shape_.template dim<D>();
   }
+  const nda::dim<> dim(size_t d) const { return shape_.dim(d); }
   NDARRAY_HOST_DEVICE size_type size() const { return shape_.size(); }
   NDARRAY_HOST_DEVICE bool empty() const { return base() != nullptr ? shape_.empty() : true; }
   NDARRAY_HOST_DEVICE bool is_compact() const { return shape_.is_compact(); }
