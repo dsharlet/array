@@ -33,3 +33,6 @@ docs/*
 
 # Emacs droppings
 *~
+
+# Visual Studio folder status
+.vs
