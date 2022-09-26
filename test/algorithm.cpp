@@ -87,4 +87,67 @@ TEST(algorithm_move_scalar) {
   ASSERT(a == b);
 }
 
+namespace {
+
+int pattern_0d(std::tuple<>) { return -11; }
+int pattern_0d_unpacked() { return 8; }
+
+int pattern_1d(std::tuple<index_t> x) { return 2 * std::get<0>(x); }
+int pattern_1d_unpacked(index_t x) { return 3 * x; }
+
+int pattern_2d(index_of_rank<2> xy) {
+  const index_t x = std::get<0>(xy);
+  const index_t y = std::get<1>(xy);
+  return x * x + 2 * y;
+}
+
+int pattern_2d_unpacked(index_t x, index_t y) { return 2 * x * x + 3 * y; }
+
+} // namespace
+
+TEST(transform_index) {
+  // 0D.
+  array_of_rank<int, 0> a_0d;
+
+  transform_index(a_0d, pattern_0d);
+  ASSERT(a_0d() == -11);
+
+  transform_index(a_0d, [](std::tuple<>) { return 150; });
+  ASSERT(a_0d() == 150);
+
+  transform_indices(a_0d, pattern_0d_unpacked);
+  ASSERT(a_0d() == 8);
+
+  transform_indices(a_0d.ref(), [] { return 10; });
+  ASSERT(a_0d() == 10);
+
+  // 1D.
+  dense_array<int, 1> a_1d({1024});
+  transform_index(a_1d, pattern_1d);
+  for (auto x : a_1d.x()) {
+    ASSERT(a_1d(x) == pattern_1d(std::make_tuple(x)));
+  }
+
+  transform_indices(a_1d.ref(), pattern_1d_unpacked);
+  for (auto x : a_1d.x()) {
+    ASSERT(a_1d(x) == pattern_1d_unpacked(x));
+  }
+
+  // 2D.
+  dense_array<int, 2> a_2d({640, 480});
+  transform_index(a_2d, pattern_2d);
+  for (auto x : a_2d.x()) {
+    for (auto y : a_2d.y()) {
+      ASSERT(a_2d(x, y) == pattern_2d(std::make_tuple(x, y)));
+    }
+  }
+
+  transform_indices(a_2d.ref(), pattern_2d_unpacked);
+  for (auto x : a_2d.x()) {
+    for (auto y : a_2d.y()) {
+      ASSERT(a_2d(x, y) == pattern_2d_unpacked(x, y));
+    }
+  }
+}
+
 } // namespace nda
