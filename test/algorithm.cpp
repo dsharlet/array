@@ -122,7 +122,7 @@ TEST(transform_index) {
   ASSERT(a_0d() == 10);
 
   // 1D.
-  dense_array<int, 1> a_1d({1024});
+  dense_array<int, 1> a_1d({1024}, 0);
   transform_index(a_1d, pattern_1d);
   for (auto x : a_1d.x()) {
     ASSERT(a_1d(x) == pattern_1d(std::make_tuple(x)));
