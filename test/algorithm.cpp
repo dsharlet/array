@@ -87,7 +87,7 @@ TEST(algorithm_move_scalar) {
   ASSERT(a == b);
 }
 
-TEST(algorithm_traform_scalar) {
+TEST(algorithm_transform_scalar) {
   array_of_rank<int, 0> a;
   transform_indices(a, [&]() { return 3; });
   ASSERT(a() == 3);
