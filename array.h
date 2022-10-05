@@ -1251,7 +1251,7 @@ template <size_t... DimIndices, class... Dims,
     class = internal::enable_if_permutation<sizeof...(DimIndices), DimIndices...>>
 NDARRAY_HOST_DEVICE auto transpose(const shape<Dims...>& shape) {
   return internal::transpose_impl<DimIndices...>(
-      shape, internal::make_index_sequence<shape.rank() - sizeof...(DimIndices)>());
+      shape, internal::make_index_sequence<sizeof...(Dims) - sizeof...(DimIndices)>());
 }
 
 /** Create a new shape using a list of `DimIndices...` to use as the
