@@ -76,6 +76,11 @@ void shape_transpose_not_permutation4() {
   transpose<0, 0, 4>(s4);
 }
 
+void shape_transpose_not_permutation5() {
+  shape_of_rank<3> s3;
+  transpose<1, 2>(s4);
+}
+
 void shape_operator_eq_different_rank() {
   shape_of_rank<3> s2;
   s == s2;

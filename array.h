@@ -1227,22 +1227,39 @@ public:
   }
 };
 
+namespace internal {
+
+template <size_t... DimIndices, class Shape, size_t... Extras>
+NDARRAY_HOST_DEVICE auto transpose_impl(const Shape& shape, index_sequence<Extras...>) {
+  return make_shape(
+      shape.template dim<DimIndices>()..., shape.template dim<sizeof...(DimIndices) + Extras>()...);
+}
+
+}  // namespace internal
+
+/** Create a new shape using a list of `DimIndices...` to use as the
+ * dimensions of the shape. The new shape's i'th dimension will be the
+ * j'th dimension of `shape` where j is the i'th value of `DimIndices...`.
+ * If i is not in `DimIndices...`, then i and j are equal.
+ *
+ * `DimIndices...` to be a permutation of `[0, sizeof...(DimIndices))`,
+ *
+ * Examples:
+ * - `transpose<2, 0, 1>(s) == make_shape(s.z(), s.y(), s.x())`
+ * - `transpose<1, 0>(s) == make_shape(s.y(), s.x(), s.z())` */
+template <size_t... DimIndices, class... Dims,
+    class = internal::enable_if_permutation<sizeof...(DimIndices), DimIndices...>>
+NDARRAY_HOST_DEVICE auto transpose(const shape<Dims...>& shape) {
+  return internal::transpose_impl<DimIndices...>(
+      shape, internal::make_index_sequence<shape.rank() - sizeof...(DimIndices)>());
+}
+
 /** Create a new shape using a list of `DimIndices...` to use as the
  * dimensions of the shape. The new shape's i'th dimension will be the
  * j'th dimension of `shape` where j is the i'th value of `DimIndices...`.
  *
- * `transpose` requires `DimIndices...` to be a permutation, while
- * `reorder` accepts a list of indices that may be a subset of the
- * dimensions.
- *
  * Examples:
- * - `transpose<2, 0, 1>(s) == make_shape(s.z(), s.y(), s.x())`
  * - `reorder<1, 2>(s) == make_shape(s.y(), s.z())` */
-template <size_t... DimIndices, class... Dims,
-    class = internal::enable_if_permutation<sizeof...(Dims), DimIndices...>>
-NDARRAY_HOST_DEVICE auto transpose(const shape<Dims...>& shape) {
-  return make_shape(shape.template dim<DimIndices>()...);
-}
 template <size_t... DimIndices, class... Dims>
 NDARRAY_HOST_DEVICE auto reorder(const shape<Dims...>& shape) {
   return make_shape(shape.template dim<DimIndices>()...);
