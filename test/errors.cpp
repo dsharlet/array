@@ -45,7 +45,7 @@ void dim_bad_assign() {
   x = dim<0, 1, 2>();
 }
 
-void shape_dim_bad_index() { auto z = s.template dim<2>(); }
+void shape_dim_bad_index() { auto z = s.dim<2>(); }
 
 // TODO: This one returns an error in array.h, but it's not too spammy.
 // void shape_z_bad() {

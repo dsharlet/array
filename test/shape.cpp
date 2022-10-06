@@ -450,18 +450,18 @@ TEST(shape_conversion) {
 TEST(shape_transpose) {
   dense_shape<3> s(3, 5, 8);
   shape<dim<>, dim<>, dense_dim<>> transposed_120 = transpose<1, 2, 0>(s);
-  ASSERT_EQ(transposed_120.template dim<0>().extent(), 5);
-  ASSERT_EQ(transposed_120.template dim<1>().extent(), 8);
-  ASSERT_EQ(transposed_120.template dim<2>().extent(), 3);
+  ASSERT_EQ(transposed_120.dim<0>().extent(), 5);
+  ASSERT_EQ(transposed_120.dim<1>().extent(), 8);
+  ASSERT_EQ(transposed_120.dim<2>().extent(), 3);
 
   shape<dim<>, dense_dim<>, dim<>> transposed_10 = transpose<1, 0>(s);
-  ASSERT_EQ(transposed_10.template dim<0>().extent(), 5);
-  ASSERT_EQ(transposed_10.template dim<1>().extent(), 3);
-  ASSERT_EQ(transposed_10.template dim<2>().extent(), 8);
+  ASSERT_EQ(transposed_10.dim<0>().extent(), 5);
+  ASSERT_EQ(transposed_10.dim<1>().extent(), 3);
+  ASSERT_EQ(transposed_10.dim<2>().extent(), 8);
 
   dense_shape<2> reordered = reorder<2, 0>(transposed_120);
-  ASSERT_EQ(reordered.template dim<0>().extent(), 3);
-  ASSERT_EQ(reordered.template dim<1>().extent(), 5);
+  ASSERT_EQ(reordered.dim<0>().extent(), 3);
+  ASSERT_EQ(reordered.dim<1>().extent(), 5);
 }
 
 TEST(shape_optimize) {

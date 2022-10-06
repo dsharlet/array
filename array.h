@@ -1246,8 +1246,8 @@ NDARRAY_HOST_DEVICE auto transpose_impl(const Shape& shape, index_sequence<Extra
  * indices provided.
  *
  * Examples:
- * - `transpose<2, 0, 1>(s) == make_shape(s.z(), s.y(), s.x())`
- * - `transpose<1, 0>(s) == make_shape(s.y(), s.x(), ...)` where ... is all dimensions after dimension 1. */
+ * - `transpose<2, 0, 1>(s) == make_shape(s.dim<2>(), s.dim<0>(), s.dim<1>())`
+ * - `transpose<1, 0>(s) == make_shape(s.dim<1>(), s.dim<0>(), ...)` where ... is all dimensions after dimension 1. */
 template <size_t... DimIndices, class... Dims,
     class = internal::enable_if_permutation<sizeof...(DimIndices), DimIndices...>>
 NDARRAY_HOST_DEVICE auto transpose(const shape<Dims...>& shape) {
@@ -1260,7 +1260,7 @@ NDARRAY_HOST_DEVICE auto transpose(const shape<Dims...>& shape) {
  * j'th dimension of `shape` where j is the i'th value of `DimIndices...`.
  *
  * Examples:
- * - `reorder<1, 2>(s) == make_shape(s.y(), s.z())` */
+ * - `reorder<1, 2>(s) == make_shape(s.dim<1>(), s.dim<2>())` */
 template <size_t... DimIndices, class... Dims>
 NDARRAY_HOST_DEVICE auto reorder(const shape<Dims...>& shape) {
   return make_shape(shape.template dim<DimIndices>()...);
