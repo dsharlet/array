@@ -1242,11 +1242,12 @@ NDARRAY_HOST_DEVICE auto transpose_impl(const Shape& shape, index_sequence<Extra
  * j'th dimension of `shape` where j is the i'th value of `DimIndices...`.
  * If i is not in `DimIndices...`, then i and j are equal.
  *
- * `DimIndices...` to be a permutation of `[0, sizeof...(DimIndices))`,
+ * `DimIndices...` must be a permutation of `[0, N)` where N is the number of
+ * indices provided.
  *
  * Examples:
  * - `transpose<2, 0, 1>(s) == make_shape(s.z(), s.y(), s.x())`
- * - `transpose<1, 0>(s) == make_shape(s.y(), s.x(), s.z())` */
+ * - `transpose<1, 0>(s) == make_shape(s.y(), s.x(), ...)` where ... is all dimensions after dimension 1. */
 template <size_t... DimIndices, class... Dims,
     class = internal::enable_if_permutation<sizeof...(DimIndices), DimIndices...>>
 NDARRAY_HOST_DEVICE auto transpose(const shape<Dims...>& shape) {
