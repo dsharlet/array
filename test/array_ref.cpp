@@ -185,8 +185,8 @@ TEST(array_ref_explicit_conversion) {
   ASSERT_EQ(dense_null_ref_embedded.rank(), 5);
   ASSERT_EQ(dense_null_ref_embedded.w().min(), 0);
   ASSERT_EQ(dense_null_ref_embedded.w().extent(), 1);
-  ASSERT_EQ(dense_null_ref_embedded.template dim<4>().min(), 0);
-  ASSERT_EQ(dense_null_ref_embedded.template dim<4>().extent(), 1);
+  ASSERT_EQ(dense_null_ref_embedded.dim<4>().min(), 0);
+  ASSERT_EQ(dense_null_ref_embedded.dim<4>().extent(), 1);
 }
 
 TEST(array_ref_static_convertibilty) {

@@ -45,7 +45,7 @@ void dim_bad_assign() {
   x = dim<0, 1, 2>();
 }
 
-void shape_dim_bad_index() { auto z = s.template dim<2>(); }
+void shape_dim_bad_index() { auto z = s.dim<2>(); }
 
 // TODO: This one returns an error in array.h, but it's not too spammy.
 // void shape_z_bad() {
@@ -74,6 +74,11 @@ void shape_transpose_not_permutation4() {
   shape_of_rank<3> s3;
   // (4 + 2)*2*2 = 4! = 24, a tricky case for enable_if_permutation.
   transpose<0, 0, 4>(s4);
+}
+
+void shape_transpose_not_permutation5() {
+  shape_of_rank<3> s3;
+  transpose<1, 2>(s4);
 }
 
 void shape_operator_eq_different_rank() {

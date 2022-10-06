@@ -30,5 +30,5 @@ clean:
 	rm -rf obj/* bin/*
 
 test: bin/test
-	@! $(CXX) -I. -c test/errors.cpp -std=c++14 -Wall -ferror-limit=0 2>&1 | grep "error:" | grep array.h
+	@! $(CXX) -I. -c test/errors.cpp -std=c++14 -Wall -ferror-limit=0 2>&1 | grep "error:" | grep array.h && echo "Errors test success"
 	bin/test $(FILTER)
