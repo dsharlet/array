@@ -16,7 +16,7 @@ template<typename... Args>
 __device__ int printf(const char* format, Args...);
 #endif  // defined(__CUDA__)
 
-#include "array.h"
+#include "array/array.h"
 
 namespace nda {
 

@@ -15,7 +15,7 @@
 #ifndef NDARRAY_TEST_TEST_H
 #define NDARRAY_TEST_TEST_H
 
-#include "array.h"
+#include "array/array.h"
 
 #include <chrono>
 #include <cmath>

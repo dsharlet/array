@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "array.h"
-#include "ein_reduce.h"
+#include "array/array.h"
+#include "array/ein_reduce.h"
 #include "test.h"
 
 #include <complex>
