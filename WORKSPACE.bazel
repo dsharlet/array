@@ -1,0 +1,11 @@
+load(
+    "//:third_party_repositories.bzl",
+    "bazel_skylib",
+    "com_google_absl",
+)
+
+# Make Bazel skylib available (required by abseil-cpp).
+bazel_skylib()
+
+# Make abseil-cpp available.
+com_google_absl()

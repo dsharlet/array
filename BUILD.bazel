@@ -9,6 +9,15 @@ cc_library(
     visibility = ["//visibility:public"],
 )
 
+cc_library(
+    name = "array_absl",
+    hdrs = ["array_absl.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
 cc_test(
     name = "array_test",
     srcs = [
@@ -29,6 +38,21 @@ cc_test(
         "test/test.h",
     ],
     deps = [":array"],
+)
+
+cc_test(
+    name = "absl_test",
+    srcs = [
+        "test/absl.cpp",
+        "test/main.cpp",
+        "test/test.h",
+    ],
+    deps = [
+        ":array",
+        ":array_absl",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+    ],
 )
 
 # TODO(jiawen): Make this an sh_test?
