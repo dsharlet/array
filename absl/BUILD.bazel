@@ -1,0 +1,24 @@
+# Abseil support for "array".
+
+cc_library(
+    name = "absl",
+    hdrs = ["absl.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cc_test(
+    name = "absl_test",
+    srcs = [
+        "absl_test.cpp",
+    ],
+    deps = [
+        ":absl",
+        "//:array",
+        "//test:test_main",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
