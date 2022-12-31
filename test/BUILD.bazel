@@ -1,0 +1,55 @@
+# Actual tests for "//:array".
+cc_test(
+    name = "array_test",
+    srcs = [
+        "algorithm.cpp",
+        "array.cpp",
+        "ein_reduce.cpp",
+        "image.cpp",
+        "lifetime.cpp",
+        "lifetime.h",
+        "matrix.cpp",
+        "performance.cpp",
+        "readme.cpp",
+        "shape.cpp",
+        "shuffle.cpp",
+        "sort.cpp",
+        "split.cpp",
+    ],
+    deps = [
+        ":test_main",
+        "//:array",
+    ],
+)
+
+# Test harness library containing main(). To be used as a dep by other cc_tests.
+cc_library(
+    name = "test_main",
+    srcs = ["main.cpp"],
+    hdrs = ["test.h"],
+    visibility = ["//visibility:public"],
+    deps = ["//:array"],
+)
+
+# TODO(jiawen): Make this an sh_test?
+# This test intentionally fails and prints error messages.
+# Test with:
+# ```bash
+# bazel test --cxxopt=-ferror-limit=0 --test_output=all :errors_test
+# ```
+#
+# This test passes if it doesn't contain any lines with error: and array.h.
+# I.e., the following should be empty:
+# ```bash
+# bazel test --cxxopt=-ferror-limit=0 --test_output=all :errors_test 2>&1 | grep "error:" | grep array.h
+# ```
+cc_test(
+    name = "errors_test",
+    srcs = [
+        "test/errors.cpp",
+    ],
+    deps = [
+        ":test_main",
+        "//:array",
+    ],
+)
