@@ -944,7 +944,7 @@ NDARRAY_HOST_DEVICE void assert_dim_compatible(size_t dim_index, const DimSrc& s
 
 template <class DimsDst, class DimsSrc, size_t... Is>
 NDARRAY_HOST_DEVICE void assert_dims_compatible(const DimsSrc& src, index_sequence<Is...>) {
-  // This is ugly, in C++17, we'd use a fold  expression over the comma operator (f(), ...).
+  // This is ugly, in C++17, we'd use a fold expression over the comma operator (f(), ...).
   int unused[] = {(assert_dim_compatible<typename std::tuple_element<Is, DimsDst>::type>(
                        Is, nda::dim<>(std::get<Is>(src))),
       0)...};
@@ -982,6 +982,10 @@ NDARRAY_HOST_DEVICE shape<Dims...> make_shape_from_tuple(const std::tuple<Dims..
 template <size_t Rank>
 using index_of_rank = internal::tuple_of_n<index_t, Rank>;
 
+// ELEPHANT
+template <class... Intervals>
+class bounds;
+
 /** A list of `Dim` objects describing a multi-dimensional space of indices.
  * The `rank` of a shape refers to the number of dimensions in the shape.
  * The first dimension is known as the 'innermost' dimension, and dimensions
@@ -1006,8 +1010,8 @@ public:
 
   using size_type = size_t;
 
-  // We use this a lot here. Make an alias for it.
-  using dim_indices = decltype(internal::make_index_sequence<std::tuple_size<dims_type>::value>());
+  // A frequently-used alias to make the index sequence [0, 1, ..., rank()).
+  using dim_indices = decltype(internal::make_index_sequence<rank()>());
 
 private:
   dims_type dims_;
@@ -1038,6 +1042,8 @@ public:
   template <size_t N = sizeof...(Dims), class = std::enable_if_t<(N > 0)>>
   NDARRAY_HOST_DEVICE shape(const Dims&... dims)
       : dims_(internal::assert_dims_compatible<dims_type>(std::make_tuple(dims...))) {}
+  template <class... Intervals>
+  NDARRAY_HOST_DEVICE shape(const bounds<Intervals...>& bounds) : shape(bounds.dims()) {}
   NDARRAY_HOST_DEVICE shape(const shape&) = default;
   NDARRAY_HOST_DEVICE shape(shape&&) = default;
   NDARRAY_HOST_DEVICE shape& operator=(const shape&) = default;
@@ -1126,7 +1132,7 @@ public:
   /** Get a specific dim of this shape with a runtime dimension index `d`.
    * This will lose knowledge of any compile-time constant dimension
    * attributes, and it is not a reference to the original dimension. */
-  NDARRAY_HOST_DEVICE const nda::dim<> dim(size_t d) const {
+  NDARRAY_HOST_DEVICE nda::dim<> dim(size_t d) const {
     assert(d < rank());
     return internal::tuple_to_array<nda::dim<>>(dims_)[d];
   }
@@ -1235,7 +1241,7 @@ NDARRAY_HOST_DEVICE auto transpose_impl(const Shape& shape, index_sequence<Extra
       shape.template dim<DimIndices>()..., shape.template dim<sizeof...(DimIndices) + Extras>()...);
 }
 
-}  // namespace internal
+} // namespace internal
 
 /** Create a new shape using a list of `DimIndices...` to use as the
  * dimensions of the shape. The new shape's i'th dimension will be the
@@ -1247,7 +1253,8 @@ NDARRAY_HOST_DEVICE auto transpose_impl(const Shape& shape, index_sequence<Extra
  *
  * Examples:
  * - `transpose<2, 0, 1>(s) == make_shape(s.dim<2>(), s.dim<0>(), s.dim<1>())`
- * - `transpose<1, 0>(s) == make_shape(s.dim<1>(), s.dim<0>(), ...)` where ... is all dimensions after dimension 1. */
+ * - `transpose<1, 0>(s) == make_shape(s.dim<1>(), s.dim<0>(), ...)` where ... is all dimensions
+ * after dimension 1. */
 template <size_t... DimIndices, class... Dims,
     class = internal::enable_if_permutation<sizeof...(DimIndices), DimIndices...>>
 NDARRAY_HOST_DEVICE auto transpose(const shape<Dims...>& shape) {
@@ -1386,8 +1393,7 @@ NDARRAY_INLINE NDARRAY_HOST_DEVICE void for_each_value_in_order(
 
 // Scalar buffers are a special case. The enable_if here (and above) are a workaround for a bug in
 // old versions of GCC that causes this overload to be ambiguous.
-template <size_t D, class Fn, class... Ptrs,
-    std::enable_if_t<(D == -1), int> = 0>
+template <size_t D, class Fn, class... Ptrs, std::enable_if_t<(D == -1), int> = 0>
 NDARRAY_INLINE NDARRAY_HOST_DEVICE void for_each_value_in_order(
     const std::tuple<>& extent, Fn&& fn, Ptrs... ptrs) {
   fn(*std::get<0>(ptrs)...);
@@ -1548,7 +1554,8 @@ NDARRAY_HOST_DEVICE auto make_compact(const Shape& s) {
 
 /** A `shape` where all extents (and automatically computed compact strides) are constant. */
 template <index_t... Extents>
-using fixed_dense_shape = decltype(make_shape_from_tuple(internal::make_compact_dims<1>(dim<0, Extents>()...)));
+using fixed_dense_shape =
+    decltype(make_shape_from_tuple(internal::make_compact_dims<1>(dim<0, Extents>()...)));
 
 /** Returns `true` if a shape `src` can be assigned to a shape of type
  * `ShapeDst` without error. */

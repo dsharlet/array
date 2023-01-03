@@ -2,19 +2,7 @@
 cc_test(
     name = "array_test",
     srcs = [
-        "algorithm.cpp",
-        "array.cpp",
-        "ein_reduce.cpp",
-        "image.cpp",
-        "lifetime.cpp",
-        "lifetime.h",
-        "matrix.cpp",
-        "performance.cpp",
-        "readme.cpp",
-        "shape.cpp",
-        "shuffle.cpp",
-        "sort.cpp",
-        "split.cpp",
+        "bounds.cpp",
     ],
     deps = [
         ":test_main",
