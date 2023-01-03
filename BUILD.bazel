@@ -2,6 +2,7 @@ cc_library(
     name = "array",
     hdrs = [
         "array.h",
+        "bounds.h",
         "ein_reduce.h",
         "image.h",
         "matrix.h",
