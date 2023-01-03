@@ -19,7 +19,7 @@
 #ifndef NDARRAY_EIN_REDUCE_H
 #define NDARRAY_EIN_REDUCE_H
 
-#include "array.h"
+#include "array/array.h"
 
 namespace nda {
 

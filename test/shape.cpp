@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "array.h"
-#include "matrix.h"
+#include "array/array.h"
+#include "array/matrix.h"
 #include "test.h"
 
 #include <algorithm>

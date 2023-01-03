@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "ein_reduce.h"
-#include "matrix.h"
+#include "array/ein_reduce.h"
+#include "array/matrix.h"
 #include "test.h"
 
 #include <complex>

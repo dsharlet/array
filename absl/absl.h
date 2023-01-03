@@ -1,5 +1,5 @@
 #include "absl/strings/str_format.h"
-#include "array.h"
+#include "array/array.h"
 
 // Adds Abseil Stringify support (https://abseil.io/blog/20221115-stringify).
 

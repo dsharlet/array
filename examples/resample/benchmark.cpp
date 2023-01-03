@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "array/image.h"
 #include "benchmark.h"
-#include "image.h"
 #include "rational.h"
 #include "resample.h"
 

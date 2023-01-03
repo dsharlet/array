@@ -2,18 +2,18 @@ CFLAGS := $(CFLAGS) -O2 -ffast-math -fstrict-aliasing -march=native
 CXXFLAGS := $(CXXFLAGS) -std=c++14 -Wall
 LDFLAGS := $(LDFLAGS)
 
-ARRAY_DEPS := ../../array.h ../../image.h ../benchmark.h
+ARRAY_DEPS := ../../include/array/array.h ../../include/array/image.h ../benchmark.h
 HEADERS := resample.h rational.h
 
 GRAPHICSMAGICK_CONFIG := `GraphicsMagick++-config --cppflags --cxxflags --ldflags --libs`
 
 bin/resample: resample.cpp $(HEADERS) $(ARRAY_DEPS)
 	mkdir -p $(@D)
-	$(CXX) -I../../ -I../ -o $@ resample.cpp $(CFLAGS) $(CXXFLAGS) -lstdc++ -lm $(GRAPHICSMAGICK_CONFIG)
+	$(CXX) -I../../include -I../ -o $@ resample.cpp $(CFLAGS) $(CXXFLAGS) -lstdc++ -lm $(GRAPHICSMAGICK_CONFIG)
 
 bin/benchmark: benchmark.cpp $(HEADERS) $(ARRAY_DEPS)
 	mkdir -p $(@D)
-	$(CXX) -I../../ -I../ -o $@ benchmark.cpp $(CFLAGS) $(CXXFLAGS) -lstdc++ -lm
+	$(CXX) -I../../include -I../ -o $@ benchmark.cpp $(CFLAGS) $(CXXFLAGS) -lstdc++ -lm
 
 .PHONY: all clean benchmark test
 

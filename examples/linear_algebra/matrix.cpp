@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "matrix.h"
+#include "array/matrix.h"
+#include "array/ein_reduce.h"
 #include "benchmark.h"
-#include "ein_reduce.h"
 
 #include <functional>
 #include <iostream>

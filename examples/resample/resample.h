@@ -15,8 +15,8 @@
 #ifndef NDARRAY_RESAMPLE_H
 #define NDARRAY_RESAMPLE_H
 
-#include "array.h"
-#include "ein_reduce.h"
+#include "array/array.h"
+#include "array/ein_reduce.h"
 #include "rational.h"
 
 #include <cmath>
