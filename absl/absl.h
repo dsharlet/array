@@ -26,9 +26,6 @@ void AbslStringify(Sink& sink, const dim<Min, Extent, Stride>& d) {
 //
 // Stringifies only the rank and each dim's values, not whether they are static
 // or dynamic.
-//
-// While this can be implemented at compile-time, it is not worth the code size
-// and reduced readability.
 template <typename Sink, class... Dims>
 void AbslStringify(Sink& sink, const shape<Dims...>& sh) {
   absl::Format(&sink, "shape<%d>(%v)", sh.rank(), absl::StrJoin(sh.dims(), ", "));
