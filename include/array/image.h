@@ -18,7 +18,7 @@
 #ifndef NDARRAY_IMAGE_H
 #define NDARRAY_IMAGE_H
 
-#include "array.h"
+#include "array/array.h"
 
 namespace nda {
 

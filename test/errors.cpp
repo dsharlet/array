@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "array.h"
-#include "ein_reduce.h"
+#include "array/array.h"
+#include "array/ein_reduce.h"
 
 // These tests should each generate one error, with errors.cpp as the
 // location of the error.

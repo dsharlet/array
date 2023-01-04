@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "absl/absl.h"
-#include "array.h"
+#include "array/array.h"
 #include "test/test.h"
 
 #include "absl/strings/str_cat.h"

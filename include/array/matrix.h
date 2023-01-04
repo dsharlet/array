@@ -18,7 +18,7 @@
 #ifndef NDARRAY_MATRIX_H
 #define NDARRAY_MATRIX_H
 
-#include "array.h"
+#include "array/array.h"
 
 namespace nda {
 
