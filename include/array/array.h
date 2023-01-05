@@ -925,19 +925,19 @@ using enable_if_permutation = std::enable_if_t<sizeof...(Is) == Rank && all(Is <
 template <class DimDst, class DimSrc>
 NDARRAY_HOST_DEVICE void assert_dim_compatible(size_t dim_index, const DimSrc& src) {
   bool compatible = true;
-  if (is_static(DimDst::Min) && is_static(src.min()) && src.min() != DimDst::Min) {
+  if (is_static(DimDst::Min) && src.min() != DimDst::Min) {
     NDARRAY_PRINT_ERR("Error converting dim %zu: expected static min " NDARRAY_INDEX_T_FMT
                       ", got " NDARRAY_INDEX_T_FMT "\n",
         dim_index, DimDst::Min, src.min());
     compatible = false;
   }
-  if (is_static(DimDst::Extent) && is_static(src.extent()) && src.extent() != DimDst::Extent) {
+  if (is_static(DimDst::Extent) && src.extent() != DimDst::Extent) {
     NDARRAY_PRINT_ERR("Error converting dim %zu: expected static extent " NDARRAY_INDEX_T_FMT
                       ", got " NDARRAY_INDEX_T_FMT "\n",
         dim_index, DimDst::Extent, src.extent());
     compatible = false;
   }
-  if (is_static(DimDst::Stride) && is_static(src.stride()) && is_resolved(src.stride()) && src.stride() != DimDst::Stride) {
+  if (is_static(DimDst::Stride) && is_resolved(src.stride()) && src.stride() != DimDst::Stride) {
     NDARRAY_PRINT_ERR("Error converting dim %zu: expected static stride " NDARRAY_INDEX_T_FMT
                       ", got " NDARRAY_INDEX_T_FMT "\n",
         dim_index, DimDst::Stride, src.stride());
