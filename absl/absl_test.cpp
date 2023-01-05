@@ -61,19 +61,19 @@ TEST(absl_stringify_dim) {
   {
     dim<> d;
     const std::string s = absl::StrFormat("%v", d);
-    ASSERT(s == "dim(0, 0, -9)");
+    ASSERT(s == "dim(0, 0)");
   }
 
   {
     dim<> d(/*extent=*/640);
     const std::string s = absl::StrFormat("%v", d);
-    ASSERT(s == "dim(0, 640, -9)");
+    ASSERT(s == "dim(0, 640)");
   }
 
   {
     dim<> d(/*min=*/35, /*extent=*/640);
     const std::string s = absl::StrFormat("%v", d);
-    ASSERT(s == "dim(35, 640, -9)");
+    ASSERT(s == "dim(35, 640)");
   }
 
   {
@@ -86,13 +86,13 @@ TEST(absl_stringify_dim) {
   {
     dim</*min=*/3> d;
     const std::string s = absl::StrFormat("%v", d);
-    ASSERT(s == "dim(3, 0, -9)");
+    ASSERT(s == "dim(3, 0)");
   }
 
   {
     dim</*min=*/-4, /*extent=*/5> d;
     const std::string s = absl::StrFormat("%v", d);
-    ASSERT(s == "dim(-4, 5, -9)");
+    ASSERT(s == "dim(-4, 5)");
   }
 
   {
@@ -114,20 +114,20 @@ TEST(absl_stringify_shape) {
   {
     shape_of_rank<1> sh;
     const std::string s = absl::StrFormat("%v", sh);
-    ASSERT(s == "shape<1>(dim(0, 0, -9))");
+    ASSERT(s == "shape<1>(dim(0, 0))");
   }
 
   {
     shape_of_rank<3> sh;
     const std::string s = absl::StrFormat("%v", sh);
-    ASSERT(s == "shape<3>(dim(0, 0, -9), dim(0, 0, -9), dim(0, 0, -9))");
+    ASSERT(s == "shape<3>(dim(0, 0), dim(0, 0), dim(0, 0))");
   }
 
   // Test a few static cases.
   {
     dense_shape<2> sh;
     const std::string s = absl::StrFormat("%v", sh);
-    ASSERT(s == "shape<2>(dim(0, 0, 1), dim(0, 0, -9))");
+    ASSERT(s == "shape<2>(dim(0, 0, 1), dim(0, 0))");
 
     sh.dim<0>().set_extent(10);
     sh.dim<1>().set_min(6);
@@ -140,7 +140,7 @@ TEST(absl_stringify_shape) {
   {
     dense_shape<2> sh;
     const std::string s = absl::StrFormat("%v", sh);
-    ASSERT(s == "shape<2>(dim(0, 0, 1), dim(0, 0, -9))");
+    ASSERT(s == "shape<2>(dim(0, 0, 1), dim(0, 0))");
 
     sh.dim<0>().set_extent(10);
     sh.dim<1>().set_min(6);
@@ -164,7 +164,7 @@ TEST(absl_stringify_shape) {
 
     shape<dense_dim<>, dim<>, dim<>> sh(x, y, z);
     const std::string s = absl::StrFormat("%v", sh);
-    ASSERT(s == "shape<3>(dim(0, 10, 1), dim(67, 5, -10), dim(-11, 103, -9))");
+    ASSERT(s == "shape<3>(dim(0, 10, 1), dim(67, 5, -10), dim(-11, 103))");
 
     // Resolving the stride yields z_stride = 10 * 5 = 50.
     sh.resolve();
