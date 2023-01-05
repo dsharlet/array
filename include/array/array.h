@@ -98,8 +98,9 @@ using index_t = std::ptrdiff_t;
 // (https://github.com/dsharlet/array/issues/9).
 constexpr index_t dynamic = -9;
 
-// Deprecated name for `dynamic`.
-constexpr index_t UNK = dynamic;
+/** This value indicates a runtime parameter is an unknown value, and may be
+ * replaced by a default value computed by the library. */
+constexpr index_t unresolved = std::numeric_limits<index_t>::min();
 
 namespace internal {
 
@@ -112,6 +113,9 @@ NDARRAY_INLINE constexpr index_t abs(index_t x) { return x >= 0 ? x : -x; }
 
 NDARRAY_INLINE constexpr index_t is_static(index_t x) { return x != dynamic; }
 NDARRAY_INLINE constexpr index_t is_dynamic(index_t x) { return x == dynamic; }
+
+NDARRAY_INLINE constexpr index_t is_resolved(index_t x) { return x != unresolved; }
+NDARRAY_INLINE constexpr index_t is_unresolved(index_t x) { return x == unresolved; }
 
 constexpr bool is_dynamic(index_t a, index_t b) { return is_dynamic(a) || is_dynamic(b); }
 
@@ -381,6 +385,7 @@ public:
   using base_range::Min;
 
   static constexpr index_t Stride = Stride_;
+  static constexpr index_t DefaultStride = internal::is_static(Stride) ? Stride : unresolved;
 
   /** Construct a new dim object. If the `min`, `extent` or `stride` are
    * specified in the constructor, it must have a value compatible with `Min`,
@@ -390,12 +395,12 @@ public:
    * - The default `min` is `Min` if `Min` is static, or 0 if not.
    * - The default `extent` is `Extent` if `Extent` is static, or 0 if not.
    * - The default `stride` is `Stride`. */
-  NDARRAY_HOST_DEVICE dim(index_t min, index_t extent, index_t stride = Stride)
+  NDARRAY_HOST_DEVICE dim(index_t min, index_t extent, index_t stride = DefaultStride)
       : base_range(min, extent), stride_(stride) {}
   NDARRAY_HOST_DEVICE dim(index_t extent) : dim(internal::is_static(Min) ? Min : 0, extent) {}
   NDARRAY_HOST_DEVICE dim() : dim(internal::is_static(Extent) ? Extent : 0) {}
 
-  NDARRAY_HOST_DEVICE dim(const base_range& interval, index_t stride = Stride)
+  NDARRAY_HOST_DEVICE dim(const base_range& interval, index_t stride = DefaultStride)
       : dim(interval.min(), interval.extent(), stride) {}
   NDARRAY_HOST_DEVICE dim(const dim&) = default;
   NDARRAY_HOST_DEVICE dim(dim&&) = default;
@@ -777,8 +782,8 @@ NDARRAY_HOST_DEVICE auto maxs(const std::tuple<Dims...>& dims, index_sequence<Is
 // stride does not intersect the dim.
 template <class Dim>
 NDARRAY_HOST_DEVICE bool is_stride_ok(index_t stride, index_t extent, const Dim& dim) {
-  if (is_dynamic(dim.stride())) {
-    // If the dimension has an unknown dynamic stride, it's OK, we're
+  if (is_unresolved(dim.stride())) {
+    // If the dimension has an unknown stride, it's OK, we're
     // resolving the current dim first.
     return true;
   }
@@ -809,7 +814,7 @@ NDARRAY_HOST_DEVICE index_t filter_stride(index_t stride, index_t extent, const 
 // could have without intersecting this dim.
 template <class Dim>
 NDARRAY_HOST_DEVICE index_t candidate_stride(const Dim& dim) {
-  if (is_dynamic(dim.stride())) {
+  if (is_unresolved(dim.stride())) {
     return std::numeric_limits<index_t>::max();
   } else {
     return max<index_t>(1, abs(dim.stride()) * dim.extent());
@@ -828,7 +833,7 @@ template <class AllDims>
 NDARRAY_HOST_DEVICE void resolve_unknown_strides(AllDims& all_dims) {}
 template <class AllDims, class Dim0, class... Dims>
 NDARRAY_HOST_DEVICE void resolve_unknown_strides(AllDims& all_dims, Dim0& dim0, Dims&... dims) {
-  if (is_dynamic(dim0.stride())) {
+  if (is_unresolved(dim0.stride())) {
     constexpr size_t rank = std::tuple_size<AllDims>::value;
     dim0.set_stride(find_stride(dim0.extent(), all_dims, make_index_sequence<rank>()));
   }
@@ -842,7 +847,7 @@ NDARRAY_HOST_DEVICE void resolve_unknown_strides(Dims& dims, index_sequence<Is..
 
 template <class Dims, size_t... Is>
 NDARRAY_HOST_DEVICE bool is_resolved(const Dims& dims, index_sequence<Is...>) {
-  return all(!is_dynamic(std::get<Is>(dims).stride())...);
+  return all(is_resolved(std::get<Is>(dims).stride())...);
 }
 
 // A helper to transform an array to a tuple.
@@ -920,19 +925,19 @@ using enable_if_permutation = std::enable_if_t<sizeof...(Is) == Rank && all(Is <
 template <class DimDst, class DimSrc>
 NDARRAY_HOST_DEVICE void assert_dim_compatible(size_t dim_index, const DimSrc& src) {
   bool compatible = true;
-  if (is_static(DimDst::Min) && !is_dynamic(src.min()) && src.min() != DimDst::Min) {
+  if (is_static(DimDst::Min) && is_static(src.min()) && src.min() != DimDst::Min) {
     NDARRAY_PRINT_ERR("Error converting dim %zu: expected static min " NDARRAY_INDEX_T_FMT
                       ", got " NDARRAY_INDEX_T_FMT "\n",
         dim_index, DimDst::Min, src.min());
     compatible = false;
   }
-  if (is_static(DimDst::Extent) && !is_dynamic(src.extent()) && src.extent() != DimDst::Extent) {
+  if (is_static(DimDst::Extent) && is_static(src.extent()) && src.extent() != DimDst::Extent) {
     NDARRAY_PRINT_ERR("Error converting dim %zu: expected static extent " NDARRAY_INDEX_T_FMT
                       ", got " NDARRAY_INDEX_T_FMT "\n",
         dim_index, DimDst::Extent, src.extent());
     compatible = false;
   }
-  if (is_static(DimDst::Stride) && !is_dynamic(src.stride()) && src.stride() != DimDst::Stride) {
+  if (is_static(DimDst::Stride) && is_static(src.stride()) && is_resolved(src.stride()) && src.stride() != DimDst::Stride) {
     NDARRAY_PRINT_ERR("Error converting dim %zu: expected static stride " NDARRAY_INDEX_T_FMT
                       ", got " NDARRAY_INDEX_T_FMT "\n",
         dim_index, DimDst::Stride, src.stride());

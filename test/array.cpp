@@ -159,6 +159,7 @@ TEST(array_fill_assign) {
 
   array<int, shape<dim<>, dim<>>> sparse;
   auto sparse_shape = make_shape(dim<>(-2, 5, 2), dim<>(4, 10));
+  sparse_shape.resolve();
   ASSERT_LT(sparse_shape.size(), sparse_shape.flat_extent());
 
   sparse.assign(sparse_shape, 13);

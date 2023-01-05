@@ -175,7 +175,7 @@ void check_resolved_strides(shape_of_rank<Rank> shape, const std::vector<index_t
 }
 
 TEST(auto_strides) {
-  check_resolved_strides<1>({{3, 5, dynamic}}, {1});
+  check_resolved_strides<1>({{3, 5, unresolved}}, {1});
   check_resolved_strides<2>({5, 10}, {1, 5});
 
   // Small interleaved.
