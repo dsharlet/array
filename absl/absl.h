@@ -19,7 +19,11 @@ void AbslStringify(Sink& sink, const interval<Min, Extent>& i) {
 // Stringifies only the values, not whether they are static or dynamic.
 template <typename Sink, index_t Min, index_t Extent, index_t Stride>
 void AbslStringify(Sink& sink, const dim<Min, Extent, Stride>& d) {
-  absl::Format(&sink, "dim(%v, %v, %v)", d.min(), d.extent(), d.stride());
+  if (internal::is_resolved(d.stride())) {
+    absl::Format(&sink, "dim(%v, %v, %v)", d.min(), d.extent(), d.stride());
+  } else {
+    absl::Format(&sink, "dim(%v, %v)", d.min(), d.extent());
+  }
 }
 
 // shape -> string as "shape<`rank`>(dims...).
