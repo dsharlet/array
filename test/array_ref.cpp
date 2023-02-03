@@ -60,6 +60,23 @@ TEST(reinterpret) {
   ASSERT_EQ(scalar(), eight);
 }
 
+TEST(reinterpret_const) {
+  array_of_rank<int, 1> a1({3});
+  a1(0) = 5;
+  a1(1) = 2;
+  a1(2) = 6;
+
+  const_array_ref_of_rank<int, 1> a1_cref = a1.cref();
+  array_ref_of_rank<int, 1> a1_ref = reinterpret_const(a1_cref);
+  a1_ref(0) = 10;
+  a1_ref(1) = 20;
+  a1_ref(2) = 30;
+
+  ASSERT_EQ(a1(0), 10);
+  ASSERT_EQ(a1(1), 20);
+  ASSERT_EQ(a1(2), 30);
+}
+
 TEST(array_ref_copy) {
   int data[100];
   for (int i = 0; i < 100; i++) {
@@ -87,8 +104,8 @@ TEST(array_ref_incompatible_shape) {
   }
 
   {
-    array_ref<int, nda::shape<nda::fixed_dim<10, nda::dynamic>,
-                              nda::fixed_dim<2, nda::dynamic>>> dst;
+    array_ref<int, nda::shape<nda::fixed_dim<10, nda::dynamic>, nda::fixed_dim<2, nda::dynamic>>>
+        dst;
     array_ref<int, nda::shape_of_rank<2>> src(nullptr, {{0, 10}, {0, 3}});
     // Error converting dim 1: expected static extent 2, got 3
     // dst = src;
@@ -194,11 +211,11 @@ TEST(array_ref_static_convertibilty) {
   using AR3 = array_ref_of_rank<int, 3>;
 
   static_assert(std::is_convertible<AR0&, int&>::value,
-                "rank-0 array_ref should be convertible to scalar element");
+      "rank-0 array_ref should be convertible to scalar element");
   static_assert(std::is_convertible<const AR0&, int&>::value,
-                "rank-0 array_ref should be convertible to scalar element");
+      "rank-0 array_ref should be convertible to scalar element");
   static_assert(!std::is_convertible<AR3&, int&>::value,
-                "rank-3 array_ref should not be convertible to element");
+      "rank-3 array_ref should not be convertible to element");
 }
 
 TEST(array_ref_crop_slice) {

@@ -1240,7 +1240,7 @@ NDARRAY_HOST_DEVICE auto transpose_impl(const Shape& shape, index_sequence<Extra
       shape.template dim<DimIndices>()..., shape.template dim<sizeof...(DimIndices) + Extras>()...);
 }
 
-}  // namespace internal
+} // namespace internal
 
 /** Create a new shape using a list of `DimIndices...` to use as the
  * dimensions of the shape. The new shape's i'th dimension will be the
@@ -1252,7 +1252,8 @@ NDARRAY_HOST_DEVICE auto transpose_impl(const Shape& shape, index_sequence<Extra
  *
  * Examples:
  * - `transpose<2, 0, 1>(s) == make_shape(s.dim<2>(), s.dim<0>(), s.dim<1>())`
- * - `transpose<1, 0>(s) == make_shape(s.dim<1>(), s.dim<0>(), ...)` where ... is all dimensions after dimension 1. */
+ * - `transpose<1, 0>(s) == make_shape(s.dim<1>(), s.dim<0>(), ...)` where ... is all dimensions
+ * after dimension 1. */
 template <size_t... DimIndices, class... Dims,
     class = internal::enable_if_permutation<sizeof...(DimIndices), DimIndices...>>
 NDARRAY_HOST_DEVICE auto transpose(const shape<Dims...>& shape) {
@@ -1391,8 +1392,7 @@ NDARRAY_INLINE NDARRAY_HOST_DEVICE void for_each_value_in_order(
 
 // Scalar buffers are a special case. The enable_if here (and above) are a workaround for a bug in
 // old versions of GCC that causes this overload to be ambiguous.
-template <size_t D, class Fn, class... Ptrs,
-    std::enable_if_t<(D == -1), int> = 0>
+template <size_t D, class Fn, class... Ptrs, std::enable_if_t<(D == -1), int> = 0>
 NDARRAY_INLINE NDARRAY_HOST_DEVICE void for_each_value_in_order(
     const std::tuple<>& extent, Fn&& fn, Ptrs... ptrs) {
   fn(*std::get<0>(ptrs)...);
@@ -1553,7 +1553,8 @@ NDARRAY_HOST_DEVICE auto make_compact(const Shape& s) {
 
 /** A `shape` where all extents (and automatically computed compact strides) are constant. */
 template <index_t... Extents>
-using fixed_dense_shape = decltype(make_shape_from_tuple(internal::make_compact_dims<1>(dim<0, Extents>()...)));
+using fixed_dense_shape =
+    decltype(make_shape_from_tuple(internal::make_compact_dims<1>(dim<0, Extents>()...)));
 
 /** Returns `true` if a shape `src` can be assigned to a shape of type
  * `ShapeDst` without error. */
@@ -2888,6 +2889,13 @@ template <class NewShape, class T, class OldShape, class Allocator>
 const_array_ref<T, NewShape> reinterpret_shape(
     const array<T, OldShape, Allocator>& a, const NewShape& new_shape, index_t offset = 0) {
   return reinterpret_shape(a.cref(), new_shape, offset);
+}
+
+/** Reinterpret a const_array_ref as a array_ref. This "reinterprets away the
+ the const-ness on T" and is analogous to const_cast. */
+template <class T, class Shape>
+array_ref<T, Shape> reinterpret_const(const_array_ref<T, Shape>& a) {
+  return make_array_ref(const_cast<T*>(a.base()), a.shape());
 }
 
 /** Move an array `from` to a new array, reinterpreting the shape of the array
