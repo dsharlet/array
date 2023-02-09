@@ -86,9 +86,7 @@ void shape_operator_eq_different_rank() {
   s == s2;
 }
 
-void shape_modify_runtime_dim() {
-  s.dim(1).set_min(0);
-}
+void shape_modify_runtime_dim() { s.dim(1).set_min(0); }
 
 void is_compatible_different_dims() { is_compatible<shape_of_rank<3>>(s); }
 
@@ -147,6 +145,15 @@ void move_different_rank() { move(a, ref); }
 void make_move_different_rank() { auto a2 = make_move(a, shape_of_rank<2>()); }
 
 void make_move_ref_different_rank() { auto a2 = make_move(ref, shape_of_rank<3>()); }
+
+// When commented out, this fails to compile as expected, but since the error
+// is due to `const_cast` itself, it will say something like:
+//
+// include/array/array.h:2878:30: error: const_cast from 'nda::array_ref<const int,
+// nda::shape<nda::dim<-9, -9, 1>, nda::dim<-9, -9, -9>, nda::dim<-9, -9, -9>>>::pointer' (aka
+// 'const int *') to 'float *' is not allowed
+//
+// void reinterpret_const_wrong_type() { reinterpret_const<float>(a.cref()); }
 
 void ein_wrong_rank() { ein<0, 1>(a); }
 

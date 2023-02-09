@@ -67,7 +67,7 @@ TEST(reinterpret_const) {
   a1(2) = 6;
 
   const_array_ref_of_rank<int, 1> a1_cref = a1.cref();
-  array_ref_of_rank<int, 1> a1_ref = reinterpret(a1_cref);
+  array_ref_of_rank<int, 1> a1_ref = reinterpret_const<int>(a1_cref);
   a1_ref(0) = 10;
   a1_ref(1) = 20;
   a1_ref(2) = 30;

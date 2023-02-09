@@ -2873,9 +2873,9 @@ const_array_ref<U, Shape> reinterpret(const array<T, Shape, Alloc>& a) {
 
 /** Reinterpret a const_array_ref as a array_ref. This "reinterprets away the
  the const-ness on T" and is analogous to const_cast. */
-template <class T, class Shape>
-array_ref<T, Shape> reinterpret(const_array_ref<T, Shape>& a) {
-  return make_array_ref(const_cast<T*>(a.base()), a.shape());
+template <class U, class T, class Shape>
+array_ref<U, Shape> reinterpret_const(const const_array_ref<T, Shape>& a) {
+  return array_ref<U, Shape>(const_cast<U*>(a.base()), a.shape());
 }
 
 /** Reinterpret the shape of the array or array_ref `a` to be a new shape
