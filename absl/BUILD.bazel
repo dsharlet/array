@@ -5,6 +5,7 @@ cc_library(
     hdrs = ["absl.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//:array",
         "@com_google_absl//absl/strings:str_format",
     ],
 )

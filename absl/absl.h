@@ -1,3 +1,6 @@
+#ifndef NDARRAY_ABSL_ABSL_H
+#define NDARRAY_ABSL_ABSL_H
+
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "array/array.h"
@@ -36,3 +39,5 @@ void AbslStringify(Sink& sink, const shape<Dims...>& sh) {
 }
 
 } // namespace nda
+
+#endif // NDARRAY_ABSL_ABSL_H
