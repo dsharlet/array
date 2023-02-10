@@ -3,8 +3,10 @@
 cc_library(
     name = "absl",
     hdrs = ["absl.h"],
+    include_prefix = "third_party/array/absl",
     visibility = ["//visibility:public"],
     deps = [
+        "//:array",
         "@com_google_absl//absl/strings:str_format",
     ],
 )
