@@ -2871,8 +2871,8 @@ const_array_ref<U, Shape> reinterpret(const array<T, Shape, Alloc>& a) {
   return reinterpret<const U>(a.cref());
 }
 
-/** Reinterpret a const_array_ref as a array_ref. This "reinterprets away the
- the const-ness on T" and is analogous to const_cast. */
+/** Reinterpret the const_array_ref `a` of type `T` (aka array_ref<const T>) to have a different
+ * type `U` using `const_cast`. */
 template <class U, class T, class Shape>
 array_ref<U, Shape> reinterpret_const(const const_array_ref<T, Shape>& a) {
   return array_ref<U, Shape>(const_cast<U*>(a.base()), a.shape());

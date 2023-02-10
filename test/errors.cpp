@@ -146,8 +146,8 @@ void make_move_different_rank() { auto a2 = make_move(a, shape_of_rank<2>()); }
 
 void make_move_ref_different_rank() { auto a2 = make_move(ref, shape_of_rank<3>()); }
 
-// When commented out, this fails to compile as expected, but since the error
-// is due to `const_cast` itself, it will say something like:
+// When uncommented, this fails to compile as expected, but since the error is due to `const_cast`
+// itself, it will say something like:
 //
 // include/array/array.h:2878:30: error: const_cast from 'nda::array_ref<const int,
 // nda::shape<nda::dim<-9, -9, 1>, nda::dim<-9, -9, -9>, nda::dim<-9, -9, -9>>>::pointer' (aka
