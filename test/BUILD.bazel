@@ -4,7 +4,9 @@ cc_test(
     srcs = [
         "algorithm.cpp",
         "array.cpp",
+        "array_lifetime.cpp",
         "array_ref.cpp",
+        "auto_allocator.cpp",
         "ein_reduce.cpp",
         "image.cpp",
         "lifetime.cpp",
