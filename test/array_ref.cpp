@@ -61,7 +61,7 @@ TEST(reinterpret) {
 }
 
 TEST(reinterpret_const) {
-  array_of_rank<int, 1> a1({3});
+  array_of_rank<int, 1> a1({3}, 0);
   a1(0) = 5;
   a1(1) = 2;
   a1(2) = 6;
