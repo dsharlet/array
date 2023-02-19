@@ -141,15 +141,9 @@ TEST(array_copy_lifetime) {
 }
 
 template <typename Alloc>
-void test_move_lifetime(bool alloc_movable = true) {
+void test_move_lifetime(const Alloc& alloc, bool alloc_movable = true) {
   {
-    lifetime_array<Alloc> source;
-    if constexpr (std::is_same<Alloc, stateful_movable_custom_alloc>::value) {
-      // A custom allocator that has a different state than the default.
-      source = lifetime_array<Alloc>(lifetime_shape, Alloc(1));
-    } else {
-      source = lifetime_array<Alloc>(lifetime_shape);
-    }
+    lifetime_array<Alloc> source(lifetime_shape, alloc);
     lifetime_counter::reset();
     lifetime_array<Alloc> move(std::move(source));
   }
@@ -176,11 +170,11 @@ void test_move_lifetime(bool alloc_movable = true) {
 }
 
 TEST(array_move_lifetime) {
-  test_move_lifetime<std_alloc>();
-  test_move_lifetime<custom_alloc>();
-  test_move_lifetime<stateful_movable_custom_alloc>();
-  test_move_lifetime<auto_alloc_big>(false);
-  test_move_lifetime<auto_alloc_small>();
+  test_move_lifetime(std_alloc());
+  test_move_lifetime(custom_alloc());
+  test_move_lifetime(stateful_movable_custom_alloc(1));
+  test_move_lifetime(auto_alloc_big(), false);
+  test_move_lifetime(auto_alloc_small());
 }
 
 template <typename Alloc>
