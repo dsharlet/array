@@ -2210,20 +2210,6 @@ private:
         });
   }
 
-  void move_array_with_non_movable_alloc(array&& other) {
-    using std::swap;
-    if (alloc_ == other.get_allocator()) {
-      swap(buffer_, other.buffer_);
-      swap(buffer_size_, other.buffer_size_);
-      swap(base_, other.base_);
-      swap(shape_, other.shape_);
-    } else {
-      shape_ = other.shape_;
-      allocate();
-      move_construct(other);
-    }
-  }
-
   // Call the dstructor on every element.
   void destroy() {
     assert(base_ || shape_.empty());
@@ -2238,6 +2224,20 @@ private:
       alloc_traits::deallocate(alloc_, buffer_, buffer_size_);
       buffer_ = nullptr;
     }
+  }
+
+  static Alloc get_allocator_for_move(array& other, std::true_type) { return std::move(other.alloc_); }
+  static Alloc get_allocator_for_move(array& other, std::false_type) { return Alloc(); }
+  static Alloc get_allocator_for_move(array& other) {
+    return get_allocator_for_move(other, typename alloc_traits::propagate_on_container_move_assignment());
+  }
+
+  void swap_except_allocator(array& other) {
+    using std::swap;
+    swap(buffer_, other.buffer_);
+    swap(buffer_size_, other.buffer_size_);
+    swap(base_, other.base_);
+    swap(shape_, other.shape_);
   }
 
 public:
@@ -2283,16 +2283,17 @@ public:
    * are equal this operation moves the allocation of other to this array, and
    * the other array becomes a default constructed array. Otherwise, each element
    * is move-constructed into a new allocation. */
-  array(array&& other) : buffer_(nullptr), buffer_size_(0), base_(nullptr) {
+  array(array&& other)
+      : alloc_(get_allocator_for_move(other)), buffer_(nullptr), buffer_size_(0), base_(nullptr) {
     using std::swap;
-    if (std::allocator_traits<allocator_type>::propagate_on_container_move_assignment::value) {
-      swap(alloc_, other.alloc_);
-      swap(buffer_, other.buffer_);
-      swap(buffer_size_, other.buffer_size_);
-      swap(base_, other.base_);
-      swap(shape_, other.shape_);
+    // If we already took other's allocator, it might be in an undefined state.
+    // Just assume we can swap in that case.
+    if (typename alloc_traits::propagate_on_container_move_assignment() || alloc_ == other.get_allocator()) {
+      swap_except_allocator(other);
     } else {
-      move_array_with_non_movable_alloc(std::forward<array<T, Shape, Alloc>>(other));
+      shape_ = other.shape_;
+      allocate();
+      move_construct(other);
     }
   }
 
@@ -2303,7 +2304,14 @@ public:
    * move-constructed into a new allocation. */
   array(array&& other, const Alloc& alloc)
       : alloc_(alloc), buffer_(nullptr), buffer_size_(0), base_(nullptr) {
-    move_array_with_non_movable_alloc(std::forward<array<T, Shape, Alloc>>(other));
+    using std::swap;
+    if (alloc_ == other.get_allocator()) {
+      swap_except_allocator(other);
+    } else {
+      shape_ = other.shape_;
+      allocate();
+      move_construct(other);
+    }
   }
 
   ~array() { deallocate(); }
@@ -2354,15 +2362,9 @@ public:
 
     if (std::allocator_traits<allocator_type>::propagate_on_container_move_assignment::value) {
       swap(alloc_, other.alloc_);
-      swap(buffer_, other.buffer_);
-      swap(buffer_size_, other.buffer_size_);
-      swap(base_, other.base_);
-      swap(shape_, other.shape_);
+      swap_except_allocator(other);
     } else if (alloc_ == other.get_allocator()) {
-      swap(buffer_, other.buffer_);
-      swap(buffer_size_, other.buffer_size_);
-      swap(base_, other.base_);
-      swap(shape_, other.shape_);
+      swap_except_allocator(other);
     } else {
       assign(std::move(other));
     }
@@ -2573,10 +2575,7 @@ public:
 
     if (alloc_traits::propagate_on_container_swap::value) {
       swap(alloc_, other.alloc_);
-      swap(buffer_, other.buffer_);
-      swap(buffer_size_, other.buffer_size_);
-      swap(base_, other.base_);
-      swap(shape_, other.shape_);
+      swap_except_allocator(other);
     } else {
       // TODO: If the shapes are equal, we could swap each element without the
       // temporary allocation.
