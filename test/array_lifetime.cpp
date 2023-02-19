@@ -47,6 +47,28 @@ public:
   bool operator!=(const custom_alloc& other) const { return false; }
 };
 
+class stateful_movable_custom_alloc {
+public:
+  stateful_movable_custom_alloc(int val = 0) : val_(val) {}
+
+  typedef lifetime_counter value_type;
+
+  typedef std::true_type propagate_on_container_copy_assignment;
+  typedef std::true_type propagate_on_container_move_assignment;
+  typedef std::true_type propagate_on_container_swap;
+
+  lifetime_counter* allocate(size_t n) {
+    return reinterpret_cast<lifetime_counter*>(malloc(n * sizeof(lifetime_counter)));
+  }
+  void deallocate(lifetime_counter* p, size_t) noexcept { free(p); }
+
+  bool operator==(const stateful_movable_custom_alloc& other) const { return val_ == other.val_; }
+  bool operator!=(const stateful_movable_custom_alloc& other) const { return val_ != other.val_; }
+
+private:
+  int val_;
+};
+
 template <typename Alloc>
 void test_default_init_lifetime() {
   lifetime_counter::reset();
@@ -121,7 +143,13 @@ TEST(array_copy_lifetime) {
 template <typename Alloc>
 void test_move_lifetime(bool alloc_movable = true) {
   {
-    lifetime_array<Alloc> source(lifetime_shape);
+    lifetime_array<Alloc> source;
+    if constexpr (std::is_same<Alloc, stateful_movable_custom_alloc>::value) {
+      // A custom allocator that has a different state than the default.
+      source = lifetime_array<Alloc>(lifetime_shape, Alloc(1));
+    } else {
+      source = lifetime_array<Alloc>(lifetime_shape);
+    }
     lifetime_counter::reset();
     lifetime_array<Alloc> move(std::move(source));
   }
@@ -150,6 +178,7 @@ void test_move_lifetime(bool alloc_movable = true) {
 TEST(array_move_lifetime) {
   test_move_lifetime<std_alloc>();
   test_move_lifetime<custom_alloc>();
+  test_move_lifetime<stateful_movable_custom_alloc>();
   test_move_lifetime<auto_alloc_big>(false);
   test_move_lifetime<auto_alloc_small>();
 }

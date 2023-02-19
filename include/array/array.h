@@ -2210,6 +2210,20 @@ private:
         });
   }
 
+  void move_array_with_non_movable_alloc(array&& other) {
+    using std::swap;
+    if (alloc_ == other.get_allocator()) {
+      swap(buffer_, other.buffer_);
+      swap(buffer_size_, other.buffer_size_);
+      swap(base_, other.base_);
+      swap(shape_, other.shape_);
+    } else {
+      shape_ = other.shape_;
+      allocate();
+      move_construct(other);
+    }
+  }
+
   // Call the dstructor on every element.
   void destroy() {
     assert(base_ || shape_.empty());
@@ -2265,24 +2279,31 @@ public:
   array(const array& other, const Alloc& alloc) : array(alloc) { assign(other); }
 
   /** Move construct from another array `other`. If the allocator of this array
-   * and the other array are equal, this operation moves the allocation of other
-   * to this array, and the other array becomes a default constructed array. If
-   * the allocator of this and the other array are non-equal, each element is
-   * move-constructed into a new allocation. */
-  array(array&& other) : array(std::move(other), Alloc()) {}
-  array(array&& other, const Alloc& alloc)
-      : alloc_(alloc), buffer_(nullptr), buffer_size_(0), base_(nullptr) {
-    if (alloc_ != other.get_allocator()) {
-      shape_ = other.shape_;
-      allocate();
-      move_construct(other);
-    } else {
-      using std::swap;
+   * is propagate_on_container_move_assignment or the allocators of both arrays
+   * are equal this operation moves the allocation of other to this array, and
+   * the other array becomes a default constructed array. Otherwise, each element
+   * is move-constructed into a new allocation. */
+  array(array&& other) : buffer_(nullptr), buffer_size_(0), base_(nullptr) {
+    using std::swap;
+    if (std::allocator_traits<allocator_type>::propagate_on_container_move_assignment::value) {
+      swap(alloc_, other.alloc_);
       swap(buffer_, other.buffer_);
       swap(buffer_size_, other.buffer_size_);
       swap(base_, other.base_);
       swap(shape_, other.shape_);
+    } else {
+      move_array_with_non_movable_alloc(std::forward<array<T, Shape, Alloc>>(other));
     }
+  }
+
+  /** Move construct from another array `other`. If the allocator of this array
+   * and the other array are equal, this operation moves the allocation of other
+   * to this array, and the other array becomes a default constructed array. If
+   * the allocator of this and the other array are non-equal, each element is
+   * move-constructed into a new allocation. */
+  array(array&& other, const Alloc& alloc)
+      : alloc_(alloc), buffer_(nullptr), buffer_size_(0), base_(nullptr) {
+    move_array_with_non_movable_alloc(std::forward<array<T, Shape, Alloc>>(other));
   }
 
   ~array() { deallocate(); }
