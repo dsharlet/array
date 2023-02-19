@@ -2270,7 +2270,8 @@ public:
   /** Copy construct from another array `other`, using copy's allocator. This is
    * a deep copy of the contents of `other`. */
   array(const array& other)
-      : array(alloc_traits::select_on_container_copy_construction(other.get_allocator())) {
+      : alloc_(alloc_traits::select_on_container_copy_construction(other.get_allocator())),
+        buffer_(nullptr), buffer_size_(0), base_(nullptr) {
     assign(other);
   }
 
