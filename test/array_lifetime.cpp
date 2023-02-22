@@ -30,44 +30,50 @@ typedef std::allocator<lifetime_counter> std_alloc;
 typedef auto_allocator<lifetime_counter, 256> auto_alloc_big;
 typedef auto_allocator<lifetime_counter, 32> auto_alloc_small;
 
+template <typename Moveable>
 class custom_alloc {
 public:
+  static size_t constructs;
+  static size_t destructs;
+
+  static void reset_lifetime_counters() { 
+    constructs = 0;
+    destructs = 0;
+  }
+
+  custom_alloc(int state = 0) : state_(0) { constructs++; }
+  custom_alloc(const custom_alloc& other) : state_(other.state_) { constructs++; }
+  custom_alloc(custom_alloc&& other) : state_(other.state_) { }  // Don't count move constructs, which would otherwise be counted in select_on_container_copy_construction calls.
+  ~custom_alloc() { destructs++; }
+
+  custom_alloc& operator=(const custom_alloc& other) = default;
+  custom_alloc& operator=(custom_alloc&& other) = default;
+
   typedef lifetime_counter value_type;
 
-  typedef std::true_type propagate_on_container_copy_assignment;
-  typedef std::true_type propagate_on_container_move_assignment;
-  typedef std::true_type propagate_on_container_swap;
+  typedef Moveable propagate_on_container_copy_assignment;
+  typedef Moveable propagate_on_container_move_assignment;
+  typedef Moveable propagate_on_container_swap;
 
   lifetime_counter* allocate(size_t n) {
     return reinterpret_cast<lifetime_counter*>(malloc(n * sizeof(lifetime_counter)));
   }
   void deallocate(lifetime_counter* p, size_t) noexcept { free(p); }
 
-  bool operator==(const custom_alloc& other) const { return true; }
-  bool operator!=(const custom_alloc& other) const { return false; }
-};
-
-class stateful_movable_custom_alloc {
-public:
-  stateful_movable_custom_alloc(int val = 0) : val_(val) {}
-
-  typedef lifetime_counter value_type;
-
-  typedef std::true_type propagate_on_container_copy_assignment;
-  typedef std::true_type propagate_on_container_move_assignment;
-  typedef std::true_type propagate_on_container_swap;
-
-  lifetime_counter* allocate(size_t n) {
-    return reinterpret_cast<lifetime_counter*>(malloc(n * sizeof(lifetime_counter)));
-  }
-  void deallocate(lifetime_counter* p, size_t) noexcept { free(p); }
-
-  bool operator==(const stateful_movable_custom_alloc& other) const { return val_ == other.val_; }
-  bool operator!=(const stateful_movable_custom_alloc& other) const { return val_ != other.val_; }
+  bool operator==(const custom_alloc& other) const { return state_ == other.state_; }
+  bool operator!=(const custom_alloc& other) const { return state_ != other.state_; }
 
 private:
-  int val_;
+  int state_;
 };
+
+template <typename Moveable>
+size_t custom_alloc<Moveable>::constructs = 0;
+template <typename Moveable>
+size_t custom_alloc<Moveable>::destructs = 0;
+
+using movable_custom_alloc = custom_alloc<std::true_type>;
+using immovable_custom_alloc = custom_alloc<std::false_type>;
 
 template <typename Alloc>
 void test_default_init_lifetime() {
@@ -78,10 +84,15 @@ void test_default_init_lifetime() {
 }
 
 TEST(array_default_init_lifetime) {
+  movable_custom_alloc::reset_lifetime_counters();
+  immovable_custom_alloc::reset_lifetime_counters();
   test_default_init_lifetime<std_alloc>();
-  test_default_init_lifetime<custom_alloc>();
+  test_default_init_lifetime<movable_custom_alloc>();
+  test_default_init_lifetime<immovable_custom_alloc>();
   test_default_init_lifetime<auto_alloc_big>();
   test_default_init_lifetime<auto_alloc_small>();
+  ASSERT_EQ(movable_custom_alloc::constructs, 1);
+  ASSERT_EQ(immovable_custom_alloc::constructs, 1);
 }
 
 template <typename Alloc>
@@ -95,10 +106,15 @@ void test_default_init_constant_lifetime() {
 }
 
 TEST(array_default_init_constant_lifetime) {
+  movable_custom_alloc::reset_lifetime_counters();
+  immovable_custom_alloc::reset_lifetime_counters();
   test_default_init_constant_lifetime<std_alloc>();
-  test_default_init_constant_lifetime<custom_alloc>();
+  test_default_init_constant_lifetime<movable_custom_alloc>();
+  test_default_init_constant_lifetime<immovable_custom_alloc>();
   test_default_init_constant_lifetime<auto_alloc_big>();
   test_default_init_constant_lifetime<auto_alloc_small>();
+  ASSERT_EQ(movable_custom_alloc::constructs, 1);
+  ASSERT_EQ(immovable_custom_alloc::constructs, 1);
 }
 
 template <typename Alloc>
@@ -110,10 +126,15 @@ void test_copy_init_lifetime() {
 }
 
 TEST(array_copy_init_lifetime) {
+  movable_custom_alloc::reset_lifetime_counters();
+  immovable_custom_alloc::reset_lifetime_counters();
   test_copy_init_lifetime<std_alloc>();
-  test_copy_init_lifetime<custom_alloc>();
+  test_copy_init_lifetime<movable_custom_alloc>();
+  test_copy_init_lifetime<immovable_custom_alloc>();
   test_copy_init_lifetime<auto_alloc_big>();
   test_copy_init_lifetime<auto_alloc_small>();
+  ASSERT_EQ(movable_custom_alloc::constructs, 1);
+  ASSERT_EQ(immovable_custom_alloc::constructs, 1);
 }
 
 template <typename Alloc>
@@ -123,7 +144,7 @@ void test_copy_lifetime() {
   { lifetime_array<Alloc> copy(source); }
   ASSERT_EQ(lifetime_counter::copy_constructs, lifetime_shape.size());
   ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size());
-
+  
   lifetime_counter::reset();
   {
     lifetime_array<Alloc> dest(lifetime_subshape);
@@ -134,22 +155,21 @@ void test_copy_lifetime() {
 }
 
 TEST(array_copy_lifetime) {
+  movable_custom_alloc::reset_lifetime_counters();
+  immovable_custom_alloc::reset_lifetime_counters();
   test_copy_lifetime<std_alloc>();
-  test_copy_lifetime<custom_alloc>();
+  test_copy_lifetime<movable_custom_alloc>();
+  test_copy_lifetime<immovable_custom_alloc>();
   test_copy_lifetime<auto_alloc_big>();
   test_copy_lifetime<auto_alloc_small>();
+  ASSERT_EQ(movable_custom_alloc::constructs, 3);
+  ASSERT_EQ(immovable_custom_alloc::constructs, 3);
 }
 
 template <typename Alloc>
-void test_move_lifetime(bool alloc_movable = true) {
+void test_move_lifetime(const Alloc& alloc, bool alloc_movable = true) {
   {
-    lifetime_array<Alloc> source;
-    if constexpr (std::is_same<Alloc, stateful_movable_custom_alloc>::value) {
-      // A custom allocator that has a different state than the default.
-      source = lifetime_array<Alloc>(lifetime_shape, Alloc(1));
-    } else {
-      source = lifetime_array<Alloc>(lifetime_shape);
-    }
+    lifetime_array<Alloc> source(lifetime_shape, alloc);
     lifetime_counter::reset();
     lifetime_array<Alloc> move(std::move(source));
   }
@@ -163,7 +183,7 @@ void test_move_lifetime(bool alloc_movable = true) {
     ASSERT_EQ(lifetime_counter::moves(), lifetime_shape.size());
     ASSERT_EQ(lifetime_counter::destructs, lifetime_shape.size() * 2);
   }
-
+ 
   {
     lifetime_array<Alloc> source(lifetime_shape);
     lifetime_counter::reset();
@@ -176,11 +196,16 @@ void test_move_lifetime(bool alloc_movable = true) {
 }
 
 TEST(array_move_lifetime) {
-  test_move_lifetime<std_alloc>();
-  test_move_lifetime<custom_alloc>();
-  test_move_lifetime<stateful_movable_custom_alloc>();
-  test_move_lifetime<auto_alloc_big>(false);
-  test_move_lifetime<auto_alloc_small>();
+  movable_custom_alloc::reset_lifetime_counters();
+  immovable_custom_alloc::reset_lifetime_counters();
+  test_move_lifetime(std_alloc());
+  test_move_lifetime(movable_custom_alloc());
+  test_move_lifetime(immovable_custom_alloc());
+  test_move_lifetime(movable_custom_alloc(1));
+  test_move_lifetime(auto_alloc_big(), false);
+  test_move_lifetime(auto_alloc_small());
+  ASSERT_EQ(movable_custom_alloc::constructs, 2 * 4);  // We run tests with movable_custom_alloc twice.
+  ASSERT_EQ(immovable_custom_alloc::constructs, 5);
 }
 
 template <typename Alloc>
@@ -203,10 +228,15 @@ void test_move_alloc_lifetime(bool alloc_movable = true) {
 }
 
 TEST(array_move_alloc_lifetime) {
+  movable_custom_alloc::reset_lifetime_counters();
+  immovable_custom_alloc::reset_lifetime_counters();
   test_move_alloc_lifetime<std_alloc>();
-  test_move_alloc_lifetime<custom_alloc>();
+  test_move_alloc_lifetime<movable_custom_alloc>();
+  test_move_alloc_lifetime<immovable_custom_alloc>();
   test_move_alloc_lifetime<auto_alloc_big>(false);
   test_move_alloc_lifetime<auto_alloc_small>();
+  ASSERT_EQ(movable_custom_alloc::constructs, 3);
+  ASSERT_EQ(immovable_custom_alloc::constructs, 3);
 }
 
 template <typename Alloc>
@@ -222,10 +252,15 @@ void test_copy_assign_lifetime() {
 }
 
 TEST(array_copy_assign_lifetime) {
+  movable_custom_alloc::reset_lifetime_counters();
+  immovable_custom_alloc::reset_lifetime_counters();
   test_copy_assign_lifetime<std_alloc>();
-  test_copy_assign_lifetime<custom_alloc>();
+  test_copy_assign_lifetime<movable_custom_alloc>();
+  test_copy_assign_lifetime<immovable_custom_alloc>();
   test_copy_assign_lifetime<auto_alloc_big>();
   test_copy_assign_lifetime<auto_alloc_small>();
+  ASSERT_EQ(movable_custom_alloc::constructs, 2);
+  ASSERT_EQ(immovable_custom_alloc::constructs, 2);
 }
 
 template <typename Alloc>
@@ -249,10 +284,15 @@ void test_move_assign_lifetime(bool alloc_movable = true) {
 }
 
 TEST(array_move_assign_lifetime) {
+  movable_custom_alloc::reset_lifetime_counters();
+  immovable_custom_alloc::reset_lifetime_counters();
   test_move_assign_lifetime<std_alloc>();
-  test_move_assign_lifetime<custom_alloc>();
+  test_move_assign_lifetime<movable_custom_alloc>();
+  test_move_assign_lifetime<immovable_custom_alloc>();
   test_move_assign_lifetime<auto_alloc_big>(false);
   test_move_assign_lifetime<auto_alloc_small>();
+  ASSERT_EQ(movable_custom_alloc::constructs, 2);
+  ASSERT_EQ(immovable_custom_alloc::constructs, 2);
 }
 
 template <typename Alloc>
@@ -265,10 +305,15 @@ void test_clear_lifetime() {
 }
 
 TEST(array_clear_lifetime) {
+  movable_custom_alloc::reset_lifetime_counters();
+  immovable_custom_alloc::reset_lifetime_counters();
   test_clear_lifetime<std_alloc>();
-  test_clear_lifetime<custom_alloc>();
+  test_clear_lifetime<movable_custom_alloc>();
+  test_clear_lifetime<immovable_custom_alloc>();
   test_clear_lifetime<auto_alloc_big>();
   test_clear_lifetime<auto_alloc_small>();
+  ASSERT_EQ(movable_custom_alloc::constructs, 1);
+  ASSERT_EQ(immovable_custom_alloc::constructs, 1);
 }
 
 template <typename Alloc>
@@ -298,10 +343,15 @@ void test_reshape_lifetime(bool alloc_movable = true) {
 }
 
 TEST(array_reshape_lifetime) {
+  movable_custom_alloc::reset_lifetime_counters();
+  immovable_custom_alloc::reset_lifetime_counters();
   test_reshape_lifetime<std_alloc>();
-  test_reshape_lifetime<custom_alloc>();
+  test_reshape_lifetime<movable_custom_alloc>();
+  test_reshape_lifetime<immovable_custom_alloc>();
   test_reshape_lifetime<auto_alloc_big>(false);
   test_reshape_lifetime<auto_alloc_small>();
+  ASSERT_EQ(movable_custom_alloc::constructs, 2);
+  ASSERT_EQ(immovable_custom_alloc::constructs, 2);
 }
 
 template <typename Alloc>
@@ -323,10 +373,15 @@ void test_swap_lifetime(bool alloc_movable = true) {
 }
 
 TEST(array_swap_lifetime) {
+  movable_custom_alloc::reset_lifetime_counters();
+  immovable_custom_alloc::reset_lifetime_counters();
   test_swap_lifetime<std_alloc>();
-  test_swap_lifetime<custom_alloc>();
+  test_swap_lifetime<movable_custom_alloc>();
+  test_swap_lifetime<immovable_custom_alloc>();
   test_swap_lifetime<auto_alloc_big>(false);
   test_swap_lifetime<auto_alloc_small>();
+  ASSERT_EQ(movable_custom_alloc::constructs, 2);
+  ASSERT_EQ(immovable_custom_alloc::constructs, 3);
 }
 
 template <typename Alloc>
@@ -376,10 +431,15 @@ void test_lifetime_leaks() {
 }
 
 TEST(array_lifetime_leaks) {
+  movable_custom_alloc::reset_lifetime_counters();
+  immovable_custom_alloc::reset_lifetime_counters();
   test_lifetime_leaks<std_alloc>();
-  test_lifetime_leaks<custom_alloc>();
+  test_lifetime_leaks<movable_custom_alloc>();
+  test_lifetime_leaks<immovable_custom_alloc>();
   test_lifetime_leaks<auto_alloc_big>();
   test_lifetime_leaks<auto_alloc_small>();
+  ASSERT_EQ(movable_custom_alloc::constructs, 13);
+  ASSERT_EQ(immovable_custom_alloc::constructs, 13);
 }
 
 TEST(array_lifetime_uninitialized) {
