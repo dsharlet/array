@@ -204,7 +204,7 @@ TEST(array_move_lifetime) {
   test_move_lifetime(movable_custom_alloc(1));
   test_move_lifetime(auto_alloc_big(), false);
   test_move_lifetime(auto_alloc_small());
-  ASSERT_EQ(movable_custom_alloc::constructs, 8);  // TODO: This seems high. The number below is correct (4 in the test itself, one in the caller).
+  ASSERT_EQ(movable_custom_alloc::constructs, 2 * 4);  // We run tests with movable_custom_alloc twice.
   ASSERT_EQ(immovable_custom_alloc::constructs, 5);
 }
 
