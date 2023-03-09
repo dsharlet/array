@@ -1017,10 +1017,8 @@ public:
 private:
   dims_type dims_;
 
-  // TODO: This should use std::is_constructible<dims_type, std::tuple<OtherDims...>>
-  // but it is broken on some compilers (https://github.com/dsharlet/array/issues/20).
   template <class... OtherDims>
-  using enable_if_dims_compatible = std::enable_if_t<sizeof...(OtherDims) == rank()>;
+  using enable_if_dims_compatible = std::enable_if_t<std::is_constructible<dims_type, std::tuple<OtherDims...>>::value>;
 
   template <class... Args>
   using enable_if_same_rank = std::enable_if_t<(sizeof...(Args) == rank())>;
