@@ -416,7 +416,9 @@ public:
       class = internal::disable_if_not_equal<Extent, CopyExtent>,
       class = internal::disable_if_not_equal<Stride, CopyStride>>
   NDARRAY_HOST_DEVICE dim(const dim<CopyMin, CopyExtent, CopyStride>& other)
-      : dim(other.min(), other.extent(), other.stride()) {}
+      : dim(other.min(), other.extent()) {
+    set_stride(other.stride());
+  }
   template <index_t CopyMin, index_t CopyExtent, index_t CopyStride,
       class = internal::disable_if_not_equal<Min, CopyMin>,
       class = internal::disable_if_not_equal<Extent, CopyExtent>,
@@ -441,7 +443,17 @@ public:
   /** Get or set the distance in flat indices between neighboring elements
    * in this dim. */
   NDARRAY_INLINE NDARRAY_HOST_DEVICE index_t stride() const { return stride_; }
-  NDARRAY_INLINE NDARRAY_HOST_DEVICE void set_stride(index_t stride) { stride_ = stride; }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE void set_stride(index_t stride) {
+    if (internal::is_static(Stride_)) {
+      if (internal::is_resolved(stride)) {
+        assert(stride == Stride_);
+      } else {
+        // It is valid to set a static stride to unresolved - it is a noop.
+        return;
+      }
+    }
+    stride_ = stride;
+  }
 
   /** Offset of the index `at` in this dim in the flat array. */
   NDARRAY_INLINE NDARRAY_HOST_DEVICE index_t flat_offset(index_t at) const {
@@ -2226,10 +2238,13 @@ private:
     }
   }
 
-  static Alloc get_allocator_for_move(array& other, std::true_type) { return std::move(other.alloc_); }
+  static Alloc get_allocator_for_move(array& other, std::true_type) {
+    return std::move(other.alloc_);
+  }
   static Alloc get_allocator_for_move(array& other, std::false_type) { return Alloc(); }
   static Alloc get_allocator_for_move(array& other) {
-    return get_allocator_for_move(other, typename alloc_traits::propagate_on_container_move_assignment());
+    return get_allocator_for_move(
+        other, typename alloc_traits::propagate_on_container_move_assignment());
   }
 
   void swap_except_allocator(array& other) {
@@ -2289,7 +2304,8 @@ public:
     using std::swap;
     // If we already took other's allocator, it might be in an undefined state.
     // Just assume we can swap in that case.
-    if (typename alloc_traits::propagate_on_container_move_assignment() || alloc_ == other.get_allocator()) {
+    if (typename alloc_traits::propagate_on_container_move_assignment() ||
+        alloc_ == other.get_allocator()) {
       swap_except_allocator(other);
     } else {
       shape_ = other.shape_;
