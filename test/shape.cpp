@@ -421,12 +421,34 @@ TEST(shape_is_in_range_2d) {
   ASSERT(!s.is_in_range(x, -4));
 }
 
-TEST(shape_conversion) {
+TEST(dim_conversion) {
   dense_dim<> x_dense(0, 10);
   dim<> x = x_dense;
 
   assert_dim_eq(x, dim<>(0, 10, 1));
 
+  dim<> y(5, 15);
+  dense_dim<> y_dense(y);
+  assert_dim_eq(y_dense, dense_dim<>(5, 15));
+  dense_dim<> y_dense2 = y;
+  assert_dim_eq(y_dense2, dense_dim<>(5, 15));
+}
+
+TEST(dim_set_stride) {
+  dim<> x(3, 10, 4);
+  x.set_stride(5);
+  ASSERT_EQ(x.stride(), 5);
+
+  dim<dynamic, dynamic, 4> y(100, 120);
+  // set_stride(unresolved) is a valid noop on a static stride.
+  y.set_stride(unresolved);
+  ASSERT_EQ(y.stride(), 4);
+
+  // Uncommenting this will cause an assertion failure.
+  // y.set_stride(5);
+}
+
+TEST(shape_conversion) {
   dense_shape<2> static_dense({0, 10}, {1, 5});
   shape_of_rank<2> dense = static_dense;
   ASSERT_EQ(dense, static_dense);
@@ -436,6 +458,10 @@ TEST(shape_conversion) {
 
   dense_shape<2> static_dense2(dense);
   ASSERT_EQ(dense, static_dense2);
+
+  shape_of_rank<2> dense_unresolved({0, 10}, {1, 5});
+  dense_shape<2> static_dense3(dense);
+  ASSERT_EQ(dense, static_dense3);
 
   ASSERT(is_compatible<dense_shape<2>>(dense));
 
@@ -531,7 +557,7 @@ TEST(shape_make_compact) {
   assert_shapes_eq(make_compact(s6), s6_compact);
 }
 
-TEST(shape_fixed_dense) { 
+TEST(shape_fixed_dense) {
   shape<dim<0, 2, 1>, dim<0, 3, 2>, dim<0, 4, 6>, dim<0, 5, 24>> s1;
   fixed_dense_shape<2, 3, 4, 5> s1_fixed;
   assert_shapes_eq(s1, s1_fixed);
