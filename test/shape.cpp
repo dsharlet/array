@@ -444,7 +444,7 @@ TEST(dim_set_stride) {
   y.set_stride(unresolved);
   ASSERT_EQ(y.stride(), 4);
 
-  // Uncommenting this will be an assertion failure.
+  // Uncommenting this will cause an assertion failure.
   // y.set_stride(5);
 }
 

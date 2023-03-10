@@ -445,14 +445,10 @@ public:
   NDARRAY_INLINE NDARRAY_HOST_DEVICE index_t stride() const { return stride_; }
   NDARRAY_INLINE NDARRAY_HOST_DEVICE void set_stride(index_t stride) {
     if (internal::is_static(Stride_)) {
-      if (internal::is_resolved(stride)) {
-        assert(stride == Stride_);
-      } else {
-        // It is valid to set a static stride to unresolved - it is a noop.
-        return;
-      }
+      assert(internal::is_unresolved(stride) || stride == Stride_);
+    } else {
+      stride_ = stride;
     }
-    stride_ = stride;
   }
 
   /** Offset of the index `at` in this dim in the flat array. */
