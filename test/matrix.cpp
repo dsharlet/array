@@ -84,6 +84,17 @@ TEST(small_vector_ok) { (void)makeBazOk(); }
 // small_vector_error Assertion failed: (base_ || shape_.empty()), function destroy, file array.h,
 // line 2223.
 // - because base_ == null.
-TEST(small_vector_error) { (void)makeBazError(); }
+// TEST(small_vector_error) { (void)makeBazError(); }
+
+// Even simpler error.
+TEST(small_vector_error2) {
+  small_vector<uint16_t, 4> x;
+  small_vector<uint16_t, 4> y(x);
+}
+
+TEST(small_vector_error3) {
+  small_vector<uint16_t, 4> x;
+  small_vector<uint16_t, 4> y = x;
+}
 
 } // namespace nda
