@@ -2220,6 +2220,7 @@ private:
 
   // Call the dstructor on every element.
   void destroy() {
+    fprintf(stderr, "base_ = %p, shape_.empty() = %d\n'", base_, shape_.empty());
     assert(base_ || shape_.empty());
     for_each_value([&](T& x) { alloc_traits::destroy(alloc_, &x); });
   }
