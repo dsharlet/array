@@ -2397,7 +2397,7 @@ public:
       }
       return;
     }
-    if (shape_ == other.shape_) {
+    if (base_ && shape_ == other.shape_) {
       destroy();
     } else {
       deallocate();
@@ -2416,7 +2416,7 @@ public:
       }
       return;
     }
-    if (shape_ == other.shape_) {
+    if (base_ && shape_ == other.shape_) {
       destroy();
     } else {
       deallocate();
