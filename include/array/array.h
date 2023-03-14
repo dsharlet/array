@@ -2220,7 +2220,6 @@ private:
 
   // Call the dstructor on every element.
   void destroy() {
-    fprintf(stderr, "base_ = %p, shape_.empty() = %d\n'", base_, shape_.empty());
     assert(base_ || shape_.empty());
     for_each_value([&](T& x) { alloc_traits::destroy(alloc_, &x); });
   }
@@ -2398,7 +2397,7 @@ public:
       }
       return;
     }
-    if (shape_ == other.shape_) {
+    if (base_ && shape_ == other.shape_) {
       destroy();
     } else {
       deallocate();
@@ -2417,7 +2416,7 @@ public:
       }
       return;
     }
-    if (shape_ == other.shape_) {
+    if (base_ && shape_ == other.shape_) {
       destroy();
     } else {
       deallocate();

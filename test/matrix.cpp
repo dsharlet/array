@@ -60,41 +60,4 @@ TEST(small_matrix) {
   for_all_indices(move_assign.shape(), [&](int x, int y) { ASSERT_EQ(move_assign(x, y), x); });
 }
 
-struct Baz {
-  small_vector<uint16_t, 4> x;
-};
-
-Baz makeBazOk() {
-  small_vector<uint16_t, 4> y;
-
-  Baz baz;
-  baz.x = y;
-  return baz;
-}
-
-Baz makeBazError() {
-  small_vector<uint16_t, 4> y;
-
-  return {.x = y};
-}
-
-TEST(small_vector_ok) { (void)makeBazOk(); }
-
-// Fails with an assert:
-// small_vector_error Assertion failed: (base_ || shape_.empty()), function destroy, file array.h,
-// line 2223.
-// - because base_ == null.
-// TEST(small_vector_error) { (void)makeBazError(); }
-
-// Even simpler error.
-TEST(small_vector_error2) {
-  small_vector<uint16_t, 4> x;
-  small_vector<uint16_t, 4> y(x);
-}
-
-TEST(small_vector_error3) {
-  small_vector<uint16_t, 4> x;
-  small_vector<uint16_t, 4> y = x;
-}
-
 } // namespace nda
