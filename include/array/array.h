@@ -795,6 +795,12 @@ NDARRAY_HOST_DEVICE bool is_stride_ok(index_t stride, index_t extent, const Dim&
     // resolving the current dim first.
     return true;
   }
+  if (extent == 1 && abs(stride) == abs(dim.stride()) && dim.extent() > 1) {
+    // Special-cases "extent == 1" to avoid unexpectedly giving a stride of 1 for
+    // outer dimensions; e.g. the y-stride for single-row interleaved images, or
+    // the plane-stride for single-plane Planar images.
+    return false;
+  }
   if (dim.extent() * abs(dim.stride()) <= stride) {
     // The dim is completely inside the proposed stride.
     return true;
