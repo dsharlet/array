@@ -795,6 +795,15 @@ NDARRAY_HOST_DEVICE bool is_stride_ok(index_t stride, index_t extent, const Dim&
     // resolving the current dim first.
     return true;
   }
+  if (extent == 1 && abs(stride) == abs(dim.stride()) && dim.extent() > 1) {
+    // If a dimension is extent 1, avoid giving this dimension the same stride
+    // as another dimension with extent greater than 1. This doesn't affect the
+    // results of most programs (because the stride only ever multiplied with
+    // zero), but it makes the strides less objectionable to asserts in some
+    // other libraries that make extra assumptions about images, and may be
+    // easier to understand.
+    return false;
+  }
   if (dim.extent() * abs(dim.stride()) <= stride) {
     // The dim is completely inside the proposed stride.
     return true;

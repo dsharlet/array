@@ -178,10 +178,11 @@ TEST(auto_strides) {
   check_resolved_strides<1>({{3, 5, unresolved}}, {1});
   check_resolved_strides<2>({5, 10}, {1, 5});
 
-  // Small interleaved.
-  // TODO: This test would be nice to enable, but the automatic strides are too clever.
-  // x is given a stride of 1, which is safe and correct, but annoying.
-  // check_resolved_strides<3>({1, 1, {0, 2, 1}}, {2, 2, 1});
+  // Stride one dimensions mixed in with extent 1 dimensions.
+  check_resolved_strides<3>({1, 1, {0, 2, 1}}, {2, 2, 1});
+  check_resolved_strides<3>({1, {0, 2, 1}, 1}, {2, 1, 2});
+  check_resolved_strides<3>({1, 10, {0, 2, 1}}, {2, 2, 1});
+  check_resolved_strides<3>({5, {0, 2, 1}, 1}, {2, 1, 10});
 
   // Interleaved with row stride.
   check_resolved_strides<3>({5, {0, 4, 20}, {0, 3, 1}}, {3, 20, 1});
