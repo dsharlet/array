@@ -796,9 +796,12 @@ NDARRAY_HOST_DEVICE bool is_stride_ok(index_t stride, index_t extent, const Dim&
     return true;
   }
   if (extent == 1 && abs(stride) == abs(dim.stride()) && dim.extent() > 1) {
-    // Special-cases "extent == 1" to avoid unexpectedly giving a stride of 1 for
-    // outer dimensions; e.g. the y-stride for single-row interleaved images, or
-    // the plane-stride for single-plane Planar images.
+    // If a dimension is extent 1, avoid giving this dimension the same stride
+    // as another dimension with extent greater than 1. This doesn't affect the
+    // results of most programs (because the stride only ever multiplied with
+    // zero), but it makes the strides less objectionable to asserts in some
+    // other libraries that make extra assumptions about images, and may be
+    // easier to understand.
     return false;
   }
   if (dim.extent() * abs(dim.stride()) <= stride) {
