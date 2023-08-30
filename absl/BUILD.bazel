@@ -6,14 +6,15 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//:array",
+        "@com_google_absl//absl/hash",
         "@com_google_absl//absl/strings:str_format",
     ],
 )
 
 cc_test(
-    name = "absl_test",
+    name = "absl_stringify_test",
     srcs = [
-        "absl_test.cpp",
+        "absl_stringify_test.cpp",
     ],
     deps = [
         ":absl",
@@ -21,5 +22,18 @@ cc_test(
         "//test:test_main",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cc_test(
+    name = "absl_hash_test",
+    srcs = [
+        "absl_hash_test.cpp",
+    ],
+    deps = [
+        ":absl",
+        "//:array",
+        "@com_google_absl//absl/hash:hash_testing",
+        "@com_google_googletest//:gtest_main",
     ],
 )

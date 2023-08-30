@@ -2,6 +2,7 @@ load(
     "//:third_party_repositories.bzl",
     "bazel_skylib",
     "com_google_absl",
+    "com_google_googletest",
 )
 
 # Make Bazel skylib available (required by abseil-cpp).
@@ -9,3 +10,6 @@ bazel_skylib()
 
 # Make abseil-cpp available.
 com_google_absl()
+
+# Make googletest available.
+com_google_googletest()

@@ -1,13 +1,34 @@
 #ifndef NDARRAY_ABSL_ABSL_H
 #define NDARRAY_ABSL_ABSL_H
 
+#include "absl/hash/hash.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "array/array.h"
 
-// Adds Abseil Stringify support (https://abseil.io/blog/20221115-stringify).
+// Adds support for Abseil's Hash (https://abseil.io/docs/cpp/guides/hash) and
+// Stringify (https://abseil.io/docs/cpp/guides/strings) extensions.
 
 namespace nda {
+
+// ===== AbslHashValue =====
+
+template <typename H, index_t Min, index_t Extent>
+H AbslHashValue(H h, const interval<Min, Extent>& i) {
+  return H::combine(std::move(h), i.min(), i.extent());
+}
+
+template <typename H, index_t Min, index_t Extent, index_t Stride>
+H AbslHashValue(H h, const dim<Min, Extent, Stride>& d) {
+  return H::combine(std::move(h), d.min(), d.extent(), d.stride());
+}
+
+template <typename H, class... Dims>
+H AbslHashValue(H h, const shape<Dims...>& sh) {
+  return H::combine(std::move(h), sh);
+}
+
+// ===== AbslStringify =====
 
 // interval -> string as the half-open interval [begin, end).
 //

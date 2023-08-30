@@ -22,3 +22,14 @@ def com_google_absl():
             "https://github.com/abseil/abseil-cpp/archive/6a876051b118c86e8bfa51961270055da5948813.zip",
         ],
     )
+
+def com_google_googletest():
+    maybe(
+        http_archive,
+        name = "com_google_googletest",
+        sha256 = "353571c2440176ded91c2de6d6cd88ddd41401d14692ec1f99e35d013feda55a",
+        strip_prefix = "googletest-release-1.11.0",
+        urls = [
+            "https://github.com/google/googletest/archive/refs/tags/release-1.11.0.zip",
+        ],
+    )
