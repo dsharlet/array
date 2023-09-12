@@ -115,7 +115,7 @@ template <class T>
 NOINLINE void multiply_ein_reduce_matrix(
     const_matrix_ref<T> A, const_matrix_ref<T> B, matrix_ref<T> C) {
   fill(C, static_cast<T>(0));
-  enum { i = 0, j = 1, k = 2 };
+  enum { i = 1, j = 0, k = 2 };
   ein_reduce(ein<i, j>(C) += ein<i, k>(A) * ein<k, j>(B));
 }
 
