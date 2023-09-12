@@ -46,7 +46,7 @@ template <typename T>
 NOINLINE void multiply_ein_reduce_cols(
     const_matrix_ref<T> A, const_matrix_ref<T> B, matrix_ref<T> C) {
   fill(C, static_cast<T>(0));
-  enum { i = 1, j = 2, k = 0 };
+  enum { i = 2, j = 1, k = 0 };
   ein_reduce(ein<i, j>(C) += ein<i, k>(A) * ein<k, j>(B));
 }
 
@@ -230,7 +230,7 @@ NOINLINE void multiply_ein_reduce_tiles(
     for (auto jo : split<tile_cols>(C.j())) {
       // Make a reference to this tile of the output.
       auto C_ijo = C(io, jo);
-      enum { i = 0, j = 1, k = 2 };
+      enum { i = 1, j = 0, k = 2 };
 #if 0
       // This scalarizes :( It would likely be fast if LLVM implemented
       //  __restrict__: https://bugs.llvm.org/show_bug.cgi?id=45863.
