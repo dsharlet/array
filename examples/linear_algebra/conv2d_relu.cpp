@@ -97,6 +97,8 @@ void conv2d_tiled(const Input& input, const Filter& filter, const Bias& bias, co
 template <index_t X, index_t Y, index_t Z, index_t W>
 using tensor_shape = shape<dense_dim<0, X>, dim<0, Y, X>, dim<0, Z, X * Y>, dim<0, W, X * Y * Z>>;
 
+float relative_error(float a, float b) { return std::abs(a - b) / std::max(a, b); }
+
 int main(int, const char**) {
   constexpr int N = 5;
   constexpr int CI = 128;
@@ -127,9 +129,9 @@ int main(int, const char**) {
       benchmark([&]() { conv2d_tiled(input.cref(), filter.cref(), bias.cref(), tiled_output.ref()); });
   std::cout << "tiled time: " << tiled_time * 1e3 << " ms" << std::endl;
 
-  const float epsilon = 1e-4f;
+  const float epsilon = 1e-5f;
   for_each_index(naive_output.shape(), [&](const index_of_rank<4>& i) {
-    if (std::abs(naive_output[i] - tiled_output[i]) > epsilon) {
+    if (relative_error(naive_output[i], tiled_output[i]) > epsilon) {
       std::cout << "naive_output(i) = " << naive_output[i]
                 << " != tiled_output(i) = " << tiled_output[i] << std::endl;
     }
