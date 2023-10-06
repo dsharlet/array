@@ -1043,12 +1043,19 @@ private:
   using enable_if_same_rank = std::enable_if_t<(sizeof...(Args) == rank())>;
 
   template <class... Args>
-  using enable_if_indices = std::enable_if_t<internal::all_of_type<index_t, Args...>::value>;
+  using enable_if_indices =
+      std::enable_if_t<sizeof...(Args) == rank() && internal::all_of_type<index_t, Args...>::value>;
 
   template <class... Args>
   using enable_if_slices =
-      std::enable_if_t<internal::all_of_any_type<std::tuple<interval<>, dim<>>, Args...>::value &&
+      std::enable_if_t<sizeof...(Args) == rank() &&
+                       internal::all_of_any_type<std::tuple<interval<>, dim<>>, Args...>::value &&
                        !internal::all_of_type<index_t, Args...>::value>;
+
+  template <class... Args>
+  using enable_if_slices_or_indices =
+      std::enable_if_t<sizeof...(Args) == rank() &&
+                       internal::all_of_any_type<std::tuple<interval<>, dim<>>, Args...>::value>;
 
   template <size_t Dim>
   using enable_if_dim = std::enable_if_t<(Dim < rank())>;
@@ -1103,11 +1110,11 @@ public:
   }
 
   /** Returns `true` if the indices or intervals `args` are in interval of this shape. */
-  template <class... Args, class = enable_if_same_rank<Args...>>
+  template <class... Args, class = enable_if_slices_or_indices<Args...>>
   NDARRAY_HOST_DEVICE bool is_in_range(const std::tuple<Args...>& args) const {
     return internal::is_in_range(dims_, args, dim_indices());
   }
-  template <class... Args, class = enable_if_same_rank<Args...>>
+  template <class... Args, class = enable_if_slices_or_indices<Args...>>
   NDARRAY_HOST_DEVICE bool is_in_range(Args... args) const {
     return internal::is_in_range(dims_, std::make_tuple(args...), dim_indices());
   }
@@ -1116,7 +1123,7 @@ public:
   NDARRAY_HOST_DEVICE index_t operator[](const index_type& indices) const {
     return internal::flat_offset(dims_, indices, dim_indices());
   }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_indices<Args...>>
+  template <class... Args, class = enable_if_indices<Args...>>
   NDARRAY_HOST_DEVICE index_t operator()(Args... indices) const {
     return internal::flat_offset(dims_, std::make_tuple(indices...), dim_indices());
   }
@@ -1124,13 +1131,13 @@ public:
   /** Create a new shape from this shape using a indices or intervals `args`.
    * Dimensions corresponding to indices in `args` are sliced, i.e. the result
    * will not have this dimension. The rest of the dimensions are cropped. */
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
+  template <class... Args, class = enable_if_slices<Args...>>
   NDARRAY_HOST_DEVICE auto operator[](const std::tuple<Args...>& args) const {
     auto new_dims = internal::intervals_with_strides(args, dims_, dim_indices());
     auto new_dims_no_slices = internal::skip_slices(new_dims, args, dim_indices());
     return make_shape_from_tuple(new_dims_no_slices);
   }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
+  template <class... Args, class = enable_if_slices<Args...>>
   NDARRAY_HOST_DEVICE auto operator()(Args... args) const {
     return operator[](std::make_tuple(args...));
   }
@@ -1953,14 +1960,13 @@ private:
   using enable_if_shape_compatible = internal::enable_if_shapes_compatible<Shape, OtherShape>;
 
   template <class... Args>
-  using enable_if_same_rank = std::enable_if_t<sizeof...(Args) == rank()>;
-
-  template <class... Args>
-  using enable_if_indices = std::enable_if_t<internal::all_of_type<index_t, Args...>::value>;
+  using enable_if_indices =
+      std::enable_if_t<sizeof...(Args) == rank() && internal::all_of_type<index_t, Args...>::value>;
 
   template <class... Args>
   using enable_if_slices =
-      std::enable_if_t<internal::all_of_any_type<std::tuple<interval<>, dim<>>, Args...>::value &&
+      std::enable_if_t<sizeof...(Args) == rank() &&
+                       internal::all_of_any_type<std::tuple<interval<>, dim<>>, Args...>::value &&
                        !internal::all_of_type<index_t, Args...>::value>;
 
   template <size_t Dim>
@@ -2001,7 +2007,7 @@ public:
   NDARRAY_HOST_DEVICE reference operator[](const index_type& indices) const {
     return base_[shape_[indices]];
   }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_indices<Args...>>
+  template <class... Args, class = enable_if_indices<Args...>>
   NDARRAY_HOST_DEVICE reference operator()(Args... indices) const {
     return base_[shape_(indices...)];
   }
@@ -2010,11 +2016,11 @@ public:
    * `args`. Dimensions corresponding to indices in `args` are sliced, i.e.
    * the result will not have this dimension. The rest of the dimensions are
    * cropped. */
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
+  template <class... Args, class = enable_if_slices<Args...>>
   NDARRAY_HOST_DEVICE auto operator[](const std::tuple<Args...>& args) const {
     return internal::make_array_ref_at(base_, shape_, args);
   }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
+  template <class... Args, class = enable_if_slices<Args...>>
   NDARRAY_HOST_DEVICE auto operator()(Args... args) const {
     return internal::make_array_ref_at(base_, shape_, std::make_tuple(args...));
   }
@@ -2172,14 +2178,13 @@ public:
 
 private:
   template <class... Args>
-  using enable_if_same_rank = std::enable_if_t<sizeof...(Args) == rank()>;
-
-  template <class... Args>
-  using enable_if_indices = std::enable_if_t<internal::all_of_type<index_t, Args...>::value>;
+  using enable_if_indices =
+      std::enable_if_t<sizeof...(Args) == rank() && internal::all_of_type<index_t, Args...>::value>;
 
   template <class... Args>
   using enable_if_slices =
-      std::enable_if_t<internal::all_of_any_type<std::tuple<interval<>, dim<>>, Args...>::value &&
+      std::enable_if_t<sizeof...(Args) == rank() &&
+                       internal::all_of_any_type<std::tuple<interval<>, dim<>>, Args...>::value &&
                        !internal::all_of_type<index_t, Args...>::value>;
 
   template <size_t Dim>
@@ -2455,11 +2460,11 @@ public:
   /** Get a reference to the element at `indices`. */
   reference operator[](const index_type& indices) { return base_[shape_[indices]]; }
   const_reference operator[](const index_type& indices) const { return base_[shape_[indices]]; }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_indices<Args...>>
+  template <class... Args, class = enable_if_indices<Args...>>
   reference operator()(Args... indices) {
     return base_[shape_(indices...)];
   }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_indices<Args...>>
+  template <class... Args, class = enable_if_indices<Args...>>
   const_reference operator()(Args... indices) const {
     return base_[shape_(indices...)];
   }
@@ -2467,19 +2472,19 @@ public:
   /** Create an `array_ref` from this array using indices or intervals `args`.
    * Dimensions corresponding to indices in `args` are sliced, i.e. the result
    * will not have this dimension. The rest of the dimensions are cropped. */
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
+  template <class... Args, class = enable_if_slices<Args...>>
   auto operator[](const std::tuple<Args...>& args) {
     return internal::make_array_ref_at(base_, shape_, args);
   }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
+  template <class... Args, class = enable_if_slices<Args...>>
   auto operator()(Args... args) {
     return internal::make_array_ref_at(base_, shape_, std::make_tuple(args...));
   }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
+  template <class... Args, class = enable_if_slices<Args...>>
   auto operator[](const std::tuple<Args...>& args) const {
     return internal::make_array_ref_at(base_, shape_, args);
   }
-  template <class... Args, class = enable_if_same_rank<Args...>, class = enable_if_slices<Args...>>
+  template <class... Args, class = enable_if_slices<Args...>>
   auto operator()(Args... args) const {
     return internal::make_array_ref_at(base_, shape_, std::make_tuple(args...));
   }
