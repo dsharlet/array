@@ -77,10 +77,16 @@ TEST(algorithm_copy_scalar) {
   ASSERT(a == b);
 }
 
+template <typename T>
+void unused(const T&) {}
+
 TEST(algorithm_move_scalar) {
   array_of_rank<int, 0> a;
   move_only token;
-  generate(a, [token = std::move(token)]() { return rand(); });
+  generate(a, [token = std::move(token)]() {
+    unused(token);
+    return rand();
+  });
 
   array_of_rank<int, 0> b;
   copy(a, b);
