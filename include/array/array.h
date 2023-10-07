@@ -1164,10 +1164,10 @@ public:
   NDARRAY_HOST_DEVICE dims_type& dims() { return dims_; }
   NDARRAY_HOST_DEVICE const dims_type& dims() const { return dims_; }
 
-  NDARRAY_HOST_DEVICE index_type min() const { return internal::mins(dims(), dim_indices()); }
-  NDARRAY_HOST_DEVICE index_type max() const { return internal::maxs(dims(), dim_indices()); }
-  NDARRAY_HOST_DEVICE index_type extent() const { return internal::extents(dims(), dim_indices()); }
-  NDARRAY_HOST_DEVICE index_type stride() const { return internal::strides(dims(), dim_indices()); }
+  NDARRAY_HOST_DEVICE index_type min() const { return internal::mins(dims_, dim_indices()); }
+  NDARRAY_HOST_DEVICE index_type max() const { return internal::maxs(dims_, dim_indices()); }
+  NDARRAY_HOST_DEVICE index_type extent() const { return internal::extents(dims_, dim_indices()); }
+  NDARRAY_HOST_DEVICE index_type stride() const { return internal::strides(dims_, dim_indices()); }
 
   /** Compute the min, max, or extent of the flat offsets of this shape.
    * This is the min, max, or extent of the valid interval of values returned
