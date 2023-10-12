@@ -3081,7 +3081,7 @@ public:
 
 /** Allocator satisfying the `std::allocator` interface that is a wrapper
  * around another allocator `BaseAlloc`, and skips default construction.
- * Using this allocator can be dangerous, t is only safe to use when
+ * Using this allocator can be dangerous, it is only safe to use when
  * `BaseAlloc::value_type` is a trivial type. */
 template <class BaseAlloc>
 class uninitialized_allocator : public BaseAlloc {
