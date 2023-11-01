@@ -336,7 +336,7 @@ For example, a matrix multiplication can be tiled like so:
     for (auto jo : split<tile_cols>(C.j())) {
       auto C_ijo = C(io, jo);
       fill(C_ijo, 0.0f);
-      ein_reduce(ein<i, j>(C_ijo) += ein<i, k>(A(io, _)) * ein<k, j>(B(_, jo)));
+      ein_reduce(ein<i, j>(C_ijo) += ein<i, k>(A) * ein<k, j>(B));
     }
   }
 ```
