@@ -235,14 +235,14 @@ NOINLINE void multiply_ein_reduce_tiles(
       // This scalarizes :( It would likely be fast if LLVM implemented
       //  __restrict__: https://bugs.llvm.org/show_bug.cgi?id=45863.
       fill(C_ijo, static_cast<T>(0));
-      ein_reduce(ein<i, j>(C_ijo) += ein<i, k>(A(io, _)) * ein<k, j>(B(_, jo)));
+      ein_reduce(ein<i, j>(C_ijo) += ein<i, k>(A) * ein<k, j>(B));
 #else
       // Define an accumulator buffer.
       T buffer[tile_rows * tile_cols] = {0};
       auto accumulator = make_array_ref(buffer, make_compact(C_ijo.shape()));
 
       // Perform the matrix multiplication for this tile.
-      ein_reduce(ein<i, j>(accumulator) += ein<i, k>(A(io, _)) * ein<k, j>(B(_, jo)));
+      ein_reduce(ein<i, j>(accumulator) += ein<i, k>(A) * ein<k, j>(B));
 
       // Copy the accumulators to the output.
 #if 0
