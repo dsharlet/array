@@ -341,34 +341,31 @@ For example, a matrix multiplication can be tiled like so:
   }
 ```
 
-This generates the following machine code(\*) for the inner loop using clang 11 with -O2 -ffast-math:
+This generates the following machine code(\*) for the inner loop using clang 18 with -O2 -ffast-math:
 ```assembly
-LBB8_7:
-  vmovaps %ymm12, %ymm13
-  vmovaps %ymm11, %ymm14
-  vbroadcastss  (%r13,%rcx,4), %ymm15
-  vmovups -64(%r9,%rdi,4), %ymm12
-  vmovups -32(%r9,%rdi,4), %ymm11
-  vmovups (%r9,%rdi,4), %ymm0
-  vfmadd231ps %ymm15, %ymm12, %ymm10
-  vfmadd231ps %ymm15, %ymm11, %ymm9
-  vfmadd231ps %ymm15, %ymm0, %ymm8
-  vbroadcastss  (%r14,%rcx,4), %ymm15
-  vfmadd231ps %ymm15, %ymm12, %ymm7
-  vfmadd231ps %ymm15, %ymm11, %ymm6
-  vfmadd231ps %ymm15, %ymm0, %ymm5
-  vbroadcastss  (%rsi,%rcx,4), %ymm15
-  vfmadd231ps %ymm15, %ymm12, %ymm4
-  vfmadd231ps %ymm15, %ymm11, %ymm3
-  vfmadd231ps %ymm15, %ymm0, %ymm2
-  vbroadcastss  (%rax,%rcx,4), %ymm15
-  vfmadd213ps %ymm13, %ymm15, %ymm12
-  vfmadd213ps %ymm14, %ymm15, %ymm11
-  vfmadd231ps %ymm15, %ymm0, %ymm1
-  incq  %rcx
-  addq  %rbx, %rdi
-  cmpq  %rcx, %rdx
-  jne LBB8_7
+vbroadcastss	(%rsi,%rdi,4), %ymm12
+vmovups	-64(%r12,%r15,4), %ymm13
+vmovups	-32(%r12,%r15,4), %ymm14
+vmovups	(%r12,%r15,4), %ymm15
+addq	%rbx, %r15
+vfmadd231ps	%ymm12, %ymm13, %ymm11
+vfmadd231ps	%ymm12, %ymm14, %ymm10
+vfmadd231ps	%ymm12, %ymm15, %ymm9
+vbroadcastss	(%r8,%rdi,4), %ymm12
+vfmadd231ps	%ymm12, %ymm13, %ymm8
+vfmadd231ps	%ymm12, %ymm14, %ymm7
+vfmadd231ps	%ymm12, %ymm15, %ymm6
+vbroadcastss	(%r10,%rdi,4), %ymm12
+vfmadd231ps	%ymm12, %ymm13, %ymm5
+vfmadd231ps	%ymm12, %ymm14, %ymm4
+vfmadd231ps	%ymm12, %ymm15, %ymm3
+vbroadcastss	(%rdx,%rdi,4), %ymm12
+incq	%rdi
+vfmadd231ps	%ymm13, %ymm12, %ymm2
+vfmadd231ps	%ymm14, %ymm12, %ymm1
+vfmadd231ps	%ymm12, %ymm15, %ymm0
+cmpq	%rdi, %r13
+jne	.LBB8_12
 ```
 This is **40-50x** faster than a naive C implementation of nested loops on my machine, and it should be within a factor of 2 of the peak possible performance.
 

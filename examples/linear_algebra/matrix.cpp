@@ -125,32 +125,30 @@ NOINLINE void multiply_ein_reduce_matrix(
 // to keep all of the accumulators for the output in registers. This
 // generates an inner loop that looks like:
 //
-// LBB14_7:
-//   vmovaps %ymm12, %ymm13
-//   vmovaps %ymm11, %ymm14
-//   vbroadcastss    (%r9,%rax,4), %ymm15
-//   vmovups -64(%r11,%rcx,4), %ymm12
-//   vmovups -32(%r11,%rcx,4), %ymm11
-//   vmovups (%r11,%rcx,4), %ymm0
-//   vfmadd231ps     %ymm15, %ymm12, %ymm10
-//   vfmadd231ps     %ymm15, %ymm11, %ymm9
-//   vfmadd231ps     %ymm15, %ymm0, %ymm8
-//   vbroadcastss    (%r8,%rax,4), %ymm15
-//   vfmadd231ps     %ymm15, %ymm12, %ymm7
-//   vfmadd231ps     %ymm15, %ymm11, %ymm6
-//   vfmadd231ps     %ymm15, %ymm0, %ymm5
-//   vbroadcastss    (%rdx,%rax,4), %ymm15
-//   vfmadd231ps     %ymm15, %ymm12, %ymm4
-//   vfmadd231ps     %ymm15, %ymm11, %ymm3
-//   vfmadd231ps     %ymm15, %ymm0, %ymm2
-//   vbroadcastss    (%r15,%rax,4), %ymm15
-//   vfmadd213ps     %ymm13, %ymm15, %ymm12
-//   vfmadd213ps     %ymm14, %ymm15, %ymm11
-//   vfmadd231ps     %ymm15, %ymm0, %ymm1
-//   incq    %rax
-//   addq    %rsi, %rcx
-//   cmpq    %rax, %rbx
-//   jne     LBB14_7
+//.LBB8_12:
+//	 vbroadcastss	(%rsi,%rdi,4), %ymm12
+//	 vmovups	-64(%r12,%r15,4), %ymm13
+//	 vmovups	-32(%r12,%r15,4), %ymm14
+//	 vmovups	(%r12,%r15,4), %ymm15
+//	 addq	%rbx, %r15
+//	 vfmadd231ps	%ymm12, %ymm13, %ymm11
+//	 vfmadd231ps	%ymm12, %ymm14, %ymm10
+//	 vfmadd231ps	%ymm12, %ymm15, %ymm9
+//	 vbroadcastss	(%r8,%rdi,4), %ymm12
+//	 vfmadd231ps	%ymm12, %ymm13, %ymm8
+//	 vfmadd231ps	%ymm12, %ymm14, %ymm7
+//	 vfmadd231ps	%ymm12, %ymm15, %ymm6
+//	 vbroadcastss	(%r10,%rdi,4), %ymm12
+//	 vfmadd231ps	%ymm12, %ymm13, %ymm5
+//	 vfmadd231ps	%ymm12, %ymm14, %ymm4
+//	 vfmadd231ps	%ymm12, %ymm15, %ymm3
+//	 vbroadcastss	(%rdx,%rdi,4), %ymm12
+//	 incq	%rdi
+//	 vfmadd231ps	%ymm13, %ymm12, %ymm2
+//	 vfmadd231ps	%ymm14, %ymm12, %ymm1
+//	 vfmadd231ps	%ymm12, %ymm15, %ymm0
+//	 cmpq	%rdi, %r13
+//	 jne	.LBB8_12
 //
 // This appears to achieve ~70% of the peak theoretical throughput
 // of my machine.
