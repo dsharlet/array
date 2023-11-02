@@ -183,10 +183,10 @@ TEST(readme_ein_reduce) {
   ein_reduce(ein<i, j>(AT) = ein<j, i>(A));
 
   // Maximum of each x-y plane of a 3D volume:
-  dense_array<float, 3> T({8, 12, 20});
+  dense_array<float, 3> volume({8, 12, 20});
   dense_array<float, 1> max_xy({20}, 0.0f);
   auto r = ein<k>(max_xy);
-  ein_reduce(r = max(r, ein<i, j, k>(T)));
+  ein_reduce(r = max(r, ein<i, j, k>(volume)));
 
   const float pi = std::acos(-1.0f);
 
@@ -196,7 +196,9 @@ TEST(readme_ein_reduce) {
   for_all_indices(W.shape(), [&](int j, int k) {
     W(j, k) = exp(-2.0f * pi * complex(0, 1) * (static_cast<float>(j * k) / 10));
   });
+  // Using `make_ein_sum`, returning the result:
   auto X1 = make_ein_sum<complex, j>(ein<j, k>(W) * ein<k>(x));
+  // Using `ein_reduce`, computing the result in place:
   vector<complex> X2({10}, 0.0f);
   ein_reduce(ein<j>(X2) += ein<j, k>(W) * ein<k>(x));
 

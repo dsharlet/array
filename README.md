@@ -18,8 +18,9 @@ where:
 * `strideN` are the distances in the flat offsets between elements in each dimension.
 
 Arrays efficiently support advanced manipulations like [cropping, slicing, and splitting](#slicing-cropping-and-splitting) arrays and loops, all while preserving compile-time constant parameters when possible.
-Although it is a heavily templated library, most features do not have significant code size or compile time implications, and incorrect usage generates informative and helpful error messages.
+Although it is a heavily templated library, incorrect usage generates informative and helpful error messages.
 Typically, an issue will result in only one error message, located at the site of the problem in user code.
+This is something [we test for](https://github.com/dsharlet/array/blob/master/test/errors.cpp#L18-L19).
 
 Many other libraries offering multi-dimensional arrays or tensors allow compile-time constant shapes.
 *However*, most if not all of them only allow either all of the shape parameters to be compile-time constant, or none of them.
@@ -293,8 +294,8 @@ We can use arbitrary functions as expression operands:
 ```
 
 These operations generally produce loop nests that are as readily optimized by the compiler as hand-written loops.
-For example, consider the cross product: `crosses`, `xs`, and `ys` have shape `shape<dim<0, 3>, dense_dim<>>`, so the compiler will see small constant-range loops and likely be able to optimize this to similar efficiency as hand-written code, by unrolling and evaluating the function at compile time.
-The compiler will also likely be able to efficiently vectorize the `l` dimension of the `ein_reduce`, because that dimension has a constant stride 1.
+In this example, `crosses`, `xs`, and `ys` have shape `shape<dim<0, 3>, dense_dim<>>`, so the compiler will see small constant loops and likely be able to optimize this to similar efficiency as hand-written code, by unrolling and evaluating the function at compile time.
+The compiler also should be able to efficiently vectorize the `l` dimension of the `ein_reduce`, because that dimension has a constant stride 1.
 
 The expression can be another kind of reduction, or not a reduction at all:
 ```c++
@@ -303,10 +304,10 @@ The expression can be another kind of reduction, or not a reduction at all:
   ein_reduce(ein<i, j>(AT) = ein<j, i>(A));
 
   // Maximum of each x-y plane of a 3D volume:
-  dense_array<float, 3> T({8, 12, 20});
+  dense_array<float, 3> volume({8, 12, 20});
   dense_array<float, 1> max_xy({20});
   auto r = ein<k>(max_xy);
-  ein_reduce(r = max(r, ein<i, j, k>(T)));
+  ein_reduce(r = max(r, ein<i, j, k>(volume)));
 ```
 
 Reductions can have a mix of result and operand types:
@@ -317,7 +318,9 @@ Reductions can have a mix of result and operand types:
   for_all_indices(W.shape(), [&](int j, int k) {
     W(j, k) = exp(-2.0f * pi * complex(0, 1) * (static_cast<float>(j * k) / 10));
   });
+  // Using `make_ein_sum`, returning the result:
   auto X1 = make_ein_sum<complex, j>(ein<j, k>(W) * ein<k>(x));
+  // Using `ein_reduce`, computing the result in place:
   vector<complex> X2({10}, 0.0f);
   ein_reduce(ein<j>(X2) += ein<j, k>(W) * ein<k>(x));
 ```
