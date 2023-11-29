@@ -635,10 +635,10 @@ NDARRAY_INLINE NDARRAY_HOST_DEVICE auto apply(Fn&& fn, const Args& args, index_s
     -> decltype(fn(std::get<Is>(args)...)) {
   return fn(std::get<Is>(args)...);
 }
-template <class Fn, class... Args>
-NDARRAY_INLINE NDARRAY_HOST_DEVICE auto apply(Fn&& fn, const std::tuple<Args...>& args)
-    -> decltype(internal::apply(fn, args, make_index_sequence<sizeof...(Args)>())) {
-  return internal::apply(fn, args, make_index_sequence<sizeof...(Args)>());
+template <class Fn, class Args>
+NDARRAY_INLINE NDARRAY_HOST_DEVICE auto apply(Fn&& fn, const Args& args)
+    -> decltype(internal::apply(fn, args, make_index_sequence<std::tuple_size<Args>::value>())) {
+  return internal::apply(fn, args, make_index_sequence<std::tuple_size<Args>::value>());
 }
 
 template <class Fn, class... Args>
