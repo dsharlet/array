@@ -17,6 +17,12 @@
 
 namespace nda {
 
+// Small wrapper to make writing tests below easier.
+template <class Extents, class Fn>
+void for_all_indices_z_order(const Extents& extents, const Fn& fn) {
+  internal::for_each_index_z_order(extents, [&](const auto& i) { internal::apply(fn, i); });
+}
+
 TEST(for_each_z_order_1d) {
   // A 1-d z order traversal is useless, but it should work.
   dense_array<int, 1> a({12}, 0);

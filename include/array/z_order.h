@@ -62,11 +62,8 @@ NDARRAY_UNIQUE void for_each_index_z_order_impl(const std::array<index_t, Rank>&
   }
 }
 
-} // namespace internal
-
-/** Iterate over a range of extents in "z-order", by following a z-order curve. This ordering
- * may be useful for optimizing loop traversals for locality.
- */
+// TODO: If this conformed more to the rest of the array API, perhaps it could be
+// exposed as a user API.
 template <class Extents, class Fn>
 NDARRAY_UNIQUE void for_each_index_z_order(const Extents& extents, const Fn& fn) {
   constexpr index_t Rank = std::tuple_size<Extents>::value;
@@ -77,14 +74,6 @@ NDARRAY_UNIQUE void for_each_index_z_order(const Extents& extents, const Fn& fn)
   std::array<index_t, Rank> z = {{0,}};
   internal::for_each_index_z_order_impl(end, z, Rank - 1, step, [&](const std::array<index_t, Rank>& i) { fn(i); });
 }
-template <class Extents, class Fn>
-NDARRAY_UNIQUE void for_all_indices_z_order(const Extents& extents, const Fn& fn) {
-  for_each_index_z_order(extents, [&](const auto& i) {
-    internal::apply(fn, i);
-  });
-}
-
-namespace internal {
 
 template <class... Ranges, class Fn, size_t... Is>
 NDARRAY_UNIQUE void for_each_z_order_impl(
