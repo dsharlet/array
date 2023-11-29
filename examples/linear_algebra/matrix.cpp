@@ -260,14 +260,6 @@ NOINLINE void multiply_ein_reduce_tiles(
   }
 }
 
-// Given an interval that may have been shifted, get the subset of the interval
-// that is aligned. This will avoid the overlapping regions produced by split<>.
-template <typename T>
-interval<> intersect_aligned(const T& i, index_t align) {
-  index_t min = ((i.min() + align - 1) / align) * align;
-  return {min, i.max() - min + 1};
-}
-
 // This is similar to the above, but:
 // - It additionally splits the reduction dimension k,
 // - It traverses the 3 outer loops in z-order, improving locality.
