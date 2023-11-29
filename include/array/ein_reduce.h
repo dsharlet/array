@@ -416,7 +416,7 @@ auto ein(T (&x)[N]) {
  * - `tr_A`, `dot` are scalar (rank 0 arrays)
  * - `i`, `j`, `k` are unique constexpr integers. */
 template <class Expr, class = internal::enable_if_ein_assign<Expr>>
-NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
+NDARRAY_INLINE auto ein_reduce(const Expr& expr) {
   constexpr index_t LoopRank = Expr::MaxIndex + 1;
 
   // Gather the dimensions identified by the indices. gather_dims keeps the
@@ -444,7 +444,7 @@ NDARRAY_UNIQUE auto ein_reduce(const Expr& expr) {
 
 /** Infer the shape of the result of `make_ein_reduce`. */
 template <size_t... ResultIs, class Expr, class = internal::enable_if_ein_op<Expr>>
-auto make_ein_reduce_shape(const Expr& expr) {
+NDARRAY_UNIQUE auto make_ein_reduce_shape(const Expr& expr) {
   auto result_shape = internal::make_ein_reduce_shape(
       internal::index_sequence<ResultIs...>(), internal::is_inferred_shape(), expr);
   return make_compact(result_shape);
@@ -474,7 +474,7 @@ auto make_ein_reduce_shape(const Expr& expr) {
 // also inferring the rank of the result.
 template <class T, size_t... ResultIs, class Expr, class Alloc = std::allocator<T>,
     class = internal::enable_if_ein_op<Expr>>
-NDARRAY_UNIQUE auto make_ein_sum(
+NDARRAY_INLINE auto make_ein_sum(
     const Expr& expr, const T& init = T(), const Alloc& alloc = Alloc()) {
   auto result_shape = make_ein_reduce_shape<ResultIs...>(expr);
   auto result = make_array<T>(result_shape, init, alloc);
