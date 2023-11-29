@@ -108,4 +108,4 @@ NDARRAY_UNIQUE void for_all_z_order(
 
 } // namespace nda
 
-#endif // NDARRAY_MATRIX_H
+#endif // NDARRAY_Z_ORDER_H
