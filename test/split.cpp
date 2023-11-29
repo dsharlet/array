@@ -52,6 +52,33 @@ TEST(split_iterator_increment) {
   }
 }
 
+void test_split_result_size(interval<> v, index_t factor) {
+  auto result = split(v, factor);
+  ASSERT_EQ(result.size(), (v.extent() + factor - 1) / factor);
+}
+
+template <index_t Factor>
+void test_split_result_size(interval<> v) {
+  auto result = split<Factor>(v);
+  ASSERT_EQ(result.size(), (v.extent() + Factor - 1) / Factor);
+}
+
+TEST(split_result_size) {
+  for (index_t extent = 1; extent < 100; ++extent) {
+    interval<> v(0, extent);
+    test_split_result_size(v, 1);
+    test_split_result_size(v, 2);
+    test_split_result_size(v, 3);
+    test_split_result_size(v, 4);
+    test_split_result_size(v, 5);
+    test_split_result_size<1>(v);
+    if (extent > 2) test_split_result_size<2>(v);
+    if (extent > 3) test_split_result_size<3>(v);
+    if (extent > 4) test_split_result_size<4>(v);
+    if (extent > 5) test_split_result_size<5>(v);
+  }
+}
+
 // Test compile-time constant splits that divide the extents of an array.
 TEST(split_even_constant) {
   dense_array<int, 3> a({8, 9, 4});
