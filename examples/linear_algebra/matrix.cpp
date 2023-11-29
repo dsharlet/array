@@ -14,6 +14,7 @@
 
 #include "array/matrix.h"
 #include "array/ein_reduce.h"
+#include "array/z_order.h"
 #include "benchmark.h"
 
 #include <functional>
@@ -259,13 +260,65 @@ NOINLINE void multiply_ein_reduce_tiles(
   }
 }
 
+// Given an interval that may have been shifted, get the subset of the interval
+// that is aligned. This will avoid the overlapping regions produced by split<>.
+template <typename T>
+interval<> intersect_aligned(const T& i, index_t align) {
+  index_t min = ((i.min() + align - 1) / align) * align;
+  return {min, i.max() - min + 1};
+}
+
+// This is similar to the above, but:
+// - It additionally splits the reduction dimension k,
+// - It traverses the 3 outer loops in z-order, improving locality.
+template <typename T>
+NOINLINE void multiply_ein_reduce_tiles_z_order(const_matrix_ref<T> A, const_matrix_ref<T> B, matrix_ref<T> C) {
+  // Adjust this depending on the target architecture. For AVX2,
+  // vectors are 256-bit.
+  constexpr index_t vector_size = 32 / sizeof(T);
+
+  // We want the tiles to be as big as possible without spilling any
+  // of the accumulator registers to the stack.
+  constexpr index_t tile_rows = 4;
+  constexpr index_t tile_cols = vector_size * 3;
+  constexpr index_t tile_k = 128;
+
+  assert(C.i().extent() % tile_rows == 0);
+  assert(C.j().extent() % tile_cols == 0);
+
+  auto split_i = split<tile_rows>(C.i());
+  auto split_j = split<tile_cols>(C.j());
+  auto split_k = split(A.j(), tile_k);
+  fill(C, static_cast<T>(0));
+  for_all_z_order(std::make_tuple(split_i, split_j, split_k), [&](auto io, auto jo, auto ko) {
+    // Make a reference to this tile of the output.
+    auto C_ijo = C(io, jo);
+
+    // Define an accumulator buffer.
+    T buffer[tile_rows * tile_cols] = {0};
+    auto accumulator = make_array_ref(buffer, make_compact(C_ijo.shape()));
+
+    // Perform the matrix multiplication for this tile.
+    enum { i = 1, j = 0, k = 2 };
+    ein_reduce(ein<i, j>(accumulator) += ein<i, k>(A(_, ko)) * ein<k, j>(B(ko, _)));
+
+    // Add the accumulators to the output. Note this implementation
+    // requires the tile size to divide the extent of C.
+    for (index_t i : io) {
+      for (index_t j : jo) {
+        C_ijo(i, j) += accumulator(i, j);
+      }
+    }
+  });
+}
+
 float relative_error(float A, float B) { return std::abs(A - B) / std::max(A, B); }
 
 int main(int, const char**) {
   // Define two input matrices.
-  constexpr index_t M = 32;
-  constexpr index_t K = 10000;
-  constexpr index_t N = 64;
+  constexpr index_t M = 384;
+  constexpr index_t K = 1536;
+  constexpr index_t N = 384;
   matrix<float> A({M, K});
   matrix<float> B({K, N});
 
@@ -294,6 +347,7 @@ int main(int, const char**) {
       {"ein_reduce_matrix", multiply_ein_reduce_matrix<float>},
       {"reduce_tiles", multiply_reduce_tiles<float>},
       {"ein_reduce_tiles", multiply_ein_reduce_tiles<float>},
+      {"ein_reduce_tiles_z_order", multiply_ein_reduce_tiles_z_order<float>},
   };
   for (auto i : versions) {
     // Compute the result using all matrix multiply methods.

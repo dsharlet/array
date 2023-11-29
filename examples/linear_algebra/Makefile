@@ -2,7 +2,7 @@ CFLAGS := $(CFLAGS) -O2 -march=native -ffast-math -fstrict-aliasing -fno-excepti
 CXXFLAGS := $(CXXFLAGS) -std=c++14 -Wall
 LDFLAGS := $(LDFLAGS)
 
-DEPS := ../../include/array/array.h ../../include/array/matrix.h ../benchmark.h ../../include/array/ein_reduce.h
+DEPS := ../../include/array/array.h ../../include/array/matrix.h ../benchmark.h ../../include/array/ein_reduce.h ../../include/array/z_order.h
 
 bin/%: %.cpp $(DEPS)
 	mkdir -p $(@D)
