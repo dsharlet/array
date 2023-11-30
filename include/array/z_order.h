@@ -69,16 +69,16 @@ NDARRAY_UNIQUE void for_each_index_in_z_order(const Extents& extents, const Fn& 
   const index_t max_extent = *std::max_element(end.begin(), end.end());
   const index_t step = std::max<index_t>(1, internal::next_power_of_two(max_extent) >> 1);
   std::array<index_t, Rank> z = {{0,}};
-  for_each_index_in_z_order_impl(end, z, Rank - 1, step, [&](const std::array<index_t, Rank>& i) { fn(i); });
+  for_each_index_in_z_order_impl(end, z, Rank - 1, step, fn);
 }
 
 template <class... Ranges, class Fn, size_t... Is>
 NDARRAY_UNIQUE void for_each_in_z_order_impl(
-    const std::tuple<Ranges...>& ranges, Fn&& fn, internal::index_sequence<Is...>) {
+    const std::tuple<Ranges...>& ranges, const Fn& fn, internal::index_sequence<Is...>) {
   constexpr size_t Rank = sizeof...(Is);
   // TODO: Use std::size if we switch to C++17
   std::array<index_t, Rank> extents = {{std::get<Is>(ranges).size()...}};
-  for_each_index_in_z_order(extents, [fn = std::move(fn), &ranges](const std::array<index_t, Rank>& i) {
+  for_each_index_in_z_order(extents, [&](const std::array<index_t, Rank>& i) {
     fn(std::make_tuple(*(std::begin(std::get<Is>(ranges)) + std::get<Is>(i))...));
   });
 }
@@ -91,15 +91,15 @@ NDARRAY_UNIQUE void for_each_in_z_order_impl(
  */
 template <class... Ranges, class Fn>
 NDARRAY_UNIQUE void for_each_in_z_order(
-    const std::tuple<Ranges...>& ranges, Fn&& fn) {
+    const std::tuple<Ranges...>& ranges, const Fn& fn) {
   internal::for_each_in_z_order_impl(
-      ranges, std::move(fn), internal::make_index_sequence<sizeof...(Ranges)>());
+      ranges, fn, internal::make_index_sequence<sizeof...(Ranges)>());
 }
 template <class Fn, class... Ranges>
 NDARRAY_UNIQUE void for_all_in_z_order(
-    const std::tuple<Ranges...>& ranges, Fn&& fn) {
+    const std::tuple<Ranges...>& ranges, const Fn& fn) {
   internal::for_each_in_z_order_impl(
-      ranges, [fn = std::move(fn)](const auto& i) { internal::apply(fn, i); },
+      ranges, [&](const auto& i) { internal::apply(fn, i); },
       internal::make_index_sequence<sizeof...(Ranges)>());
 }
 
