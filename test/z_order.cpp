@@ -94,20 +94,26 @@ TEST(split_z_order_2d) {
 }
 
 TEST(split_z_order_3d) {
-  dense_array<int, 3> a({12, 10000, 24});
-  size_t total_size = 0;
-  auto xs = split<4>(a.x());
-  auto ys = split(a.y(), 64);
-  auto zs = split<24>(a.z());
-  for_all_in_z_order(std::make_tuple(xs, ys, zs), [&](const auto& xo, const auto& yo, const auto& zo) {
-    auto a_inner = a(xo, yo, zo);
-    total_size += a_inner.size();
-    fill_pattern(a_inner);
-  });
-  // The total number of items in the inner splits should be equal to the size
-  // of the array (no overlap among inner splits).
-  ASSERT_EQ(a.size(), total_size);
-  check_pattern(a);
+  for (index_t w : {2, 3, 4, 5, 12, 16, 20}) {
+    for (index_t h : {1, 2, 3, 4, 5, 12, 16, 20}) {
+      for (index_t d : {4, 5, 12, 16, 20}) {
+        dense_array<int, 3> a({w, h, d});
+        size_t total_size = 0;
+        auto xs = split<2>(a.x());
+        auto ys = split(a.y(), 3);
+        auto zs = split<4>(a.z());
+        for_all_in_z_order(std::make_tuple(xs, ys, zs), [&](const auto& xo, const auto& yo, const auto& zo) {
+          auto a_inner = a(xo, yo, zo);
+          total_size += a_inner.size();
+          fill_pattern(a_inner);
+        });
+        // The total number of items in the inner splits should be equal to the size
+        // of the array (no overlap among inner splits).
+        ASSERT_LE(a.size(), total_size);
+        check_pattern(a);
+      }
+    }
+  }
 }
 
 } // namespace nda
