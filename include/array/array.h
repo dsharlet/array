@@ -198,20 +198,33 @@ public:
   }
 
   NDARRAY_INLINE NDARRAY_HOST_DEVICE index_iterator operator++(int) { return index_iterator(i_++); }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE index_iterator operator--(int) { return index_iterator(i_--); }
   NDARRAY_INLINE NDARRAY_HOST_DEVICE index_iterator& operator++() {
     ++i_;
+    return *this;
+  }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE index_iterator& operator--() {
+    --i_;
     return *this;
   }
   NDARRAY_INLINE NDARRAY_HOST_DEVICE index_iterator& operator+=(index_t r) {
     i_ += r;
     return *this;
   }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE index_iterator& operator-=(index_t r) {
+    i_ -= r;
+    return *this;
+  }
   NDARRAY_INLINE NDARRAY_HOST_DEVICE index_iterator operator+(index_t r) {
     return index_iterator(i_ + r);
+  }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE index_iterator operator-(index_t r) {
+    return index_iterator(i_ - r);
   }
   NDARRAY_INLINE NDARRAY_HOST_DEVICE index_t operator-(const index_iterator& r) {
     return i_ - r.i_;
   }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE index_t operator[](index_t n) const { return i_ + n; }
 };
 
 template <index_t Min, index_t Extent, index_t Stride>
@@ -502,6 +515,8 @@ using broadcast_dim = dim<Min, Extent, 0>;
 namespace internal {
 
 // An iterator for a range of intervals.
+// This is like a random access iterator in that it can move forward in constant time, but
+// but unlike a random access iterator, it cannot be moved in reverse.
 template <index_t InnerExtent = dynamic>
 class split_iterator {
   fixed_interval<InnerExtent> i;
@@ -522,6 +537,7 @@ public:
   NDARRAY_HOST_DEVICE const fixed_interval<InnerExtent>* operator->() const { return &i; }
 
   NDARRAY_HOST_DEVICE split_iterator& operator+=(index_t n) {
+    assert(n >= 0);
     if (is_static(InnerExtent)) {
       // When the extent of the inner split is a compile-time constant,
       // we can't shrink the out of bounds interval. Instead, shift the min,
@@ -554,6 +570,12 @@ public:
 
   NDARRAY_HOST_DEVICE index_t operator-(const split_iterator& r) const {
     return r.i.extent() > 0 ? (i.max() - r.i.min() + r.i.extent() - i.extent()) / r.i.extent() : 0;
+  }
+
+  NDARRAY_HOST_DEVICE fixed_interval<InnerExtent> operator[](index_t n) const {
+    split_iterator result(*this);
+    result += n;
+    return *result;
   }
 };
 
