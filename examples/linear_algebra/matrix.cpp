@@ -262,7 +262,7 @@ NOINLINE void multiply_ein_reduce_tiles(
 
 // This is similar to the above, but:
 // - It additionally splits the reduction dimension k,
-// - It traverses the 3 outer loops in z-order, improving locality.
+// - It traverses the io, jo loops in z order, to improve locality.
 template <typename T>
 NOINLINE void multiply_ein_reduce_tiles_z_order(const_matrix_ref<T> A, const_matrix_ref<T> B, matrix_ref<T> C) {
   // Adjust this depending on the target architecture. For AVX2,
@@ -273,7 +273,7 @@ NOINLINE void multiply_ein_reduce_tiles_z_order(const_matrix_ref<T> A, const_mat
   // of the accumulator registers to the stack.
   constexpr index_t tile_rows = 4;
   constexpr index_t tile_cols = vector_size * 3;
-  constexpr index_t tile_k = 128;
+  constexpr index_t tile_k = 256;
 
   // TODO: It seems like z-ordering all of io, jo, ko should be best...
   // But this seems better, even without the added convenience for initializing
@@ -331,8 +331,7 @@ int main(int, const char**) {
   generate(B, [&]() { return uniform(rng); });
 
   matrix<float> c_ref({M, N});
-  double ref_time = benchmark([&]() { multiply_ref(A.data(), B.data(), c_ref.data(), M, K, N); });
-  std::cout << "reference time: " << ref_time * 1e3 << " ms" << std::endl;
+  multiply_ref(A.data(), B.data(), c_ref.data(), M, K, N);
 
   struct version {
     const char* name;
@@ -353,7 +352,8 @@ int main(int, const char**) {
     // Compute the result using all matrix multiply methods.
     matrix<float> C({M, N});
     double time = benchmark([&]() { i.fn(A.cref(), B.cref(), C.ref()); });
-    std::cout << i.name << " time: " << time * 1e3 << " ms" << std::endl;
+    double flops = M * N * K * 2 / time;
+    std::cout << i.name << " time: " << time * 1e3 << " ms, " << flops / 1e9 << " GFLOP/s" << std::endl;
 
     // Verify the results from all methods are equal.
     const float tolerance = 1e-4f;
