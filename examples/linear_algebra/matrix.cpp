@@ -275,33 +275,41 @@ NOINLINE void multiply_ein_reduce_tiles_z_order(const_matrix_ref<T> A, const_mat
   constexpr index_t tile_cols = vector_size * 3;
   constexpr index_t tile_k = 128;
 
-  assert(C.i().extent() % tile_rows == 0);
-  assert(C.j().extent() % tile_cols == 0);
+  // TODO: It seems like z-ordering all of io, jo, ko should be best...
+  // But this seems better, even without the added convenience for initializing
+  // the output.
+  for (auto ko : split(A.j(), tile_k)) {
+    auto split_i = split<tile_rows>(C.i());
+    auto split_j = split<tile_cols>(C.j());
+    for_all_z_order(std::make_tuple(split_i, split_j), [&](auto io, auto jo) {
+      // Make a reference to this tile of the output.
+      auto C_ijo = C(io, jo);
 
-  auto split_i = split<tile_rows>(C.i());
-  auto split_j = split<tile_cols>(C.j());
-  auto split_k = split(A.j(), tile_k);
-  fill(C, static_cast<T>(0));
-  for_all_z_order(std::make_tuple(split_i, split_j, split_k), [&](auto io, auto jo, auto ko) {
-    // Make a reference to this tile of the output.
-    auto C_ijo = C(io, jo);
+      // Define an accumulator buffer.
+      T buffer[tile_rows * tile_cols] = {0};
+      auto accumulator = make_array_ref(buffer, make_compact(C_ijo.shape()));
 
-    // Define an accumulator buffer.
-    T buffer[tile_rows * tile_cols] = {0};
-    auto accumulator = make_array_ref(buffer, make_compact(C_ijo.shape()));
+      // Perform the matrix multiplication for this tile.
+      enum { i = 1, j = 0, k = 2 };
+      ein_reduce(ein<i, j>(accumulator) += ein<i, k>(A(_, ko)) * ein<k, j>(B(ko, _)));
 
-    // Perform the matrix multiplication for this tile.
-    enum { i = 1, j = 0, k = 2 };
-    ein_reduce(ein<i, j>(accumulator) += ein<i, k>(A(_, ko)) * ein<k, j>(B(ko, _)));
-
-    // Add the accumulators to the output. Note this implementation
-    // requires the tile size to divide the extent of C.
-    for (index_t i : io) {
-      for (index_t j : jo) {
-        C_ijo(i, j) += accumulator(i, j);
+      // Add the accumulators to the output. Note this implementation
+      // requires the tile size to divide the extent of C.
+      if (ko.min() == A.j().min()) {
+        for (index_t i : io) {
+          for (index_t j : jo) {
+            C_ijo(i, j) = accumulator(i, j);
+          }
+        }
+      } else {
+        for (index_t i : io) {
+          for (index_t j : jo) {
+            C_ijo(i, j) += accumulator(i, j);
+          }
+        }
       }
-    }
-  });
+    });
+  }
 }
 
 float relative_error(float A, float B) { return std::abs(A - B) / std::max(A, B); }
