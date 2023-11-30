@@ -281,7 +281,7 @@ NOINLINE void multiply_ein_reduce_tiles_z_order(const_matrix_ref<T> A, const_mat
   for (auto ko : split(A.j(), tile_k)) {
     auto split_i = split<tile_rows>(C.i());
     auto split_j = split<tile_cols>(C.j());
-    for_all_z_order(std::make_tuple(split_i, split_j), [&](auto io, auto jo) {
+    for_all_in_z_order(std::make_tuple(split_i, split_j), [&](auto io, auto jo) {
       // Make a reference to this tile of the output.
       auto C_ijo = C(io, jo);
 

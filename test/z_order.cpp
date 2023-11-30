@@ -19,15 +19,15 @@ namespace nda {
 
 // Small wrapper to make writing tests below easier.
 template <class Extents, class Fn>
-void for_all_indices_z_order(const Extents& extents, const Fn& fn) {
-  internal::for_each_index_z_order(extents, [&](const auto& i) { internal::apply(fn, i); });
+void for_all_indices_in_z_order(const Extents& extents, const Fn& fn) {
+  internal::for_each_index_in_z_order(extents, [&](const auto& i) { internal::apply(fn, i); });
 }
 
-TEST(for_each_z_order_1d) {
+TEST(for_each_in_z_order_1d) {
   // A 1-d z order traversal is useless, but it should work.
   dense_array<int, 1> a({12}, 0);
   size_t total_size = 0;
-  for_all_indices_z_order(a.shape().extent(), [&](index_t x) {
+  for_all_indices_in_z_order(a.shape().extent(), [&](index_t x) {
     total_size++;
     a(x) = pattern<int>(std::make_tuple(x));
   });
@@ -37,12 +37,12 @@ TEST(for_each_z_order_1d) {
   check_pattern(a);
 }
 
-TEST(for_each_z_order_2d) {
+TEST(for_each_in_z_order_2d) {
   for (index_t w : {1, 2, 3, 4, 5, 12, 16, 20}) {
     for (index_t h : {1, 2, 3, 4, 5, 12, 16, 20}) {
       dense_array<int, 2> a({w, h});
       size_t total_size = 0;
-      for_all_indices_z_order(a.shape().extent(), [&](index_t x, index_t y) {
+      for_all_indices_in_z_order(a.shape().extent(), [&](index_t x, index_t y) {
         total_size++;
         a(x, y) = pattern<int>(std::make_tuple(x, y));
       });
@@ -54,13 +54,13 @@ TEST(for_each_z_order_2d) {
   }
 }
 
-TEST(for_each_z_order_3d) {
+TEST(for_each_in_z_order_3d) {
   for (index_t w : {1, 2, 3, 4, 5, 12, 16, 20}) {
     for (index_t h : {1, 2, 3, 4, 5, 12, 16, 20}) {
       for (index_t d : {1, 2, 3, 4, 5, 12, 16, 20}) {
         dense_array<int, 3> a({w, h, d});
         size_t total_size = 0;
-        for_all_indices_z_order(a.shape().extent(), [&](index_t x, index_t y, index_t z) {
+        for_all_indices_in_z_order(a.shape().extent(), [&](index_t x, index_t y, index_t z) {
           total_size++;
           a(x, y, z) = pattern<int>(std::make_tuple(x, y, z));
         });
@@ -80,7 +80,7 @@ TEST(split_z_order_2d) {
       size_t total_size = 0;
       auto xs = split<3>(a.x());
       auto ys = split(a.y(), 3);
-      for_all_z_order(std::make_tuple(xs, ys), [&](const auto& xo, const auto& yo) {
+      for_all_in_z_order(std::make_tuple(xs, ys), [&](const auto& xo, const auto& yo) {
         auto a_inner = a(xo, yo);
         total_size += a_inner.size();
         fill_pattern(a_inner);
@@ -99,7 +99,7 @@ TEST(split_z_order_3d) {
   auto xs = split<4>(a.x());
   auto ys = split(a.y(), 64);
   auto zs = split<24>(a.z());
-  for_all_z_order(std::make_tuple(xs, ys, zs), [&](const auto& xo, const auto& yo, const auto& zo) {
+  for_all_in_z_order(std::make_tuple(xs, ys, zs), [&](const auto& xo, const auto& yo, const auto& zo) {
     auto a_inner = a(xo, yo, zo);
     total_size += a_inner.size();
     fill_pattern(a_inner);
