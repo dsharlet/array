@@ -21,6 +21,10 @@
 #include <iostream>
 #include <random>
 
+#ifdef BLAS
+#include "cblas.h"
+#endif
+
 using namespace nda;
 
 // Make it easier to read the generated assembly for these functions.
@@ -312,6 +316,14 @@ NOINLINE void multiply_ein_reduce_tiles_z_order(const_matrix_ref<T> A, const_mat
   }
 }
 
+#ifdef BLAS
+void multiply_blas(const_matrix_ref<float> A, const_matrix_ref<float> B, matrix_ref<float> C) {
+  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, C.i().extent(), C.j().extent(),
+      A.j().extent(), 1.0, A.base(), A.i().stride(), B.base(), B.i().stride(), 0.0, C.base(),
+      C.i().stride());
+}
+#endif
+
 float relative_error(float A, float B) { return std::abs(A - B) / std::max(A, B); }
 
 int main(int, const char**) {
@@ -347,6 +359,9 @@ int main(int, const char**) {
       {"reduce_tiles", multiply_reduce_tiles<float>},
       {"ein_reduce_tiles", multiply_ein_reduce_tiles<float>},
       {"ein_reduce_tiles_z_order", multiply_ein_reduce_tiles_z_order<float>},
+#ifdef BLAS
+      {"blas", multiply_blas},
+#endif
   };
   for (auto i : versions) {
     // Compute the result using all matrix multiply methods.
