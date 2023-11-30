@@ -44,18 +44,24 @@ NDARRAY_UNIQUE void for_each_index_in_z_order_impl(const std::array<index_t, Ran
     // We're at the innermost step of the traversal, call fn for the two neighboring points we have.
     fn(z);
     z[0] += 1;
-    if (z[0] < end[0]) fn(z);
+    if (z[0] < end[0]) {
+      fn(z);
+    }
   } else if (dim == 0) {
     // We're on the innermost dimension, but not the innermost step.
     // Move to the next step for the outermost dimension.
     for_each_index_in_z_order_impl(end, z, Rank - 1, step >> 1, fn);
     z[0] += step;
-    if (z[0] < end[0]) for_each_index_in_z_order_impl(end, z, Rank - 1, step >> 1, fn);
+    if (z[0] < end[0]) {
+      for_each_index_in_z_order_impl(end, z, Rank - 1, step >> 1, fn);
+    }
   } else {
     // Move to the next dimension for the same step.
     for_each_index_in_z_order_impl(end, z, dim - 1, step, fn);
     z[dim] += step;
-    if (z[dim] < end[dim]) for_each_index_in_z_order_impl(end, z, dim - 1, step, fn);
+    if (z[dim] < end[dim]) {
+      for_each_index_in_z_order_impl(end, z, dim - 1, step, fn);
+    }
   }
 }
 
@@ -64,7 +70,7 @@ NDARRAY_UNIQUE void for_each_index_in_z_order_impl(const std::array<index_t, Ran
 template <class Extents, class Fn>
 NDARRAY_UNIQUE void for_each_index_in_z_order(const Extents& extents, const Fn& fn) {
   constexpr index_t Rank = std::tuple_size<Extents>::value;
-  // Get the ends of te iteration space as an array.
+  // Get the ends of the iteration space as an array.
   const auto end = internal::tuple_to_array<index_t>(extents, internal::make_index_sequence<Rank>());
   const index_t max_extent = *std::max_element(end.begin(), end.end());
   const index_t step = std::max<index_t>(1, internal::next_power_of_two(max_extent) >> 1);
