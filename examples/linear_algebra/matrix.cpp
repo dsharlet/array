@@ -266,12 +266,14 @@ NOINLINE void multiply_ein_reduce_tiles(
 
 // This is similar to the above, but:
 // - It additionally splits the reduction dimension k,
-// - It traverses the io, jo loops in z order, to improve locality.
+// - It traverses the io, jo loops in z order, to improve locality,
+// - It prefetches in the inner loop.
 template <typename T>
-NOINLINE void multiply_ein_reduce_tiles_z_order(const_matrix_ref<T> A, const_matrix_ref<T> B, matrix_ref<T> C) {
+NOINLINE void multiply_reduce_tiles_z_order(const_matrix_ref<T> A, const_matrix_ref<T> B, matrix_ref<T> C) {
   // Adjust this depending on the target architecture. For AVX2,
   // vectors are 256-bit.
   constexpr index_t vector_size = 32 / sizeof(T);
+  constexpr index_t cache_line_size = 64 / sizeof(T);
 
   // We want the tiles to be as big as possible without spilling any
   // of the accumulator registers to the stack.
@@ -294,8 +296,19 @@ NOINLINE void multiply_ein_reduce_tiles_z_order(const_matrix_ref<T> A, const_mat
       auto accumulator = make_array_ref(buffer, make_compact(C_ijo.shape()));
 
       // Perform the matrix multiplication for this tile.
-      enum { i = 1, j = 0, k = 2 };
-      ein_reduce(ein<i, j>(accumulator) += ein<i, k>(A(_, ko)) * ein<k, j>(B(ko, _)));
+      for (index_t k : ko) {
+        for (index_t i = 0; i < io.extent(); i += cache_line_size) {
+          _mm_prefetch(&A(io.min() + i, k + 8), _MM_HINT_T0);
+        }
+        for (index_t j = 0; j < jo.extent(); j += cache_line_size) {
+          _mm_prefetch(&B(k + 4, jo.min() + j), _MM_HINT_T0);
+        }
+        for (index_t i : io) {
+          for (index_t j : jo) {
+            accumulator(i, j) += A(i, k) * B(k, j);
+          }
+        }
+      }
 
       // Add the accumulators for this iteration of ko to the output.
       // Because we split the K dimension, we are doing this more than once per
@@ -361,7 +374,7 @@ int main(int, const char**) {
       {"ein_reduce_matrix", multiply_ein_reduce_matrix<float>},
       {"reduce_tiles", multiply_reduce_tiles<float>},
       {"ein_reduce_tiles", multiply_ein_reduce_tiles<float>},
-      {"ein_reduce_tiles_z_order", multiply_ein_reduce_tiles_z_order<float>},
+      {"reduce_tiles_z_order", multiply_reduce_tiles_z_order<float>},
 #ifdef BLAS
       {"blas", multiply_blas},
 #endif
