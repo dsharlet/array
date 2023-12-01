@@ -297,8 +297,11 @@ NOINLINE void multiply_ein_reduce_tiles_z_order(const_matrix_ref<T> A, const_mat
       enum { i = 1, j = 0, k = 2 };
       ein_reduce(ein<i, j>(accumulator) += ein<i, k>(A(_, ko)) * ein<k, j>(B(ko, _)));
 
-      // Add the accumulators to the output. Note this implementation
-      // requires the tile size to divide the extent of C.
+      // Add the accumulators for this iteration of ko to the output.
+      // Because we split the K dimension, we are doing this more than once per
+      // tile of output. To avoid adding to overlapping regions more than once
+      // (when `split<>` is applied to a dimension not divided by the split factor),
+      // we need to only initialize the result for the first iteration of ko.
       if (ko.min() == A.j().min()) {
         for (index_t i : io) {
           for (index_t j : jo) {
