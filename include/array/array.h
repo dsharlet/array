@@ -198,10 +198,33 @@ public:
   }
 
   NDARRAY_INLINE NDARRAY_HOST_DEVICE index_iterator operator++(int) { return index_iterator(i_++); }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE index_iterator operator--(int) { return index_iterator(i_--); }
   NDARRAY_INLINE NDARRAY_HOST_DEVICE index_iterator& operator++() {
     ++i_;
     return *this;
   }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE index_iterator& operator--() {
+    --i_;
+    return *this;
+  }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE index_iterator& operator+=(index_t r) {
+    i_ += r;
+    return *this;
+  }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE index_iterator& operator-=(index_t r) {
+    i_ -= r;
+    return *this;
+  }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE index_iterator operator+(index_t r) {
+    return index_iterator(i_ + r);
+  }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE index_iterator operator-(index_t r) {
+    return index_iterator(i_ - r);
+  }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE index_t operator-(const index_iterator& r) {
+    return i_ - r.i_;
+  }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE index_t operator[](index_t n) const { return i_ + n; }
 };
 
 template <index_t Min, index_t Extent, index_t Stride>
@@ -271,6 +294,7 @@ public:
   NDARRAY_INLINE NDARRAY_HOST_DEVICE void set_min(index_t min) { min_ = min; }
   /** Get or set the number of indices in this interval. */
   NDARRAY_INLINE NDARRAY_HOST_DEVICE index_t extent() const { return extent_; }
+  NDARRAY_INLINE NDARRAY_HOST_DEVICE index_t size() const { return extent_; }
   NDARRAY_INLINE NDARRAY_HOST_DEVICE void set_extent(index_t extent) { extent_ = extent; }
 
   /** Get or set the last index in this interval. */
@@ -433,6 +457,7 @@ public:
   using base_range::begin;
   using base_range::end;
   using base_range::extent;
+  using base_range::size;
   using base_range::is_in_range;
   using base_range::max;
   using base_range::min;
@@ -490,6 +515,8 @@ using broadcast_dim = dim<Min, Extent, 0>;
 namespace internal {
 
 // An iterator for a range of intervals.
+// This is like a random access iterator in that it can move forward in constant time, but
+// but unlike a random access iterator, it cannot be moved in reverse.
 template <index_t InnerExtent = dynamic>
 class split_iterator {
   fixed_interval<InnerExtent> i;
@@ -507,47 +534,69 @@ public:
   }
 
   NDARRAY_HOST_DEVICE fixed_interval<InnerExtent> operator*() const { return i; }
+  NDARRAY_HOST_DEVICE const fixed_interval<InnerExtent>* operator->() const { return &i; }
 
-  NDARRAY_HOST_DEVICE split_iterator& operator++() {
+  NDARRAY_HOST_DEVICE split_iterator& operator+=(index_t n) {
+    assert(n >= 0);
     if (is_static(InnerExtent)) {
       // When the extent of the inner split is a compile-time constant,
       // we can't shrink the out of bounds interval. Instead, shift the min,
       // assuming the outer dimension is bigger than the inner extent.
-      i.set_min(i.min() + InnerExtent);
+      i.set_min(i.min() + InnerExtent * n);
       // Only shift the min when this straddles the end of the buffer,
       // so the iterator can advance to the end (one past the max).
       if (i.min() <= outer_max && i.max() > outer_max) { i.set_min(outer_max - InnerExtent + 1); }
     } else {
       // When the extent of the inner split is not a compile-time constant,
       // we can just modify the extent.
-      i.set_min(i.min() + i.extent());
+      i.set_min(i.min() + i.extent() * n);
       index_t max = min(i.max(), outer_max);
       i.set_extent(max - i.min() + 1);
     }
     return *this;
   }
+  NDARRAY_HOST_DEVICE split_iterator operator+(index_t n) const {
+    split_iterator<InnerExtent> result(*this);
+    return result += n;
+  }
+  NDARRAY_HOST_DEVICE split_iterator& operator++() {
+    return *this += 1;
+  }
   NDARRAY_HOST_DEVICE split_iterator operator++(int) {
     split_iterator<InnerExtent> result(*this);
-    ++*this;
+    *this += 1;
     return result;
+  }
+
+  NDARRAY_HOST_DEVICE index_t operator-(const split_iterator& r) const {
+    return r.i.extent() > 0 ? (i.max() - r.i.min() + r.i.extent() - i.extent()) / r.i.extent() : 0;
+  }
+
+  NDARRAY_HOST_DEVICE fixed_interval<InnerExtent> operator[](index_t n) const {
+    split_iterator result(*this);
+    result += n;
+    return *result;
   }
 };
 
-// TODO: Remove this when std::iterator_range is standard.
-template <class T>
-class iterator_range {
-  T begin_;
-  T end_;
+template <index_t InnerExtent = dynamic>
+class split_result {
+public:
+  using iterator = split_iterator<InnerExtent>;
+
+private:
+  iterator begin_;
+  iterator end_;
 
 public:
-  NDARRAY_HOST_DEVICE iterator_range(T begin, T end) : begin_(begin), end_(end) {}
+  NDARRAY_HOST_DEVICE split_result(iterator begin, iterator end) : begin_(begin), end_(end) {}
 
-  NDARRAY_HOST_DEVICE T begin() const { return begin_; }
-  NDARRAY_HOST_DEVICE T end() const { return end_; }
+  NDARRAY_HOST_DEVICE iterator begin() const { return begin_; }
+  NDARRAY_HOST_DEVICE iterator end() const { return end_; }
+
+  NDARRAY_HOST_DEVICE index_t size() const { return end_ - begin_; }
+  NDARRAY_HOST_DEVICE iterator operator[](index_t i) const { return begin_ + i; }
 };
-
-template <index_t InnerExtent = dynamic>
-using split_iterator_range = iterator_range<split_iterator<InnerExtent>>;
 
 } // namespace internal
 
@@ -562,14 +611,14 @@ using split_iterator_range = iterator_range<split_iterator<InnerExtent>>;
  * - `split<5>(interval<>(0, 12))` produces the intervals `[0, 5)`,
  *   `[5, 10)`, `[7, 12)`. Note the last two intervals overlap. */
 template <index_t InnerExtent, index_t Min, index_t Extent>
-NDARRAY_HOST_DEVICE internal::split_iterator_range<InnerExtent> split(
+NDARRAY_HOST_DEVICE internal::split_result<InnerExtent> split(
     const interval<Min, Extent>& v) {
   assert(v.extent() >= InnerExtent);
   return {{fixed_interval<InnerExtent>(v.min()), v.max()},
       {fixed_interval<InnerExtent>(v.max() + 1), v.max()}};
 }
 template <index_t InnerExtent, index_t Min, index_t Extent, index_t Stride>
-NDARRAY_HOST_DEVICE internal::split_iterator_range<InnerExtent> split(
+NDARRAY_HOST_DEVICE internal::split_result<InnerExtent> split(
     const dim<Min, Extent, Stride>& v) {
   return split<InnerExtent>(interval<Min, Extent>(v.min(), v.extent()));
 }
@@ -585,13 +634,13 @@ NDARRAY_HOST_DEVICE internal::split_iterator_range<InnerExtent> split(
 // avoid some conversion messes. dim<Min, Extent> probably can't implicitly
 // convert to interval<>.
 template <index_t Min, index_t Extent>
-NDARRAY_HOST_DEVICE internal::split_iterator_range<> split(
+NDARRAY_HOST_DEVICE internal::split_result<> split(
     const interval<Min, Extent>& v, index_t inner_extent) {
   return {{interval<>(v.min(), internal::min(inner_extent, v.extent())), v.max()},
       {interval<>(v.max() + 1, 0), v.max()}};
 }
 template <index_t Min, index_t Extent, index_t Stride>
-NDARRAY_HOST_DEVICE internal::split_iterator_range<> split(
+NDARRAY_HOST_DEVICE internal::split_result<> split(
     const dim<Min, Extent, Stride>& v, index_t inner_extent) {
   return split(interval<Min, Extent>(v.min(), v.extent()), inner_extent);
 }
@@ -608,10 +657,10 @@ NDARRAY_INLINE NDARRAY_HOST_DEVICE auto apply(Fn&& fn, const Args& args, index_s
     -> decltype(fn(std::get<Is>(args)...)) {
   return fn(std::get<Is>(args)...);
 }
-template <class Fn, class... Args>
-NDARRAY_INLINE NDARRAY_HOST_DEVICE auto apply(Fn&& fn, const std::tuple<Args...>& args)
-    -> decltype(internal::apply(fn, args, make_index_sequence<sizeof...(Args)>())) {
-  return internal::apply(fn, args, make_index_sequence<sizeof...(Args)>());
+template <class Fn, class Args>
+NDARRAY_INLINE NDARRAY_HOST_DEVICE auto apply(Fn&& fn, const Args& args)
+    -> decltype(internal::apply(fn, args, make_index_sequence<std::tuple_size<Args>::value>())) {
+  return internal::apply(fn, args, make_index_sequence<std::tuple_size<Args>::value>());
 }
 
 template <class Fn, class... Args>

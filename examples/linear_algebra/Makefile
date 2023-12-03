@@ -2,11 +2,16 @@ CFLAGS := $(CFLAGS) -O2 -march=native -ffast-math -fstrict-aliasing -fno-excepti
 CXXFLAGS := $(CXXFLAGS) -std=c++14 -Wall
 LDFLAGS := $(LDFLAGS)
 
-DEPS := ../../include/array/array.h ../../include/array/matrix.h ../benchmark.h ../../include/array/ein_reduce.h
+ifneq ($(BLAS), )
+CFLAGS += -DBLAS
+LDFLAGS += -lblas
+endif
+
+DEPS := ../../include/array/array.h ../../include/array/matrix.h ../benchmark.h ../../include/array/ein_reduce.h ../../include/array/z_order.h
 
 bin/%: %.cpp $(DEPS)
 	mkdir -p $(@D)
-	$(CXX) -I../../include -I../ -o $@ $< $(CFLAGS) $(CXXFLAGS) -lstdc++ -lm
+	$(CXX) -I../../include -I../ -o $@ $< $(CFLAGS) $(CXXFLAGS) -lstdc++ -lm $(LDFLAGS)
 
 .PHONY: all clean test
 

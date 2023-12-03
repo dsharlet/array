@@ -2,7 +2,7 @@ CFLAGS := $(CFLAGS) -O2 -ffast-math -fstrict-aliasing -fPIE
 CXXFLAGS := $(CXXFLAGS) -std=c++14 -Wall
 LDFLAGS := $(LDFLAGS)
 
-DEPS := include/array/array.h include/array/ein_reduce.h include/array/image.h include/array/matrix.h
+DEPS := include/array/array.h include/array/ein_reduce.h include/array/image.h include/array/matrix.h include/array/z_order.h
 
 TEST_SRC := $(filter-out test/errors.cpp, $(wildcard test/*.cpp))
 TEST_OBJ := $(TEST_SRC:%.cpp=obj/%.o)

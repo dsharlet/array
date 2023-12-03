@@ -127,8 +127,8 @@ public:
 #define ASSERT(condition) assert_stream(condition, #condition)
 
 #define ASSERT_EQ(a, b) ASSERT(a == b) << "\n" << #a << "=" << a << "\n" << #b << "=" << b << " "
-
 #define ASSERT_LT(a, b) ASSERT(a < b) << "\n" << #a << "=" << a << "\n" << #b << "=" << b << " "
+#define ASSERT_LE(a, b) ASSERT(a <= b) << "\n" << #a << "=" << a << "\n" << #b << "=" << b << " "
 
 template <class T, class IndexType, size_t... Is>
 T pattern_impl(const IndexType& indices, const IndexType& offset, std::index_sequence<Is...>) {

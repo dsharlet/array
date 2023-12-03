@@ -14,11 +14,16 @@
 
 #include "array/matrix.h"
 #include "array/ein_reduce.h"
+#include "array/z_order.h"
 #include "benchmark.h"
 
 #include <functional>
 #include <iostream>
 #include <random>
+
+#ifdef BLAS
+#include "cblas.h"
+#endif
 
 using namespace nda;
 
@@ -209,9 +214,7 @@ NOINLINE void multiply_reduce_tiles(const_matrix_ref<T> A, const_matrix_ref<T> B
   }
 }
 
-//  With clang -O2, this generates (almost) the same fast inner loop as the above!!
-// It only spills one accumulator register, and produces statistically identical
-// performance.
+// With clang -O2, this generates exactly the same fast inner loop as the above!!
 template <typename T>
 NOINLINE void multiply_ein_reduce_tiles(
     const_matrix_ref<T> A, const_matrix_ref<T> B, matrix_ref<T> C) {
@@ -259,13 +262,90 @@ NOINLINE void multiply_ein_reduce_tiles(
   }
 }
 
+// This is similar to the above, but:
+// - It additionally splits the reduction dimension k,
+// - It traverses the io, jo loops in z order, to improve locality,
+// - It prefetches in the inner loop.
+// This version achieves ~90% of the theoretical peak performance of my AMD Ryzen 5800X.
+template <typename T>
+NOINLINE void multiply_reduce_tiles_z_order(const_matrix_ref<T> A, const_matrix_ref<T> B, matrix_ref<T> C) {
+  // Adjust this depending on the target architecture. For AVX2,
+  // vectors are 256-bit.
+  constexpr index_t vector_size = 32 / sizeof(T);
+  constexpr index_t cache_line_size = 64 / sizeof(T);
+
+  // We want the tiles to be as big as possible without spilling any
+  // of the accumulator registers to the stack.
+  constexpr index_t tile_rows = 4;
+  constexpr index_t tile_cols = vector_size * 3;
+  constexpr index_t tile_k = 256;
+
+  // TODO: It seems like z-ordering all of io, jo, ko should be best...
+  // But this seems better, even without the added convenience for initializing
+  // the output.
+  for (auto ko : split(A.j(), tile_k)) {
+    auto split_i = split<tile_rows>(C.i());
+    auto split_j = split<tile_cols>(C.j());
+    for_all_in_z_order(std::make_tuple(split_i, split_j), [&](auto io, auto jo) {
+      // Make a reference to this tile of the output.
+      auto C_ijo = C(io, jo);
+
+      // Define an accumulator buffer.
+      T buffer[tile_rows * tile_cols] = {0};
+      auto accumulator = make_array_ref(buffer, make_compact(C_ijo.shape()));
+
+      // Perform the matrix multiplication for this tile.
+      for (index_t k : ko) {
+        for (index_t i = 0; i < io.extent(); i += cache_line_size) {
+          _mm_prefetch(&A(io.min() + i, k + 8), _MM_HINT_T0);
+        }
+        for (index_t j = 0; j < jo.extent(); j += cache_line_size) {
+          _mm_prefetch(&B(k + 4, jo.min() + j), _MM_HINT_T0);
+        }
+        for (index_t i : io) {
+          for (index_t j : jo) {
+            accumulator(i, j) += A(i, k) * B(k, j);
+          }
+        }
+      }
+
+      // Add the accumulators for this iteration of ko to the output.
+      // Because we split the K dimension, we are doing this more than once per
+      // tile of output. To avoid adding to overlapping regions more than once
+      // (when `split<>` is applied to a dimension not divided by the split factor),
+      // we need to only initialize the result for the first iteration of ko.
+      if (ko.min() == A.j().min()) {
+        for (index_t i : io) {
+          for (index_t j : jo) {
+            C_ijo(i, j) = accumulator(i, j);
+          }
+        }
+      } else {
+        for (index_t i : io) {
+          for (index_t j : jo) {
+            C_ijo(i, j) += accumulator(i, j);
+          }
+        }
+      }
+    });
+  }
+}
+
+#ifdef BLAS
+void multiply_blas(const_matrix_ref<float> A, const_matrix_ref<float> B, matrix_ref<float> C) {
+  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, C.i().extent(), C.j().extent(),
+      A.j().extent(), 1.0, A.base(), A.i().stride(), B.base(), B.i().stride(), 0.0, C.base(),
+      C.i().stride());
+}
+#endif
+
 float relative_error(float A, float B) { return std::abs(A - B) / std::max(A, B); }
 
 int main(int, const char**) {
   // Define two input matrices.
-  constexpr index_t M = 32;
-  constexpr index_t K = 10000;
-  constexpr index_t N = 64;
+  constexpr index_t M = 384;
+  constexpr index_t K = 1536;
+  constexpr index_t N = 384;
   matrix<float> A({M, K});
   matrix<float> B({K, N});
 
@@ -278,8 +358,7 @@ int main(int, const char**) {
   generate(B, [&]() { return uniform(rng); });
 
   matrix<float> c_ref({M, N});
-  double ref_time = benchmark([&]() { multiply_ref(A.data(), B.data(), c_ref.data(), M, K, N); });
-  std::cout << "reference time: " << ref_time * 1e3 << " ms" << std::endl;
+  multiply_ref(A.data(), B.data(), c_ref.data(), M, K, N);
 
   struct version {
     const char* name;
@@ -294,12 +373,17 @@ int main(int, const char**) {
       {"ein_reduce_matrix", multiply_ein_reduce_matrix<float>},
       {"reduce_tiles", multiply_reduce_tiles<float>},
       {"ein_reduce_tiles", multiply_ein_reduce_tiles<float>},
+      {"reduce_tiles_z_order", multiply_reduce_tiles_z_order<float>},
+#ifdef BLAS
+      {"blas", multiply_blas},
+#endif
   };
   for (auto i : versions) {
     // Compute the result using all matrix multiply methods.
     matrix<float> C({M, N});
     double time = benchmark([&]() { i.fn(A.cref(), B.cref(), C.ref()); });
-    std::cout << i.name << " time: " << time * 1e3 << " ms" << std::endl;
+    double flops = M * N * K * 2 / time;
+    std::cout << i.name << " time: " << time * 1e3 << " ms, " << flops / 1e9 << " GFLOP/s" << std::endl;
 
     // Verify the results from all methods are equal.
     const float tolerance = 1e-4f;
