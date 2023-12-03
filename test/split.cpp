@@ -72,10 +72,10 @@ TEST(split_result_size) {
     test_split_result_size(v, 4);
     test_split_result_size(v, 5);
     test_split_result_size<1>(v);
-    if (extent > 2) test_split_result_size<2>(v);
-    if (extent > 3) test_split_result_size<3>(v);
-    if (extent > 4) test_split_result_size<4>(v);
-    if (extent > 5) test_split_result_size<5>(v);
+    if (extent >= 2) test_split_result_size<2>(v);
+    if (extent >= 3) test_split_result_size<3>(v);
+    if (extent >= 4) test_split_result_size<4>(v);
+    if (extent >= 5) test_split_result_size<5>(v);
   }
 }
 
