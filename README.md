@@ -371,6 +371,7 @@ cmpq	%rdi, %r13
 jne	.LBB8_12
 ```
 This is **40-50x** faster than a naive C implementation of nested loops on my machine, and it should be within a factor of 2 of the peak possible performance.
+A [similar example](examples/linear_algebra/matrix.cpp#L265-L271) that is only a little more complicated achieves around 90% of the peak possible performance.
 
 (\*) Unfortunately, this doesn't generate performant code currently and requires a few tweaks to work around an [issue](https://bugs.llvm.org/show_bug.cgi?id=45863) in LLVM.
 See the [matrix example](examples/linear_algebra/matrix.cpp) for the code that produces the above assembly.
