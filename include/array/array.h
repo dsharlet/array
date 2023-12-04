@@ -2165,7 +2165,7 @@ public:
 
   /** Allow conversion from array_ref<T> to const_array_ref<T>. */
   NDARRAY_HOST_DEVICE const const_array_ref<T, Shape> cref() const {
-    return const_array_ref<T, Shape>(base_, shape_);
+    return const_array_ref<T, Shape>(base_, shape_, std::false_type{});
   }
   NDARRAY_HOST_DEVICE operator const_array_ref<T, Shape>() const { return cref(); }
 
@@ -2662,8 +2662,10 @@ public:
   }
 
   /** Make an array_ref referring to the data in this array. */
-  array_ref<T, Shape> ref() { return array_ref<T, Shape>(base_, shape_); }
-  const_array_ref<T, Shape> cref() const { return const_array_ref<T, Shape>(base_, shape_); }
+  array_ref<T, Shape> ref() { return array_ref<T, Shape>(base_, shape_, std::false_type{}); }
+  const_array_ref<T, Shape> cref() const {
+    return const_array_ref<T, Shape>(base_, shape_, std::false_type{});
+  }
   const_array_ref<T, Shape> ref() const { return cref(); }
   operator array_ref<T, Shape>() { return ref(); }
   operator const_array_ref<T, Shape>() const { return cref(); }
@@ -2939,7 +2941,7 @@ bool equal(const array<TA, ShapeA, AllocA>& a, const array<TB, ShapeB, AllocB>& 
  * `NewShape`. The new shape is copy constructed from `a.shape()`. */
 template <class NewShape, class T, class OldShape>
 NDARRAY_HOST_DEVICE array_ref<T, NewShape> convert_shape(const array_ref<T, OldShape>& a) {
-  return array_ref<T, NewShape>(a.base(), convert_shape<NewShape>(a.shape()));
+  return array_ref<T, NewShape>(a.base(), convert_shape<NewShape>(a.shape()), std::false_type{});
 }
 template <class NewShape, class T, class OldShape, class Allocator>
 array_ref<T, NewShape> convert_shape(array<T, OldShape, Allocator>& a) {
@@ -2954,7 +2956,7 @@ const_array_ref<T, NewShape> convert_shape(const array<T, OldShape, Allocator>& 
  * `U`. `sizeof(T)` must be equal to `sizeof(U)`. */
 template <class U, class T, class Shape, class = std::enable_if_t<sizeof(T) == sizeof(U)>>
 NDARRAY_HOST_DEVICE array_ref<U, Shape> reinterpret(const array_ref<T, Shape>& a) {
-  return array_ref<U, Shape>(reinterpret_cast<U*>(a.base()), a.shape());
+  return array_ref<U, Shape>(reinterpret_cast<U*>(a.base()), a.shape(), std::false_type{});
 }
 template <class U, class T, class Shape, class Alloc,
     class = std::enable_if_t<sizeof(T) == sizeof(U)>>
@@ -2971,7 +2973,7 @@ const_array_ref<U, Shape> reinterpret(const array<T, Shape, Alloc>& a) {
  * type `U` using `const_cast`. */
 template <class U, class T, class Shape>
 array_ref<U, Shape> reinterpret_const(const const_array_ref<T, Shape>& a) {
-  return array_ref<U, Shape>(const_cast<U*>(a.base()), a.shape());
+  return array_ref<U, Shape>(const_cast<U*>(a.base()), a.shape(), std::false_type{});
 }
 
 /** Reinterpret the shape of the array or array_ref `a` to be a new shape
