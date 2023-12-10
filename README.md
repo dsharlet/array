@@ -382,3 +382,7 @@ To summarise, it is currently necessary to perform the accumulation into a tempo
 Most of the functions in this library are marked with `__device__`, enabling them to be used in CUDA code.
 This includes `array_ref<T, Shape>` and most of its helper functions.
 The exceptions to this are functions and classes that allocate memory, primarily `array<T, Shape, Alloc>`.
+
+### Try it on Compiler Explorer
+
+This library is available on [Compiler Explorer](https://godbolt.org/) as `Array`.
