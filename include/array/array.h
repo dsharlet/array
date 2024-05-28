@@ -1030,6 +1030,12 @@ NDARRAY_HOST_DEVICE const DimsSrc& assert_dims_compatible(const DimsSrc& src) {
   return src;
 }
 
+/** The bounds for `dims`: same min and extents, with all strides set to `unresolved`. */
+template <class Dims, size_t... Is>
+auto bounds_tuple(const Dims& dims, index_sequence<Is...>) {
+    return std::make_tuple(dim<>(std::get<Is>(dims).min(), std::get<Is>(dims).extent(), unresolved)...);
+}
+
 } // namespace internal
 
 template <class... Dims>
@@ -1292,6 +1298,12 @@ public:
    * cols}, get the extent of those dimensions. */
   NDARRAY_HOST_DEVICE index_t rows() const { return i().extent(); }
   NDARRAY_HOST_DEVICE index_t columns() const { return j().extent(); }
+
+  /** Returns a shape with the same rank, min and extents but with
+   * dynamic strides, initialized to `nda::unresolved`. */
+  NDARRAY_HOST_DEVICE auto bounds() const {
+    return make_shape_from_tuple(internal::bounds_tuple(dims_, dim_indices()));
+  }
 
   /** A shape is equal to another shape if the dim objects of each
    * dimension from both shapes are equal. */
@@ -2115,6 +2127,14 @@ public:
   }
   const nda::dim<> dim(size_t d) const { return shape_.dim(d); }
   NDARRAY_HOST_DEVICE size_type size() const { return shape_.size(); }
+  /* `bounds()` can be used make another array with the same dimensions and discard
+   * the original array's strides:
+   *
+   *   nda::array_ref<...> ref(...);
+   *   nda::array<...> y(ref.bounds());  // Compact array with the same `min`
+   *                                     // and `extents` as `ref`.
+   */
+  NDARRAY_HOST_DEVICE auto bounds() const { return shape_.bounds(); }
   NDARRAY_HOST_DEVICE bool empty() const { return base() != nullptr ? shape_.empty() : true; }
   NDARRAY_HOST_DEVICE bool is_compact() const { return shape_.is_compact(); }
 
@@ -2577,6 +2597,14 @@ public:
   }
   const nda::dim<> dim(size_t d) const { return shape_.dim(d); }
   size_type size() const { return shape_.size(); }
+  /* `bounds()` can be used make another array with the same dimensions and discard
+   * the original array's strides:
+   *
+   *   nda::array<...> other(...);
+   *   nda::array<...> y(other.bounds());  // Compact array with the same `min`
+   *                                       // and `extents` as `other`.
+   */
+  auto bounds() const { return shape_.bounds(); }
   bool empty() const { return shape_.empty(); }
   bool is_compact() const { return shape_.is_compact(); }
 

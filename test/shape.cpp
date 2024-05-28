@@ -26,6 +26,7 @@ TEST(shape_scalar) {
   ASSERT_EQ(s.flat_extent(), 1);
   ASSERT_EQ(s.size(), 1);
   ASSERT_EQ(s(), 0);
+  ASSERT_EQ(s.bounds().rank(), 0);
 }
 
 TEST(shape_1d) {
@@ -203,6 +204,30 @@ TEST(auto_strides) {
   test_auto_strides<8>();
   test_auto_strides<9>();
   test_auto_strides<10>();
+}
+
+TEST(bounds) {
+  dim</* Min= */ 0, /* Extent= */ 10> x;
+  dense_dim<> y(-2, 12);
+  auto s = make_shape(x, y);
+  // Set strides to automatically-determined values to contrast against
+  // bounds.
+  s.resolve();
+
+  auto bounds = s.bounds();
+  // Check that compile-time min and extents are preserved.
+  ASSERT_EQ(bounds.dim<0>().Min, x.Min);
+  ASSERT_EQ(bounds.dim<0>().Extent, x.Extent);
+  ASSERT_EQ(bounds.dim<0>().Min, y.Min);
+  ASSERT_EQ(bounds.dim<0>().Extent, y.Extent);
+  // Check that dynamic min and extents are preserved.
+  ASSERT_EQ(bounds.dim<0>().min(), y.min());
+  ASSERT_EQ(bounds.dim<0>().extent(), y.extent());
+  // Bounds have strides set to unresolved.
+  ASSERT_EQ(bounds.dim<0>().stride(), nda::unresolved);
+  ASSERT_NE(bounds.dim<0>().stride(), s.dim<0>().stride());
+  ASSERT_EQ(bounds.dim<1>().stride(), nda::unresolved);
+  ASSERT_NE(bounds.dim<1>().stride(), s.dim<1>().stride());
 }
 
 TEST(broadcast_dim) {

@@ -59,6 +59,18 @@ TEST(array_default_constructor) {
   sparse.clear();
 }
 
+TEST(array_construct_from_bounds) {
+  dim<> x(0, 10, /*stride=*/2);
+  dim<> y(0, 5);
+  auto s = make_shape(x, y);
+  auto src = make_array<int>(s);
+  auto dst = make_array<int>(src.bounds());
+  // Ensure that `dst` did not inherit the strides of its parent and is
+  // created compact.
+  ASSERT_LE(dst.shape().flat_extent(), src.shape().flat_extent());
+  ASSERT(dst.is_compact());
+}
+
 TEST(array_static_convertibility) {
   using A0 = array_of_rank<int, 0>;
   using A3 = array_of_rank<int, 3>;
