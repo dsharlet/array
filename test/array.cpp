@@ -59,6 +59,27 @@ TEST(array_default_constructor) {
   sparse.clear();
 }
 
+TEST(array_construct_from_bounds) {
+  // Illustrate creating an array from incompatible compile-time
+  // shapes using bounds().
+  using SrcShape = shape<dense_dim<>, dim<>>;
+  using DstShape = shape<dim<>, dense_dim<>>;  // dense_dim is swapped.
+
+  SrcShape src_shape({-1, 10}, {2, 5, /*stride =*/100});
+  auto src = array<int, SrcShape>(src_shape);
+  auto dst = array<int, DstShape>(src.bounds());
+
+  // min and extent are preserved.
+  ASSERT_EQ(src.dim<0>().min(), dst.dim<0>().min());
+  ASSERT_EQ(src.dim<0>().extent(), dst.dim<0>().extent());
+  ASSERT_EQ(src.dim<1>().min(), dst.dim<1>().min());
+  ASSERT_EQ(src.dim<1>().extent(), dst.dim<1>().extent());
+  // Ensure that `dst` did not inherit the strides of its parent and is
+  // created compact.
+  ASSERT(!src.is_compact());
+  ASSERT(dst.is_compact());
+}
+
 TEST(array_static_convertibility) {
   using A0 = array_of_rank<int, 0>;
   using A3 = array_of_rank<int, 3>;
