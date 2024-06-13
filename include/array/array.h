@@ -3024,8 +3024,9 @@ array<T, NewShape, Alloc> move_reinterpret_shape(
   // Consider this to be a move assignment.
   if (std::allocator_traits<Alloc>::propagate_on_container_move_assignment::value) {
     swap(result.alloc_, from.alloc_);
+  } else {
+    assert(result.alloc_ == from.get_allocator());
   }
-  assert(result.alloc_ == from.get_allocator());
 
   swap(result.buffer_, from.buffer_);
   swap(result.buffer_size_, from.buffer_size_);
