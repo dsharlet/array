@@ -3017,11 +3017,16 @@ array<T, NewShape, Alloc> move_reinterpret_shape(
   // the friend declaration.
   static_assert(
       std::is_trivial<T>::value, "move_reinterpret_shape is broken for non-trivial types.");
+  using std::swap;
+
   assert(new_shape.is_subset_of(from.shape(), offset));
   array<T, NewShape, Alloc> result;
+  // Consider this to be a move assignment.
+  if (std::allocator_traits<Alloc>::propagate_on_container_move_assignment::value) {
+    swap(result.alloc_, from.alloc_);
+  }
   assert(result.alloc_ == from.get_allocator());
 
-  using std::swap;
   swap(result.buffer_, from.buffer_);
   swap(result.buffer_size_, from.buffer_size_);
   swap(result.base_, from.base_);
