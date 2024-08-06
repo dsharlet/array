@@ -36,6 +36,7 @@ docs/*
 
 # Visual Studio folder status
 .vs
+.vscode
 
 # perf files
 perf.data
