@@ -391,7 +391,8 @@ NDARRAY_HOST_DEVICE index_t clamp(index_t x, const Range& r) {
  * These parameters define a mapping from the indices of the dimension to
  * offsets: `offset(x) = (x - min)*stride`. The extent does not affect the
  * mapping directly. Values not in the interval `[min, min + extent)` are considered
- * to be out of bounds. */
+ * to be out of bounds. Note that `stride` is in units of number of array elements,
+ * not bytes. */
 template <index_t Min_ = dynamic, index_t Extent_ = dynamic, index_t Stride_ = dynamic>
 class dim : protected interval<Min_, Extent_> {
 public:
