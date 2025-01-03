@@ -2658,6 +2658,12 @@ public:
   index_t rows() const { return shape_.rows(); }
   index_t columns() const { return shape_.columns(); }
 
+  /** Compare the contents of this array to `other`. For two arrays to be
+   * considered equal, they must have the same shape, and all elements
+   * addressable by the shape must also be equal. */
+  bool operator!=(const array& other) const { return cref() != other.cref(); }
+  bool operator==(const array& other) const { return cref() == other.cref(); }
+
   /** Swap the contents of two arrays. This performs zero copies or moves of
    * individual elements. */
   void swap(array& other) {
