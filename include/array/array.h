@@ -458,13 +458,13 @@ public:
   using base_range::begin;
   using base_range::end;
   using base_range::extent;
-  using base_range::size;
   using base_range::is_in_range;
   using base_range::max;
   using base_range::min;
   using base_range::set_extent;
   using base_range::set_max;
   using base_range::set_min;
+  using base_range::size;
 
   /** Get or set the distance in flat indices between neighboring elements
    * in this dim. */
@@ -560,9 +560,7 @@ public:
     split_iterator<InnerExtent> result(*this);
     return result += n;
   }
-  NDARRAY_HOST_DEVICE split_iterator& operator++() {
-    return *this += 1;
-  }
+  NDARRAY_HOST_DEVICE split_iterator& operator++() { return *this += 1; }
   NDARRAY_HOST_DEVICE split_iterator operator++(int) {
     split_iterator<InnerExtent> result(*this);
     *this += 1;
@@ -612,15 +610,13 @@ public:
  * - `split<5>(interval<>(0, 12))` produces the intervals `[0, 5)`,
  *   `[5, 10)`, `[7, 12)`. Note the last two intervals overlap. */
 template <index_t InnerExtent, index_t Min, index_t Extent>
-NDARRAY_HOST_DEVICE internal::split_result<InnerExtent> split(
-    const interval<Min, Extent>& v) {
+NDARRAY_HOST_DEVICE internal::split_result<InnerExtent> split(const interval<Min, Extent>& v) {
   assert(v.extent() >= InnerExtent);
   return {{fixed_interval<InnerExtent>(v.min()), v.max()},
       {fixed_interval<InnerExtent>(v.max() + 1), v.max()}};
 }
 template <index_t InnerExtent, index_t Min, index_t Extent, index_t Stride>
-NDARRAY_HOST_DEVICE internal::split_result<InnerExtent> split(
-    const dim<Min, Extent, Stride>& v) {
+NDARRAY_HOST_DEVICE internal::split_result<InnerExtent> split(const dim<Min, Extent, Stride>& v) {
   return split<InnerExtent>(interval<Min, Extent>(v.min(), v.extent()));
 }
 
@@ -1031,10 +1027,12 @@ NDARRAY_HOST_DEVICE const DimsSrc& assert_dims_compatible(const DimsSrc& src) {
   return src;
 }
 
-/** Return a tuple of generic `dims` with same min and extents and all strides set to `unresolved`. */
+/** Return a tuple of generic `dims` with same min and extents and all strides set to `unresolved`.
+ */
 template <class Dims, size_t... Is>
 auto bounds_tuple(const Dims& dims, index_sequence<Is...>) {
-    return std::make_tuple(dim<>(std::get<Is>(dims).min(), std::get<Is>(dims).extent(), unresolved)...);
+  return std::make_tuple(
+      dim<>(std::get<Is>(dims).min(), std::get<Is>(dims).extent(), unresolved)...);
 }
 
 } // namespace internal
@@ -2174,26 +2172,6 @@ public:
   NDARRAY_HOST_DEVICE index_t rows() const { return shape_.rows(); }
   NDARRAY_HOST_DEVICE index_t columns() const { return shape_.columns(); }
 
-  /** Compare the contents of this array_ref to `other`. For two array_refs to
-   * be considered equal, they must have the same shape, and all elements
-   * addressable by the shape must also be equal. */
-  // TODO: Maybe this should just check for equality of the shape and pointer,
-  // and let the free function equal serve this purpose.
-  NDARRAY_HOST_DEVICE bool operator!=(const array_ref& other) const {
-    if (shape_ != other.shape_) { return true; }
-
-    // TODO: This currently calls operator!= on all elements of the array_ref,
-    // even after we find a non-equal element
-    // (https://github.com/dsharlet/array/issues/4).
-    bool result = false;
-    copy_shape_traits<Shape, Shape>::for_each_value(
-        shape_, base_, other.shape_, other.base_, [&](const_reference a, const_reference b) {
-          if (a != b) { result = true; }
-        });
-    return result;
-  }
-  NDARRAY_HOST_DEVICE bool operator==(const array_ref& other) const { return !operator!=(other); }
-
   NDARRAY_HOST_DEVICE const array_ref<T, Shape>& ref() const { return *this; }
 
   /** Allow conversion from array_ref<T> to const_array_ref<T>. */
@@ -2680,12 +2658,6 @@ public:
   index_t rows() const { return shape_.rows(); }
   index_t columns() const { return shape_.columns(); }
 
-  /** Compare the contents of this array to `other`. For two arrays to be
-   * considered equal, they must have the same shape, and all elements
-   * addressable by the shape must also be equal. */
-  bool operator!=(const array& other) const { return cref() != other.cref(); }
-  bool operator==(const array& other) const { return cref() == other.cref(); }
-
   /** Swap the contents of two arrays. This performs zero copies or moves of
    * individual elements. */
   void swap(array& other) {
@@ -2983,7 +2955,8 @@ bool equal(const array<TA, ShapeA, AllocA>& a, const array<TB, ShapeB, AllocB>& 
  * `NewShape`. The new shape is copy constructed from `a.shape()`. */
 template <class NewShape, class T, class OldShape>
 NDARRAY_HOST_DEVICE array_ref<T, NewShape> convert_shape(const array_ref<T, OldShape>& a) {
-  return array_ref<T, NewShape>(a.base(), convert_shape<NewShape>(a.shape()), internal::no_resolve{});
+  return array_ref<T, NewShape>(
+      a.base(), convert_shape<NewShape>(a.shape()), internal::no_resolve{});
 }
 template <class NewShape, class T, class OldShape, class Allocator>
 array_ref<T, NewShape> convert_shape(array<T, OldShape, Allocator>& a) {
