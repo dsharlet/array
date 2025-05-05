@@ -145,7 +145,8 @@ TEST(ein_reduce_dot_offset) {
 constexpr int sgn(index_t i) { return i == 0 ? 0 : (i < 0 ? -1 : 1); }
 
 // Defines the arbitrary rank Levi-Civita tensor as a constexpr function.
-constexpr int epsilon() { return 1.0f; }
+constexpr int epsilon() { return 1; }
+constexpr int epsilon(index_t i0) { return 1; }
 template <class... Ts>
 constexpr int epsilon(index_t i0, Ts... is) {
   return internal::product(sgn(is - i0)...) * epsilon(is...);
