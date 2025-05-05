@@ -337,7 +337,7 @@ TEST(for_each_index_scalar) {
 TEST(for_each_index_1d) {
   dense_shape<1> s(20);
   int expected_flat_offset = 0;
-  for_each_index(s, [&](std::tuple<int> i) {
+  for_each_index(s, [&](auto i) {
     ASSERT_EQ(s[i], expected_flat_offset);
     expected_flat_offset++;
   });
@@ -362,7 +362,7 @@ TEST(for_each_index_3d) {
   s.resolve();
   int expected_flat_offset = 0;
   move_only token;
-  for_each_index(s, [&, token = std::move(token)](std::tuple<int, int, int> i) {
+  for_each_index(s, [&, token = std::move(token)](auto i) {
     ASSERT_EQ(s[i], expected_flat_offset);
     expected_flat_offset++;
     assert_used(token);
