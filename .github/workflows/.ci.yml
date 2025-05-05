@@ -1,0 +1,29 @@
+name: ci
+on:
+  pull_request:
+  push:
+    tags:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Setup Cpp
+        uses: aminya/setup-cpp@v1
+
+      - name: Build and test
+        run: make test
+        
+      - name: Linear algebra example
+        run: make -C examples/linear_algebra test
+
+      - name: Resample example
+        run: make -C examples/resample benchmark
