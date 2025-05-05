@@ -4,8 +4,10 @@ LDFLAGS := $(LDFLAGS)
 
 DEPS := include/array/array.h include/array/ein_reduce.h include/array/image.h include/array/matrix.h include/array/z_order.h
 
-TEST_SRC := $(filter-out test/errors.cpp, $(wildcard test/*.cpp))
+TEST_SRC := $(filter-out test/errors.cpp test/performance.cpp, $(wildcard test/*.cpp))
+PERFORMANCE_SRC := test/performance.cpp test/main.cpp
 TEST_OBJ := $(TEST_SRC:%.cpp=obj/%.o)
+PERFORMANCE_OBJ := $(PERFORMANCE_SRC:%.cpp=obj/%.o)
 
 # Note that .cu files are automatically compiled by clang as CUDA.
 # Other extensions will need "-x cuda".
@@ -16,6 +18,10 @@ obj/%.o: %.cpp $(DEPS)
 	$(CXX) -Iinclude -c -o $@ $< $(CFLAGS) $(CXXFLAGS)
 
 bin/test: $(TEST_OBJ)
+	mkdir -p $(@D)
+	$(CXX) -o $@ $^ $(LDFLAGS) -lstdc++ -lm
+
+bin/performance: $(PERFORMANCE_OBJ)
 	mkdir -p $(@D)
 	$(CXX) -o $@ $^ $(LDFLAGS) -lstdc++ -lm
 
@@ -32,3 +38,6 @@ clean:
 test: bin/test
 	@! $(CXX) -Iinclude -c test/errors.cpp -std=c++14 -Wall -ferror-limit=0 2>&1 | grep "error:" | grep array.h && echo "Errors test success"
 	bin/test $(FILTER)
+
+performance: bin/performance
+	bin/performance $(FILTER)
