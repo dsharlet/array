@@ -1941,29 +1941,29 @@ public:
  * or `sizeof...(LoopOrder)` `index_t` objects in the case of
  * `for_all_indices<>`.  */
 template <size_t... LoopOrder, class Shape, class Fn,
-    class = internal::enable_if_callable<Fn, typename Shape::index_type>,
-    std::enable_if_t<(sizeof...(LoopOrder) == 0), int> = 0>
+    std::enable_if_t<(sizeof...(LoopOrder) == 0), int> = 0,
+    class = internal::enable_if_callable<Fn, typename Shape::index_type>>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index(const Shape& s, Fn&& fn) {
   shape_traits<Shape>::for_each_index(s, fn);
 }
 template <size_t... LoopOrder, class Shape, class Fn,
-    class = internal::enable_if_applicable<Fn, typename Shape::index_type>,
-    std::enable_if_t<(sizeof...(LoopOrder) == 0), int> = 0>
+    std::enable_if_t<(sizeof...(LoopOrder) == 0), int> = 0,
+    class = internal::enable_if_applicable<Fn, typename Shape::index_type>>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_all_indices(const Shape& s, Fn&& fn) {
   using index_type = typename Shape::index_type;
   for_each_index(s, [fn = std::move(fn)](const index_type& i) { internal::apply(fn, i); });
 }
 template <size_t... LoopOrder, class Shape, class Fn,
-    class = internal::enable_if_callable<Fn, index_of_rank<sizeof...(LoopOrder)>>,
-    std::enable_if_t<(sizeof...(LoopOrder) != 0), int> = 0>
+    std::enable_if_t<(sizeof...(LoopOrder) != 0), int> = 0,
+    class = internal::enable_if_callable<Fn, index_of_rank<sizeof...(LoopOrder)>>>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_each_index(const Shape& s, Fn&& fn) {
   using index_type = index_of_rank<sizeof...(LoopOrder)>;
   for_each_index_in_order(reorder<LoopOrder...>(s),
       [fn = std::move(fn)](const index_type& i) { fn(internal::unshuffle<LoopOrder...>(i)); });
 }
 template <size_t... LoopOrder, class Shape, class Fn,
-    class = internal::enable_if_callable<Fn, decltype(LoopOrder)...>,
-    std::enable_if_t<(sizeof...(LoopOrder) != 0), int> = 0>
+    std::enable_if_t<(sizeof...(LoopOrder) != 0), int> = 0,
+    class = internal::enable_if_callable<Fn, decltype(LoopOrder)...>>
 NDARRAY_UNIQUE NDARRAY_HOST_DEVICE void for_all_indices(const Shape& s, Fn&& fn) {
   using index_type = index_of_rank<sizeof...(LoopOrder)>;
   for_each_index_in_order(reorder<LoopOrder...>(s), [fn = std::move(fn)](const index_type& i) {
