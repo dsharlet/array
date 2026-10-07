@@ -965,7 +965,11 @@ NDARRAY_HOST_DEVICE auto convert_dim(const std::tuple<Us...>& u) {
 template <size_t I, class T, class... Us, std::enable_if_t<(I >= sizeof...(Us)), int> = 0>
 NDARRAY_HOST_DEVICE auto convert_dim(const std::tuple<Us...>& u) {
   // For dims beyond the rank of U, make a dimension of type T_I with extent 1.
-  return decltype(std::get<I>(internal::declval<T>()))(1);
+  auto d = decltype(std::get<I>(internal::declval<T>()))(1);
+  if (!internal::is_static(decltype(d)::Stride)) {
+    d.set_stride(0);
+  }
+  return d;
 }
 
 template <class T, class U, size_t... Is>
